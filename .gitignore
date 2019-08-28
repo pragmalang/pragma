@@ -1,0 +1,4 @@
+.metals/
+.bloop/
+target
+*.class
