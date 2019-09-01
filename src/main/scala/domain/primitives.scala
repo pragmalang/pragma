@@ -1,39 +1,41 @@
 package domain
 import scala.util.matching.Regex
+import utils._
 
-sealed trait HType
 sealed trait PrimitiveType extends HType
+trait HString extends PrimitiveType
+trait HInteger extends PrimitiveType
+trait HFloat extends PrimitiveType
+trait HBool extends PrimitiveType
+trait HDate extends PrimitiveType
+trait HArray[T <: HType] extends PrimitiveType
+trait HFile extends PrimitiveType {
+  val sizeInBytes: Int
+  val extensions: HArray[HString]
+}
 
-sealed trait Literal
+sealed trait Literal extends HExpression[HValue[]]
 sealed trait SerializableLiteral extends Literal
+case class StringLiteral(value: String) extends SerializableLiteral with HString
+case class IntegerLiteral(value: Long) extends SerializableLiteral with HInteger
+case class FloatLiteral(value: Double) extends SerializableLiteral with HFloat
+case class DateLiteral(value: Date) extends SerializableLiteral with HDate
+case class BoolLiteral(value: Boolean) extends SerializableLiteral with HBool
+case class ArrayLiteral[T <: HType](values: List[T])
+    extends SerializableLiteral
+    with HArray[T]
+
 sealed trait NonSerializableLiteral extends Literal
+case class RegexLiteral(value: Regex) extends NonSerializableLiteral
 
-case class StringLiteral(override val value: String)
-    extends HString(value)
-    with SerializableLiteral
+case class HLazyValue()
+case class HValue[T](value: T, dataType: HType)
 
-case class IntegerLiteral(override val value: Long)
-    extends HInteger(value)
-    with SerializableLiteral
+trait HExpression[Return <: HValue] {
+    def eval(): Return
+}
 
-case class FloatLiteral(override val value: Double)
-    extends HFloat(value)
-    with SerializableLiteral
-
-case class DateLiteral(override val value: String)
-    extends HDate(value)
-    with SerializableLiteral
-
-case class RegexLitderal(value: Regex) extends NonSerializableLiteral
-
-case class Constant(identifier: String, value: Literal)
-
-class HString(val value: String) extends PrimitiveType
-class HInteger(val value: Long) extends PrimitiveType
-class HFloat(val value: Double) extends PrimitiveType
-class HBool(val value: Boolean) extends PrimitiveType
-class HDate(val value: String) extends PrimitiveType
-class HArray[T <: HType](val value: List[T]) extends PrimitiveType
-class HFile(val size_in_bytes: Int, val extensions: HArray[HString]) extends PrimitiveType
-
-case class Model() extends HType 
+// TODO: Object Literal
+// Think of a @transform applied to a user field. It needs to return a user object.
+// (x.length + 1) + 5
+// { ..., name: "5ara" }
