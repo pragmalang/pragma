@@ -6,10 +6,12 @@ import utils._
   */
 trait HType
 
-case class HConst(id: String, value: Literal) extends Identifiable
+case class HConst[V, HT <: HType, L <: Literal[V, HT]](id: String, value: L)
+    extends Identifiable
 
 case class HModel(id: String, fields: List[HField], directives: List[Directive])
-    extends HType with Identifiable
+    extends HType
+    with Identifiable
 
 case class HField(id: String, dataType: HType, directives: List[Directive])
     extends Identifiable
@@ -19,14 +21,11 @@ sealed trait Directive extends Identifiable {
   val args: DirectiveArgs
 }
 
-case class ModelDirective(id: String, args: DirectiveArgs)
-    extends Directive
+case class ModelDirective(id: String, args: DirectiveArgs) extends Directive
 
-case class FieldDirective(id: String, args: DirectiveArgs)
-    extends Directive
+case class FieldDirective(id: String, args: DirectiveArgs) extends Directive
 
-case class ServiceDirective(id: String, args: DirectiveArgs)
-    extends Directive
+case class ServiceDirective(id: String, args: DirectiveArgs) extends Directive
 
 case class HEnum(id: String, values: List[String]) extends Identifiable
 

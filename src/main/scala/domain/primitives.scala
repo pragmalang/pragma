@@ -14,26 +14,35 @@ trait HFile extends PrimitiveType {
   val extensions: HArray[HString]
 }
 
-sealed trait Literal extends HExpression[HValue[]]
-sealed trait SerializableLiteral extends Literal
-case class StringLiteral(value: String) extends SerializableLiteral with HString
-case class IntegerLiteral(value: Long) extends SerializableLiteral with HInteger
-case class FloatLiteral(value: Double) extends SerializableLiteral with HFloat
-case class DateLiteral(value: Date) extends SerializableLiteral with HDate
-case class BoolLiteral(value: Boolean) extends SerializableLiteral with HBool
-case class ArrayLiteral[T <: HType](values: List[T])
-    extends SerializableLiteral
-    with HArray[T]
+case class HValue[V, HT <: HType](value: V)
 
-sealed trait NonSerializableLiteral extends Literal
-case class RegexLiteral(value: Regex) extends NonSerializableLiteral
-
-case class HLazyValue()
-case class HValue[T](value: T, dataType: HType)
-
-trait HExpression[Return <: HValue] {
-    def eval(): Return
+trait HExpression[V, HT <: HType] {
+  def eval(): HValue[V, HT]
 }
+
+sealed trait Literal[V, HT <: HType] extends HExpression[V, HT] {
+  val value: V
+  override def eval() = new HValue[V, HT](value)
+}
+
+sealed trait SerializableLiteral[V, HT <: HType] extends Literal[V, HT]
+case class StringLiteral(value: String)
+    extends SerializableLiteral[String, HString]
+case class IntegerLiteral(value: Long)
+    extends SerializableLiteral[Long, HInteger]
+case class FloatLiteral(value: Double)
+    extends SerializableLiteral[Double, HFloat]
+case class DateLiteral(value: Date) extends SerializableLiteral[Date, HDate]
+case class BoolLiteral(value: Boolean)
+    extends SerializableLiteral[Boolean, HBool]
+case class ArrayLiteral[T, H <: HType, V <: HExpression[T, H]](value: List[V])
+    extends SerializableLiteral[List[V], HArray[H]]
+// case class ObjectLiteral(value: Map[String, SerializableLiteral[]])
+
+sealed trait NonSerializableLiteral[V, HT <: HType] extends Literal[V, HT]
+
+case class RegexLiteral(value: Regex)
+    extends NonSerializableLiteral[Regex, HString]
 
 // TODO: Object Literal
 // Think of a @transform applied to a user field. It needs to return a user object.
