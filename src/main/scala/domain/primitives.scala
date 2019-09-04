@@ -4,8 +4,8 @@ import domain.utils._
 import domain._
 
 package object primitives {
-  type HObject[T <: HType] = Map[String, T]
-
+  type HObject = Map[String, HValue[Any, _ <: HType]]
+  // class HObject extends collection.Map[String, HValue[Any, _ <: HType]]
   sealed trait PrimitiveType extends HType
   trait HString extends PrimitiveType
   trait HInteger extends PrimitiveType
@@ -41,7 +41,7 @@ package object primitives {
   case class ArrayLiteral[T, H <: HType, V <: HExpression[T, H]](value: List[V])
       extends SerializableLiteral[List[V], HArray[H]]
 // case class ObjectLiteral(value: Map[String, SerializableLiteral[]])
-
+// {... , age: 12}
   sealed trait NonSerializableLiteral[V, HT <: HType] extends Literal[V, HT]
 
   case class RegexLiteral(value: Regex)
