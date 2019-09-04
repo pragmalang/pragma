@@ -1,4 +1,4 @@
-package domain.primitives
+package domain
 import scala.util.matching.Regex
 import domain.utils._
 import domain._
