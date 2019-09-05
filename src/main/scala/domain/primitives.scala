@@ -4,52 +4,51 @@ import domain.utils._
 import domain._
 
 package object primitives {
-  type HObject = Map[String, HValue[Any, _ <: HType]]
-  // class HObject extends collection.Map[String, HValue[Any, _ <: HType]]
   sealed trait PrimitiveType extends HType
-  trait HString extends PrimitiveType
-  trait HInteger extends PrimitiveType
-  trait HFloat extends PrimitiveType
-  trait HBool extends PrimitiveType
-  trait HDate extends PrimitiveType
-  trait HArray[T <: HType] extends PrimitiveType
-  trait HFile extends PrimitiveType {
-    val sizeInBytes: Int
-    val extensions: HArray[HString]
+  case object HString extends PrimitiveType
+  case object HInteger extends PrimitiveType
+  case object HFloat extends PrimitiveType
+  case object HBool extends PrimitiveType
+  case object HDate extends PrimitiveType
+  case class HArray(htype: HType) extends PrimitiveType
+  case class HFile(sizeInBytes: Int, extensions: List[String])
+      extends PrimitiveType
+
+  case class HValue[V](value: V, htype: HType)
+
+  trait HExpression[V] {
+    def eval(): HValue[V]
+    val htype: HType
   }
 
-  case class HValue[V, HT <: HType](value: V)
-  trait HExpression[V, HT <: HType] {
-    def eval(): HValue[V, HT]
-  }
-
-  sealed trait Literal[V, HT <: HType] extends HExpression[V, HT] {
+  sealed trait Literal[V] extends HExpression[V] {
     val value: V
-    override def eval() = new HValue[V, HT](value)
+    val htype: HType
+    override def eval() = HValue(value, htype)
   }
 
-  sealed trait SerializableLiteral[V, HT <: HType] extends Literal[V, HT]
-  case class StringLiteral(value: String)
-      extends SerializableLiteral[String, HString]
-  case class IntegerLiteral(value: Long)
-      extends SerializableLiteral[Long, HInteger]
-  case class FloatLiteral(value: Double)
-      extends SerializableLiteral[Double, HFloat]
-  case class DateLiteral(value: Date) extends SerializableLiteral[Date, HDate]
-  case class BoolLiteral(value: Boolean)
-      extends SerializableLiteral[Boolean, HBool]
-  case class ArrayLiteral[T, H <: HType, V <: HExpression[T, H]](value: List[V])
-      extends SerializableLiteral[List[V], HArray[H]]
-// case class ObjectLiteral(value: Map[String, SerializableLiteral[]])
-// {... , age: 12}
-  sealed trait NonSerializableLiteral[V, HT <: HType] extends Literal[V, HT]
+  sealed trait SerializableLiteral[V] extends Literal[V]
+  case class StringLiteral(value: String, htype: HType = HString)
+      extends SerializableLiteral[String]
+  case class IntegerLiteral(value: Long, htype: HType = HInteger)
+      extends SerializableLiteral[Long]
+  case class FloatLiteral(value: Double, htype: HType = HFloat)
+      extends SerializableLiteral[Double]
+  case class DateLiteral(value: Date, htype: HType = HDate)
+      extends SerializableLiteral[Date]
+  case class BoolLiteral(value: Boolean, htype: HType = HBool)
+      extends SerializableLiteral[Boolean]
+  case class ArrayLiteral[T, V <: HExpression[T]](
+      value: List[V],
+      elementType: HType
+  ) extends SerializableLiteral[List[V]] {
+    val htype: HType = HArray(this.elementType)
+  }
 
-  case class RegexLiteral(value: Regex)
-      extends NonSerializableLiteral[Regex, HString]
+  type HObject = Map[String, HValue[_]]
 
+  sealed trait NonSerializableLiteral[V] extends Literal[V]
+
+  case class RegexLiteral(value: Regex, htype: HType = HString)
+      extends NonSerializableLiteral[Regex]
 }
-// TODO: Object Literal
-// Think of a @transform applied to a user field. It needs to return a user object.
-// (x.length + 1) + 5
-// { ..., name: "5ara" }
-// lexer:tokens -> parser:AST -> optimizer:AST -> validator:Result[AST, Error] -> compiler:GraphQL Server

@@ -7,15 +7,21 @@ import domain.primitives._
   */
 trait HType
 
-case class HConst[V, HT <: HType, L <: Literal[V, HT]](id: String, value: L)
+case class HConst[V, HT <: HType, L <: Literal[V]](id: String, value: L)
     extends Identifiable
 
-case class HModel(id: String, fields: List[HField[HType]], directives: List[Directive])
-    extends HType
+case class HModel(
+    id: String,
+    fields: List[HModelField],
+    directives: List[ModelDirective]
+) extends HType
     with Identifiable
 
-case class HField[T <: HType](id: String, dataType: T, directives: List[Directive])
-    extends Identifiable
+case class HModelField(
+    id: String,
+    htype: HType,
+    directives: List[FieldDirective]
+) extends Identifiable
 
 sealed trait Directive extends Identifiable {
   val id: String
