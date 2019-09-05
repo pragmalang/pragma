@@ -14,7 +14,7 @@ package object primitives {
   case class HArray(htype: HType) extends PrimitiveType
   case class HFile(sizeInBytes: Int, extensions: List[String])
       extends PrimitiveType
-
+  case class HFunction(args: NamedArgs, returnType: HType) extends PrimitiveType
   sealed trait HValue {
     val htype: HType
   }
@@ -39,28 +39,14 @@ package object primitives {
   }
   case class HFileValue(value: File, htype: HFile) extends HValue
   case class HModelValue(value: HObject, htype: HModel) extends HValue
+  case class HFunctionValue(body: HExpression, htype: HFunction) extends HValue
 
   trait HExpression {
-    def eval(): HValue
+    def eval(context: HObject): HValue
   }
-
-  sealed trait Literal extends HExpression {
-    val payload: HValue
-    override def eval() = payload
-  }
-
-  sealed trait SerializableLiteral extends Literal
-  case class StringLiteral(payload: HStringValue) extends SerializableLiteral
-  case class IntegerLiteral(payload: HIntegerValue) extends SerializableLiteral
-  case class FloatLiteral(payload: HFloatValue) extends SerializableLiteral
-  case class DateLiteral(payload: HDateValue) extends SerializableLiteral
-  case class BoolLiteral(payload: HBoolValue) extends SerializableLiteral
-  case class ArrayLiteral[T <: HValue](
-      payload: HArrayValue[T]
-  ) extends SerializableLiteral
 
   type HObject = Map[String, HValue]
 
-  sealed trait NonSerializableLiteral extends Literal
-  case class RegexLiteral(payload: HStringValue) extends NonSerializableLiteral
+  case class RegexLiteral(payload: Regex)
+
 }
