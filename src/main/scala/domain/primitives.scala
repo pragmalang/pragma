@@ -1,7 +1,8 @@
 package domain
 import scala.util.matching.Regex
 import domain.utils._
-import domain._
+import java.io.File
+import scala.util._
 
 package object primitives {
   sealed trait PrimitiveType extends HType
@@ -14,41 +15,52 @@ package object primitives {
   case class HFile(sizeInBytes: Int, extensions: List[String])
       extends PrimitiveType
 
-  case class HValue[V](value: V, htype: HType)
-
-  trait HExpression[V] {
-    def eval(): HValue[V]
+  sealed trait HValue {
     val htype: HType
   }
+  case class HStringValue(value: String) extends HValue {
+    final val htype = HString
+  }
+  case class HIntegerValue(value: Long) extends HValue {
+    final val htype = HInteger
+  }
+  case class HFloatValue(value: Double) extends HValue {
+    final val htype = HFloat
+  }
+  case class HBoolValue(value: Boolean) extends HValue {
+    final val htype = HBool
+  }
+  case class HDateValue(value: Date) extends HValue {
+    final val htype = HDate
+  }
+  case class HArrayValue[T <: HValue](values: List[T], elementType: HType)
+      extends HValue {
+    final val htype = HArray(elementType)
+  }
+  case class HFileValue(value: File, htype: HFile) extends HValue
+  case class HModelValue(value: HObject, htype: HModel) extends HValue
 
-  sealed trait Literal[V] extends HExpression[V] {
-    val value: V
-    val htype: HType
-    override def eval() = HValue(value, htype)
+  trait HExpression {
+    def eval(): HValue
   }
 
-  sealed trait SerializableLiteral[V] extends Literal[V]
-  case class StringLiteral(value: String, htype: HType = HString)
-      extends SerializableLiteral[String]
-  case class IntegerLiteral(value: Long, htype: HType = HInteger)
-      extends SerializableLiteral[Long]
-  case class FloatLiteral(value: Double, htype: HType = HFloat)
-      extends SerializableLiteral[Double]
-  case class DateLiteral(value: Date, htype: HType = HDate)
-      extends SerializableLiteral[Date]
-  case class BoolLiteral(value: Boolean, htype: HType = HBool)
-      extends SerializableLiteral[Boolean]
-  case class ArrayLiteral[T, V <: HExpression[T]](
-      value: List[V],
-      elementType: HType
-  ) extends SerializableLiteral[List[V]] {
-    val htype: HType = HArray(this.elementType)
+  sealed trait Literal extends HExpression {
+    val payload: HValue
+    override def eval() = payload
   }
 
-  type HObject = Map[String, HValue[_]]
+  sealed trait SerializableLiteral extends Literal
+  case class StringLiteral(payload: HStringValue) extends SerializableLiteral
+  case class IntegerLiteral(payload: HIntegerValue) extends SerializableLiteral
+  case class FloatLiteral(payload: HFloatValue) extends SerializableLiteral
+  case class DateLiteral(payload: HDateValue) extends SerializableLiteral
+  case class BoolLiteral(payload: HBoolValue) extends SerializableLiteral
+  case class ArrayLiteral[T <: HValue](
+      payload: HArrayValue[T]
+  ) extends SerializableLiteral
 
-  sealed trait NonSerializableLiteral[V] extends Literal[V]
+  type HObject = Map[String, HValue]
 
-  case class RegexLiteral(value: Regex, htype: HType = HString)
-      extends NonSerializableLiteral[Regex]
+  sealed trait NonSerializableLiteral extends Literal
+  case class RegexLiteral(payload: HStringValue) extends NonSerializableLiteral
 }

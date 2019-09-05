@@ -8,28 +8,27 @@ object Add {
   }
 
   def apply[A](a: A, b: A)(implicit adder: Add[A]): A = adder.add(a, b)
-  type HStrVal = HValue[String]
-  implicit val hstrAdd: Add[HStrVal] = new Add[HStrVal] {
-    def add(a: HStrVal, b: HStrVal) = HValue(a.value + b.value, HString)
+
+  implicit val hstrAdd: Add[HStringValue] = new Add[HStringValue] {
+    def add(a: HStringValue, b: HStringValue) = HStringValue(a.value + b.value)
   }
 
-  type HIntVal = HValue[Long]
-  implicit val hintAdd: Add[HIntVal] = new Add[HIntVal] {
-    def add(a: HIntVal, b: HIntVal) = HValue(a.value + b.value, HInteger)
+  implicit val hintAdd: Add[HIntegerValue] = new Add[HIntegerValue] {
+    def add(a: HIntegerValue, b: HIntegerValue) =
+      HIntegerValue(a.value + b.value)
   }
 
-  type HFloatVal = HValue[Double]
-  implicit val hfloatAdd: Add[HFloatVal] = new Add[HFloatVal] {
-    def add(a: HFloatVal, b: HFloatVal) = HValue(a.value + b.value, HFloat)
+  implicit val hfloatAdd: Add[HFloatValue] = new Add[HFloatValue] {
+    def add(a: HFloatValue, b: HFloatValue) = HFloatValue(a.value + b.value)
   }
 
-  def harrayAddGen[A](elemType: HType): Add[HValue[List[A]]] =
-    new Add[HValue[List[A]]] {
-      def add(a: HValue[List[A]], b: HValue[List[A]]) =
-        HValue(a.value ::: b.value, HArray(elemType))
+  def harrayAddGen[A <: HValue](elemType: HType): Add[HArrayValue[A]] =
+    new Add[HArrayValue[A]] {
+      def add(a: HArrayValue[A], b: HArrayValue[A]) =
+        HArrayValue(a.values ::: b.values, HArray(elemType))
     }
-  implicit val integerHArrayAdd = harrayAddGen[Long](HInteger)
-  implicit val floatHArrayAdd = harrayAddGen[Double](HFloat)
-  implicit val stringHArrayAdd = harrayAddGen[String](HString)
-  implicit val boolHArrayAdd = harrayAddGen[Boolean](HBool)
+  implicit val integerHArrayAdd = harrayAddGen[HIntegerValue](HInteger)
+  implicit val floatHArrayAdd = harrayAddGen[HFloatValue](HFloat)
+  implicit val stringHArrayAdd = harrayAddGen[HStringValue](HString)
+  implicit val boolHArrayAdd = harrayAddGen[HBoolValue](HBool)
 }

@@ -7,7 +7,7 @@ import domain.primitives._
   */
 trait HType
 
-case class HConst[V, HT <: HType, L <: Literal[V]](id: String, value: L)
+case class HConst[V, HT <: HType, L <: Literal](id: String, value: L)
     extends Identifiable
 
 case class HModel(
@@ -15,7 +15,10 @@ case class HModel(
     fields: List[HModelField],
     directives: List[ModelDirective]
 ) extends HType
-    with Identifiable
+    with Identifiable {
+  lazy val isUser = directives.exists(d => d.id == "user")
+  lazy val isExposed = directives.exists(d => d.id == "expose")
+}
 
 case class HModelField(
     id: String,
