@@ -5,6 +5,7 @@ import java.io.File
 import scala.util._
 
 package object primitives {
+
   sealed trait PrimitiveType extends HType
   case object HString extends PrimitiveType
   case object HInteger extends PrimitiveType
@@ -15,6 +16,11 @@ package object primitives {
   case class HFile(sizeInBytes: Int, extensions: List[String])
       extends PrimitiveType
   case class HFunction(args: NamedArgs, returnType: HType) extends PrimitiveType
+
+  sealed trait HOption extends PrimitiveType
+  case class HSome(htype: HType) extends HOption
+  case object HNull extends HOption
+
   sealed trait HValue {
     val htype: HType
   }
@@ -40,12 +46,32 @@ package object primitives {
   case class HFileValue(value: File, htype: HFile) extends HValue
   case class HModelValue(value: HObject, htype: HModel) extends HValue
   case class HFunctionValue(body: HExpression, htype: HFunction) extends HValue
+  case class HOptionValue(value: Option[HValue], contentType: HType)
 
   trait HExpression {
     def eval(context: HObject): HValue
   }
 
   type HObject = Map[String, HValue]
+
+  case class LiteralExpression(value: HValue) extends HExpression {
+    override def eval(context: HObject = Map()): HValue = value
+  }
+
+  object ArithmeticOperator extends Enumeration {
+    val Add, Sub, Mul, Dev, Mod = Value
+  }
+
+  case class ArithmeticExpression(
+      left: HExpression,
+      op: ArithmeticOperator.Value,
+      right: HExpression
+  ) extends HExpression {
+    import ArithmeticOperator._
+    override def eval(context: HObject): HValue = op match {
+      case Add => ops.Add(left.eval(context), right.eval(context))
+    }
+  }
 
   case class RegexLiteral(payload: Regex)
 
