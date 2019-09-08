@@ -4,20 +4,22 @@ import domain.utils._
 sealed trait LogicalFactor {
   def eval(context: HObject): Boolean
 }
-case class NotFactor(factor: LogicalFactor) extends LogicalFactor {
-  override def eval(context: HObject): Boolean =
-    !factor.eval(context)
-}
-case class ExprFactor(expr: HExpression) extends LogicalFactor {
-  override def eval(context: HObject): Boolean =
-    expr.eval(context) match {
-      case bool: HBoolValue => bool.value
-      case nonBool =>
-        throw new TypeMismatchException(
-          expected = HBool,
-          found = nonBool.htype
-        )
-    }
+object LogicalFactor {
+  case class Not(factor: LogicalFactor) extends LogicalFactor {
+    override def eval(context: HObject): Boolean =
+      !factor.eval(context)
+  }
+  case class Expression(expr: HExpression) extends LogicalFactor {
+    override def eval(context: HObject): Boolean =
+      expr.eval(context) match {
+        case bool: HBoolValue => bool.value
+        case nonBool =>
+          throw new TypeMismatchException(
+            expected = HBool,
+            found = nonBool.htype
+          )
+      }
+  }
 }
 
 case class LogicalTerm(left: LogicalFactor, right: Option[LogicalFactor]) {

@@ -16,10 +16,7 @@ package object primitives {
   case class HFile(sizeInBytes: Int, extensions: List[String])
       extends PrimitiveType
   case class HFunction(args: NamedArgs, returnType: HType) extends PrimitiveType
-
-  sealed trait HOption extends PrimitiveType
-  case class HSome(htype: HType) extends HOption
-  case object HNull extends HOption
+  case class HOption(htype: HType) extends PrimitiveType
 
   sealed trait HValue {
     val htype: HType
@@ -46,7 +43,10 @@ package object primitives {
   case class HFileValue(value: File, htype: HFile) extends HValue
   case class HModelValue(value: HObject, htype: HModel) extends HValue
   case class HFunctionValue(body: HExpression, htype: HFunction) extends HValue
-  case class HOptionValue(value: Option[HValue], contentType: HType)
+  case class HOptionValue(value: Option[HValue], valueType: HType)
+      extends HValue {
+    final val htype = HOption(valueType)
+  }
 
   trait HExpression {
     def eval(context: HObject): HValue
@@ -61,6 +61,9 @@ package object primitives {
   object ArithmeticOperator extends Enumeration {
     val Add, Sub, Mul, Dev, Mod = Value
   }
+
+  sealed trait ArithmeticFactor
+  case class ArithmeticTerm()
 
   case class ArithmeticExpression(
       left: HExpression,
