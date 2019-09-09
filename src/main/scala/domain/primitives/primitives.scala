@@ -58,24 +58,6 @@ package object primitives {
     override def eval(context: HObject = Map()): HValue = value
   }
 
-  object ArithmeticOperator extends Enumeration {
-    val Add, Sub, Mul, Dev, Mod = Value
-  }
-
-  sealed trait ArithmeticFactor
-  case class ArithmeticTerm()
-
-  case class ArithmeticExpression(
-      left: HExpression,
-      op: ArithmeticOperator.Value,
-      right: HExpression
-  ) extends HExpression {
-    import ArithmeticOperator._
-    override def eval(context: HObject): HValue = op match {
-      case Add => ops.Add(left.eval(context), right.eval(context))
-    }
-  }
-
   case class RegexLiteral(payload: Regex)
 
 }

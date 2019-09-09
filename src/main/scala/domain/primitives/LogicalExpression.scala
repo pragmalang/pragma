@@ -15,7 +15,7 @@ object LogicalFactor {
         case bool: HBoolValue => bool.value
         case nonBool =>
           throw new TypeMismatchException(
-            expected = HBool,
+            expected = HBool :: Nil,
             found = nonBool.htype
           )
       }

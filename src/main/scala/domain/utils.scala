@@ -5,6 +5,8 @@ package object utils {
     val id: String
   }
 
+  trait HOperation
+
   type NamedArgs = Map[String, HType]
   type PositionalArgs = List[HType]
   type Args = Either[PositionalArgs, NamedArgs]
@@ -12,8 +14,9 @@ package object utils {
 
   class InternalException(message: String)
       extends Exception(s"Internal Exception: ${message}")
-  class TypeMismatchException(expected: HType, found: HType)
+  class TypeMismatchException(expected: List[HType], found: HType)
       extends InternalException(
-        s"Type Mismatch. Expected $expected but found $found"
+        s"Type Mismatch. Expected ${if (expected.length == 1) expected.head
+        else s"one of [${expected.mkString(", ")}]"}, but found $found"
       )
 }
