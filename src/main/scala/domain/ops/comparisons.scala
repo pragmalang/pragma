@@ -3,7 +3,7 @@ import domain.primitives._
 import domain.utils._
 
 case object Gt extends HOperation {
-  def apply(a: HValue, b: HValue): HBoolValue = (a, b) match {
+  def apply[V <: HValue](a: V, b: V): HBoolValue = (a, b) match {
     case (a: HIntegerValue, b: HIntegerValue) => HBoolValue(a.value > b.value)
     case (a: HFloatValue, b: HFloatValue)     => HBoolValue(a.value > b.value)
     case (a: HIntegerValue, b: HFloatValue)   => HBoolValue(a.value > b.value)
@@ -13,7 +13,7 @@ case object Gt extends HOperation {
   }
 }
 case object Gte extends HOperation {
-  def apply(a: HValue, b: HValue): HBoolValue = (a, b) match {
+  def apply[V <: HValue](a: V, b: V): HBoolValue = (a, b) match {
     case (a: HIntegerValue, b: HIntegerValue) => HBoolValue(a.value >= b.value)
     case (a: HFloatValue, b: HFloatValue)     => HBoolValue(a.value >= b.value)
     case (a: HIntegerValue, b: HFloatValue)   => HBoolValue(a.value >= b.value)
@@ -23,7 +23,7 @@ case object Gte extends HOperation {
   }
 }
 case object Lt extends HOperation {
-  def apply(a: HValue, b: HValue): HBoolValue = (a, b) match {
+  def apply[V <: HValue](a: V, b: V): HBoolValue = (a, b) match {
     case (a: HIntegerValue, b: HIntegerValue) => HBoolValue(a.value < b.value)
     case (a: HFloatValue, b: HFloatValue)     => HBoolValue(a.value < b.value)
     case (a: HIntegerValue, b: HFloatValue)   => HBoolValue(a.value < b.value)
@@ -33,7 +33,7 @@ case object Lt extends HOperation {
   }
 }
 case object Lte extends HOperation {
-  def apply(a: HValue, b: HValue): HBoolValue = (a, b) match {
+  def apply[V <: HValue](a: V, b: V): HBoolValue = (a, b) match {
     case (a: HIntegerValue, b: HIntegerValue) => HBoolValue(a.value <= b.value)
     case (a: HFloatValue, b: HFloatValue)     => HBoolValue(a.value <= b.value)
     case (a: HIntegerValue, b: HFloatValue)   => HBoolValue(a.value <= b.value)
@@ -43,7 +43,7 @@ case object Lte extends HOperation {
   }
 }
 case object Eq extends HOperation {
-  def apply(a: HValue, b: HValue): HBoolValue = (a, b) match {
+  def apply[V <: HValue](a: V, b: V): HBoolValue = (a, b) match {
     case (a: HIntegerValue, b: HIntegerValue) => HBoolValue(a.value == b.value)
     case (a: HFloatValue, b: HFloatValue)     => HBoolValue(a.value == b.value)
     case (a: HIntegerValue, b: HFloatValue)   => HBoolValue(a.value == b.value)
@@ -53,7 +53,7 @@ case object Eq extends HOperation {
   }
 }
 case object Neq extends HOperation {
-  def apply(a: HValue, b: HValue): HBoolValue = (a, b) match {
+  def apply[V <: HValue](a: V, b: V): HBoolValue = (a, b) match {
     case (a: HIntegerValue, b: HIntegerValue) => HBoolValue(a.value != b.value)
     case (a: HFloatValue, b: HFloatValue)     => HBoolValue(a.value != b.value)
     case (a: HIntegerValue, b: HFloatValue)   => HBoolValue(a.value != b.value)
