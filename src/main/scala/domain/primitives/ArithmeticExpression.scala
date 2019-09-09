@@ -11,7 +11,7 @@ sealed trait ArithmeticFactor {
 }
 object ArithmeticFactor {
   case class Negative(factor: ArithmeticFactor) extends ArithmeticFactor {
-    def eval(context: HObject): HValue = factor eval context match {
+    def eval(context: HObject): HValue = factor.eval(context) match {
       case HIntegerValue(v) => HIntegerValue(-v)
       case HFloatValue(v)   => HFloatValue(-v)
       case nonNumeric =>
@@ -22,7 +22,7 @@ object ArithmeticFactor {
     }
   }
   case class Expression(expr: HExpression) extends ArithmeticFactor {
-    def eval(context: HObject): HValue = expr eval context
+    def eval(context: HObject): HValue = expr.eval(context)
   }
 }
 case class ArithmeticTerm(
@@ -31,12 +31,13 @@ case class ArithmeticTerm(
 ) {
   import ArithmeticOperator._
   def eval(context: HObject): HValue = right match {
-    case None               => left eval context
-    case Some((Mul, right)) => ops.Mul(left eval context, right eval context)
-    case Some((Div, right)) => ops.Div(left eval context, right eval context)
+    case None               => left.eval(context)
+    case Some((Mul, right)) => ops.Mul(left.eval(context), right.eval(context))
+    case Some((Div, right)) => ops.Div(left.eval(context), right.eval(context))
+    case Some((Mod, right)) => ops.Mod(left.eval(context), right.eval(context))
     case Some((nonMultiplication, right)) =>
       throw new InternalException(
-        s"Term should concist of <left (Mul or Div) right>, but $nonMultiplication found"
+        s"Term should concist of <left (Mul, Div, or Mod) right>, but $nonMultiplication found"
       )
   }
 }
@@ -47,9 +48,9 @@ case class ArithmeticExpression(
 ) extends HExpression {
   import ArithmeticOperator._
   override def eval(context: HObject): HValue = right match {
-    case None               => left eval context
-    case Some((Add, right)) => ops.Add(left eval context, right eval context)
-    case Some((Sub, right)) => ops.Sub(left eval context, right eval context)
+    case None               => left.eval(context)
+    case Some((Add, right)) => ops.Add(left.eval(context), right.eval(context))
+    case Some((Sub, right)) => ops.Sub(left.eval(context), right.eval(context))
     case Some((nonAddition, _)) =>
       throw new InternalException(
         s"Term should concist of <left (Add or Sub) right>, but $nonAddition found"
