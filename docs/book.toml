@@ -1,0 +1,6 @@
+[book]
+authors = ["Anas Albarghouthy"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Heavenly-x"
