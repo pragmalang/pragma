@@ -1,9 +1,9 @@
-package domain.ops
+package domain.ops.comparisons
 import domain.primitives._
 import domain.utils._
 
-object Comparisons {
-  def gt(a: HValue, b: HValue): HBoolValue = (a, b) match {
+object Gt extends HOperation {
+  def apply(a: HValue, b: HValue): HBoolValue = (a, b) match {
     case (a: HIntegerValue, b: HIntegerValue) => HBoolValue(a.value > b.value)
     case (a: HFloatValue, b: HFloatValue)     => HBoolValue(a.value > b.value)
     case (a: HIntegerValue, b: HFloatValue)   => HBoolValue(a.value > b.value)
@@ -11,7 +11,9 @@ object Comparisons {
     case (a, b) =>
       throw new TypeMismatchException(List(HInteger, HFloat), a.htype)
   }
-  def gte(a: HValue, b: HValue): HBoolValue = (a, b) match {
+}
+object Gte extends HOperation {
+  def apply(a: HValue, b: HValue): HBoolValue = (a, b) match {
     case (a: HIntegerValue, b: HIntegerValue) => HBoolValue(a.value >= b.value)
     case (a: HFloatValue, b: HFloatValue)     => HBoolValue(a.value >= b.value)
     case (a: HIntegerValue, b: HFloatValue)   => HBoolValue(a.value >= b.value)
@@ -19,7 +21,9 @@ object Comparisons {
     case (a, b) =>
       throw new TypeMismatchException(List(HInteger, HFloat), a.htype)
   }
-  def lt(a: HValue, b: HValue): HBoolValue = (a, b) match {
+}
+object Lt extends HOperation {
+  def apply(a: HValue, b: HValue): HBoolValue = (a, b) match {
     case (a: HIntegerValue, b: HIntegerValue) => HBoolValue(a.value < b.value)
     case (a: HFloatValue, b: HFloatValue)     => HBoolValue(a.value < b.value)
     case (a: HIntegerValue, b: HFloatValue)   => HBoolValue(a.value < b.value)
@@ -27,7 +31,9 @@ object Comparisons {
     case (a, b) =>
       throw new TypeMismatchException(List(HInteger, HFloat), a.htype)
   }
-  def lte(a: HValue, b: HValue): HBoolValue = (a, b) match {
+}
+object Lte extends HOperation {
+  def apply(a: HValue, b: HValue): HBoolValue = (a, b) match {
     case (a: HIntegerValue, b: HIntegerValue) => HBoolValue(a.value <= b.value)
     case (a: HFloatValue, b: HFloatValue)     => HBoolValue(a.value <= b.value)
     case (a: HIntegerValue, b: HFloatValue)   => HBoolValue(a.value <= b.value)
@@ -35,7 +41,9 @@ object Comparisons {
     case (a, b) =>
       throw new TypeMismatchException(List(HInteger, HFloat), a.htype)
   }
-  def equ(a: HValue, b: HValue): HBoolValue = (a, b) match {
+}
+object Eq extends HOperation {
+  def apply(a: HValue, b: HValue): HBoolValue = (a, b) match {
     case (a: HIntegerValue, b: HIntegerValue) => HBoolValue(a.value == b.value)
     case (a: HFloatValue, b: HFloatValue)     => HBoolValue(a.value == b.value)
     case (a: HIntegerValue, b: HFloatValue)   => HBoolValue(a.value == b.value)
@@ -43,7 +51,9 @@ object Comparisons {
     case (a, b) =>
       throw new TypeMismatchException(List(HInteger, HFloat), a.htype)
   }
-  def neq(a: HValue, b: HValue): HBoolValue = (a, b) match {
+}
+object Neq extends HOperation {
+  def apply(a: HValue, b: HValue): HBoolValue = (a, b) match {
     case (a: HIntegerValue, b: HIntegerValue) => HBoolValue(a.value != b.value)
     case (a: HFloatValue, b: HFloatValue)     => HBoolValue(a.value != b.value)
     case (a: HIntegerValue, b: HFloatValue)   => HBoolValue(a.value != b.value)
