@@ -17,6 +17,10 @@ case object Add extends HOperation {
       HArrayValue(a.values :+ b, a.elementType)
     case (a: HValue, b: HArrayValue[_]) if b.elementType == a.htype =>
       HArrayValue(a :: b.values, b.elementType)
+    case (a: HStringValue, b: HIntegerValue) => HStringValue(a.value + b.value)
+    case (a: HIntegerValue, b: HStringValue) => HStringValue(a.value + b.value)
+    case (a: HStringValue, b: HFloatValue)   => HStringValue(a.value + b.value)
+    case (a: HFloatValue, b: HStringValue)   => HStringValue(a.value + b.value)
     case _ =>
       throw new InternalException(
         s"Type error occured evaluating ${a.htype} ($a) + ${b.htype} ($b)"
