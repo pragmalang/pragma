@@ -1,4 +1,4 @@
-package domain.ops
+package domain.ops.arithmetics
 import domain.primitives._
 import domain.utils._
 

@@ -1,6 +1,6 @@
 package domain.primitives
 import domain.utils._
-import domain.ops
+import domain.ops.arithmetics
 
 object ArithmeticOperator extends Enumeration {
   val Add, Sub, Mul, Div, Mod = Value
@@ -32,9 +32,9 @@ case class ArithmeticTerm(
   import ArithmeticOperator._
   def eval(context: HObject): HValue = right match {
     case None               => left.eval(context)
-    case Some((Mul, right)) => ops.Mul(left.eval(context), right.eval(context))
-    case Some((Div, right)) => ops.Div(left.eval(context), right.eval(context))
-    case Some((Mod, right)) => ops.Mod(left.eval(context), right.eval(context))
+    case Some((Mul, right)) => arithmetics.Mul(left.eval(context), right.eval(context))
+    case Some((Div, right)) => arithmetics.Div(left.eval(context), right.eval(context))
+    case Some((Mod, right)) => arithmetics.Mod(left.eval(context), right.eval(context))
     case Some((nonMultiplication, right)) =>
       throw new InternalException(
         s"Term should concist of <left (Mul, Div, or Mod) right>, but $nonMultiplication found"
@@ -49,8 +49,8 @@ case class ArithmeticExpression(
   import ArithmeticOperator._
   override def eval(context: HObject): HValue = right match {
     case None               => left.eval(context)
-    case Some((Add, right)) => ops.Add(left.eval(context), right.eval(context))
-    case Some((Sub, right)) => ops.Sub(left.eval(context), right.eval(context))
+    case Some((Add, right)) => arithmetics.Add(left.eval(context), right.eval(context))
+    case Some((Sub, right)) => arithmetics.Sub(left.eval(context), right.eval(context))
     case Some((nonAddition, _)) =>
       throw new InternalException(
         s"Term should concist of <left (Add or Sub) right>, but $nonAddition found"
