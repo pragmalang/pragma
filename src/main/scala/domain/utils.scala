@@ -5,8 +5,6 @@ package object utils {
     val id: String
   }
 
-  trait HOperation
-
   type NamedArgs = Map[String, HType]
   type PositionalArgs = List[HType]
   type Args = Either[PositionalArgs, NamedArgs]

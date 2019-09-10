@@ -2,7 +2,7 @@ package domain.ops.arithmetics
 import domain.primitives._
 import domain.utils._
 
-case object Mod extends HOperation {
+case object Mod extends HOperation2 {
   def apply[V <: HValue](a: V, b: V): HValue = (a, b) match {
     case (a: HIntegerValue, b: HIntegerValue) =>
       HIntegerValue(a.value % b.value)

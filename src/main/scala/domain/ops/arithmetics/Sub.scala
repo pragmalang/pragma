@@ -3,7 +3,7 @@ import domain.primitives._
 import domain._
 import domain.utils._
 
-case object Sub extends HOperation {
+case object Sub extends HOperation2 {
   def apply[V <: HValue](a: V, b: V): HValue = (a, b) match {
     case (a: HIntegerValue, b: HIntegerValue) =>
       HIntegerValue(a.value - b.value)

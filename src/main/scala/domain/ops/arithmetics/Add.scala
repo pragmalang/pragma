@@ -3,8 +3,8 @@ import domain.primitives._
 import domain._
 import domain.utils._
 
-case object Add extends HOperation {
-  def apply[V <: HValue](a: V, b: V): HValue = (a, b) match {
+case object Add extends HOperation2 {
+  override def apply[V <: HValue](a: V, b: V): HValue = (a, b) match {
     case (a: HIntegerValue, b: HIntegerValue) =>
       HIntegerValue(a.value + b.value)
     case (a: HFloatValue, b: HFloatValue)   => HFloatValue(a.value + b.value)

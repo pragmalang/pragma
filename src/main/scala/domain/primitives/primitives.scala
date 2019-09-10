@@ -18,6 +18,14 @@ package object primitives {
   case class HFunction(args: NamedArgs, returnType: HType) extends PrimitiveType
   case class HOption(htype: HType) extends PrimitiveType
 
+  trait HOperation1 {
+    def apply[V <: HValue](arg: V): HValue
+  }
+
+  trait HOperation2 {
+    def apply[V <: HValue](arg1: V, arg2: V): HValue
+  }
+
   sealed trait HValue {
     val htype: HType
   }
