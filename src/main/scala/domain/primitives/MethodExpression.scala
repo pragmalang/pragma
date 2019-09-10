@@ -1,6 +1,6 @@
 package domain.primitives
 import domain.utils._
 
-case class MethodExpression(callee: HExpression, args: PositionalArgs) extends HExpression {
+case class MethodExpression(callee: HOperation, args: List[HExpression]) extends HExpression {
     override def eval(context: HObject): HValue = ???
 }
