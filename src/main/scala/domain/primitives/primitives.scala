@@ -3,6 +3,7 @@ import scala.util.matching.Regex
 import domain.utils._
 import java.io.File
 import scala.util._
+import scala.collection.immutable.ListMap
 
 package object primitives {
 
@@ -18,12 +19,9 @@ package object primitives {
   case class HFunction(args: NamedArgs, returnType: HType) extends PrimitiveType
   case class HOption(htype: HType) extends PrimitiveType
 
-  trait HOperation1 {
-    def apply[V <: HValue](arg: V): HValue
-  }
-
-  trait HOperation2 {
-    def apply[V <: HValue](arg1: V, arg2: V): HValue
+  trait HOperation {
+    val arity: Int
+    def apply(args: List[HValue]): HValue
   }
 
   sealed trait HValue {
@@ -57,13 +55,19 @@ package object primitives {
   }
 
   trait HExpression {
+    protected var cache: Option[(HObject, HValue)] = None
     def eval(context: HObject): HValue
+    def checkCache(context: HObject)(cb: () => HValue): HValue = cache match {
+      case Some((prevContext, prevValue)) if prevContext == context =>
+        prevValue
+      case _ => cb()
+    }
   }
 
-  type HObject = Map[String, HValue]
+  type HObject = ListMap[String, HValue]
 
   case class LiteralExpression(value: HValue) extends HExpression {
-    override def eval(context: HObject = Map()): HValue = value
+    override def eval(context: HObject = ListMap()): HValue = value
   }
 
   case class RegexLiteral(payload: Regex)

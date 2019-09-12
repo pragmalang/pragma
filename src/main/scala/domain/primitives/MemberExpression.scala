@@ -10,7 +10,7 @@ case class MemberExpression(
     val objValue = obj.eval(context)
     objValue match {
       case v: HModelValue => v.value(propName)
-      case _ => throw new InternalException(s"")
+      case _              => throw new InternalException(s"")
     }
   }
 }

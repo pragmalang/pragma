@@ -31,8 +31,13 @@ case class LogicalTerm(left: LogicalFactor, right: Option[LogicalFactor]) {
 
 case class LogicalExpression(left: LogicalTerm, right: Option[LogicalTerm])
     extends HExpression {
-  override def eval(context: HObject): HValue = right match {
-    case Some(v) => HBoolValue(v.eval(context) || left.eval(context))
-    case None    => HBoolValue(left.eval(context))
-  }
+  override def eval(context: HObject): HValue =
+    checkCache(context)(() => {
+      val result = right match {
+        case Some(v) => HBoolValue(v.eval(context) || left.eval(context))
+        case None    => HBoolValue(left.eval(context))
+      }
+      cache = Some(context -> result)
+      result
+    })
 }

@@ -31,10 +31,13 @@ case class ArithmeticTerm(
 ) {
   import ArithmeticOperator._
   def eval(context: HObject): HValue = right match {
-    case None               => left.eval(context)
-    case Some((Mul, right)) => arithmetics.Mul(left.eval(context), right.eval(context))
-    case Some((Div, right)) => arithmetics.Div(left.eval(context), right.eval(context))
-    case Some((Mod, right)) => arithmetics.Mod(left.eval(context), right.eval(context))
+    case None => left.eval(context)
+    case Some((Mul, right)) =>
+      arithmetics.Mul(List(left.eval(context), right.eval(context)))
+    case Some((Div, right)) =>
+      arithmetics.Div(List(left.eval(context), right.eval(context)))
+    case Some((Mod, right)) =>
+      arithmetics.Mod(List(left.eval(context), right.eval(context)))
     case Some((nonMultiplication, right)) =>
       throw new InternalException(
         s"Term should concist of <left (Mul, Div, or Mod) right>, but $nonMultiplication found"
@@ -47,13 +50,19 @@ case class ArithmeticExpression(
     right: Option[(ArithmeticOperator.Value, ArithmeticTerm)]
 ) extends HExpression {
   import ArithmeticOperator._
-  override def eval(context: HObject): HValue = right match {
-    case None               => left.eval(context)
-    case Some((Add, right)) => arithmetics.Add(left.eval(context), right.eval(context))
-    case Some((Sub, right)) => arithmetics.Sub(left.eval(context), right.eval(context))
-    case Some((nonAddition, _)) =>
-      throw new InternalException(
-        s"Term should concist of <left (Add or Sub) right>, but $nonAddition found"
-      )
-  }
+  override def eval(context: HObject): HValue =
+    checkCache(context)(
+      () =>
+        right match {
+          case None => left.eval(context)
+          case Some((Add, right)) =>
+            arithmetics.Add(List(left.eval(context), right.eval(context)))
+          case Some((Sub, right)) =>
+            arithmetics.Sub(List(left.eval(context), right.eval(context)))
+          case Some((nonAddition, _)) =>
+            throw new InternalException(
+              s"Term should consist of <left (Add or Sub) right>, but $nonAddition found"
+            )
+        }
+    )
 }
