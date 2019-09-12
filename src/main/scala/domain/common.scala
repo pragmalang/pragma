@@ -9,22 +9,39 @@ trait HType
 
 case class HConst[V <: HValue](id: String, value: V) extends Identifiable
 
+trait HShape[T <: HShapeField] {
+  val fields: List[T]
+}
+
 case class HModel(
     id: String,
     fields: List[HModelField],
     directives: List[ModelDirective]
 ) extends HType
-    with Identifiable {
+    with Identifiable with HShape[HModelField] {
   lazy val isUser = directives.exists(d => d.id == "user")
   lazy val isExposed = directives.exists(d => d.id == "expose")
 }
 
+case class HInterface(
+    id: String,
+    fields: List[HInterfaceField],
+) extends HType
+    with Identifiable with HShape[HInterfaceField]
+
+trait HShapeField
 case class HModelField(
     id: String,
     htype: HType,
     directives: List[FieldDirective],
     isOptional: Boolean
-) extends Identifiable
+) extends Identifiable with HShapeField
+
+case class HInterfaceField(
+    id: String,
+    htype: HType,
+    isOptional: Boolean
+) extends Identifiable with HShapeField
 
 sealed trait Directive extends Identifiable {
   val id: String

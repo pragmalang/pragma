@@ -1,13 +1,11 @@
 package domain
-
+import scala.collection.immutable.ListMap
 package object utils {
   trait Identifiable {
     val id: String
   }
 
-  trait HOperation
-
-  type NamedArgs = Map[String, HType]
+  type NamedArgs = ListMap[String, HType]
   type PositionalArgs = List[HType]
   type Args = Either[PositionalArgs, NamedArgs]
   type Date = java.time.ZonedDateTime

@@ -1,6 +1,7 @@
 package tests
 import domain.primitives._
 import org.scalatest._
+import scala.collection.immutable.ListMap
 
 class LogicalExpressionTests extends FlatSpec {
   "The boolean expression: true || !false && false" should "evaluate to true" in {
@@ -17,7 +18,7 @@ class LogicalExpressionTests extends FlatSpec {
         Some(LogicalFactor.Expression(LiteralExpression(HBoolValue(false))))
       )
     val logicalExpr = LogicalExpression(term1, Some(term2))
-    assert(logicalExpr.eval(Map.empty).asInstanceOf[HBoolValue].value)
+    assert(logicalExpr.eval(ListMap.empty).asInstanceOf[HBoolValue].value)
   }
 }
 
@@ -38,6 +39,6 @@ class ArithmeticExpressionTests extends FlatSpec {
     )
     val expr =
       ArithmeticExpression(term1, Some((ArithmeticOperator.Add, term2)))
-    assert(expr.eval(Map.empty).asInstanceOf[HIntegerValue].value == 13L)
+    assert(expr.eval(ListMap.empty).asInstanceOf[HIntegerValue].value == 13L)
   }
 }

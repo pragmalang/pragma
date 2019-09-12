@@ -3,6 +3,7 @@ import scala.util.matching.Regex
 import domain.utils._
 import java.io.File
 import scala.util._
+import scala.collection.immutable.ListMap
 
 package object primitives {
 
@@ -17,6 +18,11 @@ package object primitives {
       extends PrimitiveType
   case class HFunction(args: NamedArgs, returnType: HType) extends PrimitiveType
   case class HOption(htype: HType) extends PrimitiveType
+
+  trait HOperation {
+    val arity: Int
+    def apply(args: List[HValue]): HValue
+  }
 
   sealed trait HValue {
     val htype: HType
@@ -42,6 +48,7 @@ package object primitives {
   }
   case class HFileValue(value: File, htype: HFile) extends HValue
   case class HModelValue(value: HObject, htype: HModel) extends HValue
+  case class HInterfaceValue(value: HObject, htype: HInterface) extends HValue
   case class HFunctionValue(body: HExpression, htype: HFunction) extends HValue
   case class HOptionValue(value: Option[HValue], valueType: HType)
       extends HValue {
@@ -49,13 +56,19 @@ package object primitives {
   }
 
   trait HExpression {
+    protected var cache: Option[(HObject, HValue)] = None
     def eval(context: HObject): HValue
+    def checkCache(context: HObject)(cb: () => HValue): HValue = cache match {
+      case Some((prevContext, prevValue)) if prevContext == context =>
+        prevValue
+      case _ => cb()
+    }
   }
 
-  type HObject = Map[String, HValue]
+  type HObject = ListMap[String, HValue]
 
   case class LiteralExpression(value: HValue) extends HExpression {
-    override def eval(context: HObject = Map()): HValue = value
+    override def eval(context: HObject = ListMap()): HValue = value
   }
 
   case class RegexLiteral(payload: Regex)
