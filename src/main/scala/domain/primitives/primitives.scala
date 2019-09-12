@@ -48,6 +48,7 @@ package object primitives {
   }
   case class HFileValue(value: File, htype: HFile) extends HValue
   case class HModelValue(value: HObject, htype: HModel) extends HValue
+  case class HInterfaceValue(value: HObject, htype: HInterface) extends HValue
   case class HFunctionValue(body: HExpression, htype: HFunction) extends HValue
   case class HOptionValue(value: Option[HValue], valueType: HType)
       extends HValue {

@@ -10,7 +10,8 @@ case class MemberExpression(
     val objValue = obj.eval(context)
     objValue match {
       case v: HModelValue => v.value(propName)
-      case _              => throw new InternalException(s"")
+      case v: HInterfaceValue => v.value(propName)
+      case v              => throw new TypeMismatchException(List(HModel("", List(), List()), HInterface("", List())), v.htype)
     }
   }
 }
