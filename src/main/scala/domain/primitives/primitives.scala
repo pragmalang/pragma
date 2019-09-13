@@ -73,4 +73,17 @@ package object primitives {
 
   case class RegexLiteral(payload: Regex)
 
+  case class Permissions(tenents: List[Tenant])
+
+  case class Tenant(id: String, rules: List[AccessRule]) extends Identifiable
+
+  case class AccessRule(
+      user: HModel,
+      resource: Resource,
+      action: HEvent,
+      predicate: HFunctionValue
+  )
+
+  case class Resource(field: HShapeField, shape: HShape[HShapeField])
+
 }

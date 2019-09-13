@@ -9,7 +9,7 @@ trait HType
 
 case class HConst[V <: HValue](id: String, value: V) extends Identifiable
 
-trait HShape[T <: HShapeField] {
+trait HShape[+T <: HShapeField] {
   val fields: List[T]
 }
 
