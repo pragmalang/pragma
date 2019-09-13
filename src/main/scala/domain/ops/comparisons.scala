@@ -54,6 +54,7 @@ case object Eq extends HOperation {
     case List(a: HFloatValue, b: HFloatValue)     => HBoolValue(a.value == b.value)
     case List(a: HIntegerValue, b: HFloatValue)   => HBoolValue(a.value == b.value)
     case List(a: HFloatValue, b: HIntegerValue)   => HBoolValue(a.value == b.value)
+    case List(a: HModelValue, b: HModelValue)   => HBoolValue(a.value == b.value)
     case List(a, b) =>
       throw new TypeMismatchException(List(HInteger, HFloat), a.htype)
   }
