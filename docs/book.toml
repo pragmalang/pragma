@@ -1,6 +1,9 @@
 [book]
-authors = ["Anas Albarghouthy"]
+authors = ["Anas Albarghouthy, Mohammed Tabaza"]
 language = "en"
 multilingual = false
-src = "src"
-title = "Heavenly-x"
+src = "."
+title = "Heavenly-x Documentation"
+
+[build]
+additional-js = "src/main.js"
