@@ -1,6 +1,6 @@
 # Introduction
 
-Heavenly-x is a language for defining data schemas and their associated validation and transformation logic, and authorization rules. For example:
+Heavenly-x is a language for building server-side applications by defining data schemas and their associated validation, transformation, and authorization logic. For example:
 
 ```heavenly-x
 @user
@@ -19,6 +19,6 @@ model User {
 }
 ```
 
-The output of the Heavenly compiler is a secure, scalable, idiomatic, and easy to use GraphQL API that you can run locally, or in the cloud.
+The output of the Heavenly compiler is a secure, scalable, idiomatic and easy to use GraphQL API that you can run locally, or in the cloud.
 
 <script src="../src/syntax-highlighter.js"></script>
