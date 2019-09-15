@@ -2,7 +2,8 @@
 
 [Introduction](./introduction.md)
 [Why Heavenly-x?](./why-heavenly-x.md)
-- [Getting Started](./get-started/index.md)
+- [Getting Started](./getting-started/index.md)
+    - [Basic Todo App](./getting-started/basic-todo-app.md)
 - [Fundamentals](./fundamentals/index.md)
     - [Models](./fundamentals/models.md)
     - [User Models](./fundamentals/user-models.md)
@@ -11,4 +12,7 @@
     - [Data Transformation](./fundamentals/data-transformation.md)
     - [Constants](./fundamentals/constants.md)
     - [Functions](./fundamentals/functions.md)
+    - [Enums](./fundamentals/enums.md)
+    - [Directives](./fundamentals/directives.md)
+    - [Primitive Types](./fundamentals/primitive-types.md)
 - [Language Specification](./language-specification/index.md)

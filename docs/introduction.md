@@ -19,6 +19,7 @@ model User {
 }
 ```
 
-The output of the Heavenly compiler is a secure, scalable, idiomatic and easy to use GraphQL API that you can run locally, or in the cloud.
+The output of the Heavenly compiler is a secure, scalable, idiomatic and easy-to-use GraphQL API that you can run locally, or on the cloud.
 
-<script src="../src/syntax-highlighter.js"></script>
+
+<script src="./src/syntax-highlighter.js"></script>

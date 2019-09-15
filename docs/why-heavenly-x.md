@@ -6,7 +6,7 @@ Heavenly-x is written in Scala and all its code is available on Github.
 
 ## It's Declarative
 
-Definitions are concise, readable, and maintainable. You can express a todo application with user authentication, simple data validation, and authorization rules in ~30 lines of code.
+Definitions are concise, readable, and maintainable. You can express a todo application with user authentication, simple data validation, and authorization rules. [A simple todo app](./get-started/basic-todo-app.md) with user authentication and permissions can be expressed in under 30  lines of code.
 
 ## It Runs Locally
 
