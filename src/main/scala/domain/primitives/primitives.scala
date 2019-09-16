@@ -77,12 +77,24 @@ package object primitives {
 
   case class Tenant(id: String, rules: List[AccessRule]) extends Identifiable
 
-  case class AccessRule(
+  sealed trait AccessRule {
+    val resource: Resource
+    val actions: List[HEvent]
+    val predicate: HFunctionValue
+  }
+
+  case class RoleBasedRule(
       user: HModel,
       resource: Resource,
-      action: HEvent,
+      actions: List[HEvent],
       predicate: HFunctionValue
-  )
+  ) extends AccessRule
+
+  case class GlobalRule(
+      resource: Resource,
+      actions: List[HEvent],
+      predicate: HFunctionValue
+  ) extends AccessRule
 
   case class Resource(field: HShapeField, shape: HShape[HShapeField])
 
