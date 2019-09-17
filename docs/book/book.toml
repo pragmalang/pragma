@@ -1,0 +1,12 @@
+[book]
+authors = ["Anas Albarghouthy, Mohammed Tabaza"]
+language = "en"
+multilingual = false
+src = "."
+title = "Heavenly-x Documentation"
+
+[build]
+
+[output.html]   
+additional-js = ["./src/main.js"]
+additional-css = ["./src/main.css"]

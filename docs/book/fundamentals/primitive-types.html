@@ -1,0 +1,318 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Primitive Types - Heavenly-x Documentation</title>
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+        <link rel="stylesheet" href=".././src/main.css">
+        
+
+        
+    </head>
+    <body class="light">
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            document.body.className = theme;
+            document.querySelector('html').className = theme + ' js';
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="affix"><a href="../introduction.html">Introduction</a></li><li class="affix"><a href="../why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="../getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="../getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="../fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="../fundamentals/models.html"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="../fundamentals/user-models.html"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="../fundamentals/permissions.html"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="../fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="../fundamentals/data-transformation.html"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="../fundamentals/constants.html"><strong aria-hidden="true">2.6.</strong> Constants</a></li><li><a href="../fundamentals/functions.html"><strong aria-hidden="true">2.7.</strong> Functions</a></li><li><a href="../fundamentals/enum-types.html"><strong aria-hidden="true">2.8.</strong> Enums</a></li><li><a href="../fundamentals/directives.html"><strong aria-hidden="true">2.9.</strong> Directives</a></li><li><a href="../fundamentals/primitive-types.html" class="active"><strong aria-hidden="true">2.10.</strong> Primitive Types</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar" class="menu-bar">
+                    <div id="menu-bar-sticky-container">
+                        <div class="left-buttons">
+                            <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                                <i class="fa fa-bars"></i>
+                            </button>
+                            <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                                <i class="fa fa-paint-brush"></i>
+                            </button>
+                            <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                                <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                            </ul>
+                            
+                            <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                                <i class="fa fa-search"></i>
+                            </button>
+                            
+                        </div>
+
+                        <h1 class="menu-title">Heavenly-x Documentation</h1>
+
+                        <div class="right-buttons">
+                            <a href="../print.html" title="Print this book" aria-label="Print this book">
+                                <i id="print-button" class="fa fa-print"></i>
+                            </a>
+                            
+                        </div>
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#primitive-types" id="primitive-types">Primitive Types</a></h1>
+<h2><a class="header" href="#string" id="string">String</a></h2>
+<p>Represents a sequence of utf-8 characters. <code>String</code> values can be expressed using <code>String</code> literals, for example: <code>&quot;Hello&quot;</code>.</p>
+<p>Individual characters of a <code>String</code> by their index (starting at zero) can be done using square bracket syntax, for example: <code>s[2]</code> will yield the third character of the string.</p>
+<p>Accessing a character in a <code>String</code> results with an <em>optional value</em> of the character. This is to avoid index-out-of-bounds errors, and to ensure type-safety.</p>
+<p><strong>Operators:</strong></p>
+<ul>
+<li><code>+</code>: concatenation (<code>&quot;Hello&quot; + &quot; &quot; + &quot;Heavenly-x!</code> will yield the string: <code>&quot;Hello Heavenly-x!&quot;</code>)</li>
+</ul>
+<p><strong>Methods:</strong></p>
+<ul>
+<li><code>toString</code></li>
+<li><code>length</code></li>
+<li><code>slice</code></li>
+<li><code>test</code></li>
+<li><code>replace</code></li>
+<li><code>toUpperCase</code></li>
+<li><code>toLowerCase</code></li>
+<li><code>concat</code></li>
+<li><code>charAt</code></li>
+<li><code>endsWith</code></li>
+<li><code>startsWith</code></li>
+<li><code>isEmpty</code></li>
+<li><code>contains</code></li>
+</ul>
+<h2><a class="header" href="#integer" id="integer">Integer</a></h2>
+<p>Represents a 64-bit whole number. <code>Integer</code> values can be expressed with <code>Integer</code> literals, for example: <code>42</code>.</p>
+<p><strong>Operators:</strong></p>
+<ul>
+<li><code>+</code>: addition</li>
+<li><code>-</code>: subtraction</li>
+<li><code>*</code>: multiplication</li>
+<li><code>/</code>: division</li>
+<li><code>%</code>: modulo</li>
+</ul>
+<p><strong>Methods:</strong></p>
+<ul>
+<li><code>toString</code></li>
+<li><code>floor</code></li>
+<li><code>ceiling</code></li>
+</ul>
+<h2><a class="header" href="#float" id="float">Float</a></h2>
+<p>Represent a 64-bit floating point number. <code>Float</code> values can be expressed as literals, such as <code>20.3</code>.</p>
+<p><strong>Operators:</strong></p>
+<ul>
+<li><code>+</code>: addition</li>
+<li><code>-</code>: subtraction</li>
+<li><code>*</code>: multiplication</li>
+<li><code>/</code>: division</li>
+<li><code>%</code>: modulo</li>
+</ul>
+<p><strong>Methods:</strong></p>
+<ul>
+<li><code>toString</code></li>
+<li><code>floor</code></li>
+<li><code>ceiling</code></li>
+</ul>
+<h2><a class="header" href="#boolean" id="boolean">Boolean</a></h2>
+<p>Represents a value that can be either true or false. <code>Boolean</code> values can be expressed using the boolean literals <code>true</code> and <code>false</code>.</p>
+<p><strong>Operators:</strong>:</p>
+<ul>
+<li><code>||</code>: Logical OR</li>
+<li><code>&amp;&amp;</code>: Logical AND</li>
+<li><code>!</code>: Logical NOT (unary)</li>
+</ul>
+<p><strong>Methods</strong>:</p>
+<ul>
+<li><code>toString</code>: converts the value to a <code>String</code></li>
+</ul>
+<h2><a class="header" href="#array" id="array">Array</a></h2>
+<p>Ordered homogeneous sequences of elements of any type. Array elements can be accessed by their index (which starts at zero) using square bracket syntax, for example: <code>a[1]</code> is the 2nd element in <code>a</code>.</p>
+<p>Accessing an element in an array results with an <em>optional value</em> of the element. This is to avoid index-out-of-bounds errors, and to ensure type-safety.</p>
+<p><strong>Operators:</strong></p>
+<ul>
+<li><code>+</code>: array concatenation ()
+<strong>Methods:</strong></li>
+<li><code>contains</code></li>
+<li><code>length</code></li>
+<li><code>elementAt</code></li>
+<li><code>map</code></li>
+<li><code>filter</code></li>
+<li><code>reduce</code></li>
+</ul>
+<h2><a class="header" href="#optional-values" id="optional-values">Optional Values</a></h2>
+<p>An optional value is a value that might be <code>Null</code> (might not exist). You can define optional fields by appending a <code>?</code> to it's type. For example: <code>age: Integer?</code>
+<strong>Methods:</strong></p>
+<ul>
+<li><code>isNull</code></li>
+<li><code>else</code></li>
+</ul>
+<h2><a class="header" href="#date" id="date">Date</a></h2>
+<p>ISO8061-formatted date.</p>
+<p><strong>Operators:</strong></p>
+<ul>
+<li><code>+</code></li>
+</ul>
+<p><strong>Methods:</strong></p>
+<ul>
+<li><code>now</code></li>
+<li><code>toString</code></li>
+<li><code>ms</code></li>
+<li><code>sec</code></li>
+<li><code>min</code></li>
+<li><code>hour</code></li>
+<li><code>day</code></li>
+<li><code>date</code></li>
+</ul>
+<h2><a class="header" href="#file" id="file">File</a></h2>
+<p>A type that abstracts away the need to set up object storage.</p>
+<p><strong>Methods:</strong></p>
+<ul>
+<li><code>size</code></li>
+<li><code>extension</code></li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="../fundamentals/directives.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a href="../fundamentals/directives.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+        <script type="text/javascript" src=".././src/main.js"></script>
+        
+
+        
+
+    </body>
+</html>
