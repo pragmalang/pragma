@@ -12,7 +12,7 @@ model User {
     todos: [Todo]
 }
 ```
-Notice the `@user` syntax. This tells Heavenly-x that this is a [user model](../fundamentals/user-models.md).
+Notice the `@user` syntax. This is a [directive](../fundamentals/directives.md) that tells Heavenly-x that this is a [user model](../fundamentals/user-models.md).
 
 Now we define the `Todo` model:
 
@@ -31,13 +31,13 @@ enum TodoStatus {
 }
 ```
 
-Notice the `TodoStatus` enum. [Enums](../fundamentals/enums.md) are definitions of all the possible values that a field can hold.
+Notice the `TodoStatus` enum. [Enums](../fundamentals/enum-types.md) are definitions of all the possible values that a field can hold.
 
 Ok, now we need to define permissions. Our requirements dictate that a `User` can only edit, read, write, and delete their own `Todo`s.
 
 ```heavenly-x
 permit {
-    user User {
+    role User {
         [CREATE] Todo((user, todo) => todo.user == user)
         [READ, UPDATE, DELETE] Todo(
             (user, todo) => user.todos.contains(todo)

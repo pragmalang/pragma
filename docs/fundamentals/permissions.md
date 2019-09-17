@@ -1,16 +1,23 @@
 # Permissions
 
-A `permit` block can be used to define data access permissions for specific user types. Heavenly-x supports Role-Based Access Control (RBAC), and Attribute-Based Access Control (ABAC).
+Most applications need [authorization](https://en.wikipedia.org/wiki/Authorization) logic to control which users can access what data (resources).
 
-## Role-Based Access Control
+One way of setting up autorization for an app, is by using [Access Control Lists (ACL)](https://en.wikipedia.org/wiki/Access-control_list). ACLs are powerful since they allow us to define rules for data access in a very declaritive manner. ACLs are used in Unix-like systems for filesystem [permissions](https://en.wikipedia.org/wiki/File_system_permissions#Permissions).
 
-A `permit` block can be divided into scopes (a scope for each user model.) These can be thought of as *roles*. Each role has its own access rules, for example:
+Heavenly-x supports [Role-Based Access Controls (RBAC)](https://en.wikipedia.org/wiki/Role-based_access_control), and [Attribute-Based Access Controls (ABAC)](https://en.wikipedia.org/wiki/Attribute-based_access_control). A `permit` block can be used to define data access permissions for specific user types.
 
-```heavenly-x
+A resource could be an entire model (Ex: `Course`) or a field on some model (Ex: `Course.name`)
+
+In a `permit` block, each user model is considered a *role*. Each role has its own access rules. Example of [RBAC](#role-based-access-control) and [ABAC](#attribute-based-access-control) below.
+
+## Example
+
+```
 @user
 model Instructor {
     name: String @publicCredential
     password: String @secretCredential
+    course: Course
 }
 
 @user
@@ -23,52 +30,55 @@ model Course {
     name: String
     participants: [Student]
 }
-
-permit {
-    user Instructor {
-        
-    }
-}
 ```
+
+
+Here we define two users:
+- `Instructor`
+- `Student`
+
+and one model:
+- `Course`
+
+We will use these models in the upcoming example definitions of permissions:
+
+### Role-Based Access Control
+
+Example:
 
 ```heavenly-x
-model Book {
-    title: String
-    description: String
-    amazonLink: String
-}
-
-@user
-model Author {
-    username: String @publicCredential
-    password: String @secretCredential
-    books: [Book]
-}
-
-@user
-model Admin {
-    username: String @publicCredential
-    password: String @secretCredential
-}
-
 permit {
-    [READ] Book
-
-    user Author {
-        [CREATE] Book
-        [UPDATE, DELETE] Book((author, book) => author.books.contains(book))
-    }
-
-    user Admin {
-        [ALL] Book
-        [ALL] Author
+    role Instructor {
+        ALL Course
+        ALL Student
     }
 }
 ```
 
-In this example, we define 3 models: `Book`, `Author`, and `Admin`. See the models section if you see somthing you don't recognize.
+Here we define a `role` block where we specify that the `Instructor` can do `ALL` CRUD operations with `Course`s and `Student`s.
 
-The interesting part is the `permit` block, where we define access rules for all users of the application. Let's walk through every section of the block and see what it means:
+### Attribute-Based Access Control
 
-1. The global scope: this scope contains rules that are applied to all users of the application (even anonymous users.) In this example, it contains a rule that says everyone can view the books in the database.
-2. 
+Let's say that we would like to restrict `Instructor`s to accessing course that belongs to them. We can do this by passing a predicate in which we compare the course that the `Instructor` is trying to access, and the `Instructor`'s `course` field.
+
+```heavenly-x
+permit {
+    role Instructor {
+        ALL Course((instructor, course) => course == instructor.course)
+        ALL Student
+    }
+}
+```
+Now we want to allow any body outside our system to sign up as `Student`s. This means that we need to allow anybody to create a new `Student`:
+
+```heavenly-x
+permit {
+    role Instructor {
+        ALL Course((instructor, course) => course == instructor.course)
+        ALL Student
+    }
+    CREATE Student
+}
+```
+
+Notice that the newly added rule is not inside any `role` block. This tells Heavenly-x that anyone can create a `Student`

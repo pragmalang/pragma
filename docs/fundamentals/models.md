@@ -10,15 +10,15 @@ model User {
 }
 ```
 
-Here we define a model named `User` that is annotated with the `@user` [directive](./directives.md). We will discuss it later.
+Here we define a model named `User` that is annotated with the [`@user` directive](./directives.md#user-model-level). We will discuss [directives](./directives.md) later.
 
 The `User` model has two fields:
-* `username`, which is given the type: `String`, and annotated with the `@publicCredential` directive.
-* `password`, which is also given the type: `String`, and annotated with the `@secretCredential` directive.
+* `username`, which is given the type: `String`, and annotated with the [`@publicCredential` directive](./directives.md#publiccredential-field-level).
+* `password`, which is also given the type: `String`, and annotated with the [`@secretCredential` directive](./directives.md#secretcredential-field-level).
 
 Check out [2.9](./directives.md) for more information about directives.
 
-Relations between models are encoded as fields with model types. For example:
+Relations between models are encoded as field types. For example:
 
 ```heavenly-x
 @user

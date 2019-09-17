@@ -12,7 +12,6 @@
     - [Data Transformation](./fundamentals/data-transformation.md)
     - [Constants](./fundamentals/constants.md)
     - [Functions](./fundamentals/functions.md)
-    - [Enums](./fundamentals/enums.md)
+    - [Enums](./fundamentals/enum-types.md)
     - [Directives](./fundamentals/directives.md)
     - [Primitive Types](./fundamentals/primitive-types.md)
-- [Language Specification](./language-specification/index.md)

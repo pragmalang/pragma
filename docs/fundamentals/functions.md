@@ -8,22 +8,9 @@ const olderThan18 = (user: User) => user.age >= 18
 
 When binding functions to constants, the argument types of the functions must be specified.
 
-Argument types are unnecessary when passing function literals to other functions since they can be infered (the type information is already provided in the higher-order function's signature.). For example:
-```
-@user
-model Student {
-    name: String
-    username: String @publicCredential
-    password: String @secretCredential
 
-    @transform((grades, self, ctx)
-        => grades.filter(grade => grade.mark > 50))
-    grades: [Grade]
+There are only two cases where you don't need to specify the function's argument types:
 
-}
-`
-model Grade {
-    subject: String
-    mark: Integer
-}
-```
+1. When passing function literals to native higher-order functions (e.g. `map`, `filter`, and `reduce`.)  For example: `grades.filter(grade => grade.mark > 50)`, where grades is an array.
+
+2. When passing function literals to directives (e.g. `@transform` and `@validate`.)

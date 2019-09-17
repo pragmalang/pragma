@@ -6,4 +6,7 @@ src = "."
 title = "Heavenly-x Documentation"
 
 [build]
-additional-js = "src/main.js"
+
+[output.html]   
+additional-js = ["./src/main.js"]
+additional-css = ["./src/main.css"]

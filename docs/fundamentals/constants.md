@@ -8,7 +8,7 @@ const lengthErrorMessage =
     "Error: username should be " + usernameMaxLength.toString() + " characters or less."
 ```
 
-Functions are first-class citizens in Heavenly-x, so you can assign them to constants:
+[Functions](./functions.md) are first-class citizens in Heavenly-x, so you can assign them to constants:
 
 ```
 const capitalizePrefix = 
