@@ -2,11 +2,7 @@
 
 ## It's Declarative
 
-Definitions are concise, readable, and maintainable. You can express a todo application with user authentication, simple data validation, and authorization rules. [A simple todo app](./getting-started/basic-todo-app.md) with user authentication and permissions can be expressed in under 30  lines of code.
-
-## It's Type-Safe
-
-The Heavenly Compiler has a built-in type checker. This ensures the validity of all data transformation/validation and authorization logic.
+Definitions are concise, readable, and maintainable. [A simple todo app](./getting-started/basic-todo-app.md) with user authentication and permissions can be expressed in under 30 lines of code.
 
 ## It Runs Locally
 
