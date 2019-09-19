@@ -86,7 +86,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   def fieldDef: Rule1[HModelField] = rule {
     whitespace() ~ identifier ~ ":" ~ htype ~ optional(",") ~>
       ((id: String, ht: HType) => {
-        HModelField(id, ht, Nil, ht match {
+        HModelField(id, ht, None, Nil, ht match {
           case HOption(_) => true
           case _          => false
         })
