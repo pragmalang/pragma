@@ -18,16 +18,18 @@ case class HModel(
     fields: List[HModelField],
     directives: List[ModelDirective]
 ) extends HType
-    with Identifiable with HShape[HModelField] {
+    with Identifiable
+    with HShape[HModelField] {
   lazy val isUser = directives.exists(d => d.id == "user")
   lazy val isExposed = directives.exists(d => d.id == "expose")
 }
 
 case class HInterface(
     id: String,
-    fields: List[HInterfaceField],
+    fields: List[HInterfaceField]
 ) extends HType
-    with Identifiable with HShape[HInterfaceField]
+    with Identifiable
+    with HShape[HInterfaceField]
 
 trait HShapeField
 case class HModelField(
@@ -35,13 +37,16 @@ case class HModelField(
     htype: HType,
     directives: List[FieldDirective],
     isOptional: Boolean
-) extends Identifiable with HShapeField
+) extends Identifiable
+    with HShapeField
 
 case class HInterfaceField(
     id: String,
     htype: HType,
+    defaultValue: HValue,
     isOptional: Boolean
-) extends Identifiable with HShapeField
+) extends Identifiable
+    with HShapeField
 
 sealed trait Directive extends Identifiable {
   val id: String
