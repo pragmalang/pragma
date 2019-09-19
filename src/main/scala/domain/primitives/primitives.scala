@@ -50,6 +50,9 @@ package object primitives {
   case class HModelValue(value: HObject, htype: HModel) extends HValue
   case class HInterfaceValue(value: HObject, htype: HInterface) extends HValue
   case class HFunctionValue(body: HExpression, htype: HFunction) extends HValue
+  case class ExternalFunction(id: String, filePath: String, htype: HFunction)
+      extends HValue
+      with Identifiable
   case class HOptionValue(value: Option[HValue], valueType: HType)
       extends HValue {
     final val htype = HOption(valueType)

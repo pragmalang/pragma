@@ -50,12 +50,26 @@ case class HInterfaceField(
 
 sealed trait Directive extends Identifiable {
   val id: String
-  val args: Args
+  val args: HInterfaceValue
 }
 
-case class ModelDirective(id: String, args: Args) extends Directive
+case class ModelDirective(id: String, args: HInterfaceValue) extends Directive
 
-case class FieldDirective(id: String, args: Args) extends Directive
+case class FieldDirective(id: String, args: HInterfaceValue) extends Directive
+
+object SupportedDirectives {
+  def modelDirectives(self: HModel) = Map(
+    "validate" -> HInterface(
+      "validate",
+      List(HInterfaceField("validator", self, false))
+    ),
+    "user" -> HInterface("user", Nil)
+  )
+
+  def fieldDirectives(field: HModelField) = Map(
+
+  )
+}
 
 case class ServiceDirective(id: String, args: Args) extends Directive
 
