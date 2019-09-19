@@ -35,6 +35,7 @@ trait HShapeField
 case class HModelField(
     id: String,
     htype: HType,
+    defaultValue: Option[HValue]
     directives: List[FieldDirective],
     isOptional: Boolean
 ) extends Identifiable
@@ -43,7 +44,6 @@ case class HModelField(
 case class HInterfaceField(
     id: String,
     htype: HType,
-    defaultValue: HValue,
     isOptional: Boolean
 ) extends Identifiable
     with HShapeField
