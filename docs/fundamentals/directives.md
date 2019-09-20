@@ -36,13 +36,22 @@ Marks a field as a secret credential for it's user model
 ## @unique (Field-level)
 Marks a field as *unique*, which means that no two instances of the model will have the same value for the field.
 
-## @transform (Field-level)
-Defines data transformation functions for model fields.
+## @set (Field-level)
+Defines data transformation functions for model fields. This is applied before persisting data to the database (on `UPDATE`s and `CREATE`s).
 **Args:**
- - `transformer`: Function that takes three arguments:
+ - `transformer`: Function that takes an object with three properties:
     * `data`: The incoming data, which is of the same type as the field.
     * `self`: The entire incoming data object (or the existing stored object in the case of `UPDATE`.)
     * `context`: An object containing information about the request (the type of user connection, for example.)
+
+## @get (Field-level)
+Defines data transformation functions for model fields. This is applied after querying the data from the database (on `READ`s).
+**Args:**
+ - `transformer`: Function that takes an object with three properties:
+    * `data`: The incoming data, which is of the same type as the field.
+    * `self`: The entire incoming data object (or the existing stored object in the case of `UPDATE`.)
+    * `context`: An object containing information about the request (the type of user connection, for example.)
+
 
 ## @autoIncrement (Field-level)
 Adds auto-increment functionality.
@@ -52,7 +61,7 @@ Adds auto-increment functionality.
 Marks a field as an ID for it's model. Marks a field as a primary key if no other field is marked with the [`@primary` directive](#primary-field-level).
 > Notice: Can only be used on `String` fields
 
-### @primary (Field-level)
+## @primary (Field-level)
 Marks a field as a primary key.
 > Notice: Can only be used on non-optional fields with [primitive types](./primitive-types.md)
 
