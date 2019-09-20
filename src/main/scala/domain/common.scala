@@ -52,12 +52,7 @@ sealed trait Directive extends Identifiable {
   val id: String
   val args: HInterfaceValue
 }
-
-case class ModelDirective(id: String, args: HInterfaceValue) extends Directive
-
-case class FieldDirective(id: String, args: HInterfaceValue) extends Directive
-
-object SupportedDirectives {
+object Directive {
   def modelDirectives(self: HModel) = Map(
     "validate" -> HInterface(
       "validate",
@@ -66,12 +61,26 @@ object SupportedDirectives {
     "user" -> HInterface("user", Nil)
   )
 
-  def fieldDirectives(field: HModelField) = Map(
-
+  def fieldDirectives(model: HModel, field: HModelField) = Map(
+    "set" -> HInterface(
+      "set",
+      HInterfaceField("self", model, false) ::
+        HInterfaceField("new", field.htype, false) :: Nil
+    ),
+    "get" -> HInterface(
+      "get",
+      HInterfaceField("self", model, false) :: Nil
+    ),
+    "id" -> HInterface("id", Nil),
+    "unique" -> HInterface("unique", Nil)
   )
 }
 
-case class ServiceDirective(id: String, args: Args) extends Directive
+case class ModelDirective(id: String, args: HInterfaceValue) extends Directive
+
+case class FieldDirective(id: String, args: HInterfaceValue) extends Directive
+
+case class ServiceDirective(id: String, args: HInterfaceValue) extends Directive
 
 case class HEnum(id: String, values: List[String]) extends Identifiable
 

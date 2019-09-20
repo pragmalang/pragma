@@ -1,7 +1,9 @@
 package parsing
 import org.parboiled2._
 import domain._
-import domain.primitives._
+import primitives._
+import scala.collection.immutable.ListMap
+import scala.language.implicitConversions
 
 class HeavenlyParser(val input: ParserInput) extends Parser {
   implicit def whitespace(terminal: String = ""): Rule0 = rule {
@@ -56,7 +58,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   }
 
   /** Returns a PrimitiveType or an HModel with no fields or directives.
-    * NOTE: File type is given size 0 and an empty list of extensions.
+    * NOTE: File type is given size 0 and aRule1[HValuen empty list of extensions.
     */
   def htypeFrom(typeId: String): HType = typeId match {
     case "String"  => HString
@@ -74,19 +76,70 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
       identifier ~> ((id: String) => htypeFrom(id))
   }
 
-  /** Parses models without directives. */
-  def modelDef: Rule1[HModel] = rule {
-    ("model" ~ identifier ~ "{" ~ zeroOrMore(fieldDef) ~ "}") ~>
-      ((id: String, fields: Seq[HModelField]) => {
-        HModel(id, fields.toList, Nil)
+  def namedArg = rule {
+    identifier ~ ":" ~ literal ~> ((key: String, value: HValue) => key -> value)
+  }
+
+  def namedArgs: Rule1[HInterfaceValue] = rule {
+    zeroOrMore(namedArg).separatedBy(",") ~>
+      ((pairs: Seq[(String, HValue)]) => {
+        HInterfaceValue(ListMap.from(pairs), HInterface("", Nil))
       })
   }
 
-  /** Parses fields without directives. */
+  def positionalArgs: Rule1[HInterfaceValue] = rule {
+    zeroOrMore(literal).separatedBy(",") ~>
+      ((args: Seq[HValue]) => {
+        HInterfaceValue(
+          ListMap.from(
+            args.zipWithIndex.map(pair => pair._2.toString -> pair._1)
+          ),
+          HInterface("", Nil)
+        )
+      })
+  }
+
+  def arguments: Rule1[HInterfaceValue] = rule { namedArgs | positionalArgs }
+
+  def directive = rule {
+    '@' ~ identifier ~ optional("(" ~ arguments ~ ")") ~ whitespace()
+  }
+
+  def modelDirective: Rule1[ModelDirective] = rule {
+    directive ~>
+      ((did: String, args: Option[HInterfaceValue]) => {
+        ModelDirective(did, args match {
+          case Some(args) => args
+          case None       => HInterfaceValue(ListMap.empty, HInterface("", Nil))
+        })
+      })
+  }
+
+  def fieldDirective: Rule1[FieldDirective] = rule {
+    directive ~>
+      ((did: String, args: Option[HInterfaceValue]) => {
+        FieldDirective(did, args match {
+          case Some(args) => args
+          case None       => HInterfaceValue(ListMap.empty, HInterface("", Nil))
+        })
+      })
+  }
+
+  def modelDef: Rule1[HModel] = rule {
+    whitespace() ~ zeroOrMore(modelDirective) ~
+      ("model" ~ identifier ~ "{" ~ zeroOrMore(fieldDef) ~ "}") ~>
+      ((ds: Seq[ModelDirective], id: String, fields: Seq[HModelField]) => {
+        HModel(id, fields.toList, ds.toList)
+      })
+  }
+
+  def defaultValue = rule { "=" ~ literal }
+
   def fieldDef: Rule1[HModelField] = rule {
-    whitespace() ~ identifier ~ ":" ~ htype ~ optional(",") ~>
-      ((id: String, ht: HType) => {
-        HModelField(id, ht, None, Nil, ht match {
+    whitespace() ~ zeroOrMore(fieldDirective) ~ identifier ~ ":" ~
+      htype ~ optional(defaultValue) ~ optional(",") ~>
+      ((ds: Seq[FieldDirective], id: String, ht: HType, dv: Option[HValue]) => {
+        HModelField(id, ht, dv, ds.toList, ht match {
           case HOption(_) => true
           case _          => false
         })
