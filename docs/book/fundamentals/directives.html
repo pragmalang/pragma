@@ -188,11 +188,23 @@
 </blockquote>
 <h2><a class="header" href="#unique-field-level" id="unique-field-level">@unique (Field-level)</a></h2>
 <p>Marks a field as <em>unique</em>, which means that no two instances of the model will have the same value for the field.</p>
-<h2><a class="header" href="#transform-field-level" id="transform-field-level">@transform (Field-level)</a></h2>
-<p>Defines data transformation functions for model fields.
+<h2><a class="header" href="#set-field-level" id="set-field-level">@set (Field-level)</a></h2>
+<p>Defines data transformation functions for model fields. This is applied before persisting data to the database (on <code>UPDATE</code>s and <code>CREATE</code>s).
 <strong>Args:</strong></p>
 <ul>
-<li><code>transformer</code>: Function that takes three arguments:
+<li><code>transformer</code>: Function that takes an object with three properties:
+<ul>
+<li><code>data</code>: The incoming data, which is of the same type as the field.</li>
+<li><code>self</code>: The entire incoming data object (or the existing stored object in the case of <code>UPDATE</code>.)</li>
+<li><code>context</code>: An object containing information about the request (the type of user connection, for example.)</li>
+</ul>
+</li>
+</ul>
+<h2><a class="header" href="#get-field-level" id="get-field-level">@get (Field-level)</a></h2>
+<p>Defines data transformation functions for model fields. This is applied after querying the data from the database (on <code>READ</code>s).
+<strong>Args:</strong></p>
+<ul>
+<li><code>transformer</code>: Function that takes an object with three properties:
 <ul>
 <li><code>data</code>: The incoming data, which is of the same type as the field.</li>
 <li><code>self</code>: The entire incoming data object (or the existing stored object in the case of <code>UPDATE</code>.)</li>
@@ -210,7 +222,7 @@
 <blockquote>
 <p>Notice: Can only be used on <code>String</code> fields</p>
 </blockquote>
-<h3><a class="header" href="#primary-field-level" id="primary-field-level">@primary (Field-level)</a></h3>
+<h2><a class="header" href="#primary-field-level" id="primary-field-level">@primary (Field-level)</a></h2>
 <p>Marks a field as a primary key.</p>
 <blockquote>
 <p>Notice: Can only be used on non-optional fields with <a href="./primitive-types.html">primitive types</a></p>

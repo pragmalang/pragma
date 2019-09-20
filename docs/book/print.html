@@ -169,9 +169,7 @@ model User {
 <p>The output of the Heavenly compiler is a secure, scalable, idiomatic and easy-to-use GraphQL API that you can run locally, or on the cloud.</p>
 <h1><a class="header" href="#why-heavenly-x" id="why-heavenly-x">Why Heavenly-x?</a></h1>
 <h2><a class="header" href="#its-declarative" id="its-declarative">It's Declarative</a></h2>
-<p>Definitions are concise, readable, and maintainable. You can express a todo application with user authentication, simple data validation, and authorization rules. <a href="./getting-started/basic-todo-app.html">A simple todo app</a> with user authentication and permissions can be expressed in under 30  lines of code.</p>
-<h2><a class="header" href="#its-type-safe" id="its-type-safe">It's Type-Safe</a></h2>
-<p>The Heavenly Compiler has a built-in type checker. This ensures the validity of all data transformation/validation and authorization logic.</p>
+<p>Definitions are concise, readable, and maintainable. <a href="./getting-started/basic-todo-app.html">A simple todo app</a> with user authentication and permissions can be expressed in under 30 lines of code.</p>
 <h2><a class="header" href="#it-runs-locally" id="it-runs-locally">It Runs Locally</a></h2>
 <p>You can easily set up the Heavenly Runtime on you laptop and start development within minutes. Whenever the application is ready for deployment, you can deploy it to your own servers, or any cloud platform where you can install Heavenly-x.</p>
 <h2><a class="header" href="#no-vendor-lock-in" id="no-vendor-lock-in">No Vendor Lock-In</a></h2>
@@ -489,11 +487,23 @@ const lengthErrorMessage =
 </blockquote>
 <h2><a class="header" href="#unique-field-level" id="unique-field-level">@unique (Field-level)</a></h2>
 <p>Marks a field as <em>unique</em>, which means that no two instances of the model will have the same value for the field.</p>
-<h2><a class="header" href="#transform-field-level" id="transform-field-level">@transform (Field-level)</a></h2>
-<p>Defines data transformation functions for model fields.
+<h2><a class="header" href="#set-field-level" id="set-field-level">@set (Field-level)</a></h2>
+<p>Defines data transformation functions for model fields. This is applied before persisting data to the database (on <code>UPDATE</code>s and <code>CREATE</code>s).
 <strong>Args:</strong></p>
 <ul>
-<li><code>transformer</code>: Function that takes three arguments:
+<li><code>transformer</code>: Function that takes an object with three properties:
+<ul>
+<li><code>data</code>: The incoming data, which is of the same type as the field.</li>
+<li><code>self</code>: The entire incoming data object (or the existing stored object in the case of <code>UPDATE</code>.)</li>
+<li><code>context</code>: An object containing information about the request (the type of user connection, for example.)</li>
+</ul>
+</li>
+</ul>
+<h2><a class="header" href="#get-field-level" id="get-field-level">@get (Field-level)</a></h2>
+<p>Defines data transformation functions for model fields. This is applied after querying the data from the database (on <code>READ</code>s).
+<strong>Args:</strong></p>
+<ul>
+<li><code>transformer</code>: Function that takes an object with three properties:
 <ul>
 <li><code>data</code>: The incoming data, which is of the same type as the field.</li>
 <li><code>self</code>: The entire incoming data object (or the existing stored object in the case of <code>UPDATE</code>.)</li>
@@ -511,7 +521,7 @@ const lengthErrorMessage =
 <blockquote>
 <p>Notice: Can only be used on <code>String</code> fields</p>
 </blockquote>
-<h3><a class="header" href="#primary-field-level" id="primary-field-level">@primary (Field-level)</a></h3>
+<h2><a class="header" href="#primary-field-level" id="primary-field-level">@primary (Field-level)</a></h2>
 <p>Marks a field as a primary key.</p>
 <blockquote>
 <p>Notice: Can only be used on non-optional fields with <a href="fundamentals/./primitive-types.html">primitive types</a></p>
@@ -537,19 +547,42 @@ const lengthErrorMessage =
 </ul>
 <p><strong>Methods:</strong></p>
 <ul>
-<li><code>toString</code></li>
-<li><code>length</code></li>
-<li><code>slice</code></li>
-<li><code>test</code></li>
-<li><code>replace</code></li>
-<li><code>toUpperCase</code></li>
-<li><code>toLowerCase</code></li>
-<li><code>concat</code></li>
-<li><code>charAt</code></li>
-<li><code>endsWith</code></li>
-<li><code>startsWith</code></li>
-<li><code>isEmpty</code></li>
-<li><code>contains</code></li>
+<li>
+<p><code>length(): Integer</code>: returns the length of the array</p>
+</li>
+<li>
+<p><code>slice(from: Integer, to: Integer): String</code>: returns the characters of the string starting from the character at <code>from</code> and ending with the character at <code>to</code> (inclusively)</p>
+</li>
+<li>
+<p><code>test(subject: String): Boolean</code>: assumes the calling <code>String</code> is a regular expression and returns <code>true</code> if the <code>subject</code> matches the pattern in the regular expression's  pattern, and <code>false</code> otherwise</p>
+</li>
+<li>
+<p><code>replace(subject: String, replacement: String): String</code>: assumes the current <code>String</code> is a regular expression and returns a copy of <code>subject</code> where every part of <code>subject</code> that matches the pattern is replaced with <code>replacement</code></p>
+</li>
+<li>
+<p><code>toUpperCase(): String</code>: returns a version of the <code>String</code> with all the characters converted to their uppercase form</p>
+</li>
+<li>
+<p><code>toLowerCase(): String</code>: returns a version of the <code>String</code> with all the characters converted to their lowercase form</p>
+</li>
+<li>
+<p><code>concat(other: String): String</code>: returns <code>other</code> appended to the calling string</p>
+</li>
+<li>
+<p><code>charAt(i: Integer): String?</code>: returns the optional value of the character at index <code>i</code> of the calling string</p>
+</li>
+<li>
+<p><code>endsWith(postfix: String): Boolean</code>: returns <code>true</code> if the calling string ends with <code>postfix</code>, and <code>false</code> otherwise</p>
+</li>
+<li>
+<p><code>startsWith(prefix: String): Boolean</code>: returns <code>true</code> if the calling string starts with <code>prefix</code>, and <code>false</code> otherwise</p>
+</li>
+<li>
+<p><code>isEmpty(): Boolean</code>: returns <code>true</code> if the calling string contains <code>0</code> characters</p>
+</li>
+<li>
+<p><code>contains(substring: String): Boolean</code>: returns <code>true</code> if <code>substring</code> is a substring of the caller</p>
+</li>
 </ul>
 <h2><a class="header" href="#integer" id="integer">Integer</a></h2>
 <p>Represents a 64-bit whole number. <code>Integer</code> values can be expressed with <code>Integer</code> literals, for example: <code>42</code>.</p>
@@ -563,9 +596,7 @@ const lengthErrorMessage =
 </ul>
 <p><strong>Methods:</strong></p>
 <ul>
-<li><code>toString</code></li>
-<li><code>floor</code></li>
-<li><code>ceiling</code></li>
+<li><code>toString(): String</code>: returns the <code>String</code> representation of the caller</li>
 </ul>
 <h2><a class="header" href="#float" id="float">Float</a></h2>
 <p>Represent a 64-bit floating point number. <code>Float</code> values can be expressed as literals, such as <code>20.3</code>.</p>
@@ -579,9 +610,15 @@ const lengthErrorMessage =
 </ul>
 <p><strong>Methods:</strong></p>
 <ul>
-<li><code>toString</code></li>
-<li><code>floor</code></li>
-<li><code>ceiling</code></li>
+<li>
+<p><code>toString(): String</code>: returns the <code>String</code> representation of the caller</p>
+</li>
+<li>
+<p><code>floor(): Integer</code>: rounds the caller down to the nearest whole number</p>
+</li>
+<li>
+<p><code>ceiling(): Integer</code>: rounds the caller up to the nearest whole number</p>
+</li>
 </ul>
 <h2><a class="header" href="#boolean" id="boolean">Boolean</a></h2>
 <p>Represents a value that can be either true or false. <code>Boolean</code> values can be expressed using the boolean literals <code>true</code> and <code>false</code>.</p>
@@ -593,52 +630,90 @@ const lengthErrorMessage =
 </ul>
 <p><strong>Methods</strong>:</p>
 <ul>
-<li><code>toString</code>: converts the value to a <code>String</code></li>
+<li><code>toString(): String</code>: returns the <code>String</code> representation of the caller</li>
 </ul>
 <h2><a class="header" href="#array" id="array">Array</a></h2>
 <p>Ordered homogeneous sequences of elements of any type. Array elements can be accessed by their index (which starts at zero) using square bracket syntax, for example: <code>a[1]</code> is the 2nd element in <code>a</code>.</p>
 <p>Accessing an element in an array results with an <em>optional value</em> of the element. This is to avoid index-out-of-bounds errors, and to ensure type-safety.</p>
+<p>Arrays can be expressed using array literals. For example: <code>[1, 2, 3]</code> is an array if <code>Integer</code>s.</p>
 <p><strong>Operators:</strong></p>
 <ul>
-<li><code>+</code>: array concatenation ()
+<li><code>+</code>: array concatenation (<code>[1, 2, 3] + [4, 5, 6] == [1, 2, 3, 4, 5, 6]</code>)
 <strong>Methods:</strong></li>
-<li><code>contains</code></li>
-<li><code>length</code></li>
-<li><code>elementAt</code></li>
-<li><code>map</code></li>
-<li><code>filter</code></li>
-<li><code>reduce</code></li>
+</ul>
+<blockquote>
+<p>Note: <code>T</code> denotes the type of elements in the calling array</p>
+</blockquote>
+<ul>
+<li>
+<p><code>contains(element: T): Boolean</code>: returns <code>true</code> if <code>element</code> is a member of the caller, and <code>false</code> otherwise</p>
+</li>
+<li>
+<p><code>length(): Integer</code>: returns the number of elements in the calling array</p>
+</li>
+<li>
+<p><code>elementAt(i: Integer): T?</code>: returns the optional value of the element at index <code>i</code> of the caller</p>
+</li>
+<li>
+<p><code>map(transformer: (T) =&gt; U): [U]</code>: returns a version of the calling array with <code>transformer</code> applied to all elements such that the resulting array has elements of type <code>U</code> (the return type of <code>transformer</code>)</p>
+</li>
+<li>
+<p><code>filter(predicate: (T) =&gt; Boolean): [T]</code>: returns an array of all elements of the caller where <code>predicate</code> holds</p>
+</li>
+<li>
+<p><code>reduce(acc: T, (T, T) =&gt; T): T</code>: reduces the array into a single accumulated value that starts as <code>acc</code></p>
+</li>
 </ul>
 <h2><a class="header" href="#optional-values" id="optional-values">Optional Values</a></h2>
-<p>An optional value is a value that might be <code>Null</code> (might not exist). You can define optional fields by appending a <code>?</code> to it's type. For example: <code>age: Integer?</code>
-<strong>Methods:</strong></p>
+<p>An optional value is a value that might be <code>Null</code> (might not exist). You can define optional fields by appending a <code>?</code> to it's type. For example: <code>age: Integer?</code></p>
+<p><strong>Methods:</strong></p>
 <ul>
-<li><code>isNull</code></li>
-<li><code>else</code></li>
+<li>
+<p><code>isNull(): Boolean</code>: returns <code>true</code> if the optional value is actually <code>Null</code>, and <code>false</code> otherwise</p>
+</li>
+<li>
+<p><code>else(alternative: T): T</code>: returns <code>alternative</code> if the actual value of the caller is <code>Null</code>, and the actual value of the caller otherwise</p>
+</li>
 </ul>
 <h2><a class="header" href="#date" id="date">Date</a></h2>
 <p>ISO8061-formatted date.</p>
 <p><strong>Operators:</strong></p>
 <ul>
-<li><code>+</code></li>
+<li><code>+</code>: adds the values of two dates</li>
 </ul>
 <p><strong>Methods:</strong></p>
 <ul>
-<li><code>now</code></li>
-<li><code>toString</code></li>
-<li><code>ms</code></li>
-<li><code>sec</code></li>
-<li><code>min</code></li>
-<li><code>hour</code></li>
-<li><code>day</code></li>
-<li><code>date</code></li>
+<li>
+<p><code>now(): Date</code>: the current local date/time</p>
+</li>
+<li>
+<p><code>toString(): String</code>: returns the <code>String</code> representation of the caller</p>
+</li>
+<li>
+<p><code>ms</code></p>
+</li>
+<li>
+<p><code>sec</code></p>
+</li>
+<li>
+<p><code>min</code></p>
+</li>
+<li>
+<p><code>hour</code></p>
+</li>
+<li>
+<p><code>day</code></p>
+</li>
+<li>
+<p><code>date</code></p>
+</li>
 </ul>
 <h2><a class="header" href="#file" id="file">File</a></h2>
 <p>A type that abstracts away the need to set up object storage.</p>
 <p><strong>Methods:</strong></p>
 <ul>
-<li><code>size</code></li>
-<li><code>extension</code></li>
+<li><code>size(): Integer</code>: returns the caller's size in bytes</li>
+<li><code>extension(): String</code>: the caller file's extension (starting from the first occurrence of '.')</li>
 </ul>
 
                     </main>
