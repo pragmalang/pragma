@@ -24,11 +24,11 @@ case object Add extends HOperation {
     case List(a: HStringValue, b: HIntegerValue) =>
       HStringValue(a.value + b.value)
     case List(a: HIntegerValue, b: HStringValue) =>
-      HStringValue(a.value + b.value)
+      HStringValue(a.value.toString + b.value)
     case List(a: HStringValue, b: HFloatValue) =>
       HStringValue(a.value + b.value)
     case List(a: HFloatValue, b: HStringValue) =>
-      HStringValue(a.value + b.value)
+      HStringValue(a.value.toString + b.value)
     case List(a, b) =>
       throw new InternalException(
         s"Type error occured evaluating ${a.htype} ($a) + ${b.htype} ($b)"
