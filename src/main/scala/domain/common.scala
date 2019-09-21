@@ -7,7 +7,13 @@ import domain.primitives._
   */
 trait HType
 
-case class HConst[V <: HValue](id: String, value: V) extends Identifiable
+sealed trait HConstruct
+
+case class SyntaxTree(constructs: List[HConstruct])
+
+case class HConst[V <: HValue](id: String, value: V)
+    extends Identifiable
+    with HConstruct
 
 trait HShape[+T <: HShapeField] {
   val fields: List[T]
@@ -19,7 +25,8 @@ case class HModel(
     directives: List[ModelDirective]
 ) extends HType
     with Identifiable
-    with HShape[HModelField] {
+    with HShape[HModelField]
+    with HConstruct {
   lazy val isUser = directives.exists(d => d.id == "user")
   lazy val isExposed = directives.exists(d => d.id == "expose")
 }

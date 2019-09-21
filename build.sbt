@@ -13,6 +13,6 @@ lazy val root = (project in file("."))
 
 libraryDependencies += "org.parboiled" %% "parboiled" % "2.1.8"
 
-scalacOptions += "-feature"
+scalacOptions ++= Seq("-feature", "-deprecation")
 
 // See https://www.scala-sbt.org/1.x/docs/Using-Sonatype.html for instructions on how to publish to Sonatype.
