@@ -181,11 +181,11 @@ model User {
 <h2><a class="header" href="#its-declarative" id="its-declarative">It's Declarative</a></h2>
 <p>Definitions are concise, readable, and maintainable. <a href="./getting-started/basic-todo-app.html">A simple todo app</a> with user authentication and permissions can be expressed in under 30 lines of code.</p>
 <h2><a class="header" href="#it-runs-locally" id="it-runs-locally">It Runs Locally</a></h2>
-<p>You can easily set up the Heavenly Runtime on you laptop and start development within minutes. Whenever the application is ready for deployment, you can deploy it to your own servers, or any cloud platform where you can install Heavenly-x.</p>
+<p>You can easily install Heavenly-x CLI on you laptop and start development within minutes. Whenever the application is ready for deployment, you can deploy it to your own servers, or any cloud platform where you can install Heavenly-x CLI.</p>
 <h2><a class="header" href="#no-vendor-lock-in" id="no-vendor-lock-in">No Vendor Lock-In</a></h2>
-<p>Heavenly-x applications are extremely easy to migrate from any cloud provider to the next one. This is possible because of the simplicity and automated deployment management that Heavenly-x provides.</p>
+<p>Heavenly-x applications are extremely easy to migrate from any cloud provider to another. This is possible because of the simplicity and automated deployment management that Heavenly-x provides. You can always opt out.</p>
 <h2><a class="header" href="#it-follows-industry-standards" id="it-follows-industry-standards">It Follows Industry Standards</a></h2>
-<p>Heavenly-x applications conform to familiar industry standards such as GraphQL and OAuth2, so there's nothing abnormal about the interface of Heavenly-x APIs.</p>
+<p>Heavenly-x applications conform to familiar industry standards such as GraphQL and OAuth2.</p>
 <h1><a class="header" href="#getting-started" id="getting-started">Getting Started</a></h1>
 <blockquote>
 <p>Heavenly-x is currently under active development and will be released by December 25th. You can sign up for <a href="https://heavenlyx.com/get-started">early access here</a></p>
@@ -575,21 +575,6 @@ model User {
 
         </div>
 
-        
-        <!-- Livereload script (if served using the cli tool) -->
-        <script type="text/javascript">
-            var socket = new WebSocket("ws://localhost:3001");
-            socket.onmessage = function (event) {
-                if (event.data === "reload") {
-                    socket.close();
-                    location.reload(true); // force reload from server (not from cache)
-                }
-            };
-
-            window.onbeforeunload = function() {
-                socket.close();
-            }
-        </script>
         
 
         
