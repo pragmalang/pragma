@@ -16,7 +16,7 @@ The `User` model has two fields:
 * `username`, which is given the type: `String`, and annotated with the [`@publicCredential` directive](./directives.md#publiccredential-field-level).
 * `password`, which is also given the type: `String`, and annotated with the [`@secretCredential` directive](./directives.md#secretcredential-field-level).
 
-Check out [2.9](./directives.md) for more information about directives.
+Check out [2.7](./directives.md) for more information about directives.
 
 Relations between models are encoded as field types. For example:
 

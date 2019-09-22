@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="affix"><a href="introduction.html">Introduction</a></li><li class="affix"><a href="why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="fundamentals/models.html"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="fundamentals/user-models.html"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="fundamentals/permissions.html"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="fundamentals/data-transformation.html"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="fundamentals/constants.html"><strong aria-hidden="true">2.6.</strong> Constants</a></li><li><a href="fundamentals/functions.html"><strong aria-hidden="true">2.7.</strong> Functions</a></li><li><a href="fundamentals/enum-types.html"><strong aria-hidden="true">2.8.</strong> Enums</a></li><li><a href="fundamentals/directives.html"><strong aria-hidden="true">2.9.</strong> Directives</a></li><li><a href="fundamentals/primitive-types.html"><strong aria-hidden="true">2.10.</strong> Primitive Types</a></li></ol></li></ol>
+                <ol class="chapter"><li class="affix"><a href="introduction.html">Introduction</a></li><li class="affix"><a href="why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="fundamentals/models.html"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="fundamentals/user-models.html"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="fundamentals/permissions.html"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="fundamentals/data-transformation.html"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="fundamentals/enum-types.html"><strong aria-hidden="true">2.6.</strong> Enums</a></li><li><a href="fundamentals/directives.html"><strong aria-hidden="true">2.7.</strong> Directives</a></li><li><a href="fundamentals/primitive-types.html"><strong aria-hidden="true">2.8.</strong> Primitive Types</a></li></ol></li><li><a href="api/index.html"><strong aria-hidden="true">3.</strong> API</a></li><li><ol class="section"><li><a href="api/request.html"><strong aria-hidden="true">3.1.</strong> Request</a></li><li><a href="api/response.html"><strong aria-hidden="true">3.2.</strong> Response</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -151,8 +151,11 @@
                     <main>
                         <h1><a class="header" href="#introduction" id="introduction">Introduction</a></h1>
 <p>Heavenly-x is a language for building server-side applications by defining data schemas and their associated validation, transformation, and authorization logic. For example:</p>
-<pre><code class="language-heavenly-x">@user
-@validate(validator: (user, _) =&gt; user.name.length() &lt; 30)
+<pre><code class="language-heavenly-x">import &quot;./setters.js&quot; as setters
+import &quot;./validators.js&quot; as validators
+
+@user
+@validate(validators.validateUser)
 model User {
     @publicCredential
     username: String
@@ -161,12 +164,19 @@ model User {
     firstName: String
     lastName: String
 
-    @transform((_, self, ctx) =&gt;
-        self.firstName + self.lastName)
+    @set(setters.setFullName)
     fullName: String
+
+    age: Integer
 }
 </code></pre>
-<p>The output of the Heavenly compiler is a secure, scalable, idiomatic and easy-to-use GraphQL API that you can run locally, or on the cloud.</p>
+<p>Where <code>validateUser</code> is a JavaScript function in <code>validators.js</code></p>
+<pre><code class="language-js">const validateUser = ({ self }) =&gt; self.age &gt;= 18
+</code></pre>
+<p>and so does <code>setFullName</code> in <code>setters.js</code></p>
+<pre><code class="language-js">const setFullName = ({ self }) =&gt; self.firstName + self.lastName
+</code></pre>
+<p>The output of the Heavenly-x compiler is a secure, scalable, idiomatic and easy-to-use GraphQL API that you can run locally, or on the cloud.</p>
 <h1><a class="header" href="#why-heavenly-x" id="why-heavenly-x">Why Heavenly-x?</a></h1>
 <h2><a class="header" href="#its-declarative" id="its-declarative">It's Declarative</a></h2>
 <p>Definitions are concise, readable, and maintainable. <a href="./getting-started/basic-todo-app.html">A simple todo app</a> with user authentication and permissions can be expressed in under 30 lines of code.</p>
@@ -182,8 +192,14 @@ model User {
 </blockquote>
 <h1><a class="header" href="#basic-todo-app" id="basic-todo-app">Basic Todo App</a></h1>
 <p>In this tutorial, we'll create a todo application with user authentication. A user can have many todos, and they can only access their own todos.</p>
-<p>We can start by defining our <code>User</code> <a href="getting-started/../fundamentals/user-models.html">model</a>:</p>
-<pre><code>@user
+<p>Let's import our JavaScript files</p>
+<pre><code class="language-heavenly-x">import &quot;./setters.js&quot; as setters
+import &quot;./getters.js&quot; as getters
+import &quot;./validators.js&quot; as validators
+import &quot;./auth.js&quot; as auth
+</code></pre>
+<p>Then, we can start defining our <code>User</code> <a href="getting-started/../fundamentals/user-models.html">model</a>:</p>
+<pre><code class="language-heavenly-x">@user
 model User {
     username: String @publicCredential
     password: String @secretCredential
@@ -192,7 +208,7 @@ model User {
 </code></pre>
 <p>Notice the <code>@user</code> syntax. This is a <a href="getting-started/../fundamentals/directives.html">directive</a> that tells Heavenly-x that this is a <a href="getting-started/../fundamentals/user-models.html">user model</a>.</p>
 <p>Now we define the <code>Todo</code> model:</p>
-<pre><code>model Todo {
+<pre><code class="language-heavenly-x">model Todo {
     title: String
     content: String
     status: TodoStatus = &quot;DONE&quot;
@@ -209,10 +225,8 @@ enum TodoStatus {
 <p>Ok, now we need to define permissions. Our requirements dictate that a <code>User</code> can only edit, read, write, and delete their own <code>Todo</code>s.</p>
 <pre><code class="language-heavenly-x">permit {
     role User {
-        [CREATE] Todo((user, todo) =&gt; todo.user == user)
-        [READ, UPDATE, DELETE] Todo(
-            (user, todo) =&gt; user.todos.contains(todo)
-        )
+        [CREATE] Todo(auth.todo.forAuhenticatedUser)
+        [READ, UPDATE, DELETE] Todo(auth.todo.belongsToAuthenticatedUser)
     }
 }
 </code></pre>
@@ -249,7 +263,7 @@ model User {
 <li><code>username</code>, which is given the type: <code>String</code>, and annotated with the <a href="fundamentals/./directives.html#publiccredential-field-level"><code>@publicCredential</code> directive</a>.</li>
 <li><code>password</code>, which is also given the type: <code>String</code>, and annotated with the <a href="fundamentals/./directives.html#secretcredential-field-level"><code>@secretCredential</code> directive</a>.</li>
 </ul>
-<p>Check out <a href="fundamentals/./directives.html">2.9</a> for more information about directives.</p>
+<p>Check out <a href="fundamentals/./directives.html">2.7</a> for more information about directives.</p>
 <p>Relations between models are encoded as field types. For example:</p>
 <pre><code class="language-heavenly-x">@user
 model User {
@@ -267,14 +281,14 @@ model Todo {
 <h1><a class="header" href="#user-models" id="user-models">User Models</a></h1>
 <p>A user model is a regular model, with the only difference being that it represents a real-world user role in the application.</p>
 <p>To create a user model, annotate the model with the <a href="fundamentals/./directives.html#user"><code>@user</code> directive</a>. For example:</p>
-<pre><code>@user
+<pre><code class="language-heavenly-x">@user
 model User {
     username: String
     password: String
 }
 </code></pre>
 <p>To setup authentication for a user model, use the <a href="fundamentals/./directives.html#publiccredential-field-level"><code>@publicCredential</code></a> and <a href="fundamentals/./directives.html#secretcredential-field-level"><code>secretCredential</code></a> directives:</p>
-<pre><code>@user
+<pre><code class="language-heavenly-x">@user
 model User {
     username: String @publicCredential
     password: String @secretCredential
@@ -282,9 +296,9 @@ model User {
 </code></pre>
 <p>This tells Heavenly-x to setup authentication flows for the <code>User</code> user model where the <code>username</code> and <code>password</code> are the user's credentials.</p>
 <blockquote>
-<p>Note: You can mark multiple fields with the <code>@publicCredential</code> directive. For example: </p>
+<p>Note: You can mark multiple fields with the <code>@publicCredential</code> directive. For example:</p>
 </blockquote>
-<pre><code>@user
+<pre><code class="language-heavenly-x">@user
 @user
 model User {
     username: String @publicCredential
@@ -300,9 +314,10 @@ model User {
 <p>One way of setting up autorization for an app, is by using <a href="https://en.wikipedia.org/wiki/Access-control_list">Access Control Lists (ACL)</a>. ACLs are powerful since they allow us to define rules for data access in a very declaritive manner. ACLs are used in Unix-like systems for filesystem <a href="https://en.wikipedia.org/wiki/File_system_permissions#Permissions">permissions</a>.</p>
 <p>Heavenly-x supports <a href="https://en.wikipedia.org/wiki/Role-based_access_control">Role-Based Access Controls (RBAC)</a>, and <a href="https://en.wikipedia.org/wiki/Attribute-based_access_control">Attribute-Based Access Controls (ABAC)</a>. A <code>permit</code> block can be used to define data access permissions for specific user types.</p>
 <p>A resource could be an entire model (Ex: <code>Course</code>) or a field on some model (Ex: <code>Course.name</code>)</p>
-<p>In a <code>permit</code> block, each user model is considered a <em>role</em>. Each role has its own access rules. Example of <a href="fundamentals/permissions.html#role-based-access-control">RBAC</a> and <a href="fundamentals/permissions.html#attribute-based-access-control">ABAC</a> below.</p>
+<p>In a <code>permit</code> block, each user model is considered a <em>role</em>. Each role has its own access rules. Example on <a href="fundamentals/permissions.html#role-based-access-control">RBAC</a> and <a href="fundamentals/permissions.html#attribute-based-access-control">ABAC</a> below.</p>
 <h2><a class="header" href="#example" id="example">Example</a></h2>
-<pre><code>@user
+<pre><code class="language-heavenly-x">import &quot;./auth-rules.js&quot; as auth
+@user
 model Instructor {
     name: String @publicCredential
     password: String @secretCredential
@@ -344,7 +359,7 @@ model Course {
 <p>Let's say that we would like to restrict <code>Instructor</code>s to accessing course that belongs to them. We can do this by passing a predicate in which we compare the course that the <code>Instructor</code> is trying to access, and the <code>Instructor</code>'s <code>course</code> field.</p>
 <pre><code class="language-heavenly-x">permit {
     role Instructor {
-        ALL Course((instructor, course) =&gt; course == instructor.course)
+        ALL Course(auth.courseBelongsToInstructor)
         ALL Student
     }
 }
@@ -352,7 +367,7 @@ model Course {
 <p>Now we want to allow any body outside our system to sign up as <code>Student</code>s. This means that we need to allow anybody to create a new <code>Student</code>:</p>
 <pre><code class="language-heavenly-x">permit {
     role Instructor {
-        ALL Course((instructor, course) =&gt; course == instructor.course)
+        ALL Course(auth.courseBelongsToInstructor)
         ALL Student
     }
     CREATE Student
@@ -361,68 +376,66 @@ model Course {
 <p>Notice that the newly added rule is not inside any <code>role</code> block. This tells Heavenly-x that anyone can create a <code>Student</code></p>
 <h1><a class="header" href="#data-validation" id="data-validation">Data Validation</a></h1>
 <p>The <a href="fundamentals/./directives.html#validate-model-level"><code>@validate</code></a> directive can be used to define rules that validate incoming data. For example:</p>
-<pre><code class="language-heavenly-x">@validate(
-    validator:
-        (self, context) =&gt; self.authors.length() &gt; 0, 
-    errorMessage:
-        (self, context) =&gt; &quot;Book should have one or more authors.&quot;
-)
+<pre><code class="language-heavenly-x">import validateBook from &quot;./validators.js&quot;
+
+@validate(validators.validateBook)
 model Book {
     title: String
     authors: [String]
 }
 </code></pre>
-<p>If a model is annotated with multiple <code>@validate</code> directives, the validation functions will be executed in sequence, and the validation would succeed only if all validation functions succeed. Once one <code>@validate</code> of them fails, the server would respond with an error containing the error message of the failed <code>@validate</code>.</p>
-<h1><a class="header" href="#data-transformation" id="data-transformation">Data Transformation</a></h1>
-<p>The <a href="fundamentals/./directives.html#transform-field-level"><code>@transform</code></a> directive is used to transform the values of incoming data before persisting it to the database. For example:</p>
-<pre><code class="language-heavenly-x">model User {
-    @publicCredential
-    @transform((uname, _, _) =&gt; uname.toLowerCase())
-    username:  String
+<p>The <code>validateBook</code> validator is just a JavaScript function in <code>validators.js</code>:</p>
+<pre><code class="language-js">const validateBook = ({ self }) =&gt; {
+    if(!(self.authors.length &gt; 0))
+        throw new Error(&quot;A book has at least one author&quot;)
 }
 </code></pre>
-<p>Here we transform the incoming username of a user to be stored in lowercase in the database. The <code>@transform</code> directive can only be applied on the field level, and it takes a function of three arguments to use in the data transformation:</p>
-<ul>
-<li><code>data</code>: The incoming data, which is of the same type as the field.</li>
-<li><code>self</code>: The entire incoming data object (or the existing stored object in the case of <code>UPDATE</code>.)</li>
-<li><code>context</code>: An object containing information about the request (the type of user connection, for example.)</li>
-</ul>
 <blockquote>
-<p>Notice that you can use <code>_</code> to name unused arguments </p>
+<p>You can't annotate a field with <code>@validate</code>. If you need to validate a field you can use <a href="fundamentals/./directives.html#set-field-level"><code>@set</code></a> or <a href="fundamentals/./directives.html#get-field-level"><code>@get</code></a></p>
 </blockquote>
-<p>You can apply <code>@transform</code> multiple times on a single field:</p>
-<pre><code class="language-heavenly-x">model User {
+<h1><a class="header" href="#data-transformation" id="data-transformation">Data Transformation</a></h1>
+<p>Data transformation can be done in two ways:</p>
+<ul>
+<li><strong><a href="fundamentals/data-transformation.html#pre-write-data-transformtion-using-set">Pre-write</a></strong>: Before persisting data to the database</li>
+<li><strong><a href="fundamentals/data-transformation.html#post-read-data-transformation-using-get">Post-read</a></strong>: After querying data from the database</li>
+</ul>
+<h2><a class="header" href="#pre-write-data-transformtion-using-set" id="pre-write-data-transformtion-using-set">Pre-write data transformtion using <code>@set</code></a></h2>
+<p>Say we have a <code>User</code> model and we to want convert all usernames to lowercase before they reach the database. In this case we will use the <a href="fundamentals/./directives.html#set-field-level"><code>@set</code></a> directive</p>
+<pre><code class="language-heavenly-x">import &quot;setters.js&quot; as setters
+import &quot;getters.js&quot; as getters
+
+model User {
     @publicCredential
-    @transform((uname, _, _) =&gt; uname.toLowerCase())
-    @transform((uname, _, _) =&gt; uname.charAt(0).toUpperCase() + uname.slice(0, uname.length()))
+    @set(setters.setUsername)
     username:  String
+
+    password: String @secretCredential
+
+    balance: Float
 }
 </code></pre>
-<p><code>@transform</code> directives are applied in the order in which they were defined. So in this example, the username will be transformed into lowercase, and then the lowercase username is capitalized.</p>
-<h1><a class="header" href="#constants" id="constants">Constants</a></h1>
-<p><em>Constants</em> are bindings between names and values. These bindings are global, and can be used from within any function in the application.</p>
-<pre><code class="language-heavenly-x">const usernameMaxLength = 30
-const lengthErrorMessage = 
-    &quot;Error: username should be &quot; + usernameMaxLength.toString() + &quot; characters or less.&quot;
+<p><code>setUsername</code> is a normal JavaScript function in <code>setters.js</code>:</p>
+<pre><code class="language-js">const setUsername = ({ value: username }) =&gt; username.toLowerCase();
 </code></pre>
-<p><a href="fundamentals/./functions.html">Functions</a> are first-class citizens in Heavenly-x, so you can assign them to constants:</p>
-<pre><code>const capitalizePrefix = 
-    (text: String) =&gt; text.charAt(0) + text.slice(1, text.length())
+<p>The <a href="fundamentals/./directives.html#set-field-level"><code>@set</code></a> directive is used to transform the values of incoming data before persisting it to the database. We can also do validations on the field inside the <code>setUsername</code> JavaScript function by throwing an error.</p>
+<h2><a class="header" href="#post-read-data-transformtion-using-get" id="post-read-data-transformtion-using-get">Post-read data transformtion using <code>@get</code></a></h2>
+<p>Now say we want the exact same value of <code>balanace</code> stored in the database when it's created/updated, but we want to floor it when we query it. In this case we will use the <a href="fundamentals/./directives.html#get-field-level"><code>@get</code></a> directive.</p>
+<pre><code class="language-heavenly-x">import &quot;setters.js&quot; as setters
+import &quot;getters.js&quot; as getters
+
+model User {
+    @publicCredential
+    @set(setters.setUsername)
+    username:  String
+
+    @get(getters.getBalance)
+    balance: Float
+}
 </code></pre>
-<h1><a class="header" href="#functions" id="functions">Functions</a></h1>
-<p>Functions are first-class citizens in Heavenly-x.</p>
-<pre><code class="language-heavenly-x">const olderThan18 = (user: User) =&gt; user.age &gt;= 18
+<p><code>getBalance</code> is a normal JavaScript function in <code>getters.js</code>:</p>
+<pre><code class="language-js">const setUsername = ({ value: balance }) =&gt; Math.floor(balance);
 </code></pre>
-<p>When binding functions to constants, the argument types of the functions must be specified.</p>
-<p>There are only two cases where you don't need to specify the function's argument types:</p>
-<ol>
-<li>
-<p>When passing function literals to native higher-order functions (e.g. <code>map</code>, <code>filter</code>, and <code>reduce</code>.)  For example: <code>grades.filter(grade =&gt; grade.mark &gt; 50)</code>, where grades is an array.</p>
-</li>
-<li>
-<p>When passing function literals to directives (e.g. <code>@transform</code> and <code>@validate</code>.)</p>
-</li>
-</ol>
+<p>The <a href="fundamentals/./directives.html#get-field-level"><code>@get</code></a> directive allows us to transform values when they are queried without mutating them in the database.</p>
 <h1><a class="header" href="#enum-types" id="enum-types">Enum Types</a></h1>
 <p>An <em>enum</em> is a definition of all possible values of a particular type. For example:</p>
 <pre><code class="language-heavenly-x">enum WeekDay {
@@ -458,20 +471,7 @@ const lengthErrorMessage =
 <p>Defines data validation rules for incoming data.
 <strong>Args:</strong></p>
 <ul>
-<li>
-<p><code>validator</code>: Function that takes two arguments:</p>
-<ul>
-<li><code>self</code>: the incoming data object in the case of <code>CREATE</code>, or the data object already stored in the database in the case of <code>UPDATE</code>.</li>
-<li><code>context</code>: an object containing data about the request.</li>
-</ul>
-</li>
-<li>
-<p><code>errorMessage</code>: Function that takes two arguments:</p>
-<ul>
-<li><code>self</code>: the incoming data object in the case of <code>CREATE</code>, or the data object already stored in the database in the case of <code>UPDATE</code>.</li>
-<li><code>context</code>: an object containing data about the request.</li>
-</ul>
-</li>
+<li><code>validator</code>: Function that takes a <a href="fundamentals/../api/request.html"><code>Request</code></a> object and throws an error if the validation fails</li>
 </ul>
 <h2><a class="header" href="#realtime-model-levelfield-level" id="realtime-model-levelfield-level">@realtime (Model-level/Field-level)</a></h2>
 <p>Marks a field or a model as a realtime value</p>
@@ -491,25 +491,13 @@ const lengthErrorMessage =
 <p>Defines data transformation functions for model fields. This is applied before persisting data to the database (on <code>UPDATE</code>s and <code>CREATE</code>s).
 <strong>Args:</strong></p>
 <ul>
-<li><code>transformer</code>: Function that takes an object with three properties:
-<ul>
-<li><code>data</code>: The incoming data, which is of the same type as the field.</li>
-<li><code>self</code>: The entire incoming data object (or the existing stored object in the case of <code>UPDATE</code>.)</li>
-<li><code>context</code>: An object containing information about the request (the type of user connection, for example.)</li>
-</ul>
-</li>
+<li><code>transformer</code>: Function that takes a <a href="fundamentals/../api/request.html"><code>Request</code></a> object</li>
 </ul>
 <h2><a class="header" href="#get-field-level" id="get-field-level">@get (Field-level)</a></h2>
 <p>Defines data transformation functions for model fields. This is applied after querying the data from the database (on <code>READ</code>s).
 <strong>Args:</strong></p>
 <ul>
-<li><code>transformer</code>: Function that takes an object with three properties:
-<ul>
-<li><code>data</code>: The incoming data, which is of the same type as the field.</li>
-<li><code>self</code>: The entire incoming data object (or the existing stored object in the case of <code>UPDATE</code>.)</li>
-<li><code>context</code>: An object containing information about the request (the type of user connection, for example.)</li>
-</ul>
-</li>
+<li><code>transformer</code>: Function that takes a <a href="fundamentals/../api/request.html"><code>Request</code></a> object</li>
 </ul>
 <h2><a class="header" href="#autoincrement-field-level" id="autoincrement-field-level">@autoIncrement (Field-level)</a></h2>
 <p>Adds auto-increment functionality.</p>
@@ -539,182 +527,32 @@ const lengthErrorMessage =
 <h1><a class="header" href="#primitive-types" id="primitive-types">Primitive Types</a></h1>
 <h2><a class="header" href="#string" id="string">String</a></h2>
 <p>Represents a sequence of utf-8 characters. <code>String</code> values can be expressed using <code>String</code> literals, for example: <code>&quot;Hello&quot;</code>.</p>
-<p>Individual characters of a <code>String</code> by their index (starting at zero) can be done using square bracket syntax, for example: <code>s[2]</code> will yield the third character of the string.</p>
-<p>Accessing a character in a <code>String</code> results with an <em>optional value</em> of the character. This is to avoid index-out-of-bounds errors, and to ensure type-safety.</p>
-<p><strong>Operators:</strong></p>
-<ul>
-<li><code>+</code>: concatenation (<code>&quot;Hello&quot; + &quot; &quot; + &quot;Heavenly-x!</code> will yield the string: <code>&quot;Hello Heavenly-x!&quot;</code>)</li>
-</ul>
-<p><strong>Methods:</strong></p>
-<ul>
-<li>
-<p><code>length(): Integer</code>: returns the length of the array</p>
-</li>
-<li>
-<p><code>slice(from: Integer, to: Integer): String</code>: returns the characters of the string starting from the character at <code>from</code> and ending with the character at <code>to</code> (inclusively)</p>
-</li>
-<li>
-<p><code>test(subject: String): Boolean</code>: assumes the calling <code>String</code> is a regular expression and returns <code>true</code> if the <code>subject</code> matches the pattern in the regular expression's  pattern, and <code>false</code> otherwise</p>
-</li>
-<li>
-<p><code>replace(subject: String, replacement: String): String</code>: assumes the current <code>String</code> is a regular expression and returns a copy of <code>subject</code> where every part of <code>subject</code> that matches the pattern is replaced with <code>replacement</code></p>
-</li>
-<li>
-<p><code>toUpperCase(): String</code>: returns a version of the <code>String</code> with all the characters converted to their uppercase form</p>
-</li>
-<li>
-<p><code>toLowerCase(): String</code>: returns a version of the <code>String</code> with all the characters converted to their lowercase form</p>
-</li>
-<li>
-<p><code>concat(other: String): String</code>: returns <code>other</code> appended to the calling string</p>
-</li>
-<li>
-<p><code>charAt(i: Integer): String?</code>: returns the optional value of the character at index <code>i</code> of the calling string</p>
-</li>
-<li>
-<p><code>endsWith(postfix: String): Boolean</code>: returns <code>true</code> if the calling string ends with <code>postfix</code>, and <code>false</code> otherwise</p>
-</li>
-<li>
-<p><code>startsWith(prefix: String): Boolean</code>: returns <code>true</code> if the calling string starts with <code>prefix</code>, and <code>false</code> otherwise</p>
-</li>
-<li>
-<p><code>isEmpty(): Boolean</code>: returns <code>true</code> if the calling string contains <code>0</code> characters</p>
-</li>
-<li>
-<p><code>contains(substring: String): Boolean</code>: returns <code>true</code> if <code>substring</code> is a substring of the caller</p>
-</li>
-</ul>
 <h2><a class="header" href="#integer" id="integer">Integer</a></h2>
 <p>Represents a 64-bit whole number. <code>Integer</code> values can be expressed with <code>Integer</code> literals, for example: <code>42</code>.</p>
-<p><strong>Operators:</strong></p>
-<ul>
-<li><code>+</code>: addition</li>
-<li><code>-</code>: subtraction</li>
-<li><code>*</code>: multiplication</li>
-<li><code>/</code>: division</li>
-<li><code>%</code>: modulo</li>
-</ul>
-<p><strong>Methods:</strong></p>
-<ul>
-<li><code>toString(): String</code>: returns the <code>String</code> representation of the caller</li>
-</ul>
 <h2><a class="header" href="#float" id="float">Float</a></h2>
 <p>Represent a 64-bit floating point number. <code>Float</code> values can be expressed as literals, such as <code>20.3</code>.</p>
-<p><strong>Operators:</strong></p>
-<ul>
-<li><code>+</code>: addition</li>
-<li><code>-</code>: subtraction</li>
-<li><code>*</code>: multiplication</li>
-<li><code>/</code>: division</li>
-<li><code>%</code>: modulo</li>
-</ul>
-<p><strong>Methods:</strong></p>
-<ul>
-<li>
-<p><code>toString(): String</code>: returns the <code>String</code> representation of the caller</p>
-</li>
-<li>
-<p><code>floor(): Integer</code>: rounds the caller down to the nearest whole number</p>
-</li>
-<li>
-<p><code>ceiling(): Integer</code>: rounds the caller up to the nearest whole number</p>
-</li>
-</ul>
 <h2><a class="header" href="#boolean" id="boolean">Boolean</a></h2>
 <p>Represents a value that can be either true or false. <code>Boolean</code> values can be expressed using the boolean literals <code>true</code> and <code>false</code>.</p>
-<p><strong>Operators:</strong>:</p>
-<ul>
-<li><code>||</code>: Logical OR</li>
-<li><code>&amp;&amp;</code>: Logical AND</li>
-<li><code>!</code>: Logical NOT (unary)</li>
-</ul>
-<p><strong>Methods</strong>:</p>
-<ul>
-<li><code>toString(): String</code>: returns the <code>String</code> representation of the caller</li>
-</ul>
 <h2><a class="header" href="#array" id="array">Array</a></h2>
-<p>Ordered homogeneous sequences of elements of any type. Array elements can be accessed by their index (which starts at zero) using square bracket syntax, for example: <code>a[1]</code> is the 2nd element in <code>a</code>.</p>
-<p>Accessing an element in an array results with an <em>optional value</em> of the element. This is to avoid index-out-of-bounds errors, and to ensure type-safety.</p>
-<p>Arrays can be expressed using array literals. For example: <code>[1, 2, 3]</code> is an array if <code>Integer</code>s.</p>
-<p><strong>Operators:</strong></p>
-<ul>
-<li><code>+</code>: array concatenation (<code>[1, 2, 3] + [4, 5, 6] == [1, 2, 3, 4, 5, 6]</code>)
-<strong>Methods:</strong></li>
-</ul>
-<blockquote>
-<p>Note: <code>T</code> denotes the type of elements in the calling array</p>
-</blockquote>
-<ul>
-<li>
-<p><code>contains(element: T): Boolean</code>: returns <code>true</code> if <code>element</code> is a member of the caller, and <code>false</code> otherwise</p>
-</li>
-<li>
-<p><code>length(): Integer</code>: returns the number of elements in the calling array</p>
-</li>
-<li>
-<p><code>elementAt(i: Integer): T?</code>: returns the optional value of the element at index <code>i</code> of the caller</p>
-</li>
-<li>
-<p><code>map(transformer: (T) =&gt; U): [U]</code>: returns a version of the calling array with <code>transformer</code> applied to all elements such that the resulting array has elements of type <code>U</code> (the return type of <code>transformer</code>)</p>
-</li>
-<li>
-<p><code>filter(predicate: (T) =&gt; Boolean): [T]</code>: returns an array of all elements of the caller where <code>predicate</code> holds</p>
-</li>
-<li>
-<p><code>reduce(acc: T, (T, T) =&gt; T): T</code>: reduces the array into a single accumulated value that starts as <code>acc</code></p>
-</li>
-</ul>
+<p>Ordered homogeneous sequences of elements of any type. </p>
 <h2><a class="header" href="#optional-values" id="optional-values">Optional Values</a></h2>
-<p>An optional value is a value that might be <code>Null</code> (might not exist). You can define optional fields by appending a <code>?</code> to it's type. For example: <code>age: Integer?</code></p>
-<p><strong>Methods:</strong></p>
-<ul>
-<li>
-<p><code>isNull(): Boolean</code>: returns <code>true</code> if the optional value is actually <code>Null</code>, and <code>false</code> otherwise</p>
-</li>
-<li>
-<p><code>else(alternative: T): T</code>: returns <code>alternative</code> if the actual value of the caller is <code>Null</code>, and the actual value of the caller otherwise</p>
-</li>
-</ul>
+<p>An optional value is a value that might be <code>null</code> (might not exist). You can define optional fields by appending a <code>?</code> to it's type. For example: <code>age: Integer?</code></p>
 <h2><a class="header" href="#date" id="date">Date</a></h2>
 <p>ISO8061-formatted date.</p>
-<p><strong>Operators:</strong></p>
-<ul>
-<li><code>+</code>: adds the values of two dates</li>
-</ul>
-<p><strong>Methods:</strong></p>
-<ul>
-<li>
-<p><code>now(): Date</code>: the current local date/time</p>
-</li>
-<li>
-<p><code>toString(): String</code>: returns the <code>String</code> representation of the caller</p>
-</li>
-<li>
-<p><code>ms</code></p>
-</li>
-<li>
-<p><code>sec</code></p>
-</li>
-<li>
-<p><code>min</code></p>
-</li>
-<li>
-<p><code>hour</code></p>
-</li>
-<li>
-<p><code>day</code></p>
-</li>
-<li>
-<p><code>date</code></p>
-</li>
-</ul>
 <h2><a class="header" href="#file" id="file">File</a></h2>
 <p>A type that abstracts away the need to set up object storage.</p>
 <p><strong>Methods:</strong></p>
 <ul>
-<li><code>size(): Integer</code>: returns the caller's size in bytes</li>
-<li><code>extension(): String</code>: the caller file's extension (starting from the first occurrence of '.')</li>
+<li><code>size: Integer</code>: returns the caller's size in bytes</li>
+<li><code>extension: String</code>: the caller file's extension (starting from the first occurrence of '.')</li>
 </ul>
+<h1><a class="header" href="#api" id="api">API</a></h1>
+<ul>
+<li><a href="api/./request.html">Request</a></li>
+<li><a href="api/./response.html">Response</a></li>
+</ul>
+<h1><a class="header" href="#request" id="request">Request</a></h1>
+<h1><a class="header" href="#response" id="response">Response</a></h1>
 
                     </main>
 
@@ -737,6 +575,21 @@ const lengthErrorMessage =
 
         </div>
 
+        
+        <!-- Livereload script (if served using the cli tool) -->
+        <script type="text/javascript">
+            var socket = new WebSocket("ws://localhost:3001");
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload(true); // force reload from server (not from cache)
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
         
 
         

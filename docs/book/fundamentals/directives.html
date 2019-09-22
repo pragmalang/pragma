@@ -80,7 +80,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="affix"><a href="../introduction.html">Introduction</a></li><li class="affix"><a href="../why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="../getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="../getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="../fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="../fundamentals/models.html"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="../fundamentals/user-models.html"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="../fundamentals/permissions.html"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="../fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="../fundamentals/data-transformation.html"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="../fundamentals/constants.html"><strong aria-hidden="true">2.6.</strong> Constants</a></li><li><a href="../fundamentals/functions.html"><strong aria-hidden="true">2.7.</strong> Functions</a></li><li><a href="../fundamentals/enum-types.html"><strong aria-hidden="true">2.8.</strong> Enums</a></li><li><a href="../fundamentals/directives.html" class="active"><strong aria-hidden="true">2.9.</strong> Directives</a></li><li><a href="../fundamentals/primitive-types.html"><strong aria-hidden="true">2.10.</strong> Primitive Types</a></li></ol></li></ol>
+                <ol class="chapter"><li class="affix"><a href="../introduction.html">Introduction</a></li><li class="affix"><a href="../why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="../getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="../getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="../fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="../fundamentals/models.html"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="../fundamentals/user-models.html"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="../fundamentals/permissions.html"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="../fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="../fundamentals/data-transformation.html"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="../fundamentals/enum-types.html"><strong aria-hidden="true">2.6.</strong> Enums</a></li><li><a href="../fundamentals/directives.html" class="active"><strong aria-hidden="true">2.7.</strong> Directives</a></li><li><a href="../fundamentals/primitive-types.html"><strong aria-hidden="true">2.8.</strong> Primitive Types</a></li></ol></li><li><a href="../api/index.html"><strong aria-hidden="true">3.</strong> API</a></li><li><ol class="section"><li><a href="../api/request.html"><strong aria-hidden="true">3.1.</strong> Request</a></li><li><a href="../api/response.html"><strong aria-hidden="true">3.2.</strong> Response</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -159,20 +159,7 @@
 <p>Defines data validation rules for incoming data.
 <strong>Args:</strong></p>
 <ul>
-<li>
-<p><code>validator</code>: Function that takes two arguments:</p>
-<ul>
-<li><code>self</code>: the incoming data object in the case of <code>CREATE</code>, or the data object already stored in the database in the case of <code>UPDATE</code>.</li>
-<li><code>context</code>: an object containing data about the request.</li>
-</ul>
-</li>
-<li>
-<p><code>errorMessage</code>: Function that takes two arguments:</p>
-<ul>
-<li><code>self</code>: the incoming data object in the case of <code>CREATE</code>, or the data object already stored in the database in the case of <code>UPDATE</code>.</li>
-<li><code>context</code>: an object containing data about the request.</li>
-</ul>
-</li>
+<li><code>validator</code>: Function that takes a <a href="../api/request.html"><code>Request</code></a> object and throws an error if the validation fails</li>
 </ul>
 <h2><a class="header" href="#realtime-model-levelfield-level" id="realtime-model-levelfield-level">@realtime (Model-level/Field-level)</a></h2>
 <p>Marks a field or a model as a realtime value</p>
@@ -192,25 +179,13 @@
 <p>Defines data transformation functions for model fields. This is applied before persisting data to the database (on <code>UPDATE</code>s and <code>CREATE</code>s).
 <strong>Args:</strong></p>
 <ul>
-<li><code>transformer</code>: Function that takes an object with three properties:
-<ul>
-<li><code>data</code>: The incoming data, which is of the same type as the field.</li>
-<li><code>self</code>: The entire incoming data object (or the existing stored object in the case of <code>UPDATE</code>.)</li>
-<li><code>context</code>: An object containing information about the request (the type of user connection, for example.)</li>
-</ul>
-</li>
+<li><code>transformer</code>: Function that takes a <a href="../api/request.html"><code>Request</code></a> object</li>
 </ul>
 <h2><a class="header" href="#get-field-level" id="get-field-level">@get (Field-level)</a></h2>
 <p>Defines data transformation functions for model fields. This is applied after querying the data from the database (on <code>READ</code>s).
 <strong>Args:</strong></p>
 <ul>
-<li><code>transformer</code>: Function that takes an object with three properties:
-<ul>
-<li><code>data</code>: The incoming data, which is of the same type as the field.</li>
-<li><code>self</code>: The entire incoming data object (or the existing stored object in the case of <code>UPDATE</code>.)</li>
-<li><code>context</code>: An object containing information about the request (the type of user connection, for example.)</li>
-</ul>
-</li>
+<li><code>transformer</code>: Function that takes a <a href="../api/request.html"><code>Request</code></a> object</li>
 </ul>
 <h2><a class="header" href="#autoincrement-field-level" id="autoincrement-field-level">@autoIncrement (Field-level)</a></h2>
 <p>Adds auto-increment functionality.</p>
@@ -275,6 +250,21 @@
 
         </div>
 
+        
+        <!-- Livereload script (if served using the cli tool) -->
+        <script type="text/javascript">
+            var socket = new WebSocket("ws://localhost:3001");
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload(true); // force reload from server (not from cache)
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
         
 
         

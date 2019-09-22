@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Constants - Heavenly-x Documentation</title>
+        <title>API - Heavenly-x Documentation</title>
         
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
@@ -80,7 +80,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="affix"><a href="../introduction.html">Introduction</a></li><li class="affix"><a href="../why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="../getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="../getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="../fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="../fundamentals/models.html"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="../fundamentals/user-models.html"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="../fundamentals/permissions.html"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="../fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="../fundamentals/data-transformation.html"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="../fundamentals/constants.html" class="active"><strong aria-hidden="true">2.6.</strong> Constants</a></li><li><a href="../fundamentals/functions.html"><strong aria-hidden="true">2.7.</strong> Functions</a></li><li><a href="../fundamentals/enum-types.html"><strong aria-hidden="true">2.8.</strong> Enums</a></li><li><a href="../fundamentals/directives.html"><strong aria-hidden="true">2.9.</strong> Directives</a></li><li><a href="../fundamentals/primitive-types.html"><strong aria-hidden="true">2.10.</strong> Primitive Types</a></li></ol></li></ol>
+                <ol class="chapter"><li class="affix"><a href="../introduction.html">Introduction</a></li><li class="affix"><a href="../why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="../getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="../getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="../fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="../fundamentals/models.html"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="../fundamentals/user-models.html"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="../fundamentals/permissions.html"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="../fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="../fundamentals/data-transformation.html"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="../fundamentals/enum-types.html"><strong aria-hidden="true">2.6.</strong> Enums</a></li><li><a href="../fundamentals/directives.html"><strong aria-hidden="true">2.7.</strong> Directives</a></li><li><a href="../fundamentals/primitive-types.html"><strong aria-hidden="true">2.8.</strong> Primitive Types</a></li></ol></li><li><a href="../api/index.html" class="active"><strong aria-hidden="true">3.</strong> API</a></li><li><ol class="section"><li><a href="../api/request.html"><strong aria-hidden="true">3.1.</strong> Request</a></li><li><a href="../api/response.html"><strong aria-hidden="true">3.2.</strong> Response</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -147,29 +147,24 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#constants" id="constants">Constants</a></h1>
-<p><em>Constants</em> are bindings between names and values. These bindings are global, and can be used from within any function in the application.</p>
-<pre><code class="language-heavenly-x">const usernameMaxLength = 30
-const lengthErrorMessage = 
-    &quot;Error: username should be &quot; + usernameMaxLength.toString() + &quot; characters or less.&quot;
-</code></pre>
-<p><a href="./functions.html">Functions</a> are first-class citizens in Heavenly-x, so you can assign them to constants:</p>
-<pre><code>const capitalizePrefix = 
-    (text: String) =&gt; text.charAt(0) + text.slice(1, text.length())
-</code></pre>
+                        <h1><a class="header" href="#api" id="api">API</a></h1>
+<ul>
+<li><a href="./request.html">Request</a></li>
+<li><a href="./response.html">Response</a></li>
+</ul>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="../fundamentals/data-transformation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../fundamentals/primitive-types.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="../fundamentals/functions.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="../api/request.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -181,13 +176,13 @@ const lengthErrorMessage =
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a href="../fundamentals/data-transformation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a href="../fundamentals/primitive-types.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a href="../fundamentals/functions.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a href="../api/request.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
@@ -195,6 +190,21 @@ const lengthErrorMessage =
 
         </div>
 
+        
+        <!-- Livereload script (if served using the cli tool) -->
+        <script type="text/javascript">
+            var socket = new WebSocket("ws://localhost:3001");
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload(true); // force reload from server (not from cache)
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
         
 
         

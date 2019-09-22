@@ -80,7 +80,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="affix"><a href="introduction.html">Introduction</a></li><li class="affix"><a href="why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="fundamentals/models.html"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="fundamentals/user-models.html"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="fundamentals/permissions.html"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="fundamentals/data-transformation.html"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="fundamentals/constants.html"><strong aria-hidden="true">2.6.</strong> Constants</a></li><li><a href="fundamentals/functions.html"><strong aria-hidden="true">2.7.</strong> Functions</a></li><li><a href="fundamentals/enum-types.html"><strong aria-hidden="true">2.8.</strong> Enums</a></li><li><a href="fundamentals/directives.html"><strong aria-hidden="true">2.9.</strong> Directives</a></li><li><a href="fundamentals/primitive-types.html"><strong aria-hidden="true">2.10.</strong> Primitive Types</a></li></ol></li></ol>
+                <ol class="chapter"><li class="affix"><a href="introduction.html">Introduction</a></li><li class="affix"><a href="why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="fundamentals/models.html"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="fundamentals/user-models.html"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="fundamentals/permissions.html"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="fundamentals/data-transformation.html"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="fundamentals/enum-types.html"><strong aria-hidden="true">2.6.</strong> Enums</a></li><li><a href="fundamentals/directives.html"><strong aria-hidden="true">2.7.</strong> Directives</a></li><li><a href="fundamentals/primitive-types.html"><strong aria-hidden="true">2.8.</strong> Primitive Types</a></li></ol></li><li><a href="api/index.html"><strong aria-hidden="true">3.</strong> API</a></li><li><ol class="section"><li><a href="api/request.html"><strong aria-hidden="true">3.1.</strong> Request</a></li><li><a href="api/response.html"><strong aria-hidden="true">3.2.</strong> Response</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -149,8 +149,11 @@
                     <main>
                         <h1><a class="header" href="#introduction" id="introduction">Introduction</a></h1>
 <p>Heavenly-x is a language for building server-side applications by defining data schemas and their associated validation, transformation, and authorization logic. For example:</p>
-<pre><code class="language-heavenly-x">@user
-@validate(validator: (user, _) =&gt; user.name.length() &lt; 30)
+<pre><code class="language-heavenly-x">import &quot;./setters.js&quot; as setters
+import &quot;./validators.js&quot; as validators
+
+@user
+@validate(validators.validateUser)
 model User {
     @publicCredential
     username: String
@@ -159,12 +162,19 @@ model User {
     firstName: String
     lastName: String
 
-    @transform((_, self, ctx) =&gt;
-        self.firstName + self.lastName)
+    @set(setters.setFullName)
     fullName: String
+
+    age: Integer
 }
 </code></pre>
-<p>The output of the Heavenly compiler is a secure, scalable, idiomatic and easy-to-use GraphQL API that you can run locally, or on the cloud.</p>
+<p>Where <code>validateUser</code> is a JavaScript function in <code>validators.js</code></p>
+<pre><code class="language-js">const validateUser = ({ self }) =&gt; self.age &gt;= 18
+</code></pre>
+<p>and so does <code>setFullName</code> in <code>setters.js</code></p>
+<pre><code class="language-js">const setFullName = ({ self }) =&gt; self.firstName + self.lastName
+</code></pre>
+<p>The output of the Heavenly-x compiler is a secure, scalable, idiomatic and easy-to-use GraphQL API that you can run locally, or on the cloud.</p>
 
                     </main>
 
@@ -187,6 +197,21 @@ model User {
 
         </div>
 
+        
+        <!-- Livereload script (if served using the cli tool) -->
+        <script type="text/javascript">
+            var socket = new WebSocket("ws://localhost:3001");
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload(true); // force reload from server (not from cache)
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
         
 
         

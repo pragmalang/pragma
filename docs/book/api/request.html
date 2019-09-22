@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Models - Heavenly-x Documentation</title>
+        <title>Request - Heavenly-x Documentation</title>
         
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
@@ -80,7 +80,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="affix"><a href="../introduction.html">Introduction</a></li><li class="affix"><a href="../why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="../getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="../getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="../fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="../fundamentals/models.html" class="active"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="../fundamentals/user-models.html"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="../fundamentals/permissions.html"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="../fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="../fundamentals/data-transformation.html"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="../fundamentals/enum-types.html"><strong aria-hidden="true">2.6.</strong> Enums</a></li><li><a href="../fundamentals/directives.html"><strong aria-hidden="true">2.7.</strong> Directives</a></li><li><a href="../fundamentals/primitive-types.html"><strong aria-hidden="true">2.8.</strong> Primitive Types</a></li></ol></li><li><a href="../api/index.html"><strong aria-hidden="true">3.</strong> API</a></li><li><ol class="section"><li><a href="../api/request.html"><strong aria-hidden="true">3.1.</strong> Request</a></li><li><a href="../api/response.html"><strong aria-hidden="true">3.2.</strong> Response</a></li></ol></li></ol>
+                <ol class="chapter"><li class="affix"><a href="../introduction.html">Introduction</a></li><li class="affix"><a href="../why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="../getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="../getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="../fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="../fundamentals/models.html"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="../fundamentals/user-models.html"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="../fundamentals/permissions.html"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="../fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="../fundamentals/data-transformation.html"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="../fundamentals/enum-types.html"><strong aria-hidden="true">2.6.</strong> Enums</a></li><li><a href="../fundamentals/directives.html"><strong aria-hidden="true">2.7.</strong> Directives</a></li><li><a href="../fundamentals/primitive-types.html"><strong aria-hidden="true">2.8.</strong> Primitive Types</a></li></ol></li><li><a href="../api/index.html"><strong aria-hidden="true">3.</strong> API</a></li><li><ol class="section"><li><a href="../api/request.html" class="active"><strong aria-hidden="true">3.1.</strong> Request</a></li><li><a href="../api/response.html"><strong aria-hidden="true">3.2.</strong> Response</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -147,48 +147,20 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#models" id="models">Models</a></h1>
-<p>A <em>model</em> is a definition of a data shape that reflects how it is stored in the database. For example:</p>
-<pre><code class="language-heavenly-x">@user
-model User {
-    username: String @publicCredential
-    password: String @secretCredential
-}
-</code></pre>
-<p>Here we define a model named <code>User</code> that is annotated with the <a href="./directives.html#user-model-level"><code>@user</code> directive</a>. We will discuss <a href="./directives.html">directives</a> later.</p>
-<p>The <code>User</code> model has two fields:</p>
-<ul>
-<li><code>username</code>, which is given the type: <code>String</code>, and annotated with the <a href="./directives.html#publiccredential-field-level"><code>@publicCredential</code> directive</a>.</li>
-<li><code>password</code>, which is also given the type: <code>String</code>, and annotated with the <a href="./directives.html#secretcredential-field-level"><code>@secretCredential</code> directive</a>.</li>
-</ul>
-<p>Check out <a href="./directives.html">2.7</a> for more information about directives.</p>
-<p>Relations between models are encoded as field types. For example:</p>
-<pre><code class="language-heavenly-x">@user
-model User {
-    username: String @publicCredential
-    password: String @secretCredential
-    todos: [Todo]
-}
-
-model Todo {
-    title: String
-    content: String
-}
-</code></pre>
-<p>The <code>todos</code> field on <code>User</code> has the type <code>[Todo]</code> (array of <code>Todo</code>s.) This translates to: <em>&quot;a <code>User</code> has many <code>Todo</code>s&quot;</em>.</p>
+                        <h1><a class="header" href="#request" id="request">Request</a></h1>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="../fundamentals/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../api/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="../fundamentals/user-models.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="../api/response.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -200,13 +172,13 @@ model Todo {
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a href="../fundamentals/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a href="../api/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a href="../fundamentals/user-models.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a href="../api/response.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 

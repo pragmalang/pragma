@@ -80,7 +80,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="affix"><a href="../introduction.html">Introduction</a></li><li class="affix"><a href="../why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="../getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="../getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="../fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="../fundamentals/models.html"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="../fundamentals/user-models.html" class="active"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="../fundamentals/permissions.html"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="../fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="../fundamentals/data-transformation.html"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="../fundamentals/constants.html"><strong aria-hidden="true">2.6.</strong> Constants</a></li><li><a href="../fundamentals/functions.html"><strong aria-hidden="true">2.7.</strong> Functions</a></li><li><a href="../fundamentals/enum-types.html"><strong aria-hidden="true">2.8.</strong> Enums</a></li><li><a href="../fundamentals/directives.html"><strong aria-hidden="true">2.9.</strong> Directives</a></li><li><a href="../fundamentals/primitive-types.html"><strong aria-hidden="true">2.10.</strong> Primitive Types</a></li></ol></li></ol>
+                <ol class="chapter"><li class="affix"><a href="../introduction.html">Introduction</a></li><li class="affix"><a href="../why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="../getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="../getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="../fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="../fundamentals/models.html"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="../fundamentals/user-models.html" class="active"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="../fundamentals/permissions.html"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="../fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="../fundamentals/data-transformation.html"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="../fundamentals/enum-types.html"><strong aria-hidden="true">2.6.</strong> Enums</a></li><li><a href="../fundamentals/directives.html"><strong aria-hidden="true">2.7.</strong> Directives</a></li><li><a href="../fundamentals/primitive-types.html"><strong aria-hidden="true">2.8.</strong> Primitive Types</a></li></ol></li><li><a href="../api/index.html"><strong aria-hidden="true">3.</strong> API</a></li><li><ol class="section"><li><a href="../api/request.html"><strong aria-hidden="true">3.1.</strong> Request</a></li><li><a href="../api/response.html"><strong aria-hidden="true">3.2.</strong> Response</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -150,14 +150,14 @@
                         <h1><a class="header" href="#user-models" id="user-models">User Models</a></h1>
 <p>A user model is a regular model, with the only difference being that it represents a real-world user role in the application.</p>
 <p>To create a user model, annotate the model with the <a href="./directives.html#user"><code>@user</code> directive</a>. For example:</p>
-<pre><code>@user
+<pre><code class="language-heavenly-x">@user
 model User {
     username: String
     password: String
 }
 </code></pre>
 <p>To setup authentication for a user model, use the <a href="./directives.html#publiccredential-field-level"><code>@publicCredential</code></a> and <a href="./directives.html#secretcredential-field-level"><code>secretCredential</code></a> directives:</p>
-<pre><code>@user
+<pre><code class="language-heavenly-x">@user
 model User {
     username: String @publicCredential
     password: String @secretCredential
@@ -165,9 +165,9 @@ model User {
 </code></pre>
 <p>This tells Heavenly-x to setup authentication flows for the <code>User</code> user model where the <code>username</code> and <code>password</code> are the user's credentials.</p>
 <blockquote>
-<p>Note: You can mark multiple fields with the <code>@publicCredential</code> directive. For example: </p>
+<p>Note: You can mark multiple fields with the <code>@publicCredential</code> directive. For example:</p>
 </blockquote>
-<pre><code>@user
+<pre><code class="language-heavenly-x">@user
 @user
 model User {
     username: String @publicCredential
@@ -216,6 +216,21 @@ model User {
 
         </div>
 
+        
+        <!-- Livereload script (if served using the cli tool) -->
+        <script type="text/javascript">
+            var socket = new WebSocket("ws://localhost:3001");
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload(true); // force reload from server (not from cache)
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
         
 
         

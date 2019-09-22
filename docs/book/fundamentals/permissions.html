@@ -80,7 +80,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="affix"><a href="../introduction.html">Introduction</a></li><li class="affix"><a href="../why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="../getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="../getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="../fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="../fundamentals/models.html"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="../fundamentals/user-models.html"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="../fundamentals/permissions.html" class="active"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="../fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="../fundamentals/data-transformation.html"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="../fundamentals/constants.html"><strong aria-hidden="true">2.6.</strong> Constants</a></li><li><a href="../fundamentals/functions.html"><strong aria-hidden="true">2.7.</strong> Functions</a></li><li><a href="../fundamentals/enum-types.html"><strong aria-hidden="true">2.8.</strong> Enums</a></li><li><a href="../fundamentals/directives.html"><strong aria-hidden="true">2.9.</strong> Directives</a></li><li><a href="../fundamentals/primitive-types.html"><strong aria-hidden="true">2.10.</strong> Primitive Types</a></li></ol></li></ol>
+                <ol class="chapter"><li class="affix"><a href="../introduction.html">Introduction</a></li><li class="affix"><a href="../why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="../getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="../getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="../fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="../fundamentals/models.html"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="../fundamentals/user-models.html"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="../fundamentals/permissions.html" class="active"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="../fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="../fundamentals/data-transformation.html"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="../fundamentals/enum-types.html"><strong aria-hidden="true">2.6.</strong> Enums</a></li><li><a href="../fundamentals/directives.html"><strong aria-hidden="true">2.7.</strong> Directives</a></li><li><a href="../fundamentals/primitive-types.html"><strong aria-hidden="true">2.8.</strong> Primitive Types</a></li></ol></li><li><a href="../api/index.html"><strong aria-hidden="true">3.</strong> API</a></li><li><ol class="section"><li><a href="../api/request.html"><strong aria-hidden="true">3.1.</strong> Request</a></li><li><a href="../api/response.html"><strong aria-hidden="true">3.2.</strong> Response</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -152,9 +152,10 @@
 <p>One way of setting up autorization for an app, is by using <a href="https://en.wikipedia.org/wiki/Access-control_list">Access Control Lists (ACL)</a>. ACLs are powerful since they allow us to define rules for data access in a very declaritive manner. ACLs are used in Unix-like systems for filesystem <a href="https://en.wikipedia.org/wiki/File_system_permissions#Permissions">permissions</a>.</p>
 <p>Heavenly-x supports <a href="https://en.wikipedia.org/wiki/Role-based_access_control">Role-Based Access Controls (RBAC)</a>, and <a href="https://en.wikipedia.org/wiki/Attribute-based_access_control">Attribute-Based Access Controls (ABAC)</a>. A <code>permit</code> block can be used to define data access permissions for specific user types.</p>
 <p>A resource could be an entire model (Ex: <code>Course</code>) or a field on some model (Ex: <code>Course.name</code>)</p>
-<p>In a <code>permit</code> block, each user model is considered a <em>role</em>. Each role has its own access rules. Example of <a href="#role-based-access-control">RBAC</a> and <a href="#attribute-based-access-control">ABAC</a> below.</p>
+<p>In a <code>permit</code> block, each user model is considered a <em>role</em>. Each role has its own access rules. Example on <a href="#role-based-access-control">RBAC</a> and <a href="#attribute-based-access-control">ABAC</a> below.</p>
 <h2><a class="header" href="#example" id="example">Example</a></h2>
-<pre><code>@user
+<pre><code class="language-heavenly-x">import &quot;./auth-rules.js&quot; as auth
+@user
 model Instructor {
     name: String @publicCredential
     password: String @secretCredential
@@ -196,7 +197,7 @@ model Course {
 <p>Let's say that we would like to restrict <code>Instructor</code>s to accessing course that belongs to them. We can do this by passing a predicate in which we compare the course that the <code>Instructor</code> is trying to access, and the <code>Instructor</code>'s <code>course</code> field.</p>
 <pre><code class="language-heavenly-x">permit {
     role Instructor {
-        ALL Course((instructor, course) =&gt; course == instructor.course)
+        ALL Course(auth.courseBelongsToInstructor)
         ALL Student
     }
 }
@@ -204,7 +205,7 @@ model Course {
 <p>Now we want to allow any body outside our system to sign up as <code>Student</code>s. This means that we need to allow anybody to create a new <code>Student</code>:</p>
 <pre><code class="language-heavenly-x">permit {
     role Instructor {
-        ALL Course((instructor, course) =&gt; course == instructor.course)
+        ALL Course(auth.courseBelongsToInstructor)
         ALL Student
     }
     CREATE Student
@@ -249,6 +250,21 @@ model Course {
 
         </div>
 
+        
+        <!-- Livereload script (if served using the cli tool) -->
+        <script type="text/javascript">
+            var socket = new WebSocket("ws://localhost:3001");
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload(true); // force reload from server (not from cache)
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
         
 
         

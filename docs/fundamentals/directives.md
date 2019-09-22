@@ -14,13 +14,7 @@ Used to mark a model as a [user model](./user-models.md).
 ## @validate (Model-level)
 Defines data validation rules for incoming data.
 **Args:**
- - `validator`: Function that takes two arguments:
-    * `self`: the incoming data object in the case of `CREATE`, or the data object already stored in the database in the case of `UPDATE`.
-    * `context`: an object containing data about the request.
-
- - `errorMessage`: Function that takes two arguments:
-    * `self`: the incoming data object in the case of `CREATE`, or the data object already stored in the database in the case of `UPDATE`.
-    * `context`: an object containing data about the request.
+ - `validator`: Function that takes a [`Request`](../api/request.md) object and throws an error if the validation fails
 
 ## @realtime (Model-level/Field-level)
 Marks a field or a model as a realtime value
@@ -39,19 +33,12 @@ Marks a field as *unique*, which means that no two instances of the model will h
 ## @set (Field-level)
 Defines data transformation functions for model fields. This is applied before persisting data to the database (on `UPDATE`s and `CREATE`s).
 **Args:**
- - `transformer`: Function that takes an object with three properties:
-    * `data`: The incoming data, which is of the same type as the field.
-    * `self`: The entire incoming data object (or the existing stored object in the case of `UPDATE`.)
-    * `context`: An object containing information about the request (the type of user connection, for example.)
+ - `transformer`: Function that takes a [`Request`](../api/request.md) object
 
 ## @get (Field-level)
 Defines data transformation functions for model fields. This is applied after querying the data from the database (on `READ`s).
 **Args:**
- - `transformer`: Function that takes an object with three properties:
-    * `data`: The incoming data, which is of the same type as the field.
-    * `self`: The entire incoming data object (or the existing stored object in the case of `UPDATE`.)
-    * `context`: An object containing information about the request (the type of user connection, for example.)
-
+ - `transformer`: Function that takes a [`Request`](../api/request.md) object
 
 ## @autoIncrement (Field-level)
 Adds auto-increment functionality.

@@ -3,8 +3,11 @@
 Heavenly-x is a language for building server-side applications by defining data schemas and their associated validation, transformation, and authorization logic. For example:
 
 ```heavenly-x
+import "./setters.js" as setters
+import "./validators.js" as validators
+
 @user
-@validate(validator: (user, _) => user.name.length() < 30)
+@validate(validators.validateUser)
 model User {
     @publicCredential
     username: String
@@ -13,10 +16,23 @@ model User {
     firstName: String
     lastName: String
 
-    @transform((_, self, ctx) =>
-        self.firstName + self.lastName)
+    @set(setters.setFullName)
     fullName: String
+
+    age: Integer
 }
 ```
 
-The output of the Heavenly compiler is a secure, scalable, idiomatic and easy-to-use GraphQL API that you can run locally, or on the cloud.
+Where `validateUser` is a JavaScript function in `validators.js`
+
+```js
+const validateUser = ({ self }) => self.age >= 18
+```
+
+and so does `setFullName` in `setters.js`
+
+```js
+const setFullName = ({ self }) => self.firstName + self.lastName
+```
+
+The output of the Heavenly-x compiler is a secure, scalable, idiomatic and easy-to-use GraphQL API that you can run locally, or on the cloud.

@@ -2,9 +2,18 @@
 
 In this tutorial, we'll create a todo application with user authentication. A user can have many todos, and they can only access their own todos.
 
-We can start by defining our `User` [model](../fundamentals/user-models.md):
+Let's import our JavaScript files
 
+```heavenly-x
+import "./setters.js" as setters
+import "./getters.js" as getters
+import "./validators.js" as validators
+import "./auth.js" as auth
 ```
+
+Then, we can start defining our `User` [model](../fundamentals/user-models.md):
+
+```heavenly-x
 @user
 model User {
     username: String @publicCredential
@@ -16,7 +25,7 @@ Notice the `@user` syntax. This is a [directive](../fundamentals/directives.md) 
 
 Now we define the `Todo` model:
 
-```
+```heavenly-x
 model Todo {
     title: String
     content: String
@@ -38,10 +47,8 @@ Ok, now we need to define permissions. Our requirements dictate that a `User` ca
 ```heavenly-x
 permit {
     role User {
-        [CREATE] Todo((user, todo) => todo.user == user)
-        [READ, UPDATE, DELETE] Todo(
-            (user, todo) => user.todos.contains(todo)
-        )
+        [CREATE] Todo(auth.todo.forAuhenticatedUser)
+        [READ, UPDATE, DELETE] Todo(auth.todo.belongsToAuthenticatedUser)
     }
 }
 ```

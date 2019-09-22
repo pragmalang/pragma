@@ -8,11 +8,12 @@ Heavenly-x supports [Role-Based Access Controls (RBAC)](https://en.wikipedia.org
 
 A resource could be an entire model (Ex: `Course`) or a field on some model (Ex: `Course.name`)
 
-In a `permit` block, each user model is considered a *role*. Each role has its own access rules. Example of [RBAC](#role-based-access-control) and [ABAC](#attribute-based-access-control) below.
+In a `permit` block, each user model is considered a *role*. Each role has its own access rules. Example on [RBAC](#role-based-access-control) and [ABAC](#attribute-based-access-control) below.
 
 ## Example
 
-```
+```heavenly-x
+import "./auth-rules.js" as auth
 @user
 model Instructor {
     name: String @publicCredential
@@ -64,7 +65,7 @@ Let's say that we would like to restrict `Instructor`s to accessing course that 
 ```heavenly-x
 permit {
     role Instructor {
-        ALL Course((instructor, course) => course == instructor.course)
+        ALL Course(auth.courseBelongsToInstructor)
         ALL Student
     }
 }
@@ -74,7 +75,7 @@ Now we want to allow any body outside our system to sign up as `Student`s. This 
 ```heavenly-x
 permit {
     role Instructor {
-        ALL Course((instructor, course) => course == instructor.course)
+        ALL Course(auth.courseBelongsToInstructor)
         ALL Student
     }
     CREATE Student

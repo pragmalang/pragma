@@ -80,7 +80,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="affix"><a href="../introduction.html">Introduction</a></li><li class="affix"><a href="../why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="../getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="../getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="../fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="../fundamentals/models.html"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="../fundamentals/user-models.html"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="../fundamentals/permissions.html"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="../fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="../fundamentals/data-transformation.html" class="active"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="../fundamentals/constants.html"><strong aria-hidden="true">2.6.</strong> Constants</a></li><li><a href="../fundamentals/functions.html"><strong aria-hidden="true">2.7.</strong> Functions</a></li><li><a href="../fundamentals/enum-types.html"><strong aria-hidden="true">2.8.</strong> Enums</a></li><li><a href="../fundamentals/directives.html"><strong aria-hidden="true">2.9.</strong> Directives</a></li><li><a href="../fundamentals/primitive-types.html"><strong aria-hidden="true">2.10.</strong> Primitive Types</a></li></ol></li></ol>
+                <ol class="chapter"><li class="affix"><a href="../introduction.html">Introduction</a></li><li class="affix"><a href="../why-heavenly-x.html">Why Heavenly-x?</a></li><li><a href="../getting-started/index.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li><a href="../getting-started/basic-todo-app.html"><strong aria-hidden="true">1.1.</strong> Basic Todo App</a></li></ol></li><li><a href="../fundamentals/index.html"><strong aria-hidden="true">2.</strong> Fundamentals</a></li><li><ol class="section"><li><a href="../fundamentals/models.html"><strong aria-hidden="true">2.1.</strong> Models</a></li><li><a href="../fundamentals/user-models.html"><strong aria-hidden="true">2.2.</strong> User Models</a></li><li><a href="../fundamentals/permissions.html"><strong aria-hidden="true">2.3.</strong> Permissions</a></li><li><a href="../fundamentals/data-validation.html"><strong aria-hidden="true">2.4.</strong> Data Validation</a></li><li><a href="../fundamentals/data-transformation.html" class="active"><strong aria-hidden="true">2.5.</strong> Data Transformation</a></li><li><a href="../fundamentals/enum-types.html"><strong aria-hidden="true">2.6.</strong> Enums</a></li><li><a href="../fundamentals/directives.html"><strong aria-hidden="true">2.7.</strong> Directives</a></li><li><a href="../fundamentals/primitive-types.html"><strong aria-hidden="true">2.8.</strong> Primitive Types</a></li></ol></li><li><a href="../api/index.html"><strong aria-hidden="true">3.</strong> API</a></li><li><ol class="section"><li><a href="../api/request.html"><strong aria-hidden="true">3.1.</strong> Request</a></li><li><a href="../api/response.html"><strong aria-hidden="true">3.2.</strong> Response</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -148,31 +148,48 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#data-transformation" id="data-transformation">Data Transformation</a></h1>
-<p>The <a href="./directives.html#transform-field-level"><code>@transform</code></a> directive is used to transform the values of incoming data before persisting it to the database. For example:</p>
-<pre><code class="language-heavenly-x">model User {
-    @publicCredential
-    @transform((uname, _, _) =&gt; uname.toLowerCase())
-    username:  String
-}
-</code></pre>
-<p>Here we transform the incoming username of a user to be stored in lowercase in the database. The <code>@transform</code> directive can only be applied on the field level, and it takes a function of three arguments to use in the data transformation:</p>
+<p>Data transformation can be done in two ways:</p>
 <ul>
-<li><code>data</code>: The incoming data, which is of the same type as the field.</li>
-<li><code>self</code>: The entire incoming data object (or the existing stored object in the case of <code>UPDATE</code>.)</li>
-<li><code>context</code>: An object containing information about the request (the type of user connection, for example.)</li>
+<li><strong><a href="#pre-write-data-transformtion-using-set">Pre-write</a></strong>: Before persisting data to the database</li>
+<li><strong><a href="#post-read-data-transformation-using-get">Post-read</a></strong>: After querying data from the database</li>
 </ul>
-<blockquote>
-<p>Notice that you can use <code>_</code> to name unused arguments </p>
-</blockquote>
-<p>You can apply <code>@transform</code> multiple times on a single field:</p>
-<pre><code class="language-heavenly-x">model User {
+<h2><a class="header" href="#pre-write-data-transformtion-using-set" id="pre-write-data-transformtion-using-set">Pre-write data transformtion using <code>@set</code></a></h2>
+<p>Say we have a <code>User</code> model and we to want convert all usernames to lowercase before they reach the database. In this case we will use the <a href="./directives.html#set-field-level"><code>@set</code></a> directive</p>
+<pre><code class="language-heavenly-x">import &quot;setters.js&quot; as setters
+import &quot;getters.js&quot; as getters
+
+model User {
     @publicCredential
-    @transform((uname, _, _) =&gt; uname.toLowerCase())
-    @transform((uname, _, _) =&gt; uname.charAt(0).toUpperCase() + uname.slice(0, uname.length()))
+    @set(setters.setUsername)
     username:  String
+
+    password: String @secretCredential
+
+    balance: Float
 }
 </code></pre>
-<p><code>@transform</code> directives are applied in the order in which they were defined. So in this example, the username will be transformed into lowercase, and then the lowercase username is capitalized.</p>
+<p><code>setUsername</code> is a normal JavaScript function in <code>setters.js</code>:</p>
+<pre><code class="language-js">const setUsername = ({ value: username }) =&gt; username.toLowerCase();
+</code></pre>
+<p>The <a href="./directives.html#set-field-level"><code>@set</code></a> directive is used to transform the values of incoming data before persisting it to the database. We can also do validations on the field inside the <code>setUsername</code> JavaScript function by throwing an error.</p>
+<h2><a class="header" href="#post-read-data-transformtion-using-get" id="post-read-data-transformtion-using-get">Post-read data transformtion using <code>@get</code></a></h2>
+<p>Now say we want the exact same value of <code>balanace</code> stored in the database when it's created/updated, but we want to floor it when we query it. In this case we will use the <a href="./directives.html#get-field-level"><code>@get</code></a> directive.</p>
+<pre><code class="language-heavenly-x">import &quot;setters.js&quot; as setters
+import &quot;getters.js&quot; as getters
+
+model User {
+    @publicCredential
+    @set(setters.setUsername)
+    username:  String
+
+    @get(getters.getBalance)
+    balance: Float
+}
+</code></pre>
+<p><code>getBalance</code> is a normal JavaScript function in <code>getters.js</code>:</p>
+<pre><code class="language-js">const setUsername = ({ value: balance }) =&gt; Math.floor(balance);
+</code></pre>
+<p>The <a href="./directives.html#get-field-level"><code>@get</code></a> directive allows us to transform values when they are queried without mutating them in the database.</p>
 
                     </main>
 
@@ -185,7 +202,7 @@
                         
 
                         
-                            <a rel="next" href="../fundamentals/constants.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="../fundamentals/enum-types.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -203,7 +220,7 @@
                 
 
                 
-                    <a href="../fundamentals/constants.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a href="../fundamentals/enum-types.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
@@ -211,6 +228,21 @@
 
         </div>
 
+        
+        <!-- Livereload script (if served using the cli tool) -->
+        <script type="text/javascript">
+            var socket = new WebSocket("ws://localhost:3001");
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload(true); // force reload from server (not from cache)
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
         
 
         

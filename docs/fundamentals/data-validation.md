@@ -3,16 +3,22 @@
 The [`@validate`](./directives.html#validate-model-level) directive can be used to define rules that validate incoming data. For example:
 
 ```heavenly-x
-@validate(
-    validator:
-        (self, context) => self.authors.length() > 0, 
-    errorMessage:
-        (self, context) => "Book should have one or more authors."
-)
+import validateBook from "./validators.js"
+
+@validate(validators.validateBook)
 model Book {
     title: String
     authors: [String]
 }
 ```
 
-If a model is annotated with multiple `@validate` directives, the validation functions will be executed in sequence, and the validation would succeed only if all validation functions succeed. Once one `@validate` of them fails, the server would respond with an error containing the error message of the failed `@validate`.
+The `validateBook` validator is just a JavaScript function in `validators.js`:
+
+```js
+const validateBook = ({ self }) => {
+    if(!(self.authors.length > 0))
+        throw new Error("A book has at least one author")
+}
+```
+
+> You can't annotate a field with `@validate`. If you need to validate a field you can use [`@set`](./directives.md#set-field-level) or [`@get`](./directives.md#get-field-level)
