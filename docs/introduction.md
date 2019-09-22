@@ -23,7 +23,7 @@ model User {
 }
 ```
 
-Where `validateUser` is a JavaScript function in `validators.js`
+`validateUser` is a JavaScript function in `validators.js`
 
 ```js
 const validateUser = ({ self }) => self.age >= 18

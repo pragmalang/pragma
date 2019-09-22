@@ -10,3 +10,4 @@ title = "Heavenly-x"
 [output.html]   
 additional-js = ["./src/main.js"]
 additional-css = ["./src/main.css"]
+default-theme = "ayu"
