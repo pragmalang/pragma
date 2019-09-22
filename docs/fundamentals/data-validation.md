@@ -17,7 +17,7 @@ The `validateBook` validator is just a JavaScript function in `validators.js`:
 ```js
 const validateBook = ({ self }) => {
     if(!(self.authors.length > 0))
-        throw new Error("A book has at least one author")
+        throw new Error("A book must have at least one author")
 }
 ```
 
