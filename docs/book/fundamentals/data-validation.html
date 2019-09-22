@@ -160,7 +160,7 @@ model Book {
 <p>The <code>validateBook</code> validator is just a JavaScript function in <code>validators.js</code>:</p>
 <pre><code class="language-js">const validateBook = ({ self }) =&gt; {
     if(!(self.authors.length &gt; 0))
-        throw new Error(&quot;A book has at least one author&quot;)
+        throw new Error(&quot;A book must have at least one author&quot;)
 }
 </code></pre>
 <blockquote>
