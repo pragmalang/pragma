@@ -3,7 +3,7 @@ authors = ["Anas Albarghouthy, Mohammed Tabaza"]
 language = "en"
 multilingual = false
 src = "."
-title = "Heavenly-x Documentation"
+title = "Heavenly-x"
 
 [build]
 
