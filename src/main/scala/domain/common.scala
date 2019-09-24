@@ -11,12 +11,13 @@ sealed trait HConstruct
 
 case class SyntaxTree(constructs: List[HConstruct])
 
-case class HConst[V <: HValue](id: String, value: V)
+case class HConst(id: String, value: HValue)
     extends Identifiable
     with HConstruct
 
-trait HShape[+T <: HShapeField] {
-  val fields: List[T]
+trait HShape extends Identifiable with HConstruct {
+  override val id: String
+  val fields: List[HShapeField]
 }
 
 case class HModel(
@@ -24,19 +25,15 @@ case class HModel(
     fields: List[HModelField],
     directives: List[ModelDirective]
 ) extends HType
-    with Identifiable
-    with HShape[HModelField]
-    with HConstruct {
+    with HShape {
   lazy val isUser = directives.exists(d => d.id == "user")
-  lazy val isExposed = directives.exists(d => d.id == "expose")
 }
 
 case class HInterface(
     id: String,
     fields: List[HInterfaceField]
 ) extends HType
-    with Identifiable
-    with HShape[HInterfaceField]
+    with HShape
 
 trait HShapeField
 case class HModelField(

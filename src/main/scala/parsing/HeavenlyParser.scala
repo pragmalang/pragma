@@ -46,10 +46,10 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
 
   val arrayItem = () => rule { literal ~ optional(",") }
 
-  def arrayVal: Rule1[HArrayValue[HValue]] = rule {
+  def arrayVal: Rule1[HArrayValue] = rule {
     "[" ~ zeroOrMore(arrayItem()) ~ "]" ~>
       ((elements: Seq[HValue]) => {
-        HArrayValue[HValue](elements.toList, new HType {})
+        HArrayValue(elements.toList, new HType {})
       })
   }
 

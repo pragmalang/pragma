@@ -15,11 +15,11 @@ case object Add extends HOperation {
       HFloatValue(a.value + b.value)
     case List(a: HStringValue, b: HStringValue) =>
       HStringValue(a.value + b.value)
-    case List(a: HArrayValue[_], b: HArrayValue[_]) =>
+    case List(a: HArrayValue, b: HArrayValue) =>
       HArrayValue(a.values ++ b.values, a.elementType)
-    case List(a: HArrayValue[_], b: HValue) if b.htype == a.elementType =>
+    case List(a: HArrayValue, b: HValue) if b.htype == a.elementType =>
       HArrayValue(a.values :+ b, a.elementType)
-    case List(a: HValue, b: HArrayValue[_]) if b.elementType == a.htype =>
+    case List(a: HValue, b: HArrayValue) if b.elementType == a.htype =>
       HArrayValue(a :: b.values, b.elementType)
     case List(a: HStringValue, b: HIntegerValue) =>
       HStringValue(a.value + b.value)

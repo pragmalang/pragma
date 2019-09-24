@@ -35,7 +35,7 @@ class LiteralParsing extends FlatSpec {
       )
     assert(
       result.get
-        .asInstanceOf[HArrayValue[HIntegerValue]]
+        .asInstanceOf[HArrayValue]
         .values == expected.values
     )
   }

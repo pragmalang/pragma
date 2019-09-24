@@ -42,7 +42,7 @@ package object primitives {
   case class HDateValue(value: Date) extends HValue {
     final val htype = HDate
   }
-  case class HArrayValue[T <: HValue](values: List[T], elementType: HType)
+  case class HArrayValue(values: List[HValue], elementType: HType)
       extends HValue {
     final val htype = HArray(elementType)
   }
@@ -99,6 +99,10 @@ package object primitives {
       predicate: HFunctionValue
   ) extends AccessRule
 
-  case class Resource(field: HShapeField, shape: HShape[HShapeField])
+  trait Resource {
+    val shape: HShape
+  }
 
+  case class ShapeResource(shape: HShape) extends Resource
+  case class FieldResource(field: HShapeField, shape: HShape)
 }
