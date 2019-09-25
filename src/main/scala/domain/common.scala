@@ -86,7 +86,9 @@ case class FieldDirective(id: String, args: HInterfaceValue) extends Directive
 
 case class ServiceDirective(id: String, args: HInterfaceValue) extends Directive
 
-case class HEnum(id: String, values: List[String]) extends Identifiable
+case class HEnum(id: String, values: List[String])
+    extends Identifiable
+    with HConstruct
 
 sealed trait HEvent
 case object Read extends HEvent

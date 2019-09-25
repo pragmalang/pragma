@@ -6,6 +6,12 @@ import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
 
 class HeavenlyParser(val input: ParserInput) extends Parser {
+
+  def syntaxTree: Rule1[SyntaxTree] = rule {
+    whitespace() ~ zeroOrMore(modelDef | enumDef) ~ whitespace() ~>
+      ((cs: Seq[HConstruct]) => SyntaxTree(cs.toList)) ~ EOI
+  }
+
   implicit def whitespace(terminal: String = ""): Rule0 = rule {
     zeroOrMore(anyOf(" \n\r\t")) ~
       str(terminal) ~
@@ -143,6 +149,21 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
           case HOption(_) => true
           case _          => false
         })
+      })
+  }
+
+  def enumDef: Rule1[HEnum] = rule {
+    "enum" ~ identifier ~ "{" ~
+      zeroOrMore(whitespace() ~ (identifier | stringVal) ~ whitespace())
+        .separatedBy(optional(",")) ~ "}" ~>
+      ((id: String, values: Seq[Serializable]) => {
+        val variants = values
+          .map(_ match {
+            case HStringValue(s) => s
+            case s: String       => s
+          })
+          .toList
+        HEnum(id, variants)
       })
   }
 
