@@ -83,7 +83,10 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   def namedArgs: Rule1[HInterfaceValue] = rule {
     zeroOrMore(namedArg).separatedBy(",") ~>
       ((pairs: Seq[(String, HValue)]) => {
-        HInterfaceValue(ListMap.from(pairs), HInterface("", Nil, None))
+        HInterfaceValue(
+          pairs.foldLeft(ListMap.empty[String, HValue])(_ + _),
+          HInterface("", Nil, None)
+        )
       })
   }
 
@@ -91,9 +94,9 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     zeroOrMore(literal).separatedBy(",") ~>
       ((args: Seq[HValue]) => {
         HInterfaceValue(
-          ListMap.from(
-            args.zipWithIndex.map(pair => pair._2.toString -> pair._1)
-          ),
+          args.zipWithIndex
+            .map(pair => pair._2.toString -> pair._1)
+            .foldLeft(ListMap.empty[String, HValue])(_ + _),
           HInterface("", Nil, None)
         )
       })

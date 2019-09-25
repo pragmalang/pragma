@@ -1,6 +1,6 @@
 import Dependencies._
 
-ThisBuild / scalaVersion := "2.13.0"
+ThisBuild / scalaVersion := "2.12.10"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "com.heavenlyx"
 ThisBuild / organizationName := "heavenlyx"
@@ -11,7 +11,10 @@ lazy val root = (project in file("."))
     libraryDependencies += scalaTest % Test
   )
 
-libraryDependencies += "org.parboiled" %% "parboiled" % "2.1.8"
+libraryDependencies ++= Seq(
+  "org.parboiled" %% "parboiled" % "2.1.8",
+  "org.sangria-graphql" %% "sangria" % "1.4.2"
+)
 
 scalacOptions ++= Seq("-feature", "-deprecation")
 
