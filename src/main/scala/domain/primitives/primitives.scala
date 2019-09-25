@@ -6,7 +6,6 @@ import scala.util._
 import scala.collection.immutable.ListMap
 
 package object primitives {
-
   sealed trait PrimitiveType extends HType
   case object HString extends PrimitiveType
   case object HInteger extends PrimitiveType
@@ -58,7 +57,7 @@ package object primitives {
     final val htype = HOption(valueType)
   }
 
-  trait HExpression {
+  trait HExpression extends Positioned {
     protected var cache: Option[(HObject, HValue)] = None
     def eval(context: HObject): HValue
     def checkCache(context: HObject)(cb: () => HValue): HValue = cache match {
@@ -70,39 +69,9 @@ package object primitives {
 
   type HObject = ListMap[String, HValue]
 
-  case class LiteralExpression(value: HValue) extends HExpression {
+  case class LiteralExpression(value: HValue, position: Option[PositionRange]) extends HExpression {
     override def eval(context: HObject = ListMap()): HValue = value
   }
 
-  case class RegexLiteral(payload: Regex)
-
-  case class Permissions(tenents: List[Tenant])
-
-  case class Tenant(id: String, rules: List[AccessRule]) extends Identifiable
-
-  sealed trait AccessRule {
-    val resource: Resource
-    val actions: List[HEvent]
-    val predicate: HFunctionValue
-  }
-
-  case class RoleBasedRule(
-      user: HModel,
-      resource: Resource,
-      actions: List[HEvent],
-      predicate: HFunctionValue
-  ) extends AccessRule
-
-  case class GlobalRule(
-      resource: Resource,
-      actions: List[HEvent],
-      predicate: HFunctionValue
-  ) extends AccessRule
-
-  trait Resource {
-    val shape: HShape
-  }
-
-  case class ShapeResource(shape: HShape) extends Resource
-  case class FieldResource(field: HShapeField, shape: HShape)
+  case class RegexLiteral(payload: Regex, position: Option[PositionRange]) extends Positioned
 }

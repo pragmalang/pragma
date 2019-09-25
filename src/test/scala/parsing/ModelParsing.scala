@@ -19,17 +19,19 @@ class ModelParsing extends FlatSpec {
       HModel(
         id = "User",
         fields = List(
-          HModelField("username", HString, None, Nil, false),
-          HModelField("age", HOption(HInteger), None, Nil, true),
+          HModelField("username", HString, None, Nil, false, None),
+          HModelField("age", HOption(HInteger), None, Nil, true, None),
           HModelField(
             "todos",
-            HArray(HModel("Todo", Nil, Nil)),
+            HArray(HModel("Todo", Nil, Nil, None)),
             None,
             Nil,
-            false
+            false,
+            None
           )
         ),
-        directives = Nil
+        directives = Nil,
+        position = None
       )
     )
     assert(parsedModel == exprected)
@@ -58,26 +60,38 @@ class ModelParsing extends FlatSpec {
             List(
               FieldDirective(
                 "secretCredential",
-                HInterfaceValue(ListMap(), HInterface("", Nil))
+                HInterfaceValue(ListMap(), HInterface("", Nil, None)),
+                None
               )
             ),
-            false
+            false,
+            None
           ),
-          HModelField("age", HInteger, Some(HIntegerValue(20)), Nil, false)
+          HModelField(
+            "age",
+            HInteger,
+            Some(HIntegerValue(20)),
+            Nil,
+            false,
+            None
+          )
         ),
         List(
           ModelDirective(
             "user",
-            HInterfaceValue(ListMap(), HInterface("", Nil))
+            HInterfaceValue(ListMap(), HInterface("", Nil, None)),
+            None
           ),
           ModelDirective(
             "validate",
             HInterfaceValue(
               ListMap("validator" -> HStringValue("Some Function")),
-              HInterface("", Nil)
-            )
+              HInterface("", Nil, None)
+            ),
+            None
           )
-        )
+        ),
+        None
       )
     )
     assert(parsedModel == expected)
