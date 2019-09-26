@@ -1,6 +1,7 @@
 package domain.primitives
 import domain.utils._
 import domain.ops.arithmetics
+import domain.PositionRange
 
 object ArithmeticOperator extends Enumeration {
   val Add, Sub, Mul, Div, Mod = Value
@@ -47,7 +48,8 @@ case class ArithmeticTerm(
 
 case class ArithmeticExpression(
     left: ArithmeticTerm,
-    right: Option[(ArithmeticOperator.Value, ArithmeticTerm)]
+    right: Option[(ArithmeticOperator.Value, ArithmeticTerm)],
+    position: Option[PositionRange]
 ) extends HExpression {
   import ArithmeticOperator._
   override def eval(context: HObject): HValue =

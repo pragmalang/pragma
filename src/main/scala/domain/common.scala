@@ -1,17 +1,22 @@
 package domain
-import utils._
-import domain.primitives._
+import utils._, primitives._
+import org.parboiled2.Position
 
 /**
   * An HType is a data representation (models, enums, and primitive types)
   */
 trait HType
 
-sealed trait HConstruct
+sealed trait HConstruct extends Positioned
 
 case class SyntaxTree(constructs: List[HConstruct])
+case class PositionRange(start: Position, end: Position)
 
-case class HConst(id: String, value: HValue)
+trait Positioned {
+  val position: Option[PositionRange]
+}
+
+case class HConst(id: String, value: HValue, position: Option[PositionRange])
     extends Identifiable
     with HConstruct
 
@@ -23,7 +28,8 @@ trait HShape extends Identifiable with HConstruct {
 case class HModel(
     id: String,
     fields: List[HModelField],
-    directives: List[ModelDirective]
+    directives: List[ModelDirective],
+    position: Option[PositionRange]
 ) extends HType
     with HShape {
   lazy val isUser = directives.exists(d => d.id == "user")
@@ -31,24 +37,27 @@ case class HModel(
 
 case class HInterface(
     id: String,
-    fields: List[HInterfaceField]
+    fields: List[HInterfaceField],
+    position: Option[PositionRange]
 ) extends HType
     with HShape
 
-trait HShapeField
+trait HShapeField extends Positioned
 case class HModelField(
     id: String,
     htype: HType,
     defaultValue: Option[HValue],
     directives: List[FieldDirective],
-    isOptional: Boolean
+    isOptional: Boolean,
+    position: Option[PositionRange]
 ) extends Identifiable
     with HShapeField
 
 case class HInterfaceField(
     id: String,
     htype: HType,
-    isOptional: Boolean
+    isOptional: Boolean,
+    position: Option[PositionRange]
 ) extends Identifiable
     with HShapeField
 
@@ -60,34 +69,52 @@ object Directive {
   def modelDirectives(self: HModel) = Map(
     "validate" -> HInterface(
       "validate",
-      List(HInterfaceField("validator", self, false))
+      List(HInterfaceField("validator", self, false, None)),
+      None
     ),
-    "user" -> HInterface("user", Nil)
+    "user" -> HInterface("user", Nil, None)
   )
 
   def fieldDirectives(model: HModel, field: HModelField) = Map(
     "set" -> HInterface(
       "set",
-      HInterfaceField("self", model, false) ::
-        HInterfaceField("new", field.htype, false) :: Nil
+      HInterfaceField("self", model, false, None) ::
+        HInterfaceField("new", field.htype, false, None) :: Nil,
+      None
     ),
     "get" -> HInterface(
       "get",
-      HInterfaceField("self", model, false) :: Nil
+      HInterfaceField("self", model, false, None) :: Nil,
+      None
     ),
-    "id" -> HInterface("id", Nil),
-    "unique" -> HInterface("unique", Nil)
+    "id" -> HInterface("id", Nil, None),
+    "unique" -> HInterface("unique", Nil, None)
   )
 }
 
-case class ModelDirective(id: String, args: HInterfaceValue) extends Directive
+case class ModelDirective(
+    id: String,
+    args: HInterfaceValue,
+    position: Option[PositionRange]
+) extends Directive
 
-case class FieldDirective(id: String, args: HInterfaceValue) extends Directive
+case class FieldDirective(
+    id: String,
+    args: HInterfaceValue,
+    position: Option[PositionRange]
+) extends Directive
 
-case class ServiceDirective(id: String, args: HInterfaceValue) extends Directive
+case class ServiceDirective(
+    id: String,
+    args: HInterfaceValue,
+    position: Option[PositionRange]
+) extends Directive
 
-case class HEnum(id: String, values: List[String])
-    extends Identifiable
+case class HEnum(
+    id: String,
+    values: List[String],
+    position: Option[PositionRange]
+) extends Identifiable
     with HConstruct
 
 sealed trait HEvent
@@ -96,3 +123,40 @@ case object Create extends HEvent
 case object Update extends HEvent
 case object Delete extends HEvent
 case object All extends HEvent
+
+case class Permissions(tenents: List[Tenant])
+
+case class Tenant(
+    id: String,
+    rules: List[AccessRule],
+    position: Option[PositionRange]
+) extends Identifiable
+
+sealed trait AccessRule {
+  val resource: Resource
+  val actions: List[HEvent]
+  val predicate: HFunctionValue
+  val position: Option[PositionRange]
+}
+
+case class RoleBasedRule(
+    user: HModel,
+    resource: Resource,
+    actions: List[HEvent],
+    predicate: HFunctionValue,
+    position: Option[PositionRange]
+) extends AccessRule
+
+case class GlobalRule(
+    resource: Resource,
+    actions: List[HEvent],
+    predicate: HFunctionValue,
+    position: Option[PositionRange]
+) extends AccessRule
+
+trait Resource {
+  val shape: HShape
+}
+
+case class ShapeResource(shape: HShape) extends Resource
+case class FieldResource(field: HShapeField, shape: HShape)

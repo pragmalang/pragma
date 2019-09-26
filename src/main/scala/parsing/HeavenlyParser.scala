@@ -73,7 +73,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     case "Boolean" => HBool
     case "Date"    => HDate
     case "File"    => HFile(0, Nil)
-    case id        => HModel(id, Nil, Nil)
+    case id        => HModel(id, Nil, Nil, None)
   }
 
   def htype: Rule1[HType] = rule {
@@ -89,7 +89,10 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   def namedArgs: Rule1[HInterfaceValue] = rule {
     zeroOrMore(namedArg).separatedBy(",") ~>
       ((pairs: Seq[(String, HValue)]) => {
-        HInterfaceValue(ListMap.from(pairs), HInterface("", Nil))
+        HInterfaceValue(
+          pairs.foldLeft(ListMap.empty[String, HValue])(_ + _),
+          HInterface("", Nil, None)
+        )
       })
   }
 
@@ -97,10 +100,10 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     zeroOrMore(literal).separatedBy(",") ~>
       ((args: Seq[HValue]) => {
         HInterfaceValue(
-          ListMap.from(
-            args.zipWithIndex.map(pair => pair._2.toString -> pair._1)
-          ),
-          HInterface("", Nil)
+          args.zipWithIndex
+            .map(pair => pair._2.toString -> pair._1)
+            .foldLeft(ListMap.empty[String, HValue])(_ + _),
+          HInterface("", Nil, None)
         )
       })
   }
@@ -116,8 +119,8 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
       ((did: String, args: Option[HInterfaceValue]) => {
         ModelDirective(did, args match {
           case Some(args) => args
-          case None       => HInterfaceValue(ListMap.empty, HInterface("", Nil))
-        })
+          case None       => HInterfaceValue(ListMap.empty, HInterface("", Nil, None))
+        }, None)
       })
   }
 
@@ -126,8 +129,8 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
       ((did: String, args: Option[HInterfaceValue]) => {
         FieldDirective(did, args match {
           case Some(args) => args
-          case None       => HInterfaceValue(ListMap.empty, HInterface("", Nil))
-        })
+          case None       => HInterfaceValue(ListMap.empty, HInterface("", Nil, None))
+        }, None)
       })
   }
 
@@ -135,7 +138,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     whitespace() ~ zeroOrMore(modelDirective) ~
       ("model" ~ identifier ~ "{" ~ zeroOrMore(fieldDef) ~ "}") ~>
       ((ds: Seq[ModelDirective], id: String, fields: Seq[HModelField]) => {
-        HModel(id, fields.toList, ds.toList)
+        HModel(id, fields.toList, ds.toList, None)
       })
   }
 
@@ -148,7 +151,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
         HModelField(id, ht, dv, ds.toList, ht match {
           case HOption(_) => true
           case _          => false
-        })
+        }, None)
       })
   }
 
@@ -156,14 +159,14 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     "enum" ~ identifier ~ "{" ~
       zeroOrMore(whitespace() ~ (identifier | stringVal) ~ whitespace())
         .separatedBy(optional(",")) ~ "}" ~>
-      ((id: String, values: Seq[Serializable]) => {
+      ((id: String, values: Seq[java.io.Serializable]) => {
         val variants = values
           .map(_ match {
             case HStringValue(s) => s
             case s: String       => s
           })
           .toList
-        HEnum(id, variants)
+        HEnum(id, variants, None)
       })
   }
 

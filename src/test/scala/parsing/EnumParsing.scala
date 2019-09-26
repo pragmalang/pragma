@@ -29,7 +29,8 @@ class EnumParsing extends FlatSpec {
               "Thursday",
               "Friday",
               "Saturday"
-            )
+            ),
+            None
           )
         )
       )

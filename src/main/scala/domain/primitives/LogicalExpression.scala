@@ -1,5 +1,6 @@
 package domain.primitives
 import domain.utils._
+import domain.PositionRange
 
 sealed trait LogicalFactor {
   def eval(context: HObject): Boolean
@@ -29,8 +30,11 @@ case class LogicalTerm(left: LogicalFactor, right: Option[LogicalFactor]) {
   }
 }
 
-case class LogicalExpression(left: LogicalTerm, right: Option[LogicalTerm])
-    extends HExpression {
+case class LogicalExpression(
+    left: LogicalTerm,
+    right: Option[LogicalTerm],
+    position: Option[PositionRange]
+) extends HExpression {
   override def eval(context: HObject): HValue =
     checkCache(context)(() => {
       val result = right match {
