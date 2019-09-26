@@ -18,6 +18,8 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
       zeroOrMore(anyOf(" \n\r\t"))
   }
 
+  implicit def intToPos(i: Int) = Position(i, input)
+
   def identifier: Rule1[String] = rule {
     capture(predicate(CharPredicate.Alpha)) ~
       capture(oneOrMore(CharPredicate.AlphaNum)) ~>
@@ -125,59 +127,88 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   }
 
   def modelDirective: Rule1[ModelDirective] = rule {
-    directive ~>
-      ((did: String, args: Option[HInterfaceValue]) => {
+    push(cursor) ~ directive ~ push(cursor) ~>
+      ((start: Int, did: String, args: Option[HInterfaceValue], end: Int) => {
         ModelDirective(did, args match {
           case Some(args) => args
           case None       => HInterfaceValue(ListMap.empty, HInterface("", Nil, None))
-        }, None)
+        }, Some(PositionRange(start, end)))
       })
   }
 
   def fieldDirective: Rule1[FieldDirective] = rule {
-    directive ~>
-      ((did: String, args: Option[HInterfaceValue]) => {
+    push(cursor) ~ directive ~ push(cursor) ~>
+      ((start: Int, did: String, args: Option[HInterfaceValue], end: Int) => {
         FieldDirective(did, args match {
           case Some(args) => args
           case None       => HInterfaceValue(ListMap.empty, HInterface("", Nil, None))
-        }, None)
+        }, Some(PositionRange(start, end)))
       })
   }
 
   def modelDef: Rule1[HModel] = rule {
     whitespace() ~ zeroOrMore(modelDirective) ~
-      ("model" ~ identifier ~ "{" ~ zeroOrMore(fieldDef) ~ "}") ~>
-      ((ds: Seq[ModelDirective], id: String, fields: Seq[HModelField]) => {
-        HModel(id, fields.toList, ds.toList, None)
-      })
+      ("model" ~ push(cursor) ~ identifier ~ push(cursor) ~
+        "{" ~ zeroOrMore(fieldDef) ~ "}") ~>
+      (
+          (
+              ds: Seq[ModelDirective],
+              start: Int,
+              id: String,
+              end: Int,
+              fields: Seq[HModelField]
+          ) =>
+            HModel(
+              id,
+              fields.toList,
+              ds.toList,
+              Some(PositionRange(start, end))
+            )
+        )
   }
 
   def defaultValue = rule { "=" ~ literal }
 
   def fieldDef: Rule1[HModelField] = rule {
-    whitespace() ~ zeroOrMore(fieldDirective) ~ identifier ~ ":" ~
+    whitespace() ~ zeroOrMore(fieldDirective) ~
+      push(cursor) ~ identifier ~ push(cursor) ~ ":" ~
       htype ~ optional(defaultValue) ~ optional(",") ~>
-      ((ds: Seq[FieldDirective], id: String, ht: HType, dv: Option[HValue]) => {
-        HModelField(id, ht, dv, ds.toList, ht match {
-          case HOption(_) => true
-          case _          => false
-        }, None)
-      })
+      (
+          (
+              ds: Seq[FieldDirective],
+              start: Int,
+              id: String,
+              end: Int,
+              ht: HType,
+              dv: Option[HValue]
+          ) =>
+            HModelField(id, ht, dv, ds.toList, ht match {
+              case HOption(_) => true
+              case _          => false
+            }, Some(PositionRange(start, end)))
+        )
   }
 
   def enumDef: Rule1[HEnum] = rule {
-    "enum" ~ identifier ~ "{" ~
+    "enum" ~ push(cursor) ~ identifier ~ push(cursor) ~ "{" ~
       zeroOrMore(whitespace() ~ (identifier | stringVal) ~ whitespace())
         .separatedBy(optional(",")) ~ "}" ~>
-      ((id: String, values: Seq[java.io.Serializable]) => {
-        val variants = values
-          .map(_ match {
-            case HStringValue(s) => s
-            case s: String       => s
-          })
-          .toList
-        HEnum(id, variants, None)
-      })
+      (
+          (
+              start: Int,
+              id: String,
+              end: Int,
+              values: Seq[java.io.Serializable]
+          ) => {
+            val variants = values
+              .map(_ match {
+                case HStringValue(s) => s
+                case s: String       => s
+              })
+              .toList
+            HEnum(id, variants, Some(PositionRange(start, end)))
+          }
+      )
   }
 
 }

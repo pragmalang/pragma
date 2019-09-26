@@ -2,6 +2,7 @@ import org.scalatest._
 import domain._, primitives._
 import parsing._
 import scala.util._
+import org.parboiled2.Position
 
 class EnumParsing extends FlatSpec {
   "An enum" should "be parsed correctly" in {
@@ -30,7 +31,7 @@ class EnumParsing extends FlatSpec {
               "Friday",
               "Saturday"
             ),
-            None
+            Some(PositionRange(Position(14, 2, 14), Position(21, 2, 21)))
           )
         )
       )
