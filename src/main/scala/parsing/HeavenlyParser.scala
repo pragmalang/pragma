@@ -38,11 +38,21 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   }
 
   def stringVal: Rule1[HStringValue] = {
-    val quote = "\""
-    val escapedQuote = "\\\""
+    def escapedChar: Rule1[String] = rule {
+      valueMap(
+        Map(
+          "\\t" -> "\t",
+          "\\b" -> "\b",
+          "\\r" -> "\r",
+          "\\n" -> "\n",
+          "\\\"" -> "\"",
+          "\\\\" -> "\\"
+        )
+      ) | capture(noneOf("\"\\"))
+    }
     rule {
-      '"' ~ capture(zeroOrMore(escapedQuote | noneOf(quote))) ~ '"' ~>
-        ((s: String) => HStringValue(s.replace(escapedQuote, quote)))
+      '"' ~ zeroOrMore(escapedChar) ~ '"' ~>
+        ((s: Seq[String]) => HStringValue(s.mkString))
     }
   }
 
