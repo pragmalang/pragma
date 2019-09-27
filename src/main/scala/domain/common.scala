@@ -9,7 +9,14 @@ trait HType
 
 sealed trait HConstruct extends Positioned
 
-case class SyntaxTree(constructs: List[HConstruct])
+case class SyntaxTree(
+    constants: List[HConst],
+    imports: List[HImport],
+    models: List[HModel],
+    enums: List[HEnum],
+    permissions: Permissions
+)
+
 case class PositionRange(start: Position, end: Position)
 
 trait Positioned {
@@ -19,6 +26,14 @@ trait Positioned {
 case class HConst(id: String, value: HValue, position: Option[PositionRange])
     extends Identifiable
     with HConstruct
+
+case class HImport(
+    id: String,
+    filePath: String,
+    as: Option[String],
+    position: Option[PositionRange]
+) extends HConstruct
+    with Identifiable
 
 trait HShape extends Identifiable with HConstruct {
   override val id: String
@@ -124,7 +139,8 @@ case object Update extends HEvent
 case object Delete extends HEvent
 case object All extends HEvent
 
-case class Permissions(tenents: List[Tenant])
+case class Permissions(tenents: List[Tenant], position: Option[PositionRange])
+    extends HConstruct
 
 case class Tenant(
     id: String,
