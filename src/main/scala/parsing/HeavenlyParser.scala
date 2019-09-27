@@ -7,9 +7,9 @@ import scala.language.implicitConversions
 
 class HeavenlyParser(val input: ParserInput) extends Parser {
 
-  def syntaxTree: Rule1[SyntaxTree] = rule {
+  def syntaxTree: Rule1[List[HConstruct]] = rule {
     whitespace() ~ zeroOrMore(modelDef | enumDef) ~ whitespace() ~>
-      ((cs: Seq[HConstruct]) => SyntaxTree(cs.toList)) ~ EOI
+      ((cs: Seq[HConstruct]) => cs.toList) ~ EOI
   }
 
   implicit def whitespace(terminal: String = ""): Rule0 = rule {

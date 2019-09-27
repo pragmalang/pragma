@@ -4,7 +4,7 @@ import domain._
 import primitives._
 
 object Substitutor {
-  def apply(st: SyntaxTree): Try[SyntaxTree] = {
-    Success(SyntaxTree(Nil))
+  def apply(st: SyntaxTree): Try[List[HConstruct]] = {
+    Success(Nil)
   }
 }

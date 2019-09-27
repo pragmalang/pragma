@@ -18,21 +18,19 @@ class EnumParsing extends FlatSpec {
         """
     val parsedEnum = new HeavenlyParser(code).syntaxTree.run()
     val expected = Success(
-      SyntaxTree(
-        List(
-          HEnum(
-            "WeekDay",
-            List(
-              "Sunday",
-              "Monday",
-              "Tuesday",
-              "Wednesday",
-              "Thursday",
-              "Friday",
-              "Saturday"
-            ),
-            Some(PositionRange(Position(14, 2, 14), Position(21, 2, 21)))
-          )
+      List(
+        HEnum(
+          "WeekDay",
+          List(
+            "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday"
+          ),
+          Some(PositionRange(Position(14, 2, 14), Position(21, 2, 21)))
         )
       )
     )
