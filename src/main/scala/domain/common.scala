@@ -130,6 +130,7 @@ case class HEnum(
     values: List[String],
     position: Option[PositionRange]
 ) extends Identifiable
+    with HType
     with HConstruct
 
 sealed trait HEvent
