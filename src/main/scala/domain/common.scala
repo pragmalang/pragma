@@ -34,6 +34,7 @@ case class HImport(
     position: Option[PositionRange]
 ) extends HConstruct
     with Identifiable
+    with Positioned
 
 trait HShape extends Identifiable with HConstruct {
   override val id: String
