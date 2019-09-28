@@ -8,7 +8,7 @@ import scala.language.implicitConversions
 class HeavenlyParser(val input: ParserInput) extends Parser {
 
   def syntaxTree: Rule1[List[HConstruct]] = rule {
-    whitespace() ~ zeroOrMore(modelDef | enumDef) ~ whitespace() ~>
+    whitespace() ~ zeroOrMore(importDef | modelDef | enumDef) ~ whitespace() ~>
       ((cs: Seq[HConstruct]) => cs.toList) ~ EOI
   }
 
@@ -22,8 +22,8 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
 
   def identifier: Rule1[String] = rule {
     capture(predicate(CharPredicate.Alpha)) ~
-      capture(oneOrMore(CharPredicate.AlphaNum)) ~>
-      ((init: String, rest: String) => init + rest)
+      optional(capture(oneOrMore(CharPredicate.AlphaNum))) ~>
+      ((init: String, rest: Option[String]) => init + rest.getOrElse(""))
   }
 
   def integerVal: Rule1[HIntegerValue] = rule {
@@ -207,6 +207,22 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
               })
               .toList
             HEnum(id, variants, Some(PositionRange(start, end)))
+          }
+      )
+  }
+
+  def importDef = rule {
+    "import" ~ push(cursor) ~ identifier ~ push(cursor) ~
+      "from" ~ stringVal ~ optional("as" ~ identifier) ~>
+      (
+          (
+              start: Int,
+              id: String,
+              end: Int,
+              file: HStringValue,
+              as: Option[String]
+          ) => {
+            HImport(id, file.value, as, Some(PositionRange(start, end)))
           }
       )
   }
