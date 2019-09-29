@@ -7,6 +7,9 @@ import org.parboiled2.Position
   */
 trait HType
 
+// Base case for recursive types
+case object HSelf extends HType
+
 sealed trait HConstruct extends Positioned
 
 case class SyntaxTree(
