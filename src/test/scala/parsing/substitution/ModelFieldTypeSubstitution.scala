@@ -140,4 +140,100 @@ class ModelFieldTypeSubstitution extends FlatSpec {
 
     assert(substited == expected)
   }
+
+  "Substitutor" should "substitute Array and Option types" in {
+    val code = """
+      model Book {
+        tags: [String]
+        authors: [Author]
+      }
+
+      model Author {
+        name: String?
+      }
+    """
+    val parser = new HeavenlyParser(code)
+    val parsedTree = parser.syntaxTree.run()
+    val substitutor = new Substitutor(parsedTree.get)
+    val substituted = substitutor.substituteTypes
+    val expected = Success(
+      List(
+        HModel(
+          "Book",
+          List(
+            HModelField(
+              "tags",
+              HArray(HString),
+              None,
+              List(),
+              false,
+              Some(PositionRange(Position(28, 3, 9), Position(32, 3, 13)))
+            ),
+            HModelField(
+              "authors",
+              HArray(
+                HModel(
+                  "Author",
+                  List(
+                    HModelField(
+                      "name",
+                      HOption(HString),
+                      None,
+                      List(),
+                      true,
+                      Some(
+                        PositionRange(Position(107, 8, 9), Position(111, 8, 13))
+                      )
+                    )
+                  ),
+                  List(),
+                  Some(PositionRange(Position(90, 7, 13), Position(96, 7, 19)))
+                )
+              ),
+              None,
+              List(),
+              false,
+              Some(PositionRange(Position(51, 4, 9), Position(58, 4, 16)))
+            )
+          ),
+          List(),
+          Some(PositionRange(Position(13, 2, 13), Position(17, 2, 17)))
+        ),
+        HModel(
+          "Author",
+          List(
+            HModelField(
+              "name",
+              HOption(HString),
+              None,
+              List(),
+              true,
+              Some(PositionRange(Position(107, 8, 9), Position(111, 8, 13)))
+            )
+          ),
+          List(),
+          Some(PositionRange(Position(90, 7, 13), Position(96, 7, 19)))
+        )
+      )
+    )
+
+    assert(substituted == expected)
+  }
+
+  // "Circular dependency" should "be resolved correctly" in {
+  //   val code = """
+  //     model A {
+  //       b: B
+  //       a: A
+  //     }
+
+  //     model B {
+  //       a: A
+  //     }
+  //   """
+
+  //   val syntaxTree = new HeavenlyParser(code).syntaxTree.run().get
+  //   val substituted = new Substitutor(syntaxTree).substituteTypes
+  //   println(s"Typed: $substituted")
+  // }
 }
