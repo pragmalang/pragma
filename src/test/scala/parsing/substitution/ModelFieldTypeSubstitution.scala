@@ -220,20 +220,51 @@ class ModelFieldTypeSubstitution extends FlatSpec {
     assert(substituted == expected)
   }
 
-  // "Circular dependency" should "be resolved correctly" in {
-  //   val code = """
-  //     model A {
-  //       b: B
-  //       a: A
-  //     }
-
-  //     model B {
-  //       a: A
-  //     }
-  //   """
-
-  //   val syntaxTree = new HeavenlyParser(code).syntaxTree.run().get
-  //   val substituted = new Substitutor(syntaxTree).substituteTypes
-  //   println(s"Typed: $substituted")
-  // }
+  "Recursive types" should "be resolved correctly" in {
+    val code = """
+      model A {
+        a: A
+        as: [A]
+        aOption: A?
+      }
+    """
+    val syntaxTree = new HeavenlyParser(code).syntaxTree.run().get
+    val substituted = new Substitutor(syntaxTree).substituteTypes
+    val expected = Success(
+      List(
+        HModel(
+          "A",
+          List(
+            HModelField(
+              "a",
+              HSelf,
+              None,
+              List(),
+              false,
+              Some(PositionRange(Position(25, 3, 9), Position(26, 3, 10)))
+            ),
+            HModelField(
+              "as",
+              HArray(HSelf),
+              None,
+              List(),
+              false,
+              Some(PositionRange(Position(38, 4, 9), Position(40, 4, 11)))
+            ),
+            HModelField(
+              "aOption",
+              HOption(HSelf),
+              None,
+              List(),
+              true,
+              Some(PositionRange(Position(54, 5, 9), Position(61, 5, 16)))
+            )
+          ),
+          List(),
+          Some(PositionRange(Position(13, 2, 13), Position(14, 2, 14)))
+        )
+      )
+    )
+    assert(substituted == expected)
+  }
 }

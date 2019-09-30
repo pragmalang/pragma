@@ -23,18 +23,22 @@ class Substitutor(st: List[HConstruct]) {
     }
   }
 
-  def substituteFieldType(field: HModelField): HModelField = {
+  def substituteFieldType(modelId: String, field: HModelField): HModelField = {
     val newType = field.htype match {
-      case m: HModel => substitutePlaceholderModel(m)
+      case m: HModel =>
+        if (modelId == m.id) HSelf
+        else substitutePlaceholderModel(m)
       case arrayType: HArray =>
         arrayType.htype match {
-          case p: PrimitiveType => arrayType
-          case m: HModel        => HArray(substitutePlaceholderModel(m))
+          case m: HModel if m.id == modelId => HArray(HSelf)
+          case p: PrimitiveType             => arrayType
+          case m: HModel                    => HArray(substitutePlaceholderModel(m))
         }
       case optionalType: HOption =>
         optionalType.htype match {
-          case p: PrimitiveType => optionalType
-          case m: HModel        => HOption(substitutePlaceholderModel(m))
+          case m: HModel if m.id == modelId => HOption(HSelf)
+          case p: PrimitiveType             => optionalType
+          case m: HModel                    => HOption(substitutePlaceholderModel(m))
         }
       case p: PrimitiveType => p
     }
@@ -50,7 +54,7 @@ class Substitutor(st: List[HConstruct]) {
 
   def substituteActualModel(model: HModel): HModel = {
     val HModel(id, fields, directives, position) = model
-    val newFields = fields.map(substituteFieldType)
+    val newFields = fields.map(substituteFieldType(model.id, _))
     HModel(id, newFields, directives, position)
   }
 
