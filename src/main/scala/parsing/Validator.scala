@@ -12,9 +12,9 @@ class Validator(val st: List[HConstruct]) {
       field <- construct.asInstanceOf[HModel].fields
       default <- field.defaultValue
     } if (field.htype != default.htype)
-      throw new PositionedUserError(
+      throw new UserError(
         s"Invalid default value of type ${default.htype} for field of type ${field.htype}",
-        field.position.get
+        field.position
       )
   }
 
@@ -24,9 +24,9 @@ class Validator(val st: List[HConstruct]) {
         construct match {
           case i: Identifiable with Positioned =>
             if (ids(i.id))
-              throw new PositionedUserError(
+              throw new UserError(
                 s"`${i.id}` is defined twice",
-                i.position.get
+                i.position
               )
             else ids + i.id
           case _ => ids
