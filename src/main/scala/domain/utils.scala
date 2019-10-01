@@ -17,6 +17,6 @@ package object utils {
         s"Type Mismatch. Expected ${if (expected.length == 1) expected.head
         else s"one of [${expected.mkString(", ")}]"}, but found $found"
       )
-  class UserError(message: String, position: Option[PositionRange])
+  class UserError(val message: String, val position: Option[PositionRange])
       extends Exception(message)
 }
