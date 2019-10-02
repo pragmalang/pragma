@@ -9,6 +9,7 @@ trait HType
 
 // Base case for recursive types
 case object HSelf extends HType
+case class HReference(id: String) extends HType with Identifiable
 
 sealed trait HConstruct extends Positioned
 
