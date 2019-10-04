@@ -222,7 +222,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
               file: HStringValue,
               as: Option[String]
           ) => {
-            HImport(id, file.value, as, Some(PositionRange(start, end)))
+            HImport(id, file.value, Some(PositionRange(start, end)))
           }
       )
   }

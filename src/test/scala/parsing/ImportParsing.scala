@@ -18,13 +18,11 @@ class ImportParsing extends FlatSpec {
         HImport(
           "f",
           "./somefile.js",
-          None,
           Some(PositionRange(Position(16, 2, 16), Position(17, 2, 17)))
         ),
         HImport(
           "g",
           "./someotherfile.js",
-          Some("G"),
           Some(PositionRange(Position(54, 3, 16), Position(55, 3, 17)))
         )
       )
