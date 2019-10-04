@@ -38,7 +38,7 @@ class ModelParsing extends FlatSpec {
           ),
           HModelField(
             "todos",
-            HArray(HModel("Todo", List(), List(), None)),
+            HArray(HReference("Todo")),
             None,
             List(),
             false,
@@ -49,6 +49,7 @@ class ModelParsing extends FlatSpec {
         Some(PositionRange(Position(13, 2, 13), Position(17, 2, 17)))
       )
     )
+    println(parsedModel)
     assert(parsedModel == exprected)
   }
 

@@ -75,9 +75,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     floatVal | integerVal | stringVal | booleanVal | arrayVal
   }
 
-  /** Returns a PrimitiveType or an HModel with no fields or directives.
-    * NOTE: File type is given size 0 and aRule1[HValuen empty list of extensions.
-    */
+  // Returns a PrimitiveType or an HModel with no fields or directives.
   def htypeFrom(typeId: String): HType = typeId match {
     case "String"  => HString
     case "Integer" => HInteger
@@ -85,7 +83,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     case "Boolean" => HBool
     case "Date"    => HDate
     case "File"    => HFile(0, Nil)
-    case id        => HModel(id, Nil, Nil, None)
+    case id        => HReference(id)
   }
 
   def htype: Rule1[HType] = rule {
