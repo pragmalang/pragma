@@ -7,6 +7,7 @@ import scala.language.implicitConversions
 import sangria.execution.Executor
 import sangria.schema.Schema
 import sangria.renderer.{SchemaRenderer, SchemaFilter}
+import sangria.schema.StringType
 import scala.util.{Success, Failure}
 
 trait Migrator {
@@ -14,20 +15,36 @@ trait Migrator {
 }
 
 object Setup {
-
+  case class GraphQlDefinitionsIR(
+      query: ObjectType[Any, Any],
+      mutation: Option[ObjectType[Any, Any]] = None,
+      subscription: Option[ObjectType[Any, Any]] = None,
+      additionalTypes: List[Type with Named] = Nil,
+      directives: List[Directive] = BuiltinDirectives
+  )
   implicit def parseQuery(query: String) = QueryParser.parse(query)
 
   def syntaxTreeToGraphQlSchema(
       syntaxTree: SyntaxTree,
-      queryType: ObjectType[Any, Any] = ObjectType[Any, Any]("Query", Nil),
-      mutationType: ObjectType[Any, Any] = ObjectType[Any, Any]("Mutation", Nil),
-      subscriptionType: ObjectType[Any, Any] = ObjectType[Any, Any]("Subscription", Nil)
+      queryType: ObjectType[Any, Any] = ObjectType(
+        "Query",
+        fields[Any, Any](
+          Field("query", StringType, resolve = _ => "")
+        )
+      ),
+      mutationType: Option[ObjectType[Any, Any]] = None,
+      subscriptionType: Option[ObjectType[Any, Any]] = None
   ) = {
+    val definitions = GraphQlDefinitionsIR(
+      query = queryType,
+      mutation = mutationType,
+      subscription = subscriptionType
+    )
     // Mock schema AST
     val schemaAst = Schema(
-      query = queryType,
-      mutation = Some(mutationType),
-      subscription = Some(subscriptionType)
+      query = definitions.query,
+      mutation = definitions.mutation,
+      subscription = definitions.subscription
     ).toAst
     Schema.buildFromAst(schemaAst)
   }
@@ -46,41 +63,17 @@ object Setup {
 
   def dummyDemo = {
     val schemaAst = QueryParser.parse(
-      "type Query { id: String } type User { name: String!, age: Int! }"
+      "type User { name: String!, age: Int! }"
     )
     schemaAst match {
       case Success(value) =>
-        println(
-          SchemaRenderer.renderSchema(
-            Schema.buildFromAst(value),
-            SchemaFilter(
-              typeName =>
-                !Schema.isBuiltInType(typeName) && typeName != "Query",
-              dirName => !Schema.isBuiltInDirective(dirName)
-            )
-          )
-        )
-      case Failure(_) => println("Error")
+        Schema
+          .buildDefinitions(value)
+          .map(_ match {
+            case ot: ObjectType[_, _] => ot.fieldsFn().map(_.name).toString
+            case t => t.toString
+          })
+      case Failure(e) => s"Error: ${e.getMessage()}"
     }
   }
 }
-
-/*
-val st = ???
-val fakeSchema = toGraphQLSchema(st)
-val stringSchema = SchemaRenderer.renderSchema(fakeSchema)
-val realSchema = parseSchema(stringSchema)
-
-schema {
-  query: Hello
-}
-
-type Hello {
-  bar: Bar
-}
-
-type Bar {
-  isColor: Boolean
-}
-
- */
