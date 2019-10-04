@@ -8,8 +8,8 @@ import org.parboiled2.ParseError
 class ImportParsing extends FlatSpec {
   "An import statement" should "be parsed correctly" in {
     val code = """
-        import f from "./somefile.js"
-        import g from "./someotherfile.js" as G
+        import "./somefile.js" as f
+        import "./someotherfile.js" as g
         """
     val parser = new HeavenlyParser(code)
     val syntaxTree = parser.syntaxTree.run()
@@ -18,12 +18,12 @@ class ImportParsing extends FlatSpec {
         HImport(
           "f",
           "./somefile.js",
-          Some(PositionRange(Position(16, 2, 16), Position(17, 2, 17)))
+          Some(PositionRange(Position(35, 2, 35), Position(36, 2, 36)))
         ),
         HImport(
           "g",
           "./someotherfile.js",
-          Some(PositionRange(Position(54, 3, 16), Position(55, 3, 17)))
+          Some(PositionRange(Position(76, 3, 40), Position(77, 3, 41)))
         )
       )
     )

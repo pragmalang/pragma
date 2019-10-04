@@ -212,15 +212,13 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   }
 
   def importDef = rule {
-    "import" ~ push(cursor) ~ identifier ~ push(cursor) ~
-      "from" ~ stringVal ~ optional("as" ~ identifier) ~>
+    "import" ~ stringVal ~ "as" ~ push(cursor) ~ identifier ~ push(cursor) ~>
       (
           (
+              file: HStringValue,
               start: Int,
               id: String,
-              end: Int,
-              file: HStringValue,
-              as: Option[String]
+              end: Int
           ) => {
             HImport(id, file.value, Some(PositionRange(start, end)))
           }
