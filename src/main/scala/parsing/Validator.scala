@@ -29,30 +29,31 @@ class Validator(val st: List[HConstruct]) {
         m.fields.foldLeft(List.empty[ErrorMessage])(
           (errors, field) =>
             field.defaultValue match {
-              case Some(HOptionValue(_, valueType))
-                  if valueType != field.htype =>
-                errors :+ (
-                  s"Invalid default value of type `${displayHType(valueType)}` for optional field `${field.id}` of type `${displayHType(field.htype)}`",
-                  field.position
-                )
+              case Some(v: HValue) if field.isOptional => {
+                val typesMatch = field.htype match {
+                  case HOption(t) => t == v.htype
+                  case _          => false
+                }
+                if (typesMatch) errors
+                else
+                  errors :+ (
+                    s"Invalid default value of type `${displayHType(v.htype)}` for optional field `${field.id}` of type `${displayHType(field.htype)}`",
+                    field.position
+                  )
+              }
               case Some(arr: HArrayValue)
-                  if !Validator.arrayIsHomogeneous(arr) =>
+                  if !Validator.arrayIsHomogeneous(arr) ||
+                    arr.htype != field.htype =>
                 errors :+ (
-                  s"Invalid values for array field `${field.id}` of type `${displayHType(field.htype)}` (array elements must have the same type)",
-                  field.position
-                )
-              case Some(HArrayValue(values, elementType))
-                  if elementType != field.htype =>
-                errors :+ (
-                  s"Invalid default values of type `${displayHType(elementType)}` for array field `${field.id}` of type `${displayHType(field.htype)}`",
+                  s"Invalid values for array field `${field.id}` (all array elements must have the same type)",
                   field.position
                 )
               case Some(v: HValue) if v.htype != field.htype =>
                 errors :+ (
-                  s"Invalid default values of type `${displayHType(v.htype)}` for field `${field.id}` of type `${displayHType(field.htype)}`",
+                  s"Invalid default value of type `${displayHType(v.htype)}` for field `${field.id}` of type `${displayHType(field.htype)}`",
                   field.position
                 )
-              case _ => Nil
+              case _ => errors
             }
         )
       case _ => Nil

@@ -49,7 +49,6 @@ class ModelParsing extends FlatSpec {
         Some(PositionRange(Position(13, 2, 13), Position(17, 2, 17)))
       )
     )
-    println(parsedModel)
     assert(parsedModel == exprected)
   }
 

@@ -64,10 +64,14 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
 
   val arrayItem = () => rule { literal ~ optional(",") }
 
+  // Note: returns an array with unknown element type if the array is empty.
   def arrayVal: Rule1[HArrayValue] = rule {
     "[" ~ zeroOrMore(arrayItem()) ~ "]" ~>
       ((elements: Seq[HValue]) => {
-        HArrayValue(elements.toList, new HType {})
+        HArrayValue(elements.toList, elements.headOption match {
+          case Some(v) => v.htype
+          case _       => new HType {}
+        })
       })
   }
 
@@ -179,12 +183,29 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
               end: Int,
               ht: HType,
               dv: Option[HValue]
-          ) =>
-            HModelField(id, ht, dv, ds.toList, ht match {
+          ) => {
+            val fieldIsOptional = ht match {
               case HOption(_) => true
               case _          => false
-            }, Some(PositionRange(start, end)))
-        )
+            }
+            val defaultValue = dv.collect {
+              case HArrayValue(Nil, _) =>
+                HArrayValue(Nil, ht match {
+                  case HArray(htype) => htype
+                  case _             => new HType {}
+                })
+              case nonArray => nonArray
+            }
+            HModelField(
+              id,
+              ht,
+              defaultValue,
+              ds.toList,
+              fieldIsOptional,
+              Some(PositionRange(start, end))
+            )
+          }
+      )
   }
 
   def enumDef: Rule1[HEnum] = rule {
