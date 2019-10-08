@@ -164,3 +164,7 @@ case class SyntaxTreeGraphQlConverter(
   case object FileCoercionViolation
       extends ValueCoercionViolation("File value expected")
 }
+
+case object PrismaMigrator extends Migrator {
+  def apply(schema: Schema[Any, Any]) = ???
+}
