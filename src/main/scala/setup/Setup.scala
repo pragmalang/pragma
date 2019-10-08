@@ -33,6 +33,7 @@ import sangria.schema.{ListType, OptionType}
 import domain.primitives.`package`.HFile
 import domain.primitives.`package`.HFileValue
 import domain.utils.`package`.TypeMismatchException
+import domain.HReference
 
 trait Migrator {
   def apply(schema: Schema[Any, Any]): Try[Unit]
@@ -101,39 +102,43 @@ object Setup {
   }
 }
 
-object SyntaxTreeGraphQlConverter {
-  def apply(
-      syntaxTree: SyntaxTree,
-      queryType: ObjectType[Any, Any],
-      mutationType: Option[ObjectType[Any, Any]] = None,
-      subscriptionType: Option[ObjectType[Any, Any]] = None
-  ) = {
+case class SyntaxTreeGraphQlConverter(
+    syntaxTree: SyntaxTree,
+    queryType: ObjectType[Any, Any],
+    mutationType: Option[ObjectType[Any, Any]] = None,
+    subscriptionType: Option[ObjectType[Any, Any]] = None
+) {
+
+  def definitions = {
     GraphQlDefinitionsIR(
       query = queryType,
       mutation = mutationType,
       subscription = subscriptionType,
-      additionalTypes = types(syntaxTree)
+      additionalTypes = types
     )
   }
 
-  def types(syntaxTree: SyntaxTree): List[Type with Named] = {
-    val gqlTypes = syntaxTree.models.map(shape(_))
-    val gqlEnums = syntaxTree.enums.map(enum(_))
+  def types = {
+    val gqlTypes = syntaxTree.models.map(hshape(_))
+    val gqlEnums = syntaxTree.enums.map(henum(_))
     gqlEnums ++ gqlTypes
   }
 
   def htype(ht: HType): OutputType[Any] = ht match {
     case pt: PrimitiveType => primitiveType(pt)
-    case s: HShape => shape(s)
+    case s: HShape         => hshape(s)
+    case HReference(id) =>
+      htype(syntaxTree.models.find(model => model.id == id).get)
+    case e: HEnum => henum(e)
   }
 
-  def enum(e: HEnum) =
+  def henum(e: HEnum) =
     EnumType(
       name = e.id,
       values = e.values.map(v => EnumValue(name = v, value = v))
     )
 
-  def shape(s: HShape): ObjectType[Any, Any] = {
+  def hshape(s: HShape): ObjectType[Any, Any] = {
     s match {
       case model: HModel         => ???
       case interface: HInterface => ???
