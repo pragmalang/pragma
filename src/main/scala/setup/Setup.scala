@@ -109,14 +109,13 @@ case class SyntaxTreeGraphQlConverter(
     subscriptionType: Option[ObjectType[Any, Any]] = None
 ) {
 
-  def definitions = {
+  def definitions =
     GraphQlDefinitionsIR(
       query = queryType,
       mutation = mutationType,
       subscription = subscriptionType,
       additionalTypes = types
     )
-  }
 
   def types = syntaxTree.models.map(hshape(_)) ++ syntaxTree.enums.map(henum(_))
 
@@ -134,11 +133,9 @@ case class SyntaxTreeGraphQlConverter(
       values = e.values.map(v => EnumValue(name = v, value = v))
     )
 
-  def hshape(s: HShape): ObjectType[Any, Any] = {
-    s match {
-      case model: HModel         => ???
-      case interface: HInterface => ???
-    }
+  def hshape(s: HShape): ObjectType[Any, Any] = s match {
+    case model: HModel         => ???
+    case interface: HInterface => ???
   }
 
   def primitiveType(t: PrimitiveType): OutputType[Any] = t match {
