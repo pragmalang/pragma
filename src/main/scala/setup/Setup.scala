@@ -1,4 +1,5 @@
 // TODO: Organize imports
+// TODO: Split definitions into separate files
 
 package setup
 import domain.SyntaxTree
