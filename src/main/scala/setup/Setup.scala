@@ -118,11 +118,7 @@ case class SyntaxTreeGraphQlConverter(
     )
   }
 
-  def types = {
-    val gqlTypes = syntaxTree.models.map(hshape(_))
-    val gqlEnums = syntaxTree.enums.map(henum(_))
-    gqlEnums ++ gqlTypes
-  }
+  def types = syntaxTree.models.map(hshape(_)) ++ syntaxTree.enums.map(henum(_))
 
   def htype(ht: HType): OutputType[Any] = ht match {
     case pt: PrimitiveType => primitiveType(pt)
