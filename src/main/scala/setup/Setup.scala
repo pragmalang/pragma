@@ -166,5 +166,5 @@ case class SyntaxTreeGraphQlConverter(
 }
 
 case object PrismaMigrator extends Migrator {
-  def apply(schema: Schema[Any, Any]) = ???
+  def apply(schema: Schema[Any, Any]) = ??? // TODO: use SchemaFilter when rendering the schema
 }
