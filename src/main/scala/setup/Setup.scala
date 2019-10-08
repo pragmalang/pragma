@@ -47,7 +47,7 @@ case class GraphQlDefinitionsIR(
     directives: List[Directive] = BuiltinDirectives
 )
 object Setup {
-  implicit def parseQuery(query: String) = QueryParser.parse(query)
+  implicit def parseQuery(query: String) = QueryParser.parse(query).get
   def syntaxTreeToGraphQlSchema(
       syntaxTree: SyntaxTree,
       queryType: ObjectType[Any, Any] = ObjectType(
