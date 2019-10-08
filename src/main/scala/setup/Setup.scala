@@ -59,18 +59,18 @@ object Setup {
       mutationType: Option[ObjectType[Any, Any]] = None,
       subscriptionType: Option[ObjectType[Any, Any]] = None
   ) = {
-    val definitions = GraphQlDefinitionsIR(
-      query = queryType,
-      mutation = mutationType,
-      subscription = subscriptionType
-    )
-    // Mock schema AST
-    val schemaAst = Schema(
+    val definitions = SyntaxTreeGraphQlConverter(
+      syntaxTree,
+      queryType,
+      mutationType,
+      subscriptionType
+    ).definitions
+
+    Schema(
       query = definitions.query,
       mutation = definitions.mutation,
       subscription = definitions.subscription
-    ).toAst
-    Schema.buildFromAst(schemaAst)
+    )
   }
 
   def apply(
