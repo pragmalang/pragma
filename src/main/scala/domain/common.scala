@@ -62,7 +62,10 @@ case class HInterface(
 ) extends HType
     with HShape
 
-trait HShapeField extends Positioned
+trait HShapeField extends Positioned with Identifiable {
+  val htype: HType
+  val isOptional: Boolean
+}
 case class HModelField(
     id: String,
     htype: HType,
@@ -70,16 +73,15 @@ case class HModelField(
     directives: List[FieldDirective],
     isOptional: Boolean,
     position: Option[PositionRange]
-) extends Identifiable
-    with HShapeField
+) extends HShapeField
 
 case class HInterfaceField(
     id: String,
     htype: HType,
     isOptional: Boolean,
     position: Option[PositionRange]
-) extends Identifiable
-    with HShapeField
+)
+    extends HShapeField
 
 sealed trait Directive extends Identifiable {
   val id: String
