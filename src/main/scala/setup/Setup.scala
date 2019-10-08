@@ -85,21 +85,6 @@ object Setup {
 
   def executor(schema: Schema[Any, Any]) = (query: String) => ???
 
-  def dummyDemo = {
-    val schemaAst = QueryParser.parse(
-      "type User { name: String!, age: Int! }"
-    )
-    schemaAst match {
-      case Success(value) =>
-        Schema
-          .buildDefinitions(value)
-          .map(_ match {
-            case ot: ObjectType[_, _] => ot.fieldsFn().map(_.name).toString
-            case t                    => t.toString
-          })
-      case Failure(e) => s"Error: ${e.getMessage()}"
-    }
-  }
 }
 
 case class SyntaxTreeGraphQlConverter(
