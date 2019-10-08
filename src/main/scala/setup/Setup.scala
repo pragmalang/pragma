@@ -1,3 +1,5 @@
+// TODO: Organize imports
+
 package setup
 import domain.SyntaxTree
 import sangria.schema._
