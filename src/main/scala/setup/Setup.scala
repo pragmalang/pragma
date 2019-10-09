@@ -37,6 +37,9 @@ import domain.primitives.`package`.HFile
 import domain.primitives.`package`.HFileValue
 import domain.utils.`package`.TypeMismatchException
 import domain.HReference
+import domain.HShapeField
+import domain.HModelField
+import domain.HInterfaceField
 
 trait Migrator {
   def apply(schema: Schema[Any, Any]): Try[Unit]
@@ -105,35 +108,58 @@ case class SyntaxTreeGraphQlConverter(
       additionalTypes = types
     )
 
-  def types = syntaxTree.models.map(hshape(_)) ++ syntaxTree.enums.map(henum(_))
+  def types = syntaxTree.models.map(hShape(_)) ++ syntaxTree.enums.map(hEnum(_))
 
-  def htype(ht: HType): OutputType[Any] = ht match {
+  def hType(ht: HType): OutputType[Any] = ht match {
     case pt: PrimitiveType => primitiveType(pt)
-    case s: HShape         => hshape(s)
+    case s: HShape         => hShape(s)
     case HReference(id) =>
-      htype(syntaxTree.models.find(model => model.id == id).get)
-    case e: HEnum => henum(e)
+      hType(syntaxTree.models.find(model => model.id == id).get)
+    case e: HEnum => hEnum(e)
   }
 
-  def henum(e: HEnum) =
+  def hEnum(e: HEnum) =
     EnumType(
       name = e.id,
       values = e.values.map(v => EnumValue(name = v, value = v))
     )
 
-  def hshape(s: HShape): ObjectType[Any, Any] = s match {
-    case model: HModel         => ???
-    case interface: HInterface => ???
+  def hShape(s: HShape): ObjectType[Any, Any] = s match {
+    case HModel(id, fields, _, _) =>
+      ObjectType(
+        name = id,
+        fields = fields.map(hShapeField)
+      )
+    case HInterface(id, fields, _) =>
+      ObjectType(
+        name = id,
+        fields = fields.map(hShapeField)
+      )
+  }
+
+  def hShapeField(f: HShapeField): Field[Any, Any] = f match {
+    case HModelField(id, htype, _, _, _, _) =>
+      Field(
+        name = id,
+        fieldType = hType(htype),
+        resolve = ctx => Value(ctx)
+      )
+    case HInterfaceField(id, htype, _, _) =>
+      Field(
+        name = id,
+        fieldType = hType(htype),
+        resolve = ctx => Value(ctx)
+      )
   }
 
   def primitiveType(t: PrimitiveType): OutputType[Any] = t match {
-    case HArray(ht)  => ListType(htype(ht))
+    case HArray(ht)  => ListType(hType(ht))
     case HBool       => BooleanType
     case HDate       => DateTimeType
     case HFloat      => FloatType
     case HInteger    => IntType
     case HString     => StringType
-    case HOption(ht) => OptionType(htype(ht))
+    case HOption(ht) => OptionType(hType(ht))
     case HFile(_, _) => StringType
     case HFunction(args, returnType) =>
       throw new TypeMismatchException(
@@ -169,5 +195,6 @@ case class SyntaxTreeGraphQlConverter(
 }
 
 case object PrismaMigrator extends Migrator {
-  def apply(schema: Schema[Any, Any]) = ??? // TODO: use SchemaFilter when rendering the schema
+  def apply(schema: Schema[Any, Any]) =
+    ??? // TODO: use SchemaFilter when rendering the schema
 }
