@@ -22,7 +22,7 @@ case class PrismaMigrator(
     schemaOption
       .map(schemaRenderer)
       .getOrElse("")
-  
+
   def schemaRenderer(schema: Schema[Any, Any]) =
     SchemaRenderer.renderSchema(
       schema,
@@ -37,10 +37,10 @@ case class PrismaMigrator(
   def schema(s: Schema[Any, Any]) = PrismaMigrator(Some(s), outputHandler)
 
   def run = Try {
-    val exitCode = "docker-compose up -d" ! ProcessLogger(outputHandler(_))
-    exitCode match {
-      case 1 => throw new Exception("Prisma migration failed")
-    }
+    // val exitCode = "docker-compose up -d" ! ProcessLogger(outputHandler(_))
+    // exitCode match {
+    //   case 1 => throw new Exception("Prisma migration failed")
+    // }
   }
 }
 
