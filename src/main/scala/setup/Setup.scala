@@ -6,7 +6,6 @@ import primitives._
 import utils.{TypeMismatchException}
 
 import sangria.schema._
-import sangria.schema.{Directive => GQLDirective}
 import sangria.parser.QueryParser
 import sangria.ast.{StringValue, NamedType}
 import sangria.execution.Executor
@@ -24,13 +23,6 @@ trait Migrator {
   def apply(schema: Schema[Any, Any]): Try[Unit]
 }
 
-case class GraphQlDefinitionsIR(
-    query: ObjectType[Any, Any],
-    mutation: Option[ObjectType[Any, Any]] = None,
-    subscription: Option[ObjectType[Any, Any]] = None,
-    additionalTypes: List[Type with Named] = Nil,
-    directives: List[GQLDirective] = BuiltinDirectives
-)
 object Setup {
   implicit def parseQuery(query: String) = QueryParser.parse(query).get
   def syntaxTreeToGraphQlSchema(
@@ -44,17 +36,13 @@ object Setup {
       mutationType: Option[ObjectType[Any, Any]] = None,
       subscriptionType: Option[ObjectType[Any, Any]] = None
   ) = {
-    val definitions = SyntaxTreeGraphQlConverter(
-      syntaxTree,
-      queryType,
-      mutationType,
-      subscriptionType
-    ).definitions
+    val definitions = GraphQlDefinitionsIR(syntaxTree)
 
     Schema(
-      query = definitions.query,
-      mutation = definitions.mutation,
-      subscription = definitions.subscription
+      query = queryType,
+      mutation = mutationType,
+      subscription = subscriptionType,
+      additionalTypes = definitions.types
     )
   }
 
@@ -72,20 +60,7 @@ object Setup {
 
 }
 
-case class SyntaxTreeGraphQlConverter(
-    syntaxTree: SyntaxTree,
-    queryType: ObjectType[Any, Any],
-    mutationType: Option[ObjectType[Any, Any]] = None,
-    subscriptionType: Option[ObjectType[Any, Any]] = None
-) {
-
-  def definitions =
-    GraphQlDefinitionsIR(
-      query = queryType,
-      mutation = mutationType,
-      subscription = subscriptionType,
-      additionalTypes = types
-    )
+case class GraphQlDefinitionsIR(syntaxTree: SyntaxTree) {
 
   def types = syntaxTree.models.map(hShape(_)) ++ syntaxTree.enums.map(hEnum(_))
 
