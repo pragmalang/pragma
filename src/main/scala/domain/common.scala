@@ -64,21 +64,22 @@ case class HInterface(
 
 trait HShapeField extends Positioned with Identifiable {
   val htype: HType
-  val isOptional: Boolean
+  def isOptional = htype match {
+    case HOption(_) => true
+    case _ => false
+  }
 }
 case class HModelField(
     id: String,
     htype: HType,
     defaultValue: Option[HValue],
     directives: List[FieldDirective],
-    isOptional: Boolean,
     position: Option[PositionRange]
 ) extends HShapeField
 
 case class HInterfaceField(
     id: String,
     htype: HType,
-    isOptional: Boolean,
     position: Option[PositionRange]
 )
     extends HShapeField
@@ -91,7 +92,7 @@ object Directive {
   def modelDirectives(self: HModel) = Map(
     "validate" -> HInterface(
       "validate",
-      List(HInterfaceField("validator", self, false, None)),
+      List(HInterfaceField("validator", self, None)),
       None
     ),
     "user" -> HInterface("user", Nil, None)
@@ -100,13 +101,13 @@ object Directive {
   def fieldDirectives(model: HModel, field: HModelField) = Map(
     "set" -> HInterface(
       "set",
-      HInterfaceField("self", model, false, None) ::
-        HInterfaceField("new", field.htype, false, None) :: Nil,
+      HInterfaceField("self", model, None) ::
+        HInterfaceField("new", field.htype, None) :: Nil,
       None
     ),
     "get" -> HInterface(
       "get",
-      HInterfaceField("self", model, false, None) :: Nil,
+      HInterfaceField("self", model, None) :: Nil,
       None
     ),
     "id" -> HInterface("id", Nil, None),
