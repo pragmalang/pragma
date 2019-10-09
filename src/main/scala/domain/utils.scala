@@ -22,7 +22,7 @@ package object utils {
 
   type ErrorMessage = (String, Option[PositionRange])
 
-  class UserError(errors: List[ErrorMessage])
+  class UserError(val errors: List[ErrorMessage])
       extends Exception(errors.map(_._1).mkString("\n"))
 
   def displayHType(hType: HType): String = hType match {

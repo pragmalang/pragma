@@ -1,5 +1,0 @@
-package parsing
-
-object Substitutor {
-    
-}

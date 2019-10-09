@@ -4,6 +4,7 @@ import domain.primitives._
 import parsing._
 import scala.util._
 import scala.collection.immutable.ListMap
+import org.parboiled2.Position
 
 class ModelParsing extends FlatSpec {
   "Model parser" should "successfully return a model" in {
@@ -17,21 +18,32 @@ class ModelParsing extends FlatSpec {
     val parsedModel = new HeavenlyParser(code).modelDef.run()
     val exprected = Success(
       HModel(
-        id = "User",
-        fields = List(
-          HModelField("username", HString, None, Nil, false, None),
-          HModelField("age", HOption(HInteger), None, Nil, true, None),
+        "User",
+        List(
+          HModelField(
+            "username",
+            HString,
+            None,
+            List(),
+            Some(PositionRange(Position(30, 3, 11), Position(38, 3, 19)))
+          ),
+          HModelField(
+            "age",
+            HOption(HInteger),
+            None,
+            List(),
+            Some(PositionRange(Position(58, 4, 11), Position(61, 4, 14)))
+          ),
           HModelField(
             "todos",
-            HArray(HModel("Todo", Nil, Nil, None)),
+            HArray(HReference("Todo")),
             None,
-            Nil,
-            false,
-            None
+            List(),
+            Some(PositionRange(Position(83, 5, 11), Position(88, 5, 16)))
           )
         ),
-        directives = Nil,
-        position = None
+        List(),
+        Some(PositionRange(Position(13, 2, 13), Position(17, 2, 17)))
       )
     )
     assert(parsedModel == exprected)
@@ -60,38 +72,36 @@ class ModelParsing extends FlatSpec {
             List(
               FieldDirective(
                 "secretCredential",
-                HInterfaceValue(ListMap(), HInterface("", Nil, None)),
-                None
+                HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                Some(PositionRange(Position(84, 5, 9), Position(110, 6, 9)))
               )
             ),
-            false,
-            None
+            Some(PositionRange(Position(110, 6, 9), Position(118, 6, 17)))
           ),
           HModelField(
             "age",
             HInteger,
             Some(HIntegerValue(20)),
-            Nil,
-            false,
-            None
+            List(),
+            Some(PositionRange(Position(137, 8, 9), Position(140, 8, 12)))
           )
         ),
         List(
           ModelDirective(
             "user",
-            HInterfaceValue(ListMap(), HInterface("", Nil, None)),
-            None
+            HInterfaceValue(ListMap(), HInterface("", List(), None)),
+            Some(PositionRange(Position(7, 2, 7), Position(19, 3, 7)))
           ),
           ModelDirective(
             "validate",
             HInterfaceValue(
               ListMap("validator" -> HStringValue("Some Function")),
-              HInterface("", Nil, None)
+              HInterface("", List(), None)
             ),
-            None
+            Some(PositionRange(Position(19, 3, 7), Position(63, 4, 7)))
           )
         ),
-        None
+        Some(PositionRange(Position(69, 4, 13), Position(73, 4, 17)))
       )
     )
     assert(parsedModel == expected)

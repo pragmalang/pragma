@@ -6,16 +6,24 @@ import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
 
 class HeavenlyParser(val input: ParserInput) extends Parser {
+
+  def syntaxTree: Rule1[List[HConstruct]] = rule {
+    whitespace() ~ zeroOrMore(importDef | modelDef | enumDef) ~ whitespace() ~>
+      ((cs: Seq[HConstruct]) => cs.toList) ~ EOI
+  }
+
   implicit def whitespace(terminal: String = ""): Rule0 = rule {
     zeroOrMore(anyOf(" \n\r\t")) ~
       str(terminal) ~
       zeroOrMore(anyOf(" \n\r\t"))
   }
 
+  implicit def intToPos(i: Int) = Position(i, input)
+
   def identifier: Rule1[String] = rule {
     capture(predicate(CharPredicate.Alpha)) ~
-      capture(oneOrMore(CharPredicate.AlphaNum)) ~>
-      ((init: String, rest: String) => init + rest)
+      optional(capture(oneOrMore(CharPredicate.AlphaNum))) ~>
+      ((init: String, rest: Option[String]) => init + rest.getOrElse(""))
   }
 
   def integerVal: Rule1[HIntegerValue] = rule {
@@ -32,11 +40,21 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   }
 
   def stringVal: Rule1[HStringValue] = {
-    val quote = "\""
-    val escapedQuote = "\\\""
+    def escapedChar: Rule1[String] = rule {
+      valueMap(
+        Map(
+          "\\t" -> "\t",
+          "\\b" -> "\b",
+          "\\r" -> "\r",
+          "\\n" -> "\n",
+          "\\\"" -> "\"",
+          "\\\\" -> "\\"
+        )
+      ) | capture(noneOf("\"\\"))
+    }
     rule {
-      '"' ~ capture(zeroOrMore(escapedQuote | noneOf(quote))) ~ '"' ~>
-        ((s: String) => HStringValue(s.replace(escapedQuote, quote)))
+      '"' ~ zeroOrMore(escapedChar) ~ '"' ~>
+        ((s: Seq[String]) => HStringValue(s.mkString))
     }
   }
 
@@ -46,10 +64,14 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
 
   val arrayItem = () => rule { literal ~ optional(",") }
 
+  // Note: returns an array with unknown element type if the array is empty.
   def arrayVal: Rule1[HArrayValue] = rule {
     "[" ~ zeroOrMore(arrayItem()) ~ "]" ~>
       ((elements: Seq[HValue]) => {
-        HArrayValue(elements.toList, new HType {})
+        HArrayValue(elements.toList, elements.headOption match {
+          case Some(v) => v.htype
+          case _       => new HType {}
+        })
       })
   }
 
@@ -57,9 +79,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     floatVal | integerVal | stringVal | booleanVal | arrayVal
   }
 
-  /** Returns a PrimitiveType or an HModel with no fields or directives.
-    * NOTE: File type is given size 0 and aRule1[HValuen empty list of extensions.
-    */
+  // Returns a PrimitiveType or an HModel with no fields or directives.
   def htypeFrom(typeId: String): HType = typeId match {
     case "String"  => HString
     case "Integer" => HInteger
@@ -67,7 +87,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     case "Boolean" => HBool
     case "Date"    => HDate
     case "File"    => HFile(0, Nil)
-    case id        => HModel(id, Nil, Nil, None)
+    case id        => HReference(id)
   }
 
   def htype: Rule1[HType] = rule {
@@ -109,44 +129,114 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   }
 
   def modelDirective: Rule1[ModelDirective] = rule {
-    directive ~>
-      ((did: String, args: Option[HInterfaceValue]) => {
+    push(cursor) ~ directive ~ push(cursor) ~>
+      ((start: Int, did: String, args: Option[HInterfaceValue], end: Int) => {
         ModelDirective(did, args match {
           case Some(args) => args
           case None       => HInterfaceValue(ListMap.empty, HInterface("", Nil, None))
-        }, None)
+        }, Some(PositionRange(start, end)))
       })
   }
 
   def fieldDirective: Rule1[FieldDirective] = rule {
-    directive ~>
-      ((did: String, args: Option[HInterfaceValue]) => {
+    push(cursor) ~ directive ~ push(cursor) ~>
+      ((start: Int, did: String, args: Option[HInterfaceValue], end: Int) => {
         FieldDirective(did, args match {
           case Some(args) => args
           case None       => HInterfaceValue(ListMap.empty, HInterface("", Nil, None))
-        }, None)
+        }, Some(PositionRange(start, end)))
       })
   }
 
   def modelDef: Rule1[HModel] = rule {
     whitespace() ~ zeroOrMore(modelDirective) ~
-      ("model" ~ identifier ~ "{" ~ zeroOrMore(fieldDef) ~ "}") ~>
-      ((ds: Seq[ModelDirective], id: String, fields: Seq[HModelField]) => {
-        HModel(id, fields.toList, ds.toList, None)
-      })
+      ("model" ~ push(cursor) ~ identifier ~ push(cursor) ~
+        "{" ~ zeroOrMore(fieldDef) ~ "}") ~>
+      (
+          (
+              ds: Seq[ModelDirective],
+              start: Int,
+              id: String,
+              end: Int,
+              fields: Seq[HModelField]
+          ) =>
+            HModel(
+              id,
+              fields.toList,
+              ds.toList,
+              Some(PositionRange(start, end))
+            )
+        )
   }
 
   def defaultValue = rule { "=" ~ literal }
 
   def fieldDef: Rule1[HModelField] = rule {
-    whitespace() ~ zeroOrMore(fieldDirective) ~ identifier ~ ":" ~
+    whitespace() ~ zeroOrMore(fieldDirective) ~
+      push(cursor) ~ identifier ~ push(cursor) ~ ":" ~
       htype ~ optional(defaultValue) ~ optional(",") ~>
-      ((ds: Seq[FieldDirective], id: String, ht: HType, dv: Option[HValue]) => {
-        HModelField(id, ht, dv, ds.toList, ht match {
-          case HOption(_) => true
-          case _          => false
-        }, None)
-      })
+      (
+          (
+              ds: Seq[FieldDirective],
+              start: Int,
+              id: String,
+              end: Int,
+              ht: HType,
+              dv: Option[HValue]
+          ) => {
+            val defaultValue = dv.collect {
+              case HArrayValue(Nil, _) =>
+                HArrayValue(Nil, ht match {
+                  case HArray(htype) => htype
+                  case _             => new HType {}
+                })
+              case nonArray => nonArray
+            }
+            HModelField(
+              id,
+              ht,
+              defaultValue,
+              ds.toList,
+              Some(PositionRange(start, end))
+            )
+          }
+      )
+  }
+
+  def enumDef: Rule1[HEnum] = rule {
+    "enum" ~ push(cursor) ~ identifier ~ push(cursor) ~ "{" ~
+      zeroOrMore(whitespace() ~ (identifier | stringVal) ~ whitespace())
+        .separatedBy(optional(",")) ~ "}" ~>
+      (
+          (
+              start: Int,
+              id: String,
+              end: Int,
+              values: Seq[java.io.Serializable]
+          ) => {
+            val variants = values
+              .map(_ match {
+                case HStringValue(s) => s
+                case s: String       => s
+              })
+              .toList
+            HEnum(id, variants, Some(PositionRange(start, end)))
+          }
+      )
+  }
+
+  def importDef = rule {
+    "import" ~ stringVal ~ "as" ~ push(cursor) ~ identifier ~ push(cursor) ~>
+      (
+          (
+              file: HStringValue,
+              start: Int,
+              id: String,
+              end: Int
+          ) => {
+            HImport(id, file.value, Some(PositionRange(start, end)))
+          }
+      )
   }
 
 }
