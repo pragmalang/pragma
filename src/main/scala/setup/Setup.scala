@@ -92,13 +92,13 @@ case class GraphQlDefinitionsIR(syntaxTree: SyntaxTree) {
   }
 
   def hShapeField(f: HShapeField): Field[Any, Any] = f match {
-    case HModelField(id, htype, _, _, _, _) =>
+    case HModelField(id, htype, _, _, _) =>
       Field(
         name = id,
         fieldType = hType(htype),
         resolve = ctx => Value(ctx)
       )
-    case HInterfaceField(id, htype, _, _) =>
+    case HInterfaceField(id, htype, _) =>
       Field(
         name = id,
         fieldType = hType(htype),
