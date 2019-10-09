@@ -1,45 +1,24 @@
-// TODO: Organize imports
+package setup
 // TODO: Split definitions into separate files
 
-package setup
-import domain.SyntaxTree
+import domain._
+import primitives._
+import utils.{TypeMismatchException}
+
 import sangria.schema._
-import scala.util.Try
+import sangria.schema.{Directive => GQLDirective}
 import sangria.parser.QueryParser
-import scala.language.implicitConversions
+import sangria.ast.{StringValue, NamedType}
 import sangria.execution.Executor
-import sangria.schema.Schema
 import sangria.renderer.{SchemaRenderer, SchemaFilter}
-import sangria.schema.StringType
-import scala.util.{Success, Failure}
-import domain.HEnum
-import domain.HShape
-import domain.HModel
-import domain.HInterface
-import domain.HType
-import domain.primitives.`package`.PrimitiveType
-import domain.primitives.HArray
-import domain.primitives.HBool
-import domain.primitives.HDate
-import sangria.ast.NamedType
 import sangria.validation.ValueCoercionViolation
-import com.github.nscala_time.time.Imports._
 import sangria.marshalling.DateSupport
+
+import scala.util.Try
+import scala.language.implicitConversions
+import scala.util.{Success, Failure}
+import com.github.nscala_time.time.Imports._
 import org.joda.time.format.ISODateTimeFormat
-import sangria.ast.StringValue
-import domain.primitives.HFloat
-import domain.primitives.HInteger
-import domain.primitives.HString
-import domain.primitives.HFunction
-import domain.primitives.HOption
-import sangria.schema.{ListType, OptionType}
-import domain.primitives.`package`.HFile
-import domain.primitives.`package`.HFileValue
-import domain.utils.`package`.TypeMismatchException
-import domain.HReference
-import domain.HShapeField
-import domain.HModelField
-import domain.HInterfaceField
 
 trait Migrator {
   def apply(schema: Schema[Any, Any]): Try[Unit]
@@ -50,7 +29,7 @@ case class GraphQlDefinitionsIR(
     mutation: Option[ObjectType[Any, Any]] = None,
     subscription: Option[ObjectType[Any, Any]] = None,
     additionalTypes: List[Type with Named] = Nil,
-    directives: List[Directive] = BuiltinDirectives
+    directives: List[GQLDirective] = BuiltinDirectives
 )
 object Setup {
   implicit def parseQuery(query: String) = QueryParser.parse(query).get
