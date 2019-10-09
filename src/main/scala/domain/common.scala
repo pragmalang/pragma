@@ -80,8 +80,7 @@ case class HInterfaceField(
     htype: HType,
     isOptional: Boolean,
     position: Option[PositionRange]
-)
-    extends HShapeField
+) extends HShapeField
 
 sealed trait Directive extends Identifiable {
   val id: String
