@@ -9,35 +9,41 @@ class PrismaMigratorTests extends WordSpec {
   "PrismaMigrator" should {
     "filter out all Query types" in {
       val renderedSchema = PrismaMigrator(
-        Schema
-          .buildFromAst(QueryParser.parse("type Query { field: String }").get)
-      ).get
+        Some(
+          Schema
+            .buildFromAst(QueryParser.parse("type Query { field: String }").get)
+        )
+      ).renderedSchema
       assert(renderedSchema == "")
     }
 
     "filter out all Mutation types" in {
       val renderedSchema = PrismaMigrator(
-        Schema.buildFromAst(
-          QueryParser
-            .parse(
-              "type Query { field: String } type Mutation { field: String }"
-            )
-            .get
+        Some(
+          Schema.buildFromAst(
+            QueryParser
+              .parse(
+                "type Query { field: String } type Mutation { field: String }"
+              )
+              .get
+          )
         )
-      ).get
+      ).renderedSchema
       assert(renderedSchema == "")
     }
 
     "filter out all Subscription types" in {
       val renderedSchema = PrismaMigrator(
-        Schema.buildFromAst(
-          QueryParser
-            .parse(
-              "type Query { field: String } type Subscription { field: String }"
-            )
-            .get
+        Some(
+          Schema.buildFromAst(
+            QueryParser
+              .parse(
+                "type Query { field: String } type Subscription { field: String }"
+              )
+              .get
+          )
         )
-      ).get
+      ).renderedSchema
       assert(renderedSchema == "")
     }
   }

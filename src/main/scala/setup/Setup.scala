@@ -14,9 +14,14 @@ case class Setup(
     migrator: Migrator
 ) {
 
-  def run = Try(migrator(syntaxTreeToGraphQlSchema(syntaxTree)).get)
+  def run = {
+    migrate()
+  }
 
-  def syntaxTreeToGraphQlSchema(
+  def migrate() =
+    migrator.schema(graphQlSchema(syntaxTree)).run
+
+  def graphQlSchema(
       syntaxTree: SyntaxTree,
       queryType: ObjectType[Any, Any] = ObjectType(
         "Query",
