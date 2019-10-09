@@ -184,10 +184,6 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
               ht: HType,
               dv: Option[HValue]
           ) => {
-            val fieldIsOptional = ht match {
-              case HOption(_) => true
-              case _          => false
-            }
             val defaultValue = dv.collect {
               case HArrayValue(Nil, _) =>
                 HArrayValue(Nil, ht match {
@@ -201,7 +197,6 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
               ht,
               defaultValue,
               ds.toList,
-              fieldIsOptional,
               Some(PositionRange(start, end))
             )
           }

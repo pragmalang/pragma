@@ -25,7 +25,6 @@ class ModelParsing extends FlatSpec {
             HString,
             None,
             List(),
-            false,
             Some(PositionRange(Position(30, 3, 11), Position(38, 3, 19)))
           ),
           HModelField(
@@ -33,7 +32,6 @@ class ModelParsing extends FlatSpec {
             HOption(HInteger),
             None,
             List(),
-            true,
             Some(PositionRange(Position(58, 4, 11), Position(61, 4, 14)))
           ),
           HModelField(
@@ -41,7 +39,6 @@ class ModelParsing extends FlatSpec {
             HArray(HReference("Todo")),
             None,
             List(),
-            false,
             Some(PositionRange(Position(83, 5, 11), Position(88, 5, 16)))
           )
         ),
@@ -79,7 +76,6 @@ class ModelParsing extends FlatSpec {
                 Some(PositionRange(Position(84, 5, 9), Position(110, 6, 9)))
               )
             ),
-            false,
             Some(PositionRange(Position(110, 6, 9), Position(118, 6, 17)))
           ),
           HModelField(
@@ -87,7 +83,6 @@ class ModelParsing extends FlatSpec {
             HInteger,
             Some(HIntegerValue(20)),
             List(),
-            false,
             Some(PositionRange(Position(137, 8, 9), Position(140, 8, 12)))
           )
         ),
