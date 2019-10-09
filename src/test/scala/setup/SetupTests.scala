@@ -9,20 +9,21 @@ import sangria.parser.QueryParser
 class SetupTests extends WordSpec {
   "Setup" should {
     "Create .heavenly-x/docker-compose.yml" in {
-      Setup(
-        SyntaxTree(Nil, Nil, Nil, Nil, Permissions(Nil, None)),
-        PrismaMigrator(
-          Some(
-            Schema.buildFromAst(
-              QueryParser
-                .parse(
-                  "type Query { field: String } type Subscription { field: String }"
-                )
-                .get
-            )
-          )
-        )
-      ).writeDockerComposeYaml()
+      assert(false)
+      // Setup(
+      //   SyntaxTree(Nil, Nil, Nil, Nil, Permissions(Nil, None)),
+      //   PrismaMigrator(
+      //     Some(
+      //       Schema.buildFromAst(
+      //         QueryParser
+      //           .parse(
+      //             "type Query { field: String } type Subscription { field: String }"
+      //           )
+      //           .get
+      //       )
+      //     )
+      //   )
+      // ).writeDockerComposeYaml()
     }
 
     "Overwrite .heavenly-x/docker-compose.yml if any exists" in {
