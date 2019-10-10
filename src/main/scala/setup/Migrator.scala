@@ -21,19 +21,19 @@ case class PrismaMigrator(
 
   def renderedSchema =
     schemaOption
-      .map(schemaRenderer)
-      .getOrElse("")
-
-  def schemaRenderer(schema: Document) =
-    SchemaRenderer.renderSchema(
-      Schema.buildFromAst(schema),
-      SchemaFilter(
-        typeName =>
-          typeName != "Query" && typeName != "Mutation" && typeName != "Subscription" && !Schema
-            .isBuiltInType(typeName),
-        dirName => !Schema.isBuiltInDirective(dirName)
+      .map(
+        schema =>
+          SchemaRenderer.renderSchema(
+            Schema.buildFromAst(schema),
+            SchemaFilter(
+              typeName =>
+                typeName != "Query" && typeName != "Mutation" && typeName != "Subscription" && !Schema
+                  .isBuiltInType(typeName),
+              dirName => !Schema.isBuiltInDirective(dirName)
+            )
+          )
       )
-    )
+      .getOrElse("")
 
   def schema(s: Document) = PrismaMigrator(Some(s), outputHandler)
 
