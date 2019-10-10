@@ -73,7 +73,7 @@ case class Setup(
       queryType: ObjectTypeDefinition = ObjectTypeDefinition(
         name = "Query",
         interfaces = Vector.empty,
-        fields = Vector(FieldDefinition("stub", NamedType("A"), Vector.empty))
+        fields = Vector(FieldDefinition("stub", NamedType("String"), Vector.empty))
       ),
       mutationType: Option[ObjectTypeDefinition] = None,
       subscriptionType: Option[ObjectTypeDefinition] = None
