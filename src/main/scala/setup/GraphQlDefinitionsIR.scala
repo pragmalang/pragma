@@ -22,8 +22,13 @@ case class GraphQlDefinitionsIR(syntaxTree: SyntaxTree) {
     case pt: PrimitiveType => primitiveType(pt)
     case s: HShape         => hShape(s)
     case HReference(id) =>
-      hType(syntaxTree.models.find(model => model.id == id).get)
+      hType(
+        (syntaxTree.models ++ syntaxTree.enums)
+          .find(model => model.id == id)
+          .get
+      )
     case e: HEnum => hEnum(e)
+    // case HSelf => HSelf()
   }
 
   def hEnum(e: HEnum) =
