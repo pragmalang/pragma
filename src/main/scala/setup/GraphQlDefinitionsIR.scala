@@ -61,10 +61,7 @@ case class GraphQlDefinitionsIR(syntaxTree: SyntaxTree) {
     case HSelf(id) =>
       if (isOptional) NamedType(id) else NotNullType(NamedType(id))
     case HFunction(args, returnType) =>
-      throw new TypeMismatchException(
-        HBool :: HDate :: HFloat :: HInteger :: HString :: Nil,
-        HFunction(args, returnType)
-      )
+      throw new Exception("Function can't be used as a field type")
   }
 
   def hEnum(e: HEnum): EnumTypeDefinition =
