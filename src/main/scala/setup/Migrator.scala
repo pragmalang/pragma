@@ -14,28 +14,31 @@ trait Migrator {
 
 case class PrismaMigrator(
     schemaOption: Option[Document] = None,
-    outputHandler: String => Unit = output => println(output)
+    outputHandler: String => Unit = output => println(output),
+    prismaServerUri: String
 ) extends Migrator {
   import sys.process._
   import scala.language.postfixOps
 
   def renderedSchema =
     schemaOption
-      .map(
-        schema =>
-          SchemaRenderer.renderSchema(
-            Schema.buildFromAst(schema),
-            SchemaFilter(
-              typeName =>
-                typeName != "Query" && typeName != "Mutation" && typeName != "Subscription" && !Schema
-                  .isBuiltInType(typeName),
-              dirName => !Schema.isBuiltInDirective(dirName)
-            )
+      .map { schema =>
+        SchemaRenderer.renderSchema(
+          Schema.buildFromAst(schema),
+          SchemaFilter(
+            typeName =>
+              typeName != "Query"
+                && typeName != "Mutation"
+                && typeName != "Subscription"
+                && !Schema.isBuiltInType(typeName),
+            dirName => !Schema.isBuiltInDirective(dirName)
           )
-      )
+        )
+      }
       .getOrElse("")
 
-  def schema(s: Document) = PrismaMigrator(Some(s), outputHandler)
+  def schema(s: Document) =
+    PrismaMigrator(Some(s), outputHandler, prismaServerUri)
 
   def run = Try {
     // Send data model (renderedSchema) to Prisma server
