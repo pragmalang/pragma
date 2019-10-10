@@ -86,7 +86,7 @@ case class Setup(
 
   def apiSchema(syntaxTree: SyntaxTree): Document = ???
 
-  def executor(schema: Schema[Any, Any]): String => Any = (query: String) => ???
+  def executor[Request](schema: Document): QueryExecutor[Request] = ???
 }
 
 object Setup {
