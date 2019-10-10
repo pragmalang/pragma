@@ -23,6 +23,7 @@ case class Setup(
 
   def run() = {
     writeDockerComposeYaml()
+    dockerComposeUp()
     migrate()
   }
 
@@ -62,38 +63,7 @@ case class Setup(
     }
   }
 
-  def dockerComposeYaml(): String = {
-    val initialTemplate = """version: '3'
-services:
-  prisma:
-    image: prismagraphql/prisma:1.34
-    restart: always
-    ports:
-      - '4466:4466'
-    environment:
-      PRISMA_CONFIG: |
-        port: 4466
-        managementApiSecret:
-        databases:
-          default:
-            connector: mongo
-            uri: mongodb://prisma:prisma@mongo-db
-  mongo-db:
-    image: mongo:3.6
-    restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: prisma
-      MONGO_INITDB_ROOT_PASSWORD: prisma
-    ports:
-      - '27017:27017'
-    volumes:
-      - mongo:/var/lib/mongo
-volumes:
-  mongo: ~
-    """;
-
-    initialTemplate
-  }
+  def dockerComposeYaml(): String = Setup.defaultDockerComposeYaml
 
   def migrate(): Try[Unit] =
     migrator.schema(graphQlSchema(syntaxTree)).run
@@ -117,4 +87,36 @@ volumes:
   def apiSchema(syntaxTree: SyntaxTree): Document = ???
 
   def executor(schema: Schema[Any, Any]): String => Any = (query: String) => ???
+}
+
+object Setup {
+  def defaultDockerComposeYaml() =
+  """version: '3'
+  services:
+    prisma:
+      image: prismagraphql/prisma:1.34
+      restart: always
+      ports:
+        - '4466:4466'
+      environment:
+        PRISMA_CONFIG: |
+          port: 4466
+          managementApiSecret:
+          databases:
+            default:
+              connector: mongo
+              uri: mongodb://prisma:prisma@mongo-db
+    mongo-db:
+      image: mongo:3.6
+      restart: always
+      environment:
+        MONGO_INITDB_ROOT_USERNAME: prisma
+        MONGO_INITDB_ROOT_PASSWORD: prisma
+      ports:
+        - '27017:27017'
+      volumes:
+        - mongo:/var/lib/mongo
+  volumes:
+    mongo: ~
+      """;
 }

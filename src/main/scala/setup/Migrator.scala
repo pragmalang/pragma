@@ -38,10 +38,7 @@ case class PrismaMigrator(
   def schema(s: Document) = PrismaMigrator(Some(s), outputHandler)
 
   def run = Try {
-    // val exitCode = "docker-compose up -d" ! ProcessLogger(outputHandler(_))
-    // exitCode match {
-    //   case 1 => throw new Exception("Prisma migration failed")
-    // }
+    // Send data model (renderedSchema) to Prisma server
   }
 }
 
