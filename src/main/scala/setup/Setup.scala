@@ -7,12 +7,14 @@ import Implicits._
 
 import sangria.schema._
 import sangria.parser.QueryParser
+import sangria.ast.{Document}
 
 import scala.util.{Success, Failure, Try}
 
 import sys.process._
 import scala.language.postfixOps
 import java.io._
+import sangria.ast.{ObjectTypeDefinition, NamedType, FieldDefinition}
 
 case class Setup(
     syntaxTree: SyntaxTree,
@@ -24,25 +26,27 @@ case class Setup(
     migrate()
   }
 
-  def dockerComposeUp() = "docker-compose -f ./.heavenly-x/docker-compose.yml up -d" ! match {
-    case 1 =>
-      Failure(
-        new Exception(
-          "Error: Couldn't run docker-compose. Make sure docker and docker-compose are installed on your machine"
+  def dockerComposeUp() =
+    "docker-compose -f ./.heavenly-x/docker-compose.yml up -d" ! match {
+      case 1 =>
+        Failure(
+          new Exception(
+            "Error: Couldn't run docker-compose. Make sure docker and docker-compose are installed on your machine"
+          )
         )
-      )
-    case 0 => Success(())
-  }
+      case 0 => Success(())
+    }
 
-  def dockerComposeDown() = "docker-compose -f ./.heavenly-x/docker-compose.yml down" ! match {
-    case 1 =>
-      Failure(
-        new Exception(
-          "Error: Couldn't run docker-compose. Make sure docker and docker-compose are installed on your machine"
+  def dockerComposeDown() =
+    "docker-compose -f ./.heavenly-x/docker-compose.yml down" ! match {
+      case 1 =>
+        Failure(
+          new Exception(
+            "Error: Couldn't run docker-compose. Make sure docker and docker-compose are installed on your machine"
+          )
         )
-      )
-    case 0 => Success(())
-  }
+      case 0 => Success(())
+    }
 
   def writeDockerComposeYaml() = {
     "mkdir .heavenly-x" ! match {
@@ -96,26 +100,21 @@ volumes:
 
   def graphQlSchema(
       syntaxTree: SyntaxTree,
-      queryType: ObjectType[Any, Any] = ObjectType(
-        "Query",
-        fields[Any, Any](
-          Field("query", StringType, resolve = _ => "")
-        )
+      queryType: ObjectTypeDefinition = ObjectTypeDefinition(
+        name = "Query",
+        interfaces = Vector.empty,
+        fields = Vector(FieldDefinition("stub", NamedType("A"), Vector.empty))
       ),
-      mutationType: Option[ObjectType[Any, Any]] = None,
-      subscriptionType: Option[ObjectType[Any, Any]] = None
-  ): Schema[Any, Any] = {
-    val definitions = GraphQlDefinitionsIR(syntaxTree)
-
-    Schema(
+      mutationType: Option[ObjectTypeDefinition] = None,
+      subscriptionType: Option[ObjectTypeDefinition] = None
+  ): Document =
+    GraphQlDefinitionsIR(syntaxTree).buildGraphQLSchemaAst(
       query = queryType,
       mutation = mutationType,
-      subscription = subscriptionType,
-      additionalTypes = definitions.types
+      subscription = subscriptionType
     )
-  }
 
-  def apiSchema(syntaxTree: SyntaxTree): Schema[Any, Any] = ???
+  def apiSchema(syntaxTree: SyntaxTree): Document = ???
 
   def executor(schema: Schema[Any, Any]): String => Any = (query: String) => ???
 }

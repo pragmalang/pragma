@@ -2,17 +2,18 @@ package setup
 
 import scala.util.{Try, Success, Failure}
 import sangria.schema.{Schema}
+import sangria.ast.{Document}
 import sangria.renderer.{SchemaRenderer, SchemaFilter}
 
 trait Migrator {
-  val schemaOption: Option[Schema[Any, Any]]
+  val schemaOption: Option[Document]
   def run(): Try[Unit]
-  def schema(s: Schema[Any, Any]): Migrator
+  def schema(s: Document): Migrator
   def renderedSchema(): String
 }
 
 case class PrismaMigrator(
-    schemaOption: Option[Schema[Any, Any]] = None,
+    schemaOption: Option[Document] = None,
     outputHandler: String => Unit = output => println(output)
 ) extends Migrator {
   import sys.process._
@@ -23,9 +24,9 @@ case class PrismaMigrator(
       .map(schemaRenderer)
       .getOrElse("")
 
-  def schemaRenderer(schema: Schema[Any, Any]) =
+  def schemaRenderer(schema: Document) =
     SchemaRenderer.renderSchema(
-      schema,
+      Schema.buildFromAst(schema),
       SchemaFilter(
         typeName =>
           typeName != "Query" && typeName != "Mutation" && typeName != "Subscription" && !Schema
@@ -34,7 +35,7 @@ case class PrismaMigrator(
       )
     )
 
-  def schema(s: Schema[Any, Any]) = PrismaMigrator(Some(s), outputHandler)
+  def schema(s: Document) = PrismaMigrator(Some(s), outputHandler)
 
   def run = Try {
     // val exitCode = "docker-compose up -d" ! ProcessLogger(outputHandler(_))
@@ -44,16 +45,16 @@ case class PrismaMigrator(
   }
 }
 
-case class MockSuccessMigrator(schemaOption: Option[Schema[Any, Any]])
+case class MockSuccessMigrator(schemaOption: Option[Document])
     extends Migrator {
   def run = Success(())
-  def schema(s: Schema[Any, Any]) = MockSuccessMigrator(schemaOption)
+  def schema(s: Document) = MockSuccessMigrator(schemaOption)
   def renderedSchema: String = ""
 }
 
-case class MockFailureMigrator(schemaOption: Option[Schema[Any, Any]])
+case class MockFailureMigrator(schemaOption: Option[Document])
     extends Migrator {
   def run = Failure(new Exception("Mock Migrator failed"))
-  def schema(s: Schema[Any, Any]) = MockFailureMigrator(schemaOption)
+  def schema(s: Document) = MockFailureMigrator(schemaOption)
   def renderedSchema: String = ""
 }
