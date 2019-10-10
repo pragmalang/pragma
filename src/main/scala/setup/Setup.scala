@@ -73,7 +73,8 @@ case class Setup(
       queryType: ObjectTypeDefinition = ObjectTypeDefinition(
         name = "Query",
         interfaces = Vector.empty,
-        fields = Vector(FieldDefinition("stub", NamedType("String"), Vector.empty))
+        fields =
+          Vector(FieldDefinition("stub", NamedType("String"), Vector.empty))
       ),
       mutationType: Option[ObjectTypeDefinition] = None,
       subscriptionType: Option[ObjectTypeDefinition] = None
@@ -91,7 +92,7 @@ case class Setup(
 
 object Setup {
   def defaultDockerComposeYaml() =
-  """
+    """
 version: '3'
 services:
   prisma:
