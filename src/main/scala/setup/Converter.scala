@@ -34,18 +34,15 @@ case class GraphQlConverter(syntaxTree: SyntaxTree) extends Converter {
   override type FieldTypeDef = Type
   override type FieldDef = FieldDefinition
 
-  def buildGraphQLAst() =
-    Document(
-      typeDefinitions :+ ObjectTypeDefinition(
+  def buildGraphQLAst() = Document(typeDefinitions)
+
+  def buildGraphQLSchemaAst(
+      query: ObjectTypeDefinition = ObjectTypeDefinition(
         name = "Query",
         interfaces = Vector.empty,
         fields =
           Vector(FieldDefinition("stub", NamedType("String"), Vector.empty))
-      )
-    )
-
-  def buildGraphQLSchemaAst(
-      query: ObjectTypeDefinition,
+      ),
       mutation: Option[ObjectTypeDefinition] = None,
       subscription: Option[ObjectTypeDefinition] = None
   ) = mutation match {
