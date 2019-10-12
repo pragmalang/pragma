@@ -12,14 +12,13 @@ import scala.language.postfixOps
 
 
 trait Migrator extends WithSyntaxTree {
-  type A
+  type Return
 
   val syntaxTreeOption: Option[SyntaxTree]
   override val syntaxTree: SyntaxTree = syntaxTreeOption.get
 
-  def run(): Try[A]
+  def run(): Try[Return]
   def syntaxTree(s: SyntaxTree): Migrator
-  
 }
 
 case class PrismaMigrator(
@@ -27,7 +26,7 @@ case class PrismaMigrator(
     outputHandler: String => Unit = output => println(output),
     prismaServerUri: String
 ) extends Migrator {
-  override type A = Unit
+  override type Return = Unit
   val converter = GraphQlConverter(syntaxTreeOption.get)
 
 
@@ -59,7 +58,7 @@ case class PrismaMigrator(
 case class MockSuccessMigrator(
     override val syntaxTreeOption: Option[SyntaxTree] = None,
 ) extends Migrator {
-  override type A = String
+  override type Return = String
   val converter = GraphQlConverter(syntaxTreeOption.get)
 
 
@@ -74,7 +73,7 @@ case class MockSuccessMigrator(
 case class MockFailureMigrator(
     override val syntaxTreeOption: Option[SyntaxTree] = None,
 ) extends Migrator {
-  override type A = Unit
+  override type Return = Unit
   val converter = GraphQlConverter(syntaxTreeOption.get)
 
 
