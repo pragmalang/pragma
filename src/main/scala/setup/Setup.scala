@@ -18,13 +18,14 @@ import sangria.ast.{ObjectTypeDefinition, NamedType, FieldDefinition}
 
 case class Setup(
     syntaxTree: SyntaxTree,
-    migrator: Migrator
 ) {
+
+  val storage: Storage = ???
 
   def run() = {
     writeDockerComposeYaml()
     dockerComposeUp()
-    migrate()
+    storage.migrate()
   }
 
   def dockerComposeUp() =
@@ -65,29 +66,9 @@ case class Setup(
 
   def dockerComposeYaml(): String = Setup.defaultDockerComposeYaml
 
-  def migrate(): Try[Unit] =
-    migrator.schema(graphQlSchema(syntaxTree)).run
+  def buildApiSchema(): Document = ???
 
-  def graphQlSchema(
-      syntaxTree: SyntaxTree,
-      queryType: ObjectTypeDefinition = ObjectTypeDefinition(
-        name = "Query",
-        interfaces = Vector.empty,
-        fields =
-          Vector(FieldDefinition("stub", NamedType("String"), Vector.empty))
-      ),
-      mutationType: Option[ObjectTypeDefinition] = None,
-      subscriptionType: Option[ObjectTypeDefinition] = None
-  ): Document =
-    GraphQlDefinitionsIR(syntaxTree).buildGraphQLSchemaAst(
-      query = queryType,
-      mutation = mutationType,
-      subscription = subscriptionType
-    )
-
-  def apiSchema(syntaxTree: SyntaxTree): Document = ???
-
-  def executor[Request](schema: Document): QueryExecutor[Request] = ???
+  def buildExecutor[Request](): QueryExecutor[Request] = ???
 }
 
 object Setup {

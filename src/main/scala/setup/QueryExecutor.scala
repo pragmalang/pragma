@@ -5,5 +5,5 @@ import sangria.ast.Document
 case class QueryExecutor[Request](
     schema: SyntaxTree,
     query: Document,
-    storage: Storage[Request]
+    storage: Storage
 )

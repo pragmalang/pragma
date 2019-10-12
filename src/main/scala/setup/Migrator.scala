@@ -1,30 +1,41 @@
 package setup
 
-import scala.util.{Try, Success, Failure}
+import domain.SyntaxTree
+
 import sangria.schema.{Schema}
 import sangria.ast.{Document}
 import sangria.renderer.{SchemaRenderer, SchemaFilter}
 
-trait Migrator {
-  val schemaOption: Option[Document]
-  def run(): Try[Unit]
-  def schema(s: Document): Migrator
-  def renderedSchema(): String
+import scala.util.{Try, Success, Failure}
+import sys.process._
+import scala.language.postfixOps
+
+
+trait Migrator extends WithSyntaxTree {
+  type A
+
+  val syntaxTreeOption: Option[SyntaxTree]
+  override val syntaxTree: SyntaxTree = syntaxTreeOption.get
+
+  def run(): Try[A]
+  def syntaxTree(s: SyntaxTree): Migrator
+  
 }
 
 case class PrismaMigrator(
-    schemaOption: Option[Document] = None,
+    override val syntaxTreeOption: Option[SyntaxTree] = None,
     outputHandler: String => Unit = output => println(output),
     prismaServerUri: String
 ) extends Migrator {
-  import sys.process._
-  import scala.language.postfixOps
+  override type A = Unit
+  val converter = GraphQlConverter(syntaxTreeOption.get)
+
 
   def renderedSchema =
-    schemaOption
-      .map { schema =>
+    syntaxTreeOption
+      .map { s =>
         SchemaRenderer.renderSchema(
-          Schema.buildFromAst(schema),
+          Schema.buildFromAst(converter.buildGraphQLAst()),
           SchemaFilter(
             typeName =>
               typeName != "Query"
@@ -37,24 +48,40 @@ case class PrismaMigrator(
       }
       .getOrElse("")
 
-  def schema(s: Document) =
+  override def syntaxTree(s: SyntaxTree) =
     PrismaMigrator(Some(s), outputHandler, prismaServerUri)
 
-  def run = Try {
+  override def run = Try {
     // Send data model (renderedSchema) to Prisma server
   }
 }
 
-case class MockSuccessMigrator(schemaOption: Option[Document])
-    extends Migrator {
-  def run = Success(())
-  def schema(s: Document) = MockSuccessMigrator(schemaOption)
-  def renderedSchema: String = ""
+case class MockSuccessMigrator(
+    override val syntaxTreeOption: Option[SyntaxTree] = None,
+) extends Migrator {
+  override type A = String
+  val converter = GraphQlConverter(syntaxTreeOption.get)
+
+
+  def renderedSchema = ""
+
+  override def syntaxTree(s: SyntaxTree) =
+    MockSuccessMigrator(Some(s))
+
+  override def run = Success("Mock Migration Succeeded")
 }
 
-case class MockFailureMigrator(schemaOption: Option[Document])
-    extends Migrator {
-  def run = Failure(new Exception("Mock Migrator failed"))
-  def schema(s: Document) = MockFailureMigrator(schemaOption)
-  def renderedSchema: String = ""
+case class MockFailureMigrator(
+    override val syntaxTreeOption: Option[SyntaxTree] = None,
+) extends Migrator {
+  override type A = Unit
+  val converter = GraphQlConverter(syntaxTreeOption.get)
+
+
+  def renderedSchema = ""
+
+  override def syntaxTree(s: SyntaxTree) =
+    MockFailureMigrator(Some(s))
+
+  override def run = Failure(new Exception("Mock Migration Failed"))
 }
