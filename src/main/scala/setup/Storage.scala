@@ -10,10 +10,11 @@ trait Storage extends WithSyntaxTree {
 
   def runQuery(query: Document): Request
   def migrate() = migrator.syntaxTree(syntaxTree).run()
+  // TODO: add `dockerContainerConfig` method that returns a DockerConfig object to be used in Setup.dockerComposeYaml
 }
 
 case class PrismaMongo[Request](syntaxTree: SyntaxTree) extends Storage {
-  def runQuery(query: Document): Request = ???
   val converter: Converter = GraphQlConverter(syntaxTree)
-  val migrator: Migrator = ???
+  val migrator: Migrator = PrismaMongoMigrator(Some(syntaxTree))
+  def runQuery(query: Document): Request = ???
 }

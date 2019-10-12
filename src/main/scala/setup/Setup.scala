@@ -64,6 +64,7 @@ case class Setup(
     }
   }
 
+  // TODO: make this dynamic based on `storage.dockerContainerConfig`
   def dockerComposeYaml(): String = Setup.defaultDockerComposeYaml
 
   def buildApiSchema(): Document = ???
