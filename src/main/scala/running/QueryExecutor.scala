@@ -7,5 +7,5 @@ case class QueryExecutor(
     schema: SyntaxTree,
     storage: Storage
 ) {
-    def execute(query: Document) = ???
+    def execute(query: Document, userToken: JwtPaylod) = ???
 }
