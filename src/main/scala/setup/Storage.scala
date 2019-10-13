@@ -1,10 +1,9 @@
 package setup
 import sangria.ast.Document
 import domain.SyntaxTree
+import running.Request
 
 trait Storage extends WithSyntaxTree {
-  type Request // TODO: remove this into a seperate type
-
   override val syntaxTree: SyntaxTree
   val migrator: Migrator
 

@@ -14,7 +14,8 @@ lazy val root = (project in file("."))
 libraryDependencies ++= Seq(
   "org.parboiled" %% "parboiled" % "2.1.8",
   "org.sangria-graphql" %% "sangria" % "1.4.2",
-  "com.github.nscala-time" %% "nscala-time" % "2.22.0"
+  "com.github.nscala-time" %% "nscala-time" % "2.22.0",
+  "io.spray" %%  "spray-json" % "1.3.4"
 )
 
 scalacOptions ++= Seq("-feature", "-deprecation")
