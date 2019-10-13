@@ -4,6 +4,7 @@ import domain._
 import primitives._
 import utils.{TypeMismatchException}
 import Implicits._
+import running.QueryExecutor
 
 import sangria.schema._
 import sangria.parser.QueryParser
