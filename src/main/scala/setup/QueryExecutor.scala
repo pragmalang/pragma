@@ -2,8 +2,9 @@ package setup
 import domain.SyntaxTree
 import sangria.ast.Document
 
-case class QueryExecutor[Request](
+case class QueryExecutor(
     schema: SyntaxTree,
-    query: Document,
     storage: Storage
-)
+) {
+    def execute(query: Document) = ???
+}

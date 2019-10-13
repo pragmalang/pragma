@@ -20,7 +20,7 @@ case class Setup(
     syntaxTree: SyntaxTree
 ) {
 
-  val storage: Storage = ???
+  val storage: Storage = PrismaMongo(syntaxTree)
 
   def run() = {
     writeDockerComposeYaml()
@@ -66,5 +66,5 @@ case class Setup(
 
   def buildApiSchema(): Document = ???
 
-  def buildExecutor[Request](): QueryExecutor[Request] = ???
+  def buildExecutor(): QueryExecutor = QueryExecutor(syntaxTree, storage)
 }
