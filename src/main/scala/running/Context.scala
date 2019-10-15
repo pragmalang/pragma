@@ -1,11 +1,11 @@
 package running
-import spray.json.{JsValue, JsString}
+import spray.json.{JsObject, JsString}
 import sangria.ast.Document
 
 case class Context(
-    data: JsValue,
+    data: Option[JsObject],
     graphQlQuery: Document,
-    body: JsValue,
+    body: Option[JsObject],
     cookies: Map[String, String],
     url: String,
     hostname: String,
