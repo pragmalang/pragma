@@ -8,7 +8,7 @@ import scala.language.implicitConversions
 class HeavenlyParser(val input: ParserInput) extends Parser {
 
   def syntaxTree: Rule1[List[HConstruct]] = rule {
-    whitespace() ~ zeroOrMore(importDef | modelDef | enumDef) ~ whitespace() ~>
+    whitespace() ~ zeroOrMore(importDef | modelDef | enumDef | configDef) ~ whitespace() ~>
       ((cs: Seq[HConstruct]) => cs.toList) ~ EOI
   }
 
@@ -237,6 +237,21 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
             HImport(id, file.value, Some(PositionRange(start, end)))
           }
       )
+  }
+
+  def configDef = rule {
+    push(cursor) ~ "config" ~ push(cursor) ~ "{" ~ zeroOrMore(configEntry) ~ "}" ~>
+      ((start: Int, end: Int, entries: Seq[ConfigEntry]) => {
+        HConfig(entries.toList, Some(PositionRange(start, end)))
+      })
+  }
+
+  def configEntry: Rule1[ConfigEntry] = rule {
+    push(cursor) ~ identifier ~ push(cursor) ~ "=" ~
+      literal ~ optional(",") ~ whitespace() ~>
+      ((start: Int, key: String, end: Int, value: HValue) => {
+        ConfigEntry(key, value, Some(PositionRange(start, end)))
+      })
   }
 
 }

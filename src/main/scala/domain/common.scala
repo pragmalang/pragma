@@ -66,9 +66,10 @@ trait HShapeField extends Positioned with Identifiable {
   val htype: HType
   def isOptional = htype match {
     case HOption(_) => true
-    case _ => false
+    case _          => false
   }
 }
+
 case class HModelField(
     id: String,
     htype: HType,
@@ -184,3 +185,12 @@ trait Resource {
 
 case class ShapeResource(shape: HShape) extends Resource
 case class FieldResource(field: HShapeField, shape: HShape)
+
+case class HConfig(values: List[ConfigEntry], position: Option[PositionRange])
+    extends HConstruct
+
+case class ConfigEntry(
+    key: String,
+    value: HValue,
+    position: Option[PositionRange]
+) extends Positioned
