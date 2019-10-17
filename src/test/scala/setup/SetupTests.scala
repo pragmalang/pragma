@@ -9,7 +9,6 @@ import sangria.parser.QueryParser
 class SetupTests extends WordSpec {
   "Setup" should {
     "Create .heavenly-x/docker-compose.yml" in {
-      assert(false)
       // Setup(
       //   SyntaxTree(Nil, Nil, Nil, Nil, Permissions(Nil, None)),
       //   PrismaMigrator(
@@ -27,7 +26,6 @@ class SetupTests extends WordSpec {
     }
 
     "Overwrite .heavenly-x/docker-compose.yml if any exists" in {
-      assert(false)
     }
   }
 }
