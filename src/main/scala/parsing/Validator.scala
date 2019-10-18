@@ -8,7 +8,8 @@ class Validator(val st: List[HConstruct]) {
     val results = List(
       checkFieldValueType,
       checkTopLevelIdentity,
-      checkModelFieldIdentity
+      checkModelFieldIdentity,
+      checkExistance
     )
     results.foldLeft(List.empty[ErrorMessage])(
       (errors, result) =>
@@ -64,7 +65,7 @@ class Validator(val st: List[HConstruct]) {
   // Check that no two constructs have the same id.
   def checkIdentity(
       identifiables: List[Identifiable with Positioned]
-  ): List[ErrorMessage] = {
+  ): List[ErrorMessage] =
     identifiables
       .foldLeft((Set.empty[String], List.empty[ErrorMessage]))(
         (acc, construct) =>
@@ -79,12 +80,11 @@ class Validator(val st: List[HConstruct]) {
           else (acc._1 + construct.id, acc._2)
       )
       ._2
-  }
 
   def checkTopLevelIdentity: Try[Unit] = Try {
     val errors = checkIdentity(
       for (c <- st
-           if c.isInstanceOf[Identifiable] && c.isInstanceOf[Positioned])
+           if c.isInstanceOf[Identifiable with Positioned])
         yield c.asInstanceOf[Identifiable with Positioned]
     )
     if (!errors.isEmpty) throw new UserError(errors)
@@ -98,6 +98,26 @@ class Validator(val st: List[HConstruct]) {
         checkIdentity(model.fields)
       }
     if (!errors.isEmpty) throw new UserError(errors.flatten)
+  }
+
+  def checkExistance: Try[Unit] = Try {
+    val nonExistantFieldTypeErrors = for {
+      construct <- st
+      if construct.isInstanceOf[HModel]
+      field <- construct.asInstanceOf[HModel].fields
+    } yield
+      field.htype match {
+        case r: HReference => {
+          val foundType = st.find { c =>
+            c.isInstanceOf[HModel] && c.asInstanceOf[HModel].id == r.id
+          }
+          if (foundType.isDefined) None
+          else Some((r.id + " is not defined", field.position))
+        }
+        case _: PrimitiveType => None
+      }
+    val errors = nonExistantFieldTypeErrors.flatten
+    if (errors.isEmpty) throw new UserError(errors)
   }
 
 }
