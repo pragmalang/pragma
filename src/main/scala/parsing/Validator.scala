@@ -6,10 +6,10 @@ class Validator(val st: List[HConstruct]) {
 
   def results: List[ErrorMessage] = {
     val results = List(
+      checkTypeExistance,
       checkFieldValueType,
       checkTopLevelIdentity,
-      checkModelFieldIdentity,
-      checkExistance
+      checkModelFieldIdentity
     )
     results.foldLeft(List.empty[ErrorMessage])(
       (errors, result) =>
@@ -100,7 +100,8 @@ class Validator(val st: List[HConstruct]) {
     if (!errors.isEmpty) throw new UserError(errors.flatten)
   }
 
-  def checkExistance: Try[Unit] = Try {
+  // Check if types are defined
+  def checkTypeExistance: Try[Unit] = Try {
     val nonExistantFieldTypeErrors = for {
       construct <- st
       if construct.isInstanceOf[HModel]
@@ -108,8 +109,10 @@ class Validator(val st: List[HConstruct]) {
     } yield
       field.htype match {
         case r: HReference => {
-          val foundType = st.find { c =>
-            c.isInstanceOf[HModel] && c.asInstanceOf[HModel].id == r.id
+          val foundType = st.find {
+            case m: HModel => m.id == r.id
+            case e: HEnum => e.id == r.id
+            case _ => false
           }
           if (foundType.isDefined) None
           else Some((r.id + " is not defined", field.position))
