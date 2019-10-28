@@ -2,20 +2,14 @@ package setup
 
 import domain._
 import primitives._
-import utils.{TypeMismatchException}
-import Implicits._
 import running.QueryExecutor
 
-import sangria.schema._
-import sangria.parser.QueryParser
 import sangria.ast.{Document}
-
-import scala.util.{Success, Failure, Try}
 
 import sys.process._
 import scala.language.postfixOps
 import java.io._
-import sangria.ast.{ObjectTypeDefinition, NamedType, FieldDefinition}
+import scala.util.{Success, Failure}
 
 case class Setup(
     syntaxTree: SyntaxTree
