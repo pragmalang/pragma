@@ -23,7 +23,7 @@ case class Setup(
 
   val storage: Storage = PrismaMongo(syntaxTree)
 
-  def run() = {
+  def setup() = {
     writeDockerComposeYaml()
     dockerComposeUp()
     storage.migrate()
