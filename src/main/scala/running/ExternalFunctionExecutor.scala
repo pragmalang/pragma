@@ -24,74 +24,67 @@ import spray.json.JsNull
 import domain.HModel
 import spray.json.JsObject
 import domain.HShape
+import domain.HShapeField
+import domain.HSelf
+import domain.HReference
+import domain.HEnum
+import domain.SyntaxTree
+
+import java.time.ZonedDateTime
 
 sealed trait ExternalFunctionExecutor {
-  val function: ExternalFunction
-
   def execute(): JsValue
 
-  def typeCheck(json: JsValue): Try[JsValue] =
-    typeCheckJson(function.htype.returnType)(json)
-
-  def typeCheckJson(htype: HType): JsValue => Try[JsValue] =
-    (json: JsValue) =>
-      htype match {
-        case HDate =>
-          json match {
-            case JsString(value)
-                if Try(java.time.ZonedDateTime.parse(value)).isSuccess =>
-              Success(json)
-            case _ => Failure(new Exception())
-          }
-        case HArray(htype) =>
-          json match {
-            case JsArray(elements)
-                if elements
-                  .map(e => typeCheckJson(htype)(e))
-                  .contains(Failure(new Exception())) =>
-              Success(json)
-            case _ => Failure(new Exception())
-          }
-        case HInteger =>
-          json match {
-            case JsNumber(value) if value.isWhole => Success(json)
-            case _                                => Failure(new Exception())
-          }
-        case HBool =>
-          json match {
-            case JsBoolean(value) => Success(json)
-            case _                => Failure(new Exception())
-          }
-        case HOption(htype) =>
-          json match {
-            case JsNull => Success(json)
-            case _      => typeCheckJson(htype)(json)
-          }
-        case HString =>
-          json match {
-            case JsString(value) => Success(json)
-            case _               => Failure(new Exception())
-          }
-        case HFloat =>
-          json match {
-            case JsNumber(value) => Success(json)
-            case _               => Failure(new Exception())
-          }
-        case shape: HShape =>
-          json match {
-            case JsObject(fields) => ???
-            case _ => Failure(new Exception())
-          }
+  def typeCheckJson(htype: HType, syntaxTree: SyntaxTree)(
+      json: JsValue
+  ): Try[JsValue] =
+    Try {
+      def fieldsRespectsShape(
+          objectFields: Map[String, JsValue],
+          shapeFields: List[HShapeField]
+      ) =
+        objectFields.forall(
+          of =>
+            shapeFields.count(
+              sf =>
+                sf.id == of._1 &&
+                  typeCheckJson(sf.htype, syntaxTree)(of._2).isSuccess
+            ) == 1
+        ) && shapeFields.forall(
+          sf =>
+            objectFields.count(
+              of =>
+                !sf.isOptional && sf.id == of._1 &&
+                  typeCheckJson(sf.htype, syntaxTree)(of._2).isSuccess
+            ) == 1
+        )
+      (htype, json) match {
+        case (HDate, JsString(v)) if Try(ZonedDateTime.parse(v)).isSuccess => json
+        case (HDate, _) =>
+          throw new Exception("Date must be a valid ISO date")
+        case (HArray(htype), JsArray(elements))
+            if elements
+              .map(e => typeCheckJson(htype, syntaxTree)(e))
+              .exists {
+                case Failure(_) => true
+                case Success(_) => false
+              } => json
+        case (HInteger, JsNumber(v)) if v.isWhole => json
+        case (HBool, JsBoolean(v))                => json
+        case (HOption(htype), JsNull)             => json
+        case (HOption(htype), _)                  => typeCheckJson(htype, syntaxTree)(json).get
+        case (HString, JsString(v))               => json
+        case (HFloat, JsNumber(value))            => json
+        case (shape: HShape, JsObject(fields))
+            if fieldsRespectsShape(fields, shape.fields) => json
+        case (HSelf(id), jsValue: JsValue)      => typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
+        case (HReference(id), jsValue: JsValue) => typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
+        case (henum: HEnum, JsString(value)) if henum.values.contains(value) => json
       }
+    }
 }
 
 case class DockerFunctionExecutor(function: ExternalFunction)
     extends ExternalFunctionExecutor {
   def execute(): JsValue = ???
 }
-
-/*
-f x = x + 1
-g x = x * x
-h = g . f
-*/
