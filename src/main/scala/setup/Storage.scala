@@ -3,8 +3,8 @@ import sangria.ast.Document
 import domain.SyntaxTree
 import running.Request
 
-trait Storage extends WithSyntaxTree {
-  override val syntaxTree: SyntaxTree
+trait Storage {
+  val syntaxTree: SyntaxTree
   val migrator: Migrator
 
   def runQuery(query: Document): Request
@@ -45,5 +45,5 @@ services:
       - mongo:/var/lib/mongo
 volumes:
   mongo: ~
-    """;
+    """
 }

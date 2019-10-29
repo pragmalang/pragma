@@ -9,14 +9,14 @@ import sangria.marshalling.DateSupport
 import sangria.ast._
 import sangria.schema.{ObjectType, Schema}
 
-trait Converter extends WithSyntaxTree {
+trait Converter {
   type Def
   type EnumDef
   type ShapeDef
   type FieldTypeDef
   type FieldDef
 
-  override val syntaxTree: SyntaxTree
+  val syntaxTree: SyntaxTree
 
   def typeDefinitions(): Vector[Def]
   def fieldType(ht: HType, isOptional: Boolean = false): FieldTypeDef

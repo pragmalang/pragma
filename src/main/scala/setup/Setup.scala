@@ -6,8 +6,7 @@ import running.QueryExecutor
 
 import sangria.ast.{Document}
 
-import sys.process._
-import scala.language.postfixOps
+import Implicits._
 import java.io._
 import scala.util.{Success, Failure}
 
@@ -24,40 +23,17 @@ case class Setup(
   }
 
   def dockerComposeUp() =
-    "docker-compose -f ./.heavenly-x/docker-compose.yml up -d" ! match {
-      case 1 =>
-        Failure(
-          new Exception(
-            "Error: Couldn't run docker-compose. Make sure docker and docker-compose are installed on your machine"
-          )
-        )
-      case 0 => Success(())
-    }
+    "docker-compose -f ./.heavenly-x/docker-compose.yml up -d" $
+      "Error: Couldn't run docker-compose. Make sure docker and docker-compose are installed on your machine"
 
   def dockerComposeDown() =
-    "docker-compose -f ./.heavenly-x/docker-compose.yml down" ! match {
-      case 1 =>
-        Failure(
-          new Exception(
-            "Error: Couldn't run docker-compose. Make sure docker and docker-compose are installed on your machine"
-          )
-        )
-      case 0 => Success(())
-    }
+    "docker-compose -f ./.heavenly-x/docker-compose.yml down" $
+      "Error: Couldn't run docker-compose. Make sure docker and docker-compose are installed on your machine"
 
-  def writeDockerComposeYaml() = {
-    "mkdir .heavenly-x" ! match {
-      case 1 =>
-        throw new Exception(
-          "Filesystem Error: Couldn't create .heavenlyx directory"
-        )
-      case 0 => {
-        val pw = new PrintWriter(new File(".heavenly-x/docker-compose.yml"))
-        pw.write(storage.dockerComposeYaml())
-        pw.close
-      }
-    }
-  }
+  def writeDockerComposeYaml() =
+    "mkdir .heavenly-x" $ "Filesystem Error: Couldn't create .heavenlyx directory"
+
+  def build(): (Document, QueryExecutor) = (buildApiSchema, buildExecutor)
 
   def buildApiSchema(): Document = ???
 

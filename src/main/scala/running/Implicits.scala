@@ -3,7 +3,6 @@ import sangria.ast.{Document, Definition}
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
-// TODO
 package object Implicits {
   implicit object GraphQlDocumentJsonFormater extends JsonFormat[Document] {
     def read(json: JsValue): Document = ???

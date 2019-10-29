@@ -10,11 +10,10 @@ import scala.util.{Try, Success, Failure}
 import sys.process._
 import scala.language.postfixOps
 
-trait Migrator extends WithSyntaxTree {
+trait Migrator {
   type Return
 
   val syntaxTreeOption: Option[SyntaxTree]
-  override val syntaxTree: SyntaxTree = syntaxTreeOption.get
 
   def run(): Try[Return]
   def syntaxTree(s: SyntaxTree): Migrator

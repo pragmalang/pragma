@@ -16,5 +16,5 @@ object JwtPaylod {
       .map(_._2.parseJson.convertTo[JwtPaylod])
 
   def encode(jwtPayload: JwtPaylod) =
-    Jwt.encode(s"${jwtPayload.toJson}", secret, JwtAlgorithm.HS256)
+    Jwt.encode(jwtPayload.toJson.toString, secret, JwtAlgorithm.HS256)
 }
