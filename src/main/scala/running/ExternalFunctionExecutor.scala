@@ -50,16 +50,19 @@ sealed trait ExternalFunctionExecutor {
                 sf.id == of._1 &&
                   typeCheckJson(sf.htype, syntaxTree)(of._2).isSuccess
             ) == 1
-        ) && shapeFields.forall(
-          sf =>
-            objectFields.count(
-              of =>
-                !sf.isOptional && sf.id == of._1 &&
-                  typeCheckJson(sf.htype, syntaxTree)(of._2).isSuccess
-            ) == 1
-        )
+        ) && shapeFields
+          .filterNot(_.isOptional)
+          .forall(
+            sf =>
+              objectFields.count(
+                of =>
+                  sf.id == of._1 &&
+                    typeCheckJson(sf.htype, syntaxTree)(of._2).isSuccess
+              ) == 1
+          )
       (htype, json) match {
-        case (HDate, JsString(v)) if Try(ZonedDateTime.parse(v)).isSuccess => json
+        case (HDate, JsString(v)) if Try(ZonedDateTime.parse(v)).isSuccess =>
+          json
         case (HDate, _) =>
           throw new Exception("Date must be a valid ISO date")
         case (HArray(htype), JsArray(elements))
@@ -68,7 +71,8 @@ sealed trait ExternalFunctionExecutor {
               .exists {
                 case Failure(_) => true
                 case Success(_) => false
-              } => json
+              } =>
+          json
         case (HInteger, JsNumber(v)) if v.isWhole => json
         case (HBool, JsBoolean(v))                => json
         case (HOption(htype), JsNull)             => json
@@ -76,10 +80,14 @@ sealed trait ExternalFunctionExecutor {
         case (HString, JsString(v))               => json
         case (HFloat, JsNumber(value))            => json
         case (shape: HShape, JsObject(fields))
-            if fieldsRespectsShape(fields, shape.fields) => json
-        case (HSelf(id), jsValue: JsValue)      => typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
-        case (HReference(id), jsValue: JsValue) => typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
-        case (henum: HEnum, JsString(value)) if henum.values.contains(value) => json
+            if fieldsRespectsShape(fields, shape.fields) =>
+          json
+        case (HSelf(id), jsValue: JsValue) =>
+          typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
+        case (HReference(id), jsValue: JsValue) =>
+          typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
+        case (henum: HEnum, JsString(value)) if henum.values.contains(value) =>
+          json
       }
     }
 }
