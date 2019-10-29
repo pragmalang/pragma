@@ -20,7 +20,11 @@ case class SyntaxTree(
     models: List[HModel],
     enums: List[HEnum],
     permissions: Permissions
-)
+) {
+  def findTypeById(id: String): Option[HType] =
+    models.find(model => model.id == id) orElse
+      enums.find(enum => enum.id == id)
+}
 
 case class PositionRange(start: Position, end: Position)
 
