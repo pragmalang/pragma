@@ -4,11 +4,11 @@ import domain._
 import primitives._
 import running.QueryExecutor
 
-import sangria.ast.{Document}
+import sangria.ast._
 
 import Implicits._
 import java.io._
-import scala.util.{Success, Failure}
+import scala.util.{Success, Failure, Try}
 
 case class Setup(
     syntaxTree: SyntaxTree
@@ -16,10 +16,10 @@ case class Setup(
 
   val storage: Storage = PrismaMongo(syntaxTree)
 
-  def setup() = {
-    writeDockerComposeYaml()
-    dockerComposeUp()
-    storage.migrate()
+  def setup(): Try[Unit] = Try {
+    writeDockerComposeYaml().get
+    dockerComposeUp().get
+    storage.migrate().get
   }
 
   def dockerComposeUp() =
@@ -35,7 +35,11 @@ case class Setup(
 
   def build(): (Document, QueryExecutor) = (buildApiSchema, buildExecutor)
 
-  def buildApiSchema(): Document = ???
+  def buildApiSchema(): Document = {
+    val graphQlConverter = GraphQlConverter(syntaxTree)
+    val nonOperationalTypes = graphQlConverter.typeDefinitions
+    Document.emptyStub
+  }
 
   def buildExecutor(): QueryExecutor = QueryExecutor(syntaxTree, storage)
 }
