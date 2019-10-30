@@ -5,5 +5,9 @@ sealed trait ExternalFunctionExecutor {
 }
 
 object DockerFunctionExecutor extends ExternalFunctionExecutor {
-  def execute(): JsValue = ???
+  override def execute(): JsValue = ???
+}
+
+object GraalFunctionExecutor extends ExternalFunctionExecutor {
+  override def execute(): JsValue = ???
 }
