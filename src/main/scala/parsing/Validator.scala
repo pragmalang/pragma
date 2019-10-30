@@ -111,8 +111,8 @@ class Validator(val st: List[HConstruct]) {
         case r: HReference => {
           val foundType = st.find {
             case m: HModel => m.id == r.id
-            case e: HEnum => e.id == r.id
-            case _ => false
+            case e: HEnum  => e.id == r.id
+            case _         => false
           }
           if (foundType.isDefined) None
           else Some((r.id + " is not defined", field.position))
@@ -127,6 +127,6 @@ class Validator(val st: List[HConstruct]) {
 object Validator {
 
   def arrayIsHomogeneous(arr: HArrayValue): Boolean =
-    arr.values.map(_.htype == arr.elementType).fold(true)(_ && _)
+    arr.values.forall(_.htype == arr.elementType)
 
 }

@@ -4,6 +4,8 @@ import domain.utils._
 import java.io.File
 import scala.util._
 import scala.collection.immutable.ListMap
+import running.Request
+import spray.json.JsValue
 
 package object primitives {
   sealed trait PrimitiveType extends HType
@@ -49,9 +51,15 @@ package object primitives {
   case class HModelValue(value: HObject, htype: HModel) extends HValue
   case class HInterfaceValue(value: HObject, htype: HInterface) extends HValue
   case class HFunctionValue(body: HExpression, htype: HFunction) extends HValue
-  case class ExternalFunction(id: String, filePath: String, htype: HFunction)
+  trait ExternalFunction
       extends HValue
-      with Identifiable
+      with Identifiable {
+        override val id: String
+        override val htype: HType
+        val filePath: String
+         
+        def execute(input: JsValue): Try[JsValue]
+      }
   case class HOptionValue(value: Option[HValue], valueType: HType)
       extends HValue {
     final val htype = HOption(valueType)
