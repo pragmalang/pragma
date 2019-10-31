@@ -94,9 +94,9 @@ package object utils {
         case (shape: HShape, JsObject(fields))
             if fieldsRespectsShape(fields, shape.fields) =>
           json
-        case (HSelf(id), jsValue: JsValue) =>
+        case (HSelf(id), _: JsValue) =>
           typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
-        case (HReference(id), jsValue: JsValue) =>
+        case (HReference(id), _: JsValue) =>
           typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
         case (henum: HEnum, JsString(value)) if henum.values.contains(value) =>
           json
