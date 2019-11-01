@@ -1,6 +1,6 @@
 import Dependencies._
 
-ThisBuild / scalaVersion := "2.12.10"
+ThisBuild / scalaVersion := "2.13.1"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "com.heavenlyx"
 ThisBuild / organizationName := "heavenlyx"
@@ -13,9 +13,9 @@ lazy val root = (project in file("."))
 
 libraryDependencies ++= Seq(
   "org.parboiled" %% "parboiled" % "2.1.8",
-  "org.sangria-graphql" %% "sangria" % "1.4.2",
+  "org.sangria-graphql" %% "sangria" % "2.0.0-M1",
   "com.github.nscala-time" %% "nscala-time" % "2.22.0",
-  "io.spray" %%  "spray-json" % "1.3.4",
+  "io.spray" %%  "spray-json" % "1.3.5",
   "com.pauldijou" %% "jwt-core" % "4.1.0"
 )
 
