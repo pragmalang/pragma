@@ -37,8 +37,19 @@ case class Setup(
 
   def buildApiSchema(): Document = {
     val graphQlConverter = GraphQlConverter(syntaxTree)
-    val nonOperationalTypes = graphQlConverter.typeDefinitions
-    Document.emptyStub
+    val builtins = GraphQlConverter.buitlinGraphQlTypeDefinitions
+    val outputTypes = graphQlConverter.outputTypes
+    val objectInputTypes =
+      graphQlConverter.inputTypes(GraphQlConverter.ObjectInput)
+    val referenceInputTypes =
+      graphQlConverter.inputTypes(GraphQlConverter.ReferenceInput)
+    val optionalInputTypes =
+      graphQlConverter.inputTypes(GraphQlConverter.OptionalInput)
+    val notificationTypes = graphQlConverter.notificationTypes
+
+    Document(
+      builtins ++ outputTypes ++ objectInputTypes ++ referenceInputTypes ++ optionalInputTypes ++ notificationTypes
+    )
   }
 
   def buildExecutor(): QueryExecutor = QueryExecutor(syntaxTree, storage)
