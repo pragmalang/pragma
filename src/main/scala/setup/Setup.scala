@@ -47,8 +47,20 @@ case class Setup(
       graphQlConverter.inputTypes(GraphQlConverter.OptionalInput)
     val notificationTypes = graphQlConverter.notificationTypes
 
+    val queryType: ObjectTypeDefinition = graphQlConverter.queryType
+    val mutationType: ObjectTypeDefinition = ???
+    val subscriptionType: ObjectTypeDefinition = ???
+
     Document(
-      builtins ++ outputTypes ++ objectInputTypes ++ referenceInputTypes ++ optionalInputTypes ++ notificationTypes
+      (queryType
+        :: mutationType
+        :: subscriptionType
+        :: builtins
+        ::: outputTypes
+        ::: objectInputTypes
+        ::: referenceInputTypes
+        ::: optionalInputTypes
+        ::: notificationTypes).toVector
     )
   }
 

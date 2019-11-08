@@ -57,6 +57,9 @@ case class HModel(
 ) extends HType
     with HShape {
   lazy val isUser = directives.exists(d => d.id == "user")
+  lazy val primaryField = fields
+    .find(f => f.directives.exists(d => d.id == "primary"))
+    .get
 }
 
 case class HInterface(
@@ -99,7 +102,12 @@ object Directive {
       List(HInterfaceField("validator", self, None)),
       None
     ),
-    "user" -> HInterface("user", Nil, None)
+    "user" -> HInterface("user", Nil, None),
+    "plural" -> HInterface(
+      "plural",
+      List(HInterfaceField("name", HString, None)),
+      None
+    )
   )
 
   def fieldDirectives(model: HModel, field: HModelField) = Map(

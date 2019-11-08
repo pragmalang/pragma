@@ -16,6 +16,11 @@ Defines data validation rules for incoming data.
 **Args:**
  - `validator`: Function that takes a [`Request`](../api/request.md) object and throws an error if the validation fails
 
+## @plural (Model-level)
+Used to specify the plural of the model's name
+**Args:**
+ - `name`: A `String`
+
 ## @realtime (Model-level/Field-level)
 Marks a field or a model as a realtime value
 

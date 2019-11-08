@@ -1,14 +1,11 @@
 package setup
 
-import domain._
-import primitives._
-import utils._
+import domain._, primitives._, utils._
 
 import sangria.validation.ValueCoercionViolation
 import sangria.marshalling.DateSupport
 import sangria.ast._
 import sangria.schema.{ObjectType, Schema}
-
 import sangria.macros._
 
 trait Converter {
@@ -20,7 +17,7 @@ trait Converter {
 
   val syntaxTree: SyntaxTree
 
-  def typeDefinitions(): Vector[Def]
+  def typeDefinitions(): List[Def]
   def fieldType(
       ht: HType,
       isOptional: Boolean,
@@ -33,6 +30,7 @@ trait Converter {
 }
 
 case class GraphQlConverter(syntaxTree: SyntaxTree) extends Converter {
+  import GraphQlConverter._
 
   override type Def = Definition
   override type EnumDef = EnumTypeDefinition
@@ -40,7 +38,7 @@ case class GraphQlConverter(syntaxTree: SyntaxTree) extends Converter {
   override type FieldTypeDef = Type
   override type FieldDef = FieldDefinition
 
-  def buildGraphQLAst() = Document(typeDefinitions)
+  def buildGraphQLAst() = Document(typeDefinitions.toVector)
 
   def buildGraphQLSchemaAst(
       query: ObjectTypeDefinition = ObjectTypeDefinition(
@@ -54,25 +52,27 @@ case class GraphQlConverter(syntaxTree: SyntaxTree) extends Converter {
   ) = mutation match {
     case None =>
       subscription match {
-        case None => Document(typeDefinitions :+ query)
+        case None => Document(typeDefinitions.toVector :+ query)
         case Some(subscription) =>
-          Document(typeDefinitions :+ query :+ subscription)
+          Document(typeDefinitions.toVector :+ query :+ subscription)
       }
     case Some(mutation) =>
       subscription match {
-        case None => Document(typeDefinitions :+ query :+ mutation)
+        case None => Document(typeDefinitions.toVector :+ query :+ mutation)
         case Some(subscription) =>
-          Document(typeDefinitions :+ query :+ mutation :+ subscription)
+          Document(
+            typeDefinitions.toVector :+ query :+ mutation :+ subscription
+          )
       }
   }
 
-  override def typeDefinitions(): Vector[Definition] =
-    (syntaxTree.models.map(hShape(_)) ++ syntaxTree.enums.map(hEnum(_))).toVector
+  override def typeDefinitions(): List[Definition] =
+    syntaxTree.models.map(hShape(_)) ++ syntaxTree.enums.map(hEnum(_))
 
   override def fieldType(
       ht: HType,
       isOptional: Boolean = false,
-      nameTransformer: String => String = name => name
+      nameTransformer: String => String = identity
   ): Type =
     ht match {
       case HArray(ht) =>
@@ -142,7 +142,7 @@ case class GraphQlConverter(syntaxTree: SyntaxTree) extends Converter {
     arguments = graphQlFieldArgs(args)
   )
 
-  def outputTypes: Vector[Definition] = typeDefinitions map {
+  def outputTypes: List[Definition] = typeDefinitions map {
     case objDef: ObjectTypeDefinition =>
       objDef.copy(fields = objDef.fields map { field =>
         field.fieldType match {
@@ -157,23 +157,23 @@ case class GraphQlConverter(syntaxTree: SyntaxTree) extends Converter {
     case td => td
   }
 
-  def inputTypes(kind: GraphQlConverter.InputKind): Vector[Definition] =
-    syntaxTree.models.toVector.map { model =>
+  def inputTypes(kind: InputKind): List[Definition] =
+    syntaxTree.models.map { model =>
       InputObjectTypeDefinition(
-        name = model.id.capitalize + GraphQlConverter.inputKindSuffix(kind),
+        name = model.id.capitalize + inputKindSuffix(kind),
         fields = model.fields.toVector.map { field =>
           InputValueDefinition(
             name = field.id,
             valueType = fieldType(
               ht = field.htype,
               nameTransformer = name =>
-                name.capitalize + GraphQlConverter.inputKindSuffix(
-                  GraphQlConverter.ReferenceInput
+                name.capitalize + inputKindSuffix(
+                  ReferenceInput
                 ),
               isOptional = kind match {
-                case GraphQlConverter.ObjectInput   => false
-                case GraphQlConverter.OptionalInput => true
-                case GraphQlConverter.ReferenceInput =>
+                case ObjectInput   => false
+                case OptionalInput => true
+                case ReferenceInput =>
                   !field.directives.exists(fd => fd.id == "primary")
               }
             ),
@@ -183,26 +183,124 @@ case class GraphQlConverter(syntaxTree: SyntaxTree) extends Converter {
       )
     }
 
-  def notificationTypes: Vector[Definition] =
-    syntaxTree.models.toVector.map(
-      model =>
-        ObjectTypeDefinition(
-          name = s"${model.id.capitalize}Notification",
-          interfaces = Vector.empty,
-          fields = Vector(
-            FieldDefinition(
-              name = "event",
-              fieldType = NotNullType(NamedType("Event")),
-              arguments = Vector.empty
-            ),
-            FieldDefinition(
-              name = model.id,
-              fieldType = NotNullType(NamedType(model.id)),
-              arguments = Vector.empty
-            )
+  def notificationTypes: List[Definition] =
+    syntaxTree.models.map { model =>
+      ObjectTypeDefinition(
+        name = s"${model.id.capitalize}Notification",
+        interfaces = Vector.empty,
+        fields = Vector(
+          FieldDefinition(
+            name = "event",
+            fieldType = NotNullType(NamedType("Event")),
+            arguments = Vector.empty
+          ),
+          FieldDefinition(
+            name = model.id,
+            fieldType = NotNullType(NamedType(model.id)),
+            arguments = Vector.empty
           )
         )
+      )
+    }
+
+  def ruleBasedTypeGenerator(
+      typeName: String,
+      rules: List[HModel => FieldDefinition]
+  ) = ObjectTypeDefinition(
+    typeName,
+    Vector.empty,
+    rules
+      .foldLeft[List[FieldDefinition]](Nil)(_ ::: syntaxTree.models.map(_))
+      .toVector
+  )
+
+  def queryType: ObjectTypeDefinition = {
+    val rules: List[HModel => FieldDefinition] = List(
+      model =>
+        graphQlField(
+          identity,
+          args = Map(
+            model.primaryField.id -> fieldType(
+              model.primaryField.htype,
+              isOptional = true,
+              nameTransformer =
+                name => name.capitalize + inputKindSuffix(ReferenceInput)
+            )
+          ),
+          fieldType = NamedType(model.id)
+        )(model.id),
+      model =>
+        graphQlField(
+          _ => Pluralizer.pluralize(model).capitalize,
+          args = Map("where" -> NamedType("WhereInput")),
+          fieldType = NamedType(model.id)
+        )(model.id),
+      model =>
+        graphQlField(
+          _ => "count" + Pluralizer.pluralize(model).capitalize,
+          args = Map("where" -> NamedType("WhereInput")),
+          fieldType = NamedType("Int")
+        )(model.id)
     )
+
+    ruleBasedTypeGenerator("Query", rules)
+  }
+
+  def mutationType: ObjectTypeDefinition = {
+    val rules: List[HModel => FieldDefinition] = List(
+      model =>
+        graphQlField(
+          modelId => "create" + modelId.capitalize,
+          args = Map(
+            model.id.toLowerCase -> fieldType(
+              model,
+              nameTransformer =
+                name => name.capitalize + inputKindSuffix(ObjectInput)
+            )
+          ),
+          fieldType = fieldType(model)
+        )(model.id),
+      model =>
+        graphQlField(
+          modelId => "update" + modelId.capitalize,
+          args = Map(
+            model.primaryField.id -> fieldType(model.primaryField.htype),
+            model.id.toLowerCase -> fieldType(
+              model,
+              nameTransformer =
+                name => name.capitalize + inputKindSuffix(OptionalInput)
+            )
+          ),
+          fieldType = NamedType(model.id)
+        )(model.id),
+      model =>
+        graphQlField(
+          modelId => "upsert" + modelId.capitalize,
+          args = Map(
+            model.id.toLowerCase -> fieldType(
+              model,
+              nameTransformer =
+                name => name.capitalize + inputKindSuffix(OptionalInput)
+            )
+          ),
+          fieldType = NamedType(model.id)
+        )(model.id),
+      model =>
+        graphQlField(
+          modelId => "delete" + modelId.capitalize,
+          args = Map(
+            model.primaryField.id -> fieldType(
+              model.primaryField.htype,
+              nameTransformer =
+                name => name.capitalize + inputKindSuffix(ReferenceInput)
+            )
+          ),
+          fieldType = NamedType(model.id)
+        )(model.id)
+    )
+
+    ruleBasedTypeGenerator("Mutation", rules)
+  }
 }
 
 object GraphQlConverter {
@@ -211,13 +309,13 @@ object GraphQlConverter {
   object ReferenceInput extends InputKind
   object OptionalInput extends InputKind
 
-  def inputKindSuffix(kind: GraphQlConverter.InputKind) = kind match {
-    case GraphQlConverter.ObjectInput    => "ObjectInput"
-    case GraphQlConverter.OptionalInput  => "OptionalInput"
-    case GraphQlConverter.ReferenceInput => "ReferenceInput"
+  def inputKindSuffix(kind: InputKind) = kind match {
+    case ObjectInput    => "ObjectInput"
+    case OptionalInput  => "OptionalInput"
+    case ReferenceInput => "ReferenceInput"
   }
 
-  def buitlinGraphQlTypeDefinitions =
+  lazy val buitlinGraphQlTypeDefinitions =
     gql"""
   input EqInput {
     field: String!
@@ -225,7 +323,7 @@ object GraphQlConverter {
   }
   
   input WhereInput {
-    predicate: PredicateInput
+    filter: LogicalFilterInput
     orderBy: OrderByInput
     range: RangeInput
     first: Int
@@ -248,13 +346,13 @@ object GraphQlConverter {
     after: ID!
   }
 
-  input LogicalPredicateInput {
-    AND: [LogicalPredicateInput]
-    OR: [LogicalPredicateInput]
-    predicate: PredicateInput
+  input LogicalFilterInput {
+    AND: [LogicalFilterInput]
+    OR: [LogicalFilterInput]
+    predicate: FilterInput
   }
   
-  input PredicateInput {
+  input FilterInput {
     eq: EqInput
   }
   
@@ -272,5 +370,6 @@ object GraphQlConverter {
   }
   
   scalar Any
-  """.definitions
+  """.definitions.toList
+
 }

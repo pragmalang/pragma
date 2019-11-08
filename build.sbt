@@ -15,10 +15,10 @@ libraryDependencies ++= Seq(
   "org.parboiled" %% "parboiled" % "2.1.8",
   "org.sangria-graphql" %% "sangria" % "2.0.0-M1",
   "com.github.nscala-time" %% "nscala-time" % "2.22.0",
-  "io.spray" %%  "spray-json" % "1.3.5",
-  "com.pauldijou" %% "jwt-core" % "4.1.0"
+  "io.spray" %% "spray-json" % "1.3.5",
+  "com.pauldijou" %% "jwt-core" % "4.1.0",
+  "org.atteo" % "evo-inflector" % "1.2.2"
+    from "http://search.maven.org/remotecontent?filepath=org/atteo/evo-inflector/1.2.2/evo-inflector-1.2.2.jar"
 )
 
 scalacOptions ++= Seq("-feature", "-deprecation")
-
-// See https://www.scala-sbt.org/1.x/docs/Using-Sonatype.html for instructions on how to publish to Sonatype.
