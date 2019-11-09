@@ -35,34 +35,7 @@ case class Setup(
 
   def build(): (Document, QueryExecutor) = (buildApiSchema, buildExecutor)
 
-  def buildApiSchema(): Document = {
-    val graphQlConverter = GraphQlConverter(syntaxTree)
-    val builtins = GraphQlConverter.buitlinGraphQlTypeDefinitions
-    val outputTypes = graphQlConverter.outputTypes
-    val objectInputTypes =
-      graphQlConverter.inputTypes(GraphQlConverter.ObjectInput)
-    val referenceInputTypes =
-      graphQlConverter.inputTypes(GraphQlConverter.ReferenceInput)
-    val optionalInputTypes =
-      graphQlConverter.inputTypes(GraphQlConverter.OptionalInput)
-    val notificationTypes = graphQlConverter.notificationTypes
-
-    val queryType: ObjectTypeDefinition = graphQlConverter.queryType
-    val mutationType: ObjectTypeDefinition = graphQlConverter.mutationType
-    val subscriptionType: ObjectTypeDefinition = graphQlConverter.subscriptionType
-
-    Document(
-      (queryType
-        :: mutationType
-        :: subscriptionType
-        :: builtins
-        ::: outputTypes
-        ::: objectInputTypes
-        ::: referenceInputTypes
-        ::: optionalInputTypes
-        ::: notificationTypes).toVector
-    )
-  }
+  def buildApiSchema(): Document = GraphQlConverter(syntaxTree).buildApiSchema
 
   def buildExecutor(): QueryExecutor = QueryExecutor(syntaxTree, storage)
 }

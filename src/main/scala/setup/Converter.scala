@@ -390,6 +390,18 @@ case class GraphQlConverter(syntaxTree: SyntaxTree) extends Converter {
 
     ruleBasedTypeGenerator("Mutation", rules)
   }
+
+  def buildApiSchema = Document(
+    (queryType
+      :: mutationType
+      :: subscriptionType
+      :: buitlinGraphQlTypeDefinitions
+      ::: outputTypes
+      ::: inputTypes(ObjectInput)
+      ::: inputTypes(ReferenceInput)
+      ::: inputTypes(OptionalInput)
+      ::: notificationTypes).toVector
+  )
 }
 
 object GraphQlConverter {
