@@ -133,7 +133,7 @@ case class GraphQlConverter(syntaxTree: SyntaxTree) extends Converter {
     args.map(arg => InputValueDefinition(arg._1, arg._2, None)).toVector
 
   def graphQlField(
-      nameTransformer: String => String,
+      nameTransformer: String => String = identity,
       args: Map[String, Type],
       fieldType: Type
   )(modelId: String) = FieldDefinition(
@@ -196,7 +196,7 @@ case class GraphQlConverter(syntaxTree: SyntaxTree) extends Converter {
           ),
           FieldDefinition(
             name = model.id,
-            fieldType = NotNullType(NamedType(model.id)),
+            fieldType = fieldType(model),
             arguments = Vector.empty
           )
         )
@@ -218,32 +218,71 @@ case class GraphQlConverter(syntaxTree: SyntaxTree) extends Converter {
     val rules: List[HModel => FieldDefinition] = List(
       model =>
         graphQlField(
-          identity,
+          nameTransformer = _.toLowerCase,
           args = Map(
             model.primaryField.id -> fieldType(
               model.primaryField.htype,
-              isOptional = true,
-              nameTransformer =
-                name => name.capitalize + inputKindSuffix(ReferenceInput)
+              isOptional = true
             )
           ),
-          fieldType = NamedType(model.id)
+          fieldType = fieldType(model)
         )(model.id),
       model =>
         graphQlField(
-          _ => Pluralizer.pluralize(model).capitalize,
+          _ => Pluralizer.pluralize(model).toLowerCase,
           args = Map("where" -> NamedType("WhereInput")),
-          fieldType = NamedType(model.id)
+          fieldType = ListType(fieldType(model))
         )(model.id),
       model =>
         graphQlField(
           _ => "count" + Pluralizer.pluralize(model).capitalize,
           args = Map("where" -> NamedType("WhereInput")),
           fieldType = NamedType("Int")
+        )(model.id),
+      model =>
+        graphQlField(
+          _ => model.id.toLowerCase + "Exists",
+          args = Map("filter" -> NamedType("LogicalFilterInput")),
+          fieldType = NamedType("Int")
         )(model.id)
     )
 
     ruleBasedTypeGenerator("Query", rules)
+  }
+
+  def subscriptionType: ObjectTypeDefinition = {
+    val rules: List[HModel => FieldDefinition] = List(
+      model =>
+        graphQlField(
+          nameTransformer = _.toLowerCase,
+          args = Map(
+            model.primaryField.id -> fieldType(
+              model.primaryField.htype,
+              isOptional = true
+            ),
+            "on" -> ListType(NotNullType(NamedType("SingleRecordEvent")))
+          ),
+          fieldType = fieldType(
+            model,
+            nameTransformer = name => name.capitalize + "Notification"
+          )
+        )(model.id),
+      model =>
+        graphQlField(
+          _ => Pluralizer.pluralize(model).toLowerCase,
+          args = Map(
+            "where" -> NamedType("WhereInput"),
+            "on" -> ListType(NotNullType(NamedType("MultiRecordEvent")))
+          ),
+          fieldType = ListType(
+            fieldType(
+              model,
+              nameTransformer = name => name.capitalize + "Notification"
+            )
+          )
+        )(model.id)
+    )
+    ruleBasedTypeGenerator("Subscription", rules)
   }
 
   def mutationType: ObjectTypeDefinition = {
@@ -271,7 +310,7 @@ case class GraphQlConverter(syntaxTree: SyntaxTree) extends Converter {
                 name => name.capitalize + inputKindSuffix(OptionalInput)
             )
           ),
-          fieldType = NamedType(model.id)
+          fieldType = fieldType(model)
         )(model.id),
       model =>
         graphQlField(
@@ -283,19 +322,69 @@ case class GraphQlConverter(syntaxTree: SyntaxTree) extends Converter {
                 name => name.capitalize + inputKindSuffix(OptionalInput)
             )
           ),
-          fieldType = NamedType(model.id)
+          fieldType = fieldType(model)
         )(model.id),
       model =>
         graphQlField(
           modelId => "delete" + modelId.capitalize,
+          args =
+            Map(model.primaryField.id -> fieldType(model.primaryField.htype)),
+          fieldType = fieldType(model)
+        )(model.id),
+      model =>
+        graphQlField(
+          nameTransformer =
+            _ => "createMany" + Pluralizer.pluralize(model).capitalize,
           args = Map(
-            model.primaryField.id -> fieldType(
-              model.primaryField.htype,
-              nameTransformer =
-                name => name.capitalize + inputKindSuffix(ReferenceInput)
+            Pluralizer.pluralize(model).toLowerCase -> ListType(
+              fieldType(
+                model,
+                nameTransformer =
+                  name => name.capitalize + inputKindSuffix(ObjectInput)
+              )
             )
           ),
-          fieldType = NamedType(model.id)
+          fieldType = ListType(fieldType(model))
+        )(model.id),
+      model =>
+        graphQlField(
+          nameTransformer =
+            _ => "updateMany" + Pluralizer.pluralize(model).capitalize,
+          args = Map(
+            Pluralizer.pluralize(model).toLowerCase -> ListType(
+              fieldType(
+                model,
+                nameTransformer =
+                  name => name.capitalize + inputKindSuffix(ReferenceInput)
+              )
+            )
+          ),
+          fieldType = ListType(fieldType(model))
+        )(model.id),
+      model =>
+        graphQlField(
+          nameTransformer =
+            _ => "upsertMany" + Pluralizer.pluralize(model).capitalize,
+          args = Map(
+            Pluralizer.pluralize(model).toLowerCase -> ListType(
+              fieldType(
+                model,
+                nameTransformer =
+                  name => name.capitalize + inputKindSuffix(OptionalInput)
+              )
+            )
+          ),
+          fieldType = ListType(fieldType(model))
+        )(model.id),
+      model =>
+        graphQlField(
+          _ => "deleteMany" + Pluralizer.pluralize(model).capitalize,
+          args = Map(
+            model.primaryField.id -> ListType(
+              fieldType(model.primaryField.htype)
+            )
+          ),
+          fieldType = ListType(fieldType(model))
         )(model.id)
     )
 

@@ -48,8 +48,8 @@ case class Setup(
     val notificationTypes = graphQlConverter.notificationTypes
 
     val queryType: ObjectTypeDefinition = graphQlConverter.queryType
-    val mutationType: ObjectTypeDefinition = ???
-    val subscriptionType: ObjectTypeDefinition = ???
+    val mutationType: ObjectTypeDefinition = graphQlConverter.mutationType
+    val subscriptionType: ObjectTypeDefinition = graphQlConverter.subscriptionType
 
     Document(
       (queryType
