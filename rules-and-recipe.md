@@ -136,8 +136,8 @@ scalar Any
   15. ✔️ `{model.id.pluralize}` query. It takes one optional argument `where: WhereInput`, and returns `[{model.id}]`. Note: You cannot supply `range` when `first` or `last` are applied, if you do so, a runtime error will be thrown. You can use this query for pagination, similar to the usage in Prisma https://www.prisma.io/docs/prisma-client/basic-data-access/reading-data-TYPESCRIPT-rsc3/#pagination .
   16. ✔️ `count{model.id.pluralize}`. Similar to the input of `{model.id.pluralize}` query and returns `Int`. It returns the length of the selected list.
   17. ✔️ `{model.id}Exists` query. It takes one required argument `filter: LogicalFilterInput`, and returns `Int!` that represents the number of records to which the `predicate` is true.
-  18. `{model.id}` subscription. It takes two optional arguments `{model.primaryKey}: {model.primaryKey.type}` and, `on: [SingleRecordEvent!]`. Returns `{model.id}Notification`. If `on` is not supplied then the default value is `[READ, UPDATE, DELETE]`
-  19. `{model.id.pluralize}` subscription. It takes two optional arguments `where: WhereInput`, and `on: [MultiRecordEvent!]`. Returns `[{model.id}Notification!]!`. If `on` is not supplied then the default value is `[CREATE, UPDATE, DELETE, READ]`.
+  18. ✔️ `{model.id}` subscription. It takes two optional arguments `{model.primaryKey}: {model.primaryKey.type}` and, `on: [SingleRecordEvent!]`. Returns `{model.id}Notification`. If `on` is not supplied then the default value is `[READ, UPDATE, DELETE]`
+  19. ✔️ `{model.id.pluralize}` subscription. It takes two optional arguments `where: WhereInput`, and `on: [MultiRecordEvent!]`. Returns `[{model.id}Notification!]!`. If `on` is not supplied then the default value is `[CREATE, UPDATE, DELETE, READ]`.
 
   ## TODO:
 
