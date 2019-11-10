@@ -35,7 +35,7 @@ case class Setup(
 
   def build(): (Document, QueryExecutor) = (buildApiSchema, buildExecutor)
 
-  def buildApiSchema(): Document = GraphQlConverter(syntaxTree).buildApiSchema
+  def buildApiSchema(): Document = ApiSchemaGenerator(syntaxTree).buildApiSchema
 
   def buildExecutor(): QueryExecutor = QueryExecutor(syntaxTree, storage)
 }
