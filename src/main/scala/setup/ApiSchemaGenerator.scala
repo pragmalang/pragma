@@ -39,16 +39,13 @@ case class ApiSchemaGenerator(override val syntaxTree: SyntaxTree)
   def inputTypes(kind: InputKind): List[Definition] =
     syntaxTree.models.map { model =>
       InputObjectTypeDefinition(
-        name = model.id.capitalize + inputKindSuffix(kind),
+        name = inputTypeName(model)(kind),
         fields = model.fields.toVector.map { field =>
           InputValueDefinition(
             name = field.id,
             valueType = fieldType(
               ht = field.htype,
-              nameTransformer = name =>
-                name.capitalize + inputKindSuffix(
-                  ReferenceInput
-                ),
+              nameTransformer = inputTypeName(_)(ReferenceInput),
               isOptional = kind match {
                 case ObjectInput   => false
                 case OptionalInput => true
@@ -65,12 +62,12 @@ case class ApiSchemaGenerator(override val syntaxTree: SyntaxTree)
   def notificationTypes: List[Definition] =
     syntaxTree.models.map { model =>
       ObjectTypeDefinition(
-        name = s"${model.id.capitalize}Notification",
+        name = notificationTypeName(model),
         interfaces = Vector.empty,
         fields = Vector(
           FieldDefinition(
             name = "event",
-            fieldType = NotNullType(NamedType("Event")),
+            fieldType = builtinType(MultiRecordEvent),
             arguments = Vector.empty
           ),
           FieldDefinition(
@@ -104,25 +101,25 @@ case class ApiSchemaGenerator(override val syntaxTree: SyntaxTree)
               isOptional = true
             )
           ),
-          fieldType = fieldType(model)
+          fieldType = outputType(model)
         )(model.id),
       model =>
         graphQlField(
           _ => Pluralizer.pluralize(model).toLowerCase,
-          args = Map("where" -> NamedType("WhereInput")),
-          fieldType = ListType(fieldType(model))
+          args = Map("where" -> builtinType(WhereInput)),
+          fieldType = outputType(model, isList = true)
         )(model.id),
       model =>
         graphQlField(
           _ => "count" + Pluralizer.pluralize(model).capitalize,
-          args = Map("where" -> NamedType("WhereInput")),
-          fieldType = NamedType("Int")
+          args = Map("where" -> builtinType(WhereInput)),
+          fieldType = builtinType(GqlInt)
         )(model.id),
       model =>
         graphQlField(
           _ => model.id.toLowerCase + "Exists",
-          args = Map("filter" -> NamedType("LogicalFilterInput")),
-          fieldType = NamedType("Int")
+          args = Map("filter" -> builtinType(LogicalFilterInput)),
+          fieldType = builtinType(GqlInt)
         )(model.id)
     )
 
@@ -139,25 +136,24 @@ case class ApiSchemaGenerator(override val syntaxTree: SyntaxTree)
               model.primaryField.htype,
               isOptional = true
             ),
-            "on" -> ListType(NotNullType(NamedType("SingleRecordEvent")))
+            "on" -> builtinType(SingleRecordEvent, isList = true)
           ),
-          fieldType = fieldType(
+          fieldType = outputType(
             model,
-            nameTransformer = name => name.capitalize + "Notification"
+            nameTransformer = _ => notificationTypeName(model)
           )
         )(model.id),
       model =>
         graphQlField(
           _ => Pluralizer.pluralize(model).toLowerCase,
           args = Map(
-            "where" -> NamedType("WhereInput"),
-            "on" -> ListType(NotNullType(NamedType("MultiRecordEvent")))
+            "where" -> builtinType(WhereInput),
+            "on" -> builtinType(MultiRecordEvent, isList = true)
           ),
-          fieldType = ListType(
-            fieldType(
-              model,
-              nameTransformer = name => name.capitalize + "Notification"
-            )
+          fieldType = outputType(
+            model,
+            isList = true,
+            nameTransformer = _ => notificationTypeName(model)
           )
         )(model.id)
     )
@@ -172,11 +168,10 @@ case class ApiSchemaGenerator(override val syntaxTree: SyntaxTree)
           args = Map(
             model.id.toLowerCase -> fieldType(
               model,
-              nameTransformer =
-                name => name.capitalize + inputKindSuffix(ObjectInput)
+              nameTransformer = inputTypeName(_)(ObjectInput)
             )
           ),
-          fieldType = fieldType(model)
+          fieldType = outputType(model)
         )(model.id),
       model =>
         graphQlField(
@@ -185,11 +180,10 @@ case class ApiSchemaGenerator(override val syntaxTree: SyntaxTree)
             model.primaryField.id -> fieldType(model.primaryField.htype),
             model.id.toLowerCase -> fieldType(
               model,
-              nameTransformer =
-                name => name.capitalize + inputKindSuffix(OptionalInput)
+              nameTransformer = inputTypeName(_)(OptionalInput)
             )
           ),
-          fieldType = fieldType(model)
+          fieldType = outputType(model)
         )(model.id),
       model =>
         graphQlField(
@@ -197,18 +191,17 @@ case class ApiSchemaGenerator(override val syntaxTree: SyntaxTree)
           args = Map(
             model.id.toLowerCase -> fieldType(
               model,
-              nameTransformer =
-                name => name.capitalize + inputKindSuffix(OptionalInput)
+              nameTransformer = inputTypeName(_)(OptionalInput)
             )
           ),
-          fieldType = fieldType(model)
+          fieldType = outputType(model)
         )(model.id),
       model =>
         graphQlField(
           modelId => "delete" + modelId.capitalize,
           args =
             Map(model.primaryField.id -> fieldType(model.primaryField.htype)),
-          fieldType = fieldType(model)
+          fieldType = outputType(model)
         )(model.id),
       model =>
         graphQlField(
@@ -218,12 +211,11 @@ case class ApiSchemaGenerator(override val syntaxTree: SyntaxTree)
             Pluralizer.pluralize(model).toLowerCase -> ListType(
               fieldType(
                 model,
-                nameTransformer =
-                  name => name.capitalize + inputKindSuffix(ObjectInput)
+                nameTransformer = inputTypeName(_)(ObjectInput)
               )
             )
           ),
-          fieldType = ListType(fieldType(model))
+          fieldType = outputType(model, isList = true)
         )(model.id),
       model =>
         graphQlField(
@@ -233,12 +225,11 @@ case class ApiSchemaGenerator(override val syntaxTree: SyntaxTree)
             Pluralizer.pluralize(model).toLowerCase -> ListType(
               fieldType(
                 model,
-                nameTransformer =
-                  name => name.capitalize + inputKindSuffix(ReferenceInput)
+                nameTransformer = inputTypeName(_)(ReferenceInput)
               )
             )
           ),
-          fieldType = ListType(fieldType(model))
+          fieldType = outputType(model, isList = true)
         )(model.id),
       model =>
         graphQlField(
@@ -248,12 +239,11 @@ case class ApiSchemaGenerator(override val syntaxTree: SyntaxTree)
             Pluralizer.pluralize(model).toLowerCase -> ListType(
               fieldType(
                 model,
-                nameTransformer =
-                  name => name.capitalize + inputKindSuffix(OptionalInput)
+                nameTransformer = inputTypeName(_)(OptionalInput)
               )
             )
           ),
-          fieldType = ListType(fieldType(model))
+          fieldType = outputType(model, isList = true)
         )(model.id),
       model =>
         graphQlField(
@@ -263,7 +253,7 @@ case class ApiSchemaGenerator(override val syntaxTree: SyntaxTree)
               fieldType(model.primaryField.htype)
             )
           ),
-          fieldType = ListType(fieldType(model))
+          fieldType = outputType(model, isList = true)
         )(model.id)
     )
 
@@ -289,11 +279,81 @@ object ApiSchemaGenerator {
   object ReferenceInput extends InputKind
   object OptionalInput extends InputKind
 
+  sealed trait BuiltinGraphQlType
+  object EqInput extends BuiltinGraphQlType
+  object WhereInput extends BuiltinGraphQlType
+  object OrderByInput extends BuiltinGraphQlType
+  object OrderEnum extends BuiltinGraphQlType
+  object RangeInput extends BuiltinGraphQlType
+  object LogicalFilterInput extends BuiltinGraphQlType
+  object FilterInput extends BuiltinGraphQlType
+  object MultiRecordEvent extends BuiltinGraphQlType
+  object SingleRecordEvent extends BuiltinGraphQlType
+  object AnyScalar extends BuiltinGraphQlType
+  object GqlInt extends BuiltinGraphQlType
+
+  def typeBuilder[T](
+      typeNameCallback: T => String
+  )(
+      t: T,
+      isOptional: Boolean,
+      isList: Boolean
+  ) =
+    isOptional match {
+      case true if isList  => ListType(NamedType(typeNameCallback(t)))
+      case true if !isList => NamedType(typeNameCallback(t))
+      case false if isList =>
+        NotNullType(ListType(NamedType(typeNameCallback(t))))
+      case false if !isList => NotNullType(NamedType(typeNameCallback(t)))
+    }
+
+  def builtinTypeName(t: BuiltinGraphQlType): String = t match {
+    case MultiRecordEvent   => "MultiRecordEvent"
+    case OrderEnum          => "OrderEnum"
+    case SingleRecordEvent  => "SingleRecordEvent"
+    case WhereInput         => "WhereInput"
+    case EqInput            => "EqInput"
+    case OrderByInput       => "OrderByInput"
+    case FilterInput        => "FilterInput"
+    case AnyScalar          => "Any"
+    case LogicalFilterInput => "LogicalFilterInput"
+    case RangeInput         => "RangeInput"
+    case GqlInt             => "Int"
+  }
+
+  def builtinType(
+      t: BuiltinGraphQlType,
+      isOptional: Boolean = false,
+      isList: Boolean = false
+  ): Type = typeBuilder(builtinTypeName)(t, isOptional, isList)
+
+  def outputType(
+      model: HModel,
+      isOptional: Boolean = false,
+      isList: Boolean = false,
+      nameTransformer: String => String = identity
+  ): Type =
+    typeBuilder((model: HModel) => nameTransformer(model.id))(
+      model,
+      isOptional,
+      isList
+    )
+
   def inputKindSuffix(kind: InputKind) = kind match {
     case ObjectInput    => "ObjectInput"
     case OptionalInput  => "OptionalInput"
     case ReferenceInput => "ReferenceInput"
   }
+
+  def notificationTypeName(modelId: String): String =
+    s"${modelId.capitalize}Notification"
+  def notificationTypeName(model: HModel): String =
+    notificationTypeName(model.id)
+
+  def inputTypeName(modelId: String)(kind: InputKind): String =
+    modelId.capitalize + inputKindSuffix(kind)
+  def inputTypeName(model: HModel)(kind: InputKind): String =
+    inputTypeName(model.id)(kind)
 
   lazy val buitlinGraphQlTypeDefinitions =
     gql"""
