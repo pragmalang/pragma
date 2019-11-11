@@ -160,14 +160,18 @@ case object Update extends HEvent
 case object Delete extends HEvent
 case object All extends HEvent
 
-case class Permissions(tenents: List[Tenant], position: Option[PositionRange])
-    extends HConstruct
+case class Permissions(
+    globalTenant: Tenant,
+    tenents: List[Tenant],
+    position: Option[PositionRange]
+) extends HConstruct
 
 case class Tenant(
     id: String,
     rules: List[AccessRule],
     position: Option[PositionRange]
 ) extends Identifiable
+    with Positioned
 
 sealed trait AccessRule {
   val resource: Resource
@@ -183,6 +187,7 @@ case class RoleBasedRule(
     predicate: HFunctionValue,
     position: Option[PositionRange]
 ) extends AccessRule
+    with Positioned
 
 case class GlobalRule(
     resource: Resource,
@@ -190,6 +195,7 @@ case class GlobalRule(
     predicate: HFunctionValue,
     position: Option[PositionRange]
 ) extends AccessRule
+    with Positioned
 
 trait Resource {
   val shape: HShape
