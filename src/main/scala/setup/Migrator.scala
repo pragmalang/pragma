@@ -12,20 +12,17 @@ import scala.language.postfixOps
 
 trait Migrator {
   type Return
-
-  val syntaxTreeOption: Option[SyntaxTree]
-
+  val syntaxTree: SyntaxTree
   def run(): Try[Return]
-  def syntaxTree(s: SyntaxTree): Migrator
 }
 
 case class PrismaMongoMigrator(
-    override val syntaxTreeOption: Option[SyntaxTree] = None,
+    override val syntaxTree: SyntaxTree,
     outputHandler: String => Unit = output => println(output),
     prismaServerUri: String = "http://localhost:4466"
 ) extends Migrator {
   override type Return = Unit
-  val converter = GraphQlConverter(syntaxTreeOption.get)
+  val converter = GraphQlConverter(syntaxTree)
 
   def renderSchema(schema: Document) =
     SchemaRenderer.renderSchema(
@@ -40,9 +37,6 @@ case class PrismaMongoMigrator(
       )
     )
 
-  override def syntaxTree(s: SyntaxTree) =
-    PrismaMongoMigrator(Some(s), outputHandler, prismaServerUri)
-
   override def run = Try {
     val graphQlDefinitions = converter.buildGraphQLAst()
     val prismaSchema = toValidPrismaSchema(graphQlDefinitions)
@@ -54,29 +48,23 @@ case class PrismaMongoMigrator(
 }
 
 case class MockSuccessMigrator(
-    override val syntaxTreeOption: Option[SyntaxTree] = None
+    override val syntaxTree: SyntaxTree
 ) extends Migrator {
   override type Return = String
-  val converter = GraphQlConverter(syntaxTreeOption.get)
+  val converter = GraphQlConverter(syntaxTree)
 
   def renderedSchema = ""
-
-  override def syntaxTree(s: SyntaxTree) =
-    MockSuccessMigrator(Some(s))
 
   override def run = Success("Mock Migration Succeeded")
 }
 
 case class MockFailureMigrator(
-    override val syntaxTreeOption: Option[SyntaxTree] = None
+    override val syntaxTree: SyntaxTree
 ) extends Migrator {
   override type Return = Unit
-  val converter = GraphQlConverter(syntaxTreeOption.get)
+  val converter = GraphQlConverter(syntaxTree)
 
   def renderedSchema = ""
-
-  override def syntaxTree(s: SyntaxTree) =
-    MockFailureMigrator(Some(s))
 
   override def run = Failure(new Exception("Mock Migration Failed"))
 }
