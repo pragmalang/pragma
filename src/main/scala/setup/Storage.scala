@@ -8,13 +8,13 @@ trait Storage {
   val migrator: Migrator
 
   def runQuery(query: Document): Request
-  def migrate() = migrator.syntaxTree(syntaxTree).run()
+  def migrate() = migrator.run()
   def dockerComposeYaml(): String
 }
 
 case class PrismaMongo(syntaxTree: SyntaxTree) extends Storage {
   val converter: Converter = GraphQlConverter(syntaxTree)
-  override val migrator: Migrator = PrismaMongoMigrator(Some(syntaxTree))
+  override val migrator: Migrator = PrismaMongoMigrator(syntaxTree)
   override def runQuery(query: Document): Request = ???
   override def dockerComposeYaml() =
     """
