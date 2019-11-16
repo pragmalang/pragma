@@ -11,10 +11,9 @@ import java.io._
 import scala.util.{Success, Failure, Try}
 
 case class Setup(
-    syntaxTree: SyntaxTree
+    syntaxTree: SyntaxTree,
+    storage: Storage
 ) {
-
-  val storage: Storage = PrismaMongo(syntaxTree)
 
   def setup(): Try[Unit] = Try {
     writeDockerComposeYaml().get
@@ -35,7 +34,8 @@ case class Setup(
 
   def build(): (Document, QueryExecutor) = (buildApiSchema, buildExecutor)
 
-  def buildApiSchema(): Document = ApiSchemaGenerator(syntaxTree).buildApiSchema
+  def buildApiSchema(): Document =
+    DefaultApiSchemaGenerator(syntaxTree).buildApiSchema
 
   def buildExecutor(): QueryExecutor = QueryExecutor(syntaxTree, storage)
 }

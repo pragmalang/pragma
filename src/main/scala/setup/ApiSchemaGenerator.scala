@@ -3,10 +3,15 @@ import domain._, primitives._, utils._
 
 import sangria.ast._
 import sangria.macros._
-import ApiSchemaGenerator._
 
-case class ApiSchemaGenerator(override val syntaxTree: SyntaxTree)
-    extends GraphQlConverter(syntaxTree) {
+trait ApiSchemaGenerator {
+  def buildApiSchema: Document
+}
+
+case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
+    extends GraphQlConverter(syntaxTree)
+    with ApiSchemaGenerator {
+  import DefualtApiSchemaGenerator._
 
   def graphQlFieldArgs(args: Map[String, Type]) =
     args.map(arg => InputValueDefinition(arg._1, arg._2, None)).toVector
@@ -271,7 +276,7 @@ case class ApiSchemaGenerator(override val syntaxTree: SyntaxTree)
   )
 }
 
-object ApiSchemaGenerator {
+object DefualtApiSchemaGenerator {
   sealed trait InputKind
   object ObjectInput extends InputKind
   object ReferenceInput extends InputKind
