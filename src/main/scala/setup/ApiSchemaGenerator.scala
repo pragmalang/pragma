@@ -125,13 +125,13 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
       model =>
         graphQlField(
           _ => Pluralizer.pluralize(model).toLowerCase,
-          args = Map("where" -> builtinType(WhereInput)),
+          args = Map("where" -> builtinType(WhereInput, isOptional = true)),
           fieldType = outputType(model, isList = true)
         )(model.id),
       model =>
         graphQlField(
           _ => "count" + Pluralizer.pluralize(model).capitalize,
-          args = Map("where" -> builtinType(WhereInput)),
+          args = Map("where" -> builtinType(WhereInput, isOptional = true)),
           fieldType = builtinType(GqlInt)
         )(model.id),
       model =>
@@ -166,7 +166,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
         graphQlField(
           _ => Pluralizer.pluralize(model).toLowerCase,
           args = Map(
-            "where" -> builtinType(WhereInput),
+            "where" -> builtinType(WhereInput, isOptional = true),
             "on" -> builtinType(MultiRecordEvent, isList = true)
           ),
           fieldType = outputType(
