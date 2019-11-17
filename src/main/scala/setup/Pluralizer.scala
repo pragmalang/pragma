@@ -20,7 +20,7 @@ object Pluralizer {
   def pluralize(model: HModel): String = {
     cache.get(model) match {
       case None => model.directives.find(d => d.id == "plural") match {
-        case None => cache.getOrElseUpdate(key = model, op = pluralize(model))
+        case None => cache.getOrElseUpdate(key = model, op = pluralize(model.id))
         case Some(value) =>
           cache.getOrElseUpdate(key = model, op = value.args.value("name").asInstanceOf[HStringValue].value)
       } 
