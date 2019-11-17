@@ -7,21 +7,6 @@ import org.parboiled2.Position
 import scala.collection.immutable.ListMap
 
 object MockSyntaxTree {
-  val code = """
-  @user
-  model Business {
-    username: String @publicCredential @primary
-    email: String @publicCredential
-    password: String @secretCredential
-    branches: [Branch]
-  }
-
-  model Branch {
-    address: String @primary
-    business: Business
-  }
-  """
-  // val hConstructs = new HeavenlyParser(code).syntaxTree.run()
   val businessModel = HModel(
     "Business",
     List(
@@ -30,7 +15,7 @@ object MockSyntaxTree {
         HString,
         None,
         List(),
-        Some(PositionRange(Position(32, 4, 5), Position(40, 4, 13)))
+        None
       ),
       HModelField(
         "email",
@@ -40,15 +25,15 @@ object MockSyntaxTree {
           FieldDirective(
             "publicCredential",
             HInterfaceValue(ListMap(), HInterface("", List(), None)),
-            Some(PositionRange(Position(49, 4, 22), Position(67, 4, 40)))
+            None
           ),
           FieldDirective(
             "primary",
             HInterfaceValue(ListMap(), HInterface("", List(), None)),
-            Some(PositionRange(Position(67, 4, 40), Position(80, 5, 5)))
+            None
           )
         ),
-        Some(PositionRange(Position(80, 5, 5), Position(85, 5, 10)))
+        None
       ),
       HModelField(
         "password",
@@ -58,10 +43,10 @@ object MockSyntaxTree {
           FieldDirective(
             "publicCredential",
             HInterfaceValue(ListMap(), HInterface("", List(), None)),
-            Some(PositionRange(Position(94, 5, 19), Position(116, 6, 5)))
+            None
           )
         ),
-        Some(PositionRange(Position(116, 6, 5), Position(124, 6, 13)))
+        None
       ),
       HModelField(
         "branches",
@@ -71,20 +56,27 @@ object MockSyntaxTree {
           FieldDirective(
             "secretCredential",
             HInterfaceValue(ListMap(), HInterface("", List(), None)),
-            Some(PositionRange(Position(133, 6, 22), Position(155, 7, 5)))
+            None
           )
         ),
-        Some(PositionRange(Position(155, 7, 5), Position(163, 7, 13)))
-      )
+        None
+      ),
+      HModelField(
+        "businessType",
+        HReference("BusinessType"),
+        None,
+        Nil,
+        None
+      ),
     ),
     List(
       ModelDirective(
         "user",
         HInterfaceValue(ListMap(), HInterface("", List(), None)),
-        Some(PositionRange(Position(3, 2, 3), Position(11, 3, 3)))
+        None
       )
     ),
-    Some(PositionRange(Position(17, 3, 9), Position(25, 3, 17)))
+    None
   )
 
   val branchModel =
@@ -96,7 +88,7 @@ object MockSyntaxTree {
           HString,
           None,
           List(),
-          Some(PositionRange(Position(200, 11, 5), Position(207, 11, 12)))
+          None
         ),
         HModelField(
           "business",
@@ -106,16 +98,17 @@ object MockSyntaxTree {
             FieldDirective(
               "primary",
               HInterfaceValue(ListMap(), HInterface("", List(), None)),
-              Some(PositionRange(Position(216, 11, 21), Position(229, 12, 5)))
+              None
             )
           ),
-          Some(PositionRange(Position(229, 12, 5), Position(237, 12, 13)))
+          None
         )
       ),
       List(),
-      Some(PositionRange(Position(187, 10, 9), Position(193, 10, 15)))
+      None
     )
 
+  val businessTypeEnum = HEnum("BusinessType", List("FOOD", "CLOTHING", "OTHER"), None)
   val permissions = Permissions(
     globalTenant = Tenant(
       "global",
@@ -127,5 +120,5 @@ object MockSyntaxTree {
   )
 
   val syntaxTree =
-    SyntaxTree(Nil, Nil, List(businessModel, branchModel), Nil, permissions)
+    SyntaxTree(Nil, Nil, List(businessModel, branchModel), List(businessTypeEnum), permissions)
 }
