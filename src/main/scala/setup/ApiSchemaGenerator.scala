@@ -30,18 +30,26 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
       ht: HType,
       isOptional: Boolean = false,
       nameTransformer: String => String = identity
-  ): Type = ListType(fieldType(ht, isOptional, nameTransformer))
+  ): Type = isOptional match {
+    case true => ListType(fieldType(ht, isOptional = true, nameTransformer))
+    case false => NotNullType(ListType(fieldType(ht, isOptional = true, nameTransformer)))
+  }
 
   def outputTypes: List[Definition] = typeDefinitions map {
     case objDef: ObjectTypeDefinition =>
       objDef.copy(fields = objDef.fields map { field =>
         field.fieldType match {
-          case t: ListType =>
+          case ListType(_, _) =>
             field.copy(
               arguments =
-                graphQlFieldArgs(Map("where" -> builtinType(WhereInput)))
+                graphQlFieldArgs(Map("where" -> builtinType(WhereInput, isOptional = true)))
             )
-          case t => field
+          case NotNullType(ListType(_, _), _) =>
+            field.copy(
+              arguments =
+                graphQlFieldArgs(Map("where" -> builtinType(WhereInput, isOptional = true)))
+            )
+          case _ => field
         }
       })
     case td => td
