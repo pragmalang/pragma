@@ -26,13 +26,51 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
     arguments = graphQlFieldArgs(args)
   )
 
+  def inputFieldType(field: HModelField)(kind: InputKind) = {
+    val hReferenceType = fieldType(
+      ht = field.htype,
+      nameTransformer = inputTypeName(_)(kind match {
+        case OptionalInput => OptionalInput
+        case _             => ReferenceInput
+      }),
+      isOptional = kind match {
+        case ObjectInput   => false
+        case OptionalInput => true
+        case ReferenceInput =>
+          !field.directives.exists(fd => fd.id == "primary")
+      }
+    )
+
+    field.htype match {
+      case t: HReferenceType if syntaxTree.models.exists(_.id == t.id) =>
+        hReferenceType
+      case HArray(t: HReferenceType)
+          if syntaxTree.models.exists(_.id == t.id) =>
+        hReferenceType
+      case HOption(t: HReferenceType)
+          if syntaxTree.models.exists(_.id == t.id) =>
+        hReferenceType
+      case _ =>
+        fieldType(
+          ht = field.htype,
+          isOptional = kind match {
+            case ObjectInput   => false
+            case OptionalInput => true
+            case ReferenceInput =>
+              !field.directives.exists(fd => fd.id == "primary")
+          }
+        )
+    }
+  }
+
   def listFieldType(
       ht: HType,
       isOptional: Boolean = false,
       nameTransformer: String => String = identity
   ): Type = isOptional match {
     case true => ListType(fieldType(ht, isOptional = true, nameTransformer))
-    case false => NotNullType(ListType(fieldType(ht, isOptional = true, nameTransformer)))
+    case false =>
+      NotNullType(ListType(fieldType(ht, isOptional = true, nameTransformer)))
   }
 
   def outputTypes: List[Definition] = typeDefinitions map {
@@ -41,13 +79,15 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
         field.fieldType match {
           case ListType(_, _) =>
             field.copy(
-              arguments =
-                graphQlFieldArgs(Map("where" -> builtinType(WhereInput, isOptional = true)))
+              arguments = graphQlFieldArgs(
+                Map("where" -> builtinType(WhereInput, isOptional = true))
+              )
             )
           case NotNullType(ListType(_, _), _) =>
             field.copy(
-              arguments =
-                graphQlFieldArgs(Map("where" -> builtinType(WhereInput, isOptional = true)))
+              arguments = graphQlFieldArgs(
+                Map("where" -> builtinType(WhereInput, isOptional = true))
+              )
             )
           case _ => field
         }
@@ -59,22 +99,14 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
     syntaxTree.models.map { model =>
       InputObjectTypeDefinition(
         name = inputTypeName(model)(kind),
-        fields = model.fields.toVector.map { field =>
-          InputValueDefinition(
-            name = field.id,
-            valueType = fieldType(
-              ht = field.htype,
-              nameTransformer = inputTypeName(_)(ReferenceInput),
-              isOptional = kind match {
-                case ObjectInput   => false
-                case OptionalInput => true
-                case ReferenceInput =>
-                  !field.directives.exists(fd => fd.id == "primary")
-              }
-            ),
-            None
-          )
-        }
+        fields = model.fields.toVector.map(
+          field =>
+            InputValueDefinition(
+              name = field.id,
+              valueType = inputFieldType(field)(kind),
+              None
+            )
+        )
       )
     }
 

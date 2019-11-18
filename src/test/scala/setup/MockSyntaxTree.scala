@@ -12,7 +12,7 @@ object MockSyntaxTree {
     List(
       HModelField(
         "username",
-        HString,
+        HOption(HString),
         None,
         List(),
         None
@@ -41,7 +41,7 @@ object MockSyntaxTree {
         None,
         List(
           FieldDirective(
-            "publicCredential",
+            "secretCredential",
             HInterfaceValue(ListMap(), HInterface("", List(), None)),
             None
           )
@@ -52,13 +52,14 @@ object MockSyntaxTree {
         "branches",
         HArray(HReference("Branch")),
         None,
-        List(
-          FieldDirective(
-            "secretCredential",
-            HInterfaceValue(ListMap(), HInterface("", List(), None)),
-            None
-          )
-        ),
+        Nil,
+        None
+      ),
+      HModelField(
+        "mainBranch",
+        HOption(HReference("Branch")),
+        None,
+        Nil,
         None
       ),
       HModelField(
@@ -67,7 +68,7 @@ object MockSyntaxTree {
         None,
         Nil,
         None
-      ),
+      )
     ),
     List(
       ModelDirective(
@@ -87,13 +88,6 @@ object MockSyntaxTree {
           "address",
           HString,
           None,
-          List(),
-          None
-        ),
-        HModelField(
-          "business",
-          HReference("Business"),
-          None,
           List(
             FieldDirective(
               "primary",
@@ -102,13 +96,21 @@ object MockSyntaxTree {
             )
           ),
           None
+        ),
+        HModelField(
+          "business",
+          HReference("Business"),
+          None,
+          Nil,
+          None
         )
       ),
       List(),
       None
     )
 
-  val businessTypeEnum = HEnum("BusinessType", List("FOOD", "CLOTHING", "OTHER"), None)
+  val businessTypeEnum =
+    HEnum("BusinessType", List("FOOD", "CLOTHING", "OTHER"), None)
   val permissions = Permissions(
     globalTenant = Tenant(
       "global",
@@ -120,5 +122,11 @@ object MockSyntaxTree {
   )
 
   val syntaxTree =
-    SyntaxTree(Nil, Nil, List(businessModel, branchModel), List(businessTypeEnum), permissions)
+    SyntaxTree(
+      Nil,
+      Nil,
+      List(businessModel, branchModel),
+      List(businessTypeEnum),
+      permissions
+    )
 }

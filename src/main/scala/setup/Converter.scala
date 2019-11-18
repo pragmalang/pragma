@@ -35,7 +35,7 @@ class GraphQlConverter(override val syntaxTree: SyntaxTree) extends Converter {
   override type FieldDef = FieldDefinition
 
   def buildGraphQLAst() = Document(typeDefinitions.toVector)
-  
+
   override def typeDefinitions(): List[Definition] =
     syntaxTree.models.map(hShape(_)) ++ syntaxTree.enums.map(hEnum(_))
 
@@ -46,8 +46,12 @@ class GraphQlConverter(override val syntaxTree: SyntaxTree) extends Converter {
   ): Type =
     ht match {
       case HArray(ht) =>
-        if (isOptional) ListType(fieldType(ht, isOptional = true))
-        else NotNullType(ListType(fieldType(ht, isOptional = true)))
+        if (isOptional)
+          ListType(fieldType(ht, isOptional = true, nameTransformer))
+        else
+          NotNullType(
+            ListType(fieldType(ht, isOptional = true, nameTransformer))
+          )
       case HBool =>
         if (isOptional) NamedType("Boolean")
         else NotNullType(NamedType("Boolean"))
@@ -60,7 +64,7 @@ class GraphQlConverter(override val syntaxTree: SyntaxTree) extends Converter {
       case HString =>
         if (isOptional) NamedType("String")
         else NotNullType(NamedType("String"))
-      case HOption(ht) => fieldType(ht, isOptional = true)
+      case HOption(ht) => fieldType(ht, isOptional = true, nameTransformer)
       case HFile(_, _) =>
         if (isOptional) NamedType("String")
         else NotNullType(NamedType("String"))
