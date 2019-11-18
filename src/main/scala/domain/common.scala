@@ -7,10 +7,12 @@ import org.parboiled2.Position
   */
 trait HType
 
-// Base case for recursive types
-case class HSelf(id: String) extends HType with Identifiable
+trait HReferenceType extends HType with Identifiable
 
-case class HReference(id: String) extends HType with Identifiable
+// Base case for recursive types
+case class HSelf(id: String) extends HReferenceType
+
+case class HReference(id: String) extends HReferenceType
 
 sealed trait HConstruct extends Positioned
 
