@@ -246,4 +246,20 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
 
     assert(subscriptionType == expected)
   }
+
+  test("buildApiSchema method works") {
+    val expected = gql"""
+    type Subscription {
+      business(email: String, on: [SingleRecordEvent]): BusinessNotification!
+      branch(address: String, on: [SingleRecordEvent]): BranchNotification!
+      manyBusinesses(where: WhereInput, on: [MultiRecordEvent]): [BusinessNotification]!
+      branches(where: WhereInput, on: [MultiRecordEvent]): [BranchNotification]!
+    }
+    """.renderPretty
+
+    val schema =
+      generator.buildApiSchema.renderPretty
+
+    println(schema)
+  }
 }
