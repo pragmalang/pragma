@@ -230,4 +230,20 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
 
     assert(mutationType == expected)
   }
+
+  test("subscriptionType method works") {
+    val expected = gql"""
+    type Subscription {
+      business(email: String, on: [SingleRecordEvent]): BusinessNotification!
+      branch(address: String, on: [SingleRecordEvent]): BranchNotification!
+      manyBusinesses(where: WhereInput, on: [MultiRecordEvent]): [BusinessNotification]!
+      branches(where: WhereInput, on: [MultiRecordEvent]): [BranchNotification]!
+    }
+    """.renderPretty
+
+    val subscriptionType =
+      generator.subscriptionType.renderPretty
+
+    assert(subscriptionType == expected)
+  }
 }

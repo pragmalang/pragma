@@ -186,7 +186,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
               model.primaryField.htype,
               isOptional = true
             ),
-            "on" -> builtinType(SingleRecordEvent, isList = true)
+            "on" -> builtinType(SingleRecordEvent, isList = true, isOptional = true)
           ),
           fieldType = outputType(
             model,
@@ -198,7 +198,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
           _ => Pluralizer.pluralize(model).small,
           args = Map(
             "where" -> builtinType(WhereInput, isOptional = true),
-            "on" -> builtinType(MultiRecordEvent, isList = true)
+            "on" -> builtinType(MultiRecordEvent, isList = true, isOptional = true)
           ),
           fieldType = outputType(
             model,
