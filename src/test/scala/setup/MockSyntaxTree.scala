@@ -75,6 +75,14 @@ object MockSyntaxTree {
         "user",
         HInterfaceValue(ListMap(), HInterface("", List(), None)),
         None
+      ),
+      ModelDirective(
+        "plural",
+        HInterfaceValue(
+          ListMap("name" -> HStringValue("manyBusinesses")),
+          HInterface("", List(), None)
+        ),
+        None
       )
     ),
     None

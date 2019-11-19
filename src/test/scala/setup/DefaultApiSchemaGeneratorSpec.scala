@@ -119,6 +119,7 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
       Document(generator.notificationTypes.toVector).renderPretty
     assert(generatedTypes == expected)
   }
+
   test("buitlinGraphQlTypeDefinitions method works") {
     val expected = gql"""
       input EqInput {
@@ -180,5 +181,24 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
       Document(DefualtApiSchemaGenerator.buitlinGraphQlTypeDefinitions.toVector).renderPretty
 
     assert(generatedTypes == expected)
+  }
+
+  test("queryType method works") {
+    val expected = gql"""
+    type Query {
+      business(email: String!): Business!
+      branch(address: String!): Branch!
+      manybusinesses(where: WhereInput): [Business]!
+      branches(where: WhereInput): [Branch]!
+      countManyBusinesses(where: WhereInput): Int!
+      countBranches(where: WhereInput): Int!
+      businessExists(filter: LogicalFilterInput!): Int!
+      branchExists(filter: LogicalFilterInput!): Int!
+    }
+    """.renderPretty
+
+    val queryType =
+      generator.queryType.renderPretty
+    assert(queryType == expected)
   }
 }

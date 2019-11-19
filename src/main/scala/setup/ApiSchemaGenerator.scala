@@ -148,10 +148,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
         graphQlField(
           nameTransformer = _.toLowerCase,
           args = Map(
-            model.primaryField.id -> fieldType(
-              model.primaryField.htype,
-              isOptional = true
-            )
+            model.primaryField.id -> fieldType(model.primaryField.htype)
           ),
           fieldType = outputType(model)
         )(model.id),
