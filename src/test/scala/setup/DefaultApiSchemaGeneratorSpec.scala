@@ -119,4 +119,66 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
       Document(generator.notificationTypes.toVector).renderPretty
     assert(generatedTypes == expected)
   }
+  test("buitlinGraphQlTypeDefinitions method works") {
+    val expected = gql"""
+      input EqInput {
+        field: String!
+        value: Any!
+      }
+      
+      input WhereInput {
+        filter: LogicalFilterInput
+        orderBy: OrderByInput
+        range: RangeInput
+        first: Int
+        last: Int
+        skip: Int
+      }
+      
+      input OrderByInput {
+        field: String!
+        order: OrderEnum
+      }
+      
+      enum OrderEnum {
+        DESC
+        ASC
+      }
+      
+      input RangeInput {
+        before: ID!
+        after: ID!
+      }
+    
+      input LogicalFilterInput {
+        AND: [LogicalFilterInput]
+        OR: [LogicalFilterInput]
+        predicate: FilterInput
+      }
+      
+      input FilterInput {
+        eq: EqInput
+      }
+      
+      enum MultiRecordEvent {
+        CREATE
+        UPDATE
+        READ
+        DELETE
+      }
+      
+      enum SingleRecordEvent {
+        UPDATE
+        READ
+        DELETE
+      }
+      
+      scalar Any
+      """.renderPretty
+
+    val generatedTypes =
+      Document(DefualtApiSchemaGenerator.buitlinGraphQlTypeDefinitions.toVector).renderPretty
+
+    assert(generatedTypes == expected)
+  }
 }
