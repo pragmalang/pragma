@@ -8,7 +8,7 @@ import sangria.macros._
 class DefaultApiSchemaGeneratorSpec extends FunSuite {
   val generator = DefaultApiSchemaGenerator(MockSyntaxTree.syntaxTree)
 
-  test("outputTypes method on DefaultApiSchemaGenerator works") {
+  test("outputTypes method works") {
     val expected = gql"""
     type Business {
       username: String
@@ -36,7 +36,7 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
     assert(generatedTypes == expected)
   }
 
-  test("inputTypes(ObjectInput) method on DefaultApiSchemaGenerator works") {
+  test("inputTypes(ObjectInput) method works") {
     val expected = gql"""
     input BusinessObjectInput {
       username: String
@@ -58,7 +58,7 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
     assert(generatedTypes == expected)
   }
 
-  test("inputTypes(OptionalInput) method on DefaultApiSchemaGenerator works") {
+  test("inputTypes(OptionalInput) method works") {
     val expected = gql"""
     input BusinessOptionalInput {
       username: String
@@ -80,7 +80,7 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
     assert(generatedTypes == expected)
   }
 
-  test("inputTypes(ReferenceInput) method on DefaultApiSchemaGenerator works") {
+  test("inputTypes(ReferenceInput) method works") {
     val expected = gql"""
     input BusinessReferenceInput {
       username: String
@@ -99,6 +99,24 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
 
     val generatedTypes =
       Document(generator.inputTypes(ReferenceInput).toVector).renderPretty
+    assert(generatedTypes == expected)
+  }
+
+  test("notificationTypes method works") {
+    val expected = gql"""
+    type BusinessNotification {
+      event: MultiRecordEvent!
+      business: Business!
+    }
+    
+    type BranchNotification {
+      event: MultiRecordEvent!
+      branch: Branch!
+    }
+    """.renderPretty
+
+    val generatedTypes =
+      Document(generator.notificationTypes.toVector).renderPretty
     assert(generatedTypes == expected)
   }
 }

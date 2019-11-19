@@ -123,7 +123,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
             arguments = Vector.empty
           ),
           FieldDefinition(
-            name = model.id,
+            name = model.id.toLowerCase,
             fieldType = fieldType(model),
             arguments = Vector.empty
           )
