@@ -199,6 +199,7 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
 
     val queryType =
       generator.queryType.renderPretty
+
     assert(queryType == expected)
   }
 }
