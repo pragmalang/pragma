@@ -188,7 +188,7 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
     type Query {
       business(email: String!): Business!
       branch(address: String!): Branch!
-      manybusinesses(where: WhereInput): [Business]!
+      manyBusinesses(where: WhereInput): [Business]!
       branches(where: WhereInput): [Branch]!
       countManyBusinesses(where: WhereInput): Int!
       countBranches(where: WhereInput): Int!
@@ -201,5 +201,33 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
       generator.queryType.renderPretty
 
     assert(queryType == expected)
+  }
+
+  test("mutationType method works") {
+    val expected = gql"""
+    type Mutation {
+      createBusiness(business: BusinessObjectInput!): Business!
+      createBranch(branch: BranchObjectInput!): Branch!
+      updateBusiness(email: String!, business: BusinessOptionalInput!): Business!
+      updateBranch(address: String!, branch: BranchOptionalInput!): Branch!
+      upsertBusiness(business: BusinessOptionalInput!): Business!
+      upsertBranch(branch: BranchOptionalInput!): Branch!
+      deleteBusiness(email: String!): Business!
+      deleteBranch(address: String!): Branch!
+      createManyBusinesses(manyBusinesses: [BusinessObjectInput]!): [Business]!
+      createBranches(branches: [BranchObjectInput]!): [Branch]!
+      updateManyBusinesses(manyBusinesses: [BusinessReferenceInput]!): [Business]!
+      updateBranches(branches: [BranchReferenceInput]!): [Branch]!
+      upsertManyBusinesses(manyBusinesses: [BusinessOptionalInput]!): [Business]!
+      upsertBranches(branches: [BranchOptionalInput]!): [Branch]!
+      deleteManyBusinesses(email: [String]!): [Business]!
+      deleteBranches(address: [String]!): [Branch]!
+    }
+    """.renderPretty
+
+    val mutationType =
+      generator.mutationType.renderPretty
+
+    assert(mutationType == expected)
   }
 }

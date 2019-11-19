@@ -143,6 +143,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
   )
 
   def queryType: ObjectTypeDefinition = {
+    import domain.utils._
     val rules: List[HModel => FieldDefinition] = List(
       model =>
         graphQlField(
@@ -154,7 +155,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
         )(model.id),
       model =>
         graphQlField(
-          _ => Pluralizer.pluralize(model).toLowerCase,
+          _ => Pluralizer.pluralize(model).small,
           args = Map("where" -> builtinType(WhereInput, isOptional = true)),
           fieldType = outputType(model, isList = true)
         )(model.id),
@@ -194,7 +195,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
         )(model.id),
       model =>
         graphQlField(
-          _ => Pluralizer.pluralize(model).toLowerCase,
+          _ => Pluralizer.pluralize(model).small,
           args = Map(
             "where" -> builtinType(WhereInput, isOptional = true),
             "on" -> builtinType(MultiRecordEvent, isList = true)
@@ -255,9 +256,9 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
       model =>
         graphQlField(
           nameTransformer =
-            _ => "createMany" + Pluralizer.pluralize(model).capitalize,
+            _ => "create" + Pluralizer.pluralize(model).capitalize,
           args = Map(
-            Pluralizer.pluralize(model).toLowerCase -> listFieldType(
+            Pluralizer.pluralize(model).small -> listFieldType(
               model,
               nameTransformer = inputTypeName(_)(ObjectInput)
             )
@@ -267,9 +268,9 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
       model =>
         graphQlField(
           nameTransformer =
-            _ => "updateMany" + Pluralizer.pluralize(model).capitalize,
+            _ => "update" + Pluralizer.pluralize(model).capitalize,
           args = Map(
-            Pluralizer.pluralize(model).toLowerCase -> listFieldType(
+            Pluralizer.pluralize(model).small -> listFieldType(
               model,
               nameTransformer = inputTypeName(_)(ReferenceInput)
             )
@@ -279,9 +280,9 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
       model =>
         graphQlField(
           nameTransformer =
-            _ => "upsertMany" + Pluralizer.pluralize(model).capitalize,
+            _ => "upsert" + Pluralizer.pluralize(model).capitalize,
           args = Map(
-            Pluralizer.pluralize(model).toLowerCase -> listFieldType(
+            Pluralizer.pluralize(model).small -> listFieldType(
               model,
               nameTransformer = inputTypeName(_)(OptionalInput)
             )
@@ -290,7 +291,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
         )(model.id),
       model =>
         graphQlField(
-          _ => "deleteMany" + Pluralizer.pluralize(model).capitalize,
+          _ => "delete" + Pluralizer.pluralize(model).capitalize,
           args = Map(
             model.primaryField.id -> listFieldType(model.primaryField.htype)
           ),
