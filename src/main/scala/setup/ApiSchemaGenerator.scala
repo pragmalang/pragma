@@ -26,43 +26,6 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
     arguments = graphQlFieldArgs(args)
   )
 
-  def inputFieldType(field: HModelField)(kind: InputKind) = {
-    val hReferenceType = fieldType(
-      ht = field.htype,
-      nameTransformer = inputTypeName(_)(kind match {
-        case OptionalInput => OptionalInput
-        case _             => ReferenceInput
-      }),
-      isOptional = kind match {
-        case ObjectInput   => false
-        case OptionalInput => true
-        case ReferenceInput =>
-          !field.directives.exists(fd => fd.id == "primary")
-      }
-    )
-
-    field.htype match {
-      case t: HReferenceType if syntaxTree.models.exists(_.id == t.id) =>
-        hReferenceType
-      case HArray(t: HReferenceType)
-          if syntaxTree.models.exists(_.id == t.id) =>
-        hReferenceType
-      case HOption(t: HReferenceType)
-          if syntaxTree.models.exists(_.id == t.id) =>
-        hReferenceType
-      case _ =>
-        fieldType(
-          ht = field.htype,
-          isOptional = kind match {
-            case ObjectInput   => false
-            case OptionalInput => true
-            case ReferenceInput =>
-              !field.directives.exists(fd => fd.id == "primary")
-          }
-        )
-    }
-  }
-
   def listFieldType(
       ht: HType,
       isOptional: Boolean = false,
@@ -93,6 +56,44 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
         }
       })
     case td => td
+  }
+
+  def inputFieldType(field: HModelField)(kind: InputKind) = {
+    val hReferenceType = fieldType(
+      ht = field.htype,
+      nameTransformer = inputTypeName(_)(kind match {
+        case OptionalInput => OptionalInput
+        case _             => ReferenceInput
+      }),
+      isOptional = kind match {
+        case ObjectInput   => false
+        case OptionalInput => true
+        case ReferenceInput =>
+          !field.directives.exists(fd => fd.id == "primary")
+      }
+    )
+
+    val isReferenceToModel = (t: HReferenceType) =>
+      syntaxTree.models.exists(_.id == t.id)
+
+    field.htype match {
+      case t: HReferenceType if isReferenceToModel(t) =>
+        hReferenceType
+      case HArray(t: HReferenceType) if isReferenceToModel(t) =>
+        hReferenceType
+      case HOption(t: HReferenceType) if isReferenceToModel(t) =>
+        hReferenceType
+      case _ =>
+        fieldType(
+          ht = field.htype,
+          isOptional = kind match {
+            case ObjectInput   => false
+            case OptionalInput => true
+            case ReferenceInput =>
+              !field.directives.exists(fd => fd.id == "primary")
+          }
+        )
+    }
   }
 
   def inputTypes(kind: InputKind): List[Definition] =
