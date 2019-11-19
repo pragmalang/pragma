@@ -28,6 +28,10 @@ package object utils {
   class UserError(val errors: List[ErrorMessage])
       extends Exception(errors.map(_._1).mkString("\n"))
 
+  implicit class StringMethods(s: String) {
+    def small = s.updated(0, s.head.toString.toLowerCase.head)
+  }
+
   def displayHType(hType: HType): String = hType match {
     case HString           => "String"
     case HInteger          => "Integer"
