@@ -31,7 +31,7 @@ object HeavenlyParser {
       childId: String,
       position: Option[PositionRange]
   ) extends HShapeField {
-    val htype = new HType {}
+    val htype = HReference(modelId + "." + childId)
     val id = "DUMMY FIELD"
   }
 }
@@ -342,15 +342,39 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     }
   }
 
-  // def accessRule: Rule1[AccessRule] = rule {
-  //   eventsList ~ whitespace(" ") ~ resource ~ whitespace(" ") ~ memberExpr ~> {
-  //     (events: List[HEvent] , resource: Resource, authorizor: MemberExpression) =>
+  def globalAccessRule: Rule1[AccessRule] = rule {
+    push(cursor) ~ eventsList ~ whitespace() ~
+      (modelResource | fieldResource ~> (_.asInstanceOf[Resource])) ~
+      whitespace() ~ memberExpr ~ push(cursor) ~> {
+      (
+          start: Int,
+          events: List[HEvent],
+          resource: Resource,
+          authorizor: MemberExpression,
+          end: Int
+      ) =>
+        GlobalRule(
+          resource,
+          events,
+          HFunctionValue(
+            authorizor,
+            HFunction(ListMap.empty, HReference(authorizor.propName))
+          ),
+          Some(PositionRange(start, end))
+        )
+    }
+  }
 
-  //   }
-  // }
-
-  def permitDef = rule {
-    "permit" ~ "{" ~ zeroOrMore("") ~ "}"
+  def permitDef: Rule1[Permissions] = rule {
+    "permit" ~ "{" ~
+      push(cursor) ~ zeroOrMore(globalAccessRule) ~
+      push(cursor) ~ "}" ~> { (start: Int, rules: Seq[AccessRule], end: Int) =>
+      Permissions(
+        Tenant("*", rules.toList, None),
+        Nil,
+        Some(PositionRange(start, end))
+      )
+    }
   }
 
 }
