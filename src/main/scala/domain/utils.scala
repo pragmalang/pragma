@@ -28,16 +28,6 @@ package object utils {
   class UserError(val errors: List[ErrorMessage])
       extends Exception(errors.map(_._1).mkString("\n"))
 
-  implicit class StringMethods(s: String) {
-    import scala.language.postfixOps
-    import sys.process._
-    def small = s.updated(0, s.head.toString.toLowerCase.head)
-    def $(msg: String) = s ! match {
-      case 1 => Failure(new Exception(msg))
-      case 0 => Success(())
-    }
-  }
-
   def displayHType(hType: HType): String = hType match {
     case HString           => "String"
     case HInteger          => "Integer"

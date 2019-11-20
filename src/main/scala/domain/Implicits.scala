@@ -4,7 +4,7 @@ import spray.json._
 import spray.json.DefaultJsonProtocol._
 import primitives._
 import org.graalvm.polyglot
-import scala.util.Try
+import scala.util.{Try, Success, Failure}
 
 package object Implicits {
   implicit object HvalueJsonFormater extends JsonWriter[HValue] {
@@ -62,5 +62,18 @@ package object Implicits {
       // Other
       else throw new Error("Invalid value type")
     }
+  }
+
+  implicit class StringMethods(s: String) {
+    import scala.language.postfixOps
+    import sys.process._
+    def small = s.updated(0, s.head.toString.toLowerCase.head)
+    def $(msg: String) = s ! match {
+      case 1 => Failure(new Exception(msg))
+      case 0 => Success(())
+    }
+
+    def indent(by: Int, indentationChar: String = "  ") =
+      s.prependedAll(indentationChar * by)
   }
 }
