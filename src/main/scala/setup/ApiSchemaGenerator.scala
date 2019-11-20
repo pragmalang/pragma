@@ -1,5 +1,5 @@
 package setup
-import domain._, primitives._, utils._
+import domain._, primitives._, Implicits._
 
 import sangria.ast._
 import sangria.macros._
