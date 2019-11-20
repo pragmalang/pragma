@@ -9,6 +9,7 @@ import sangria.ast._
 import Implicits._
 import java.io._
 import scala.util.{Success, Failure, Try}
+import domain.utils._
 
 case class Setup(
     syntaxTree: SyntaxTree,
