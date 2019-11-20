@@ -3,6 +3,8 @@ package domain
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 import primitives._
+import org.graalvm.polyglot
+import scala.util.Try
 
 package object Implicits {
   implicit object HvalueJsonFormater extends JsonWriter[HValue] {
@@ -27,7 +29,38 @@ package object Implicits {
         value.map(field => field._1 -> write(field._2)).toMap.toJson
       case HFileValue(value, htype)         => value.toPath.toUri.toString.toJson
       case HStringValue(value)              => value.toJson
-      case HArrayValue(values, elementType) => values.map(write(_)).toJson
+      case HArrayValue(values, elementType) => values.map(write).toJson
+    }
+  }
+
+  implicit object GraalValueJsonFormater extends JsonWriter[polyglot.Value] {
+
+    @throws[Error]
+    def write(gval: polyglot.Value): JsValue = {
+      // Number
+      if (gval.isNumber) JsNumber(gval.asDouble)
+      // Boolean
+      else if (gval.isBoolean) JsBoolean(gval.asBoolean)
+      // Null
+      else if (gval.isNull) JsNull
+      // Object
+      else if (gval.isProxyObject || gval.isHostObject) {
+        val keys = gval.getMemberKeys().toArray().map(_.toString)
+        val values = keys.map(gval.getMember(_))
+        JsObject(keys.zip(values.map(write)).toMap)
+      }
+      // String
+      else if (gval.isString) JsString(gval.asString)
+      // Array
+      else if (Try(gval.getArraySize).isSuccess) JsArray {
+        val jsElements = for (i <- 0 until gval.getArraySize.toInt)
+          yield write(gval.getArrayElement(i))
+        jsElements.toVector
+      }
+      // Date
+      else if (gval.isDate) JsString(gval.toString)
+      // Other
+      else throw new Error("Invalid value type")
     }
   }
 }
