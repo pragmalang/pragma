@@ -3,6 +3,7 @@ package setup
 import domain._, primitives._, utils._
 
 import sangria.ast._
+import sangria.ast.{Directive => GraphQlDirective}
 import sangria.macros._
 
 trait Converter {
@@ -11,6 +12,7 @@ trait Converter {
   type ShapeDef
   type FieldTypeDef
   type FieldDef
+  type DirectiveDef
 
   val syntaxTree: SyntaxTree
 
@@ -21,7 +23,7 @@ trait Converter {
       nameTransformer: String => String
   ): FieldTypeDef
   def hEnum(e: HEnum): EnumDef
-  def hShape(s: HShape): ShapeDef
+  def hShape(s: HShape, directives: Vector[DirectiveDef]): ShapeDef
   def hShapeField(f: HShapeField): FieldDef
 
 }
@@ -33,6 +35,7 @@ class GraphQlConverter(override val syntaxTree: SyntaxTree) extends Converter {
   override type ShapeDef = ObjectTypeDefinition
   override type FieldTypeDef = Type
   override type FieldDef = FieldDefinition
+  override type DirectiveDef = GraphQlDirective
 
   def buildGraphQLAst() = Document(typeDefinitions.toVector)
 
@@ -89,10 +92,14 @@ class GraphQlConverter(override val syntaxTree: SyntaxTree) extends Converter {
       values = e.values.map(v => EnumValueDefinition(name = v)).toVector
     )
 
-  override def hShape(s: HShape): ObjectTypeDefinition = ObjectTypeDefinition(
+  override def hShape(
+      s: HShape,
+      directives: Vector[GraphQlDirective] = Vector.empty
+  ): ObjectTypeDefinition = ObjectTypeDefinition(
     s.id,
     Vector.empty,
-    s.fields.map(hShapeField).toVector
+    s.fields.map(hShapeField).toVector,
+    directives
   )
 
   override def hShapeField(
