@@ -6,9 +6,9 @@ import spray.json.DefaultJsonProtocol._
 import scala.collection.immutable.ListMap
 
 case class DockerCompose(
-    version: String,
     services: JsObject,
-    volumes: Option[JsObject] = None
+    volumes: Option[JsObject] = None,
+    version: String = "3"
 ) {
 
   def render: String =
