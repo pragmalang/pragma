@@ -2,12 +2,14 @@ package setup
 import sangria.ast.Document
 import domain.SyntaxTree
 import running.Request
+import scala.util.Try
 
 trait Storage {
   val syntaxTree: SyntaxTree
   val migrator: Migrator
 
   def runQuery(query: Document): Request
+  def validateQuery(query: Document): Try[Request]
   def migrate() = migrator.run()
   def dockerComposeYaml(): DockerCompose
 }
@@ -15,5 +17,6 @@ trait Storage {
 case class PrismaMongo(syntaxTree: SyntaxTree) extends Storage {
   override val migrator: Migrator = PrismaMongoMigrator(syntaxTree)
   override def runQuery(query: Document): Request = ???
+  override def validateQuery(query: Document): Try[Request] = ???
   override def dockerComposeYaml() = ???
 }
