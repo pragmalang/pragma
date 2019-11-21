@@ -9,6 +9,7 @@ import sangria.renderer.{SchemaRenderer, SchemaFilter}
 import scala.util.{Try, Success, Failure}
 import sys.process._
 import scala.language.postfixOps
+import sangria.ast.Definition
 
 trait Migrator {
   type Return
@@ -24,27 +25,12 @@ case class PrismaMongoMigrator(
   override type Return = Unit
   val converter = GraphQlConverter(syntaxTree)
 
-  def renderSchema(schema: Document) =
-    SchemaRenderer.renderSchema(
-      Schema.buildFromAst(schema),
-      SchemaFilter(
-        typeName =>
-          typeName != "Query"
-            && typeName != "Mutation"
-            && typeName != "Subscription"
-            && !Schema.isBuiltInType(typeName),
-        dirName => !Schema.isBuiltInDirective(dirName)
-      )
-    )
-
   override def run = Try {
-    val graphQlDefinitions = converter.buildGraphQLAst()
-    val prismaSchema = toValidPrismaSchema(graphQlDefinitions)
-    val renderedPrismaSchema = renderSchema(prismaSchema)
+    val renderedSchema = validSchema.renderPretty
     // ??? TODO: Send renderedPrismaSchema to Prisma server
   }
 
-  def toValidPrismaSchema(schema: Document): Document = ???
+  def validSchema: Document = ???
 }
 
 case class MockSuccessMigrator(
@@ -52,8 +38,6 @@ case class MockSuccessMigrator(
 ) extends Migrator {
   override type Return = String
   val converter = GraphQlConverter(syntaxTree)
-
-  def renderedSchema = ""
 
   override def run = Success("Mock Migration Succeeded")
 }
@@ -63,8 +47,6 @@ case class MockFailureMigrator(
 ) extends Migrator {
   override type Return = Unit
   val converter = GraphQlConverter(syntaxTree)
-
-  def renderedSchema = ""
 
   override def run = Failure(new Exception("Mock Migration Failed"))
 }
