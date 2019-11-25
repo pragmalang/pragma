@@ -215,14 +215,19 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   def fieldDef: Rule1[HModelField] = rule {
     whitespace() ~ zeroOrMore(fieldDirective) ~
       push(cursor) ~ identifier ~ push(cursor) ~ ":" ~
-      htype ~ optional(defaultValue) ~ optional(",") ~> {
+      htype ~ optional(defaultValue) ~
+      optional(
+        oneOrMore(anyOf(" \r\t")) ~
+          zeroOrMore(fieldDirective).separatedBy(oneOrMore(anyOf(" \r\t")))
+      ) ~optional(",") ~> {
       (
           ds: Seq[FieldDirective],
           start: Int,
           id: String,
           end: Int,
           ht: HType,
-          dv: Option[HValue]
+          dv: Option[HValue],
+          trailingDirectives: Option[Seq[FieldDirective]]
       ) =>
         {
           val defaultValue = dv.collect {
@@ -237,7 +242,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
             id,
             ht,
             defaultValue,
-            ds.toList,
+            ds.concat(trailingDirectives.getOrElse(Nil)).toList,
             Some(PositionRange(start, end))
           )
         }
@@ -367,8 +372,8 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
 
   def permitDef: Rule1[Permissions] = rule {
     "permit" ~ "{" ~
-      push(cursor) ~ zeroOrMore(globalAccessRule) ~
-      push(cursor) ~ "}" ~> { (start: Int, rules: Seq[AccessRule], end: Int) =>
+      push(cursor) ~ zeroOrMore(globalAccessRule) ~ push(cursor) ~
+      "}" ~> { (start: Int, rules: Seq[AccessRule], end: Int) =>
       Permissions(
         Tenant("*", rules.toList, None),
         Nil,

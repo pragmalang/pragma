@@ -106,4 +106,52 @@ class ModelParsing extends FlatSpec {
     )
     assert(parsedModel == expected)
   }
+
+  "Trailing model field directives" should "be parsed correctly" in {
+    val code = """
+    model User {
+      username: String @publicCredenticl
+      password: String @secretCredential
+    }
+    """
+    val parsedModel = new HeavenlyParser(code).syntaxTree.run()
+    val expected = Success(
+      List(
+        HModel(
+          "User",
+          List(
+            HModelField(
+              "username",
+              HString,
+              None,
+              List(
+                FieldDirective(
+                  "publicCredenticl",
+                  HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                  Some(PositionRange(Position(41, 3, 24), Position(65, 4, 7)))
+                )
+              ),
+              Some(PositionRange(Position(24, 3, 7), Position(32, 3, 15)))
+            ),
+            HModelField(
+              "password",
+              HString,
+              None,
+              List(
+                FieldDirective(
+                  "secretCredential",
+                  HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                  Some(PositionRange(Position(82, 4, 24), Position(104, 5, 5)))
+                )
+              ),
+              Some(PositionRange(Position(65, 4, 7), Position(73, 4, 15)))
+            )
+          ),
+          List(),
+          Some(PositionRange(Position(11, 2, 11), Position(15, 2, 15)))
+        )
+      )
+    )
+    assert(parsedModel == expected)
+  }
 }
