@@ -17,10 +17,13 @@ case class GraalFunction(
     htype: HType,
     filePath: String,
     graalCtx: polyglot.Context,
-    languageId: String
+    languageId: String = "js"
 ) extends ExternalFunction {
   val graalFunction = graalCtx.getBindings(languageId).getMember(id)
 
   override def execute(input: JsValue): Try[JsValue] =
-    Try(GraalValueJsonFormater.write(graalFunction.execute(input)))
+    Try(
+      GraalValueJsonFormater
+        .write(graalFunction.execute(graalCtx.eval(languageId, s"($input)")))
+    )
 }
