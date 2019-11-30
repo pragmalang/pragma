@@ -79,7 +79,7 @@ object MockSyntaxTree {
       ModelDirective(
         "plural",
         HInterfaceValue(
-          ListMap("name" -> HStringValue("manyBusinesses")),
+          ListMap("name" -> LiteralExpression(HStringValue("manyBusinesses"), None)),
           HInterface("", List(), None)
         ),
         None

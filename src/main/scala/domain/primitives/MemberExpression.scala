@@ -10,8 +10,8 @@ case class MemberExpression(
   override def eval(context: HObject): HValue = {
     val objValue = obj.eval(context)
     objValue match {
-      case v: HModelValue     => v.value(propName)
-      case v: HInterfaceValue => v.value(propName)
+      case v: HModelValue     => v.value(propName).eval(context)
+      case v: HInterfaceValue => v.value(propName).eval(context)
       case v =>
         throw new TypeMismatchException(
           List(HModel("", Nil, Nil, None), HInterface("", Nil, None)),

@@ -1,9 +1,10 @@
 package domain.primitives
 import domain._
 import domain.utils._
+import scala.collection.immutable.ListMap
 
 case class VariableExpression(id: String, htype: HType, position: Option[PositionRange])
     extends HExpression
     with Identifiable {
-  override def eval(context: HObject): HValue = context(id)
+  override def eval(context: HObject): HValue = context(id).eval(ListMap.empty)
 }

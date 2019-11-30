@@ -3,6 +3,7 @@ package setup
 import domain.HModel
 import domain.primitives.HStringValue
 import scala.collection.mutable
+import scala.collection.immutable.ListMap
 import org.atteo.evo.inflector.English
 
 object Pluralizer {
@@ -19,11 +20,20 @@ object Pluralizer {
 
   def pluralize(model: HModel): String = {
     cache.get(model) match {
-      case None => model.directives.find(d => d.id == "plural") match {
-        case None => cache.getOrElseUpdate(key = model, op = pluralize(model.id))
-        case Some(value) =>
-          cache.getOrElseUpdate(key = model, op = value.args.value("name").asInstanceOf[HStringValue].value)
-      } 
+      case None =>
+        model.directives.find(d => d.id == "plural") match {
+          case None =>
+            cache.getOrElseUpdate(key = model, op = pluralize(model.id))
+          case Some(value) =>
+            cache.getOrElseUpdate(
+              key = model,
+              op = value.args
+                .value("name")
+                .eval(ListMap.empty)
+                .asInstanceOf[HStringValue]
+                .value
+            )
+        }
       case Some(value) => value
     }
   }

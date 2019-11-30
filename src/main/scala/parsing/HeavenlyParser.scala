@@ -6,7 +6,7 @@ import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
 
 object HeavenlyParser {
-  // Dummy classes will be substituted at validation
+  // Dummy classes will be substituted at substitution
   // Dummy placeholder expression
   case class ReferenceExpression(
       parent: String,
@@ -110,6 +110,10 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     floatVal | integerVal | stringVal | booleanVal | arrayVal
   }
 
+  def expression: Rule1[HExpression] = rule {
+    (literal ~> (LiteralExpression(_, None))) | memberExpr
+  }
+
   // Returns a PrimitiveType or an HModel with no fields or directives.
   def htypeFrom(typeId: String): HType = typeId match {
     case "String"  => HString
@@ -139,26 +143,26 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   }
 
   def namedArg = rule {
-    identifier ~ ":" ~ literal ~> ((key: String, value: HValue) => key -> value)
+    identifier ~ ":" ~ expression ~> ((key: String, value: HExpression) => key -> value)
   }
 
   def namedArgs: Rule1[HInterfaceValue] = rule {
     zeroOrMore(namedArg).separatedBy(",") ~>
-      ((pairs: Seq[(String, HValue)]) => {
+      ((pairs: Seq[(String, HExpression)]) => {
         HInterfaceValue(
-          pairs.foldLeft(ListMap.empty[String, HValue])(_ + _),
+          pairs.foldLeft(ListMap.empty[String, HExpression])(_ + _),
           HInterface("", Nil, None)
         )
       })
   }
 
   def positionalArgs: Rule1[HInterfaceValue] = rule {
-    zeroOrMore(literal).separatedBy(",") ~>
-      ((args: Seq[HValue]) => {
+    zeroOrMore(expression).separatedBy(",") ~>
+      ((args: Seq[HExpression]) => {
         HInterfaceValue(
           args.zipWithIndex
             .map(pair => pair._2.toString -> pair._1)
-            .foldLeft(ListMap.empty[String, HValue])(_ + _),
+            .foldLeft(ListMap.empty[String, HExpression])(_ + _),
           HInterface("", Nil, None)
         )
       })
@@ -219,7 +223,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
       optional(
         oneOrMore(anyOf(" \r\t")) ~
           zeroOrMore(fieldDirective).separatedBy(oneOrMore(anyOf(" \r\t")))
-      ) ~optional(",") ~> {
+      ) ~ optional(",") ~> {
       (
           ds: Seq[FieldDirective],
           start: Int,

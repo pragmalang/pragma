@@ -75,7 +75,7 @@ package object primitives {
     }
   }
 
-  type HObject = ListMap[String, HValue]
+  type HObject = ListMap[String, HExpression]
 
   case class LiteralExpression(value: HValue, position: Option[PositionRange]) extends HExpression {
     override def eval(context: HObject = ListMap()): HValue = value

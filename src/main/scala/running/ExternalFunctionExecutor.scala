@@ -1,7 +1,7 @@
 package running
-import spray.json.{JsValue, JsObject}
+import spray.json.JsValue
 import scala.util.Try
-import domain.primitives.{ExternalFunction}
+import domain.primitives.ExternalFunction
 import domain.HType
 import org.graalvm.polyglot
 import spray.json._
@@ -21,9 +21,8 @@ case class GraalFunction(
 ) extends ExternalFunction {
   val graalFunction = graalCtx.getBindings(languageId).getMember(id)
 
-  override def execute(input: JsValue): Try[JsValue] =
-    Try(
-      GraalValueJsonFormater
-        .write(graalFunction.execute(graalCtx.eval(languageId, s"($input)")))
-    )
+  override def execute(input: JsValue): Try[JsValue] = Try {
+    GraalValueJsonFormater
+      .write(graalFunction.execute(graalCtx.eval(languageId, s"($input)")))
+  }
 }
