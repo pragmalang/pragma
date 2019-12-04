@@ -98,7 +98,16 @@ class GraphQlConverter(override val syntaxTree: SyntaxTree) extends Converter {
   ): ObjectTypeDefinition = ObjectTypeDefinition(
     s.id,
     Vector.empty,
-    s.fields.map(hShapeField).toVector,
+    s.fields
+      .filter({
+        case field: HInterfaceField => true
+        case field: HModelField =>
+          !field.directives.exists(
+            directive => directive.id == "secretCredential"
+          )
+      })
+      .map(hShapeField)
+      .toVector,
     directives
   )
 

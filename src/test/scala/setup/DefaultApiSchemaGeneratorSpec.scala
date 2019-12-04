@@ -13,7 +13,6 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
     type Business {
       username: String
       email: String!
-      password: String!
       branches(where: WhereInput): [Branch]!
       mainBranch: Branch
       businessType: BusinessType!
@@ -33,6 +32,7 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
 
     val generatedTypes =
       Document(generator.outputTypes.toVector).renderPretty
+    println(generatedTypes)
     assert(generatedTypes == expected)
   }
 
@@ -343,7 +343,6 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
     type Business {
       username: String
       email: String!
-      password: String!
       branches(where: WhereInput): [Branch]!
       mainBranch: Branch
       businessType: BusinessType!
