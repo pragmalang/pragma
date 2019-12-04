@@ -5,6 +5,9 @@ import sangria.renderer.QueryRenderer
 import setup.DefualtApiSchemaGenerator._
 import sangria.ast.Document
 import sangria.macros._
+import domain.Implicits._
+import scala.util.{Failure, Success}
+
 class DefaultApiSchemaGeneratorSpec extends FunSuite {
   val generator = DefaultApiSchemaGenerator(MockSyntaxTree.syntaxTree)
 
@@ -32,7 +35,7 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
 
     val generatedTypes =
       Document(generator.outputTypes.toVector).renderPretty
-    println(generatedTypes)
+
     assert(generatedTypes == expected)
   }
 
@@ -206,6 +209,7 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
   test("mutationType method works") {
     val expected = gql"""
     type Mutation {
+      loginBusiness(publicCredential: String, secretCredential: String): String!
       createBusiness(business: BusinessObjectInput!): Business!
       createBranch(branch: BranchObjectInput!): Branch!
       updateBusiness(email: String!, business: BusinessOptionalInput!): Business!
@@ -261,6 +265,7 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
     }
     
     type Mutation {
+      loginBusiness(publicCredential: String, secretCredential: String): String!
       createBusiness(business: BusinessObjectInput!): Business!
       createBranch(branch: BranchObjectInput!): Branch!
       updateBusiness(email: String!, business: BusinessOptionalInput!): Business!
@@ -414,6 +419,22 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
 
     val schema =
       generator.buildApiSchema.renderPretty
+
+    import java.io.PrintWriter
+    import scala.language.postfixOps
+    val createFile =
+      () => new PrintWriter("output.gql") { write(schema); close }
+    val deleteFile = () => "rm output.gql" $ "Removing output.gql failed"
+
+    createFile()
+    "graphql-inspector similar output.gql" $ "Schema validation failed" match {
+      case Failure(exception) => {
+        deleteFile()
+        throw exception
+      }
+      case Success(value) => deleteFile()
+    }
+    deleteFile()
 
     assert(schema == expected)
   }

@@ -99,45 +99,50 @@ scalar Any
   3. ✔️ `{model.id}OptionalInput` input type. Exact copy of `{model.id}ObjectInput` except that all fields are optional
   4. ✔️ `{model.id}ReferenceInput` input type. Exact copy of `{model.id}OptionalInput` except that the primary field is required.
   5. ✔️ `{model.id}Notification` output type. It has two fields `event: MultiRecordEvent!`, and `{model.id}: {model.id}!`.
-  6. ✔️ `create{model.id}` mutation. It takes one required argument
+  6. ✔️ `login{model.id}` mutation. It takes two optional arguments
+     `publicCredential: String`,
+     `secretCredential: String`
+     and returns
+     `String!`
+  7. ✔️ `create{model.id}` mutation. It takes one required argument
      `{model.id}: {model.id}ObjectInput!`
      and returns
      `{model.id}`
-  7. ✔️ `update{model.id}` mutation. It takes two required arguments
+  8. ✔️ `update{model.id}` mutation. It takes two required arguments
      `{model.primaryField}: {model.primaryField.type}!`,
      `{model.id}: {model.id}OptionalInput!`
      and returns
      `{model.id}`
-  8. ✔️ `upsert{model.id}` mutation. It takes one required argument
+  9. ✔️ `upsert{model.id}` mutation. It takes one required argument
      `{model.id}: {model.id}OptionalInput!`
      and returns
      `{model.id}`
-  9. ✔️ `delete{model.id}` mutation. It takes one required argument
-     `{model.primaryField}: {model.primaryField.type}!`
-     and returns
-     `{model.id}`
-  10. ✔️ `createMany{model.id}` mutation. It takes one required argument
+  10. ✔️ `delete{model.id}` mutation. It takes one required argument
+      `{model.primaryField}: {model.primaryField.type}!`
+      and returns
+      `{model.id}`
+  11. ✔️ `createMany{model.id}` mutation. It takes one required argument
       `{model.id}: [{model.id}ObjectInput]!`
       and returns
       `[{model.id}]`
-  11. ✔️ `updateMany{model.id}` mutation. It takes one required argument
+  12. ✔️ `updateMany{model.id}` mutation. It takes one required argument
       `{model.id}: [{model.id}ReferenceInput]!`
       and returns
       `[{model.id}]`
-  12. ✔️ `upsertMany{model.id}` mutation. It takes one required argument
+  13. ✔️ `upsertMany{model.id}` mutation. It takes one required argument
       `{model.id}: [{model.id}OptionalInput]!`
       and returns
       `[{model.id}]`
-  13. ✔️ `deleteMany{model.id}` mutation. It takes one required argument
+  14. ✔️ `deleteMany{model.id}` mutation. It takes one required argument
       `{model.primaryField}: [{model.primaryField.type}]!`
       and returns
       `[{model.id}]`
-  14. ✔️ `{model.id}` query. It takes one required argument `{model.primaryKey}: {model.primaryKey.type}!`, and returns `{model.id}`
-  15. ✔️ `{model.id.pluralize}` query. It takes one optional argument `where: WhereInput`, and returns `[{model.id}]`. Note: You cannot supply `range` when `first` or `last` are applied, if you do so, a runtime error will be thrown. You can use this query for pagination, similar to the usage in Prisma https://www.prisma.io/docs/prisma-client/basic-data-access/reading-data-TYPESCRIPT-rsc3/#pagination .
-  16. ✔️ `count{model.id.pluralize}`. Similar to the input of `{model.id.pluralize}` query and returns `Int`. It returns the length of the selected list.
-  17. ✔️ `{model.id}Exists` query. It takes one required argument `filter: LogicalFilterInput`, and returns `Int!` that represents the number of records to which the `predicate` is true.
-  18. ✔️ `{model.id}` subscription. It takes two optional arguments `{model.primaryKey}: {model.primaryKey.type}` and, `on: [SingleRecordEvent!]`. Returns `{model.id}Notification`. If `on` is not supplied then the default value is `[READ, UPDATE, DELETE]`
-  19. ✔️ `{model.id.pluralize}` subscription. It takes two optional arguments `where: WhereInput`, and `on: [MultiRecordEvent!]`. Returns `[{model.id}Notification!]!`. If `on` is not supplied then the default value is `[CREATE, UPDATE, DELETE, READ]`.
+  15. ✔️ `{model.id}` query. It takes one required argument `{model.primaryKey}: {model.primaryKey.type}!`, and returns `{model.id}`
+  16. ✔️ `{model.id.pluralize}` query. It takes one optional argument `where: WhereInput`, and returns `[{model.id}]`. Note: You cannot supply `range` when `first` or `last` are applied, if you do so, a runtime error will be thrown. You can use this query for pagination, similar to the usage in Prisma https://www.prisma.io/docs/prisma-client/basic-data-access/reading-data-TYPESCRIPT-rsc3/#pagination .
+  17. ✔️ `count{model.id.pluralize}`. Similar to the input of `{model.id.pluralize}` query and returns `Int`. It returns the length of the selected list.
+  18. ✔️ `{model.id}Exists` query. It takes one required argument `filter: LogicalFilterInput`, and returns `Int!` that represents the number of records to which the `predicate` is true.
+  19. ✔️ `{model.id}` subscription. It takes two optional arguments `{model.primaryKey}: {model.primaryKey.type}` and, `on: [SingleRecordEvent!]`. Returns `{model.id}Notification`. If `on` is not supplied then the default value is `[READ, UPDATE, DELETE]`
+  20. ✔️ `{model.id.pluralize}` subscription. It takes two optional arguments `where: WhereInput`, and `on: [MultiRecordEvent!]`. Returns `[{model.id}Notification!]!`. If `on` is not supplied then the default value is `[CREATE, UPDATE, DELETE, READ]`.
 
   ## TODO:
 
