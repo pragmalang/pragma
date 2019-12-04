@@ -102,9 +102,7 @@ class GraphQlConverter(override val syntaxTree: SyntaxTree) extends Converter {
       .filter({
         case field: HInterfaceField => true
         case field: HModelField =>
-          !field.directives.exists(
-            directive => directive.id == "secretCredential"
-          )
+          !field.directives.exists(_.id == "secretCredential")
       })
       .map(hShapeField)
       .toVector,
