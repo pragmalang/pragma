@@ -68,10 +68,11 @@ package object Implicits {
     import scala.language.postfixOps
     import sys.process._
     def small = s.updated(0, s.head.toString.toLowerCase.head)
-    def $(msg: String) = s ! match {
-      case 1 => Failure(new Exception(msg))
-      case 0 => Success(())
-    }
+    def $(msg: String, logsHandler: String => Unit = _ => ()) =
+      s ! ProcessLogger(logsHandler) match {
+        case 1 => Failure(new Exception(msg))
+        case 0 => Success(())
+      }
 
     def indent(by: Int, indentationChar: String = "  ") =
       s.prependedAll(indentationChar * by)
