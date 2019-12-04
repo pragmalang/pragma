@@ -3,3 +3,4 @@
 target
 *.class
 docs/book
+output.gql

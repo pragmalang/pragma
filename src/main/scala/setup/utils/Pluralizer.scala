@@ -1,4 +1,4 @@
-package setup
+package setup.utils
 
 import domain.HModel
 import domain.primitives.HStringValue

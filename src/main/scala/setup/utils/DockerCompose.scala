@@ -1,4 +1,6 @@
-package setup
+package setup.utils
+import setup._
+
 import domain.Implicits._
 import Implicits._
 import spray.json._

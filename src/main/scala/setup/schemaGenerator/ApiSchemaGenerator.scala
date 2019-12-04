@@ -1,4 +1,5 @@
-package setup
+package setup.schemaGenerator
+import setup.utils._
 import domain._, primitives._, Implicits._
 
 import sangria.ast._
@@ -123,7 +124,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
             arguments = Vector.empty
           ),
           FieldDefinition(
-            name = model.id.toLowerCase,
+            name = model.id.small,
             fieldType = fieldType(model),
             arguments = Vector.empty
           )
@@ -133,170 +134,234 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
 
   def ruleBasedTypeGenerator(
       typeName: String,
-      rules: List[HModel => FieldDefinition]
+      rules: List[HModel => Option[FieldDefinition]]
   ) = ObjectTypeDefinition(
     typeName,
     Vector.empty,
     rules
-      .foldLeft[List[FieldDefinition]](Nil)(_ ::: syntaxTree.models.map(_))
+      .foldLeft(List.empty[Option[FieldDefinition]])(
+        (acc, rule) => acc ::: syntaxTree.models.map(rule)
+      )
+      .filter({
+        case Some(field) => true
+        case None        => false
+      })
+      .map(_.get)
       .toVector
   )
 
   def queryType: ObjectTypeDefinition = {
     import domain.utils._
-    val rules: List[HModel => FieldDefinition] = List(
+    val rules: List[HModel => Option[FieldDefinition]] = List(
       model =>
-        graphQlField(
-          nameTransformer = _.toLowerCase,
-          args = Map(
-            model.primaryField.id -> fieldType(model.primaryField.htype)
-          ),
-          fieldType = outputType(model)
-        )(model.id),
+        Some(
+          graphQlField(
+            nameTransformer = _.small,
+            args = Map(
+              model.primaryField.id -> fieldType(model.primaryField.htype)
+            ),
+            fieldType = outputType(model)
+          )(model.id)
+        ),
       model =>
-        graphQlField(
-          _ => Pluralizer.pluralize(model).small,
-          args = Map("where" -> builtinType(WhereInput, isOptional = true)),
-          fieldType = outputType(model, isList = true)
-        )(model.id),
+        Some(
+          graphQlField(
+            _ => Pluralizer.pluralize(model).small,
+            args = Map("where" -> builtinType(WhereInput, isOptional = true)),
+            fieldType = outputType(model, isList = true)
+          )(model.id)
+        ),
       model =>
-        graphQlField(
-          _ => "count" + Pluralizer.pluralize(model).capitalize,
-          args = Map("where" -> builtinType(WhereInput, isOptional = true)),
-          fieldType = builtinType(GqlInt)
-        )(model.id),
+        Some(
+          graphQlField(
+            _ => "count" + Pluralizer.pluralize(model).capitalize,
+            args = Map("where" -> builtinType(WhereInput, isOptional = true)),
+            fieldType = builtinType(GqlInt)
+          )(model.id)
+        ),
       model =>
-        graphQlField(
-          _ => model.id.toLowerCase + "Exists",
-          args = Map("filter" -> builtinType(LogicalFilterInput)),
-          fieldType = builtinType(GqlInt)
-        )(model.id)
+        Some(
+          graphQlField(
+            _ => model.id.small + "Exists",
+            args = Map("filter" -> builtinType(LogicalFilterInput)),
+            fieldType = builtinType(GqlInt)
+          )(model.id)
+        )
     )
 
     ruleBasedTypeGenerator("Query", rules)
   }
 
   def subscriptionType: ObjectTypeDefinition = {
-    val rules: List[HModel => FieldDefinition] = List(
+    val rules: List[HModel => Option[FieldDefinition]] = List(
       model =>
-        graphQlField(
-          nameTransformer = _.toLowerCase,
-          args = Map(
-            model.primaryField.id -> fieldType(
-              model.primaryField.htype,
-              isOptional = true
+        Some(
+          graphQlField(
+            nameTransformer = _.small,
+            args = Map(
+              model.primaryField.id -> fieldType(
+                model.primaryField.htype,
+                isOptional = true
+              ),
+              "on" -> builtinType(
+                SingleRecordEvent,
+                isList = true,
+                isOptional = true
+              )
             ),
-            "on" -> builtinType(SingleRecordEvent, isList = true, isOptional = true)
-          ),
-          fieldType = outputType(
-            model,
-            nameTransformer = _ => notificationTypeName(model)
-          )
-        )(model.id),
+            fieldType = outputType(
+              model,
+              nameTransformer = _ => notificationTypeName(model)
+            )
+          )(model.id)
+        ),
       model =>
-        graphQlField(
-          _ => Pluralizer.pluralize(model).small,
-          args = Map(
-            "where" -> builtinType(WhereInput, isOptional = true),
-            "on" -> builtinType(MultiRecordEvent, isList = true, isOptional = true)
-          ),
-          fieldType = outputType(
-            model,
-            isList = true,
-            nameTransformer = _ => notificationTypeName(model)
-          )
-        )(model.id)
+        Some(
+          graphQlField(
+            _ => Pluralizer.pluralize(model).small,
+            args = Map(
+              "where" -> builtinType(WhereInput, isOptional = true),
+              "on" -> builtinType(
+                MultiRecordEvent,
+                isList = true,
+                isOptional = true
+              )
+            ),
+            fieldType = outputType(
+              model,
+              isList = true,
+              nameTransformer = _ => notificationTypeName(model)
+            )
+          )(model.id)
+        )
     )
     ruleBasedTypeGenerator("Subscription", rules)
   }
 
   def mutationType: ObjectTypeDefinition = {
-    val rules: List[HModel => FieldDefinition] = List(
+    val rules: List[HModel => Option[FieldDefinition]] = List(
       model =>
-        graphQlField(
-          modelId => "create" + modelId.capitalize,
-          args = Map(
-            model.id.toLowerCase -> fieldType(
-              model,
-              nameTransformer = inputTypeName(_)(ObjectInput)
+        model.isUser match {
+          case true =>
+            Some(
+              graphQlField(
+                modelId => "login" + modelId.capitalize,
+                args = Map(
+                  "publicCredential" -> builtinType(
+                    GqlString,
+                    isOptional = true
+                  ),
+                  "secretCredential" -> builtinType(
+                    GqlString,
+                    isOptional = true
+                  )
+                ),
+                fieldType = builtinType(GqlString)
+              )(model.id)
             )
-          ),
-          fieldType = outputType(model)
-        )(model.id),
+          case false => None
+        },
       model =>
-        graphQlField(
-          modelId => "update" + modelId.capitalize,
-          args = Map(
-            model.primaryField.id -> fieldType(model.primaryField.htype),
-            model.id.toLowerCase -> fieldType(
-              model,
-              nameTransformer = inputTypeName(_)(OptionalInput)
-            )
-          ),
-          fieldType = outputType(model)
-        )(model.id),
+        Some(
+          graphQlField(
+            modelId => "create" + modelId.capitalize,
+            args = Map(
+              model.id.small -> fieldType(
+                model,
+                nameTransformer = inputTypeName(_)(ObjectInput)
+              )
+            ),
+            fieldType = outputType(model)
+          )(model.id)
+        ),
       model =>
-        graphQlField(
-          modelId => "upsert" + modelId.capitalize,
-          args = Map(
-            model.id.toLowerCase -> fieldType(
-              model,
-              nameTransformer = inputTypeName(_)(OptionalInput)
-            )
-          ),
-          fieldType = outputType(model)
-        )(model.id),
+        Some(
+          graphQlField(
+            modelId => "update" + modelId.capitalize,
+            args = Map(
+              model.primaryField.id -> fieldType(model.primaryField.htype),
+              model.id.small -> fieldType(
+                model,
+                nameTransformer = inputTypeName(_)(OptionalInput)
+              )
+            ),
+            fieldType = outputType(model)
+          )(model.id)
+        ),
       model =>
-        graphQlField(
-          modelId => "delete" + modelId.capitalize,
-          args =
-            Map(model.primaryField.id -> fieldType(model.primaryField.htype)),
-          fieldType = outputType(model)
-        )(model.id),
+        Some(
+          graphQlField(
+            modelId => "upsert" + modelId.capitalize,
+            args = Map(
+              model.id.small -> fieldType(
+                model,
+                nameTransformer = inputTypeName(_)(OptionalInput)
+              )
+            ),
+            fieldType = outputType(model)
+          )(model.id)
+        ),
       model =>
-        graphQlField(
-          nameTransformer =
-            _ => "create" + Pluralizer.pluralize(model).capitalize,
-          args = Map(
-            Pluralizer.pluralize(model).small -> listFieldType(
-              model,
-              nameTransformer = inputTypeName(_)(ObjectInput)
-            )
-          ),
-          fieldType = outputType(model, isList = true)
-        )(model.id),
+        Some(
+          graphQlField(
+            modelId => "delete" + modelId.capitalize,
+            args =
+              Map(model.primaryField.id -> fieldType(model.primaryField.htype)),
+            fieldType = outputType(model)
+          )(model.id)
+        ),
       model =>
-        graphQlField(
-          nameTransformer =
-            _ => "update" + Pluralizer.pluralize(model).capitalize,
-          args = Map(
-            Pluralizer.pluralize(model).small -> listFieldType(
-              model,
-              nameTransformer = inputTypeName(_)(ReferenceInput)
-            )
-          ),
-          fieldType = outputType(model, isList = true)
-        )(model.id),
+        Some(
+          graphQlField(
+            nameTransformer =
+              _ => "create" + Pluralizer.pluralize(model).capitalize,
+            args = Map(
+              Pluralizer.pluralize(model).small -> listFieldType(
+                model,
+                nameTransformer = inputTypeName(_)(ObjectInput)
+              )
+            ),
+            fieldType = outputType(model, isList = true)
+          )(model.id)
+        ),
       model =>
-        graphQlField(
-          nameTransformer =
-            _ => "upsert" + Pluralizer.pluralize(model).capitalize,
-          args = Map(
-            Pluralizer.pluralize(model).small -> listFieldType(
-              model,
-              nameTransformer = inputTypeName(_)(OptionalInput)
-            )
-          ),
-          fieldType = outputType(model, isList = true)
-        )(model.id),
+        Some(
+          graphQlField(
+            nameTransformer =
+              _ => "update" + Pluralizer.pluralize(model).capitalize,
+            args = Map(
+              Pluralizer.pluralize(model).small -> listFieldType(
+                model,
+                nameTransformer = inputTypeName(_)(ReferenceInput)
+              )
+            ),
+            fieldType = outputType(model, isList = true)
+          )(model.id)
+        ),
       model =>
-        graphQlField(
-          _ => "delete" + Pluralizer.pluralize(model).capitalize,
-          args = Map(
-            model.primaryField.id -> listFieldType(model.primaryField.htype)
-          ),
-          fieldType = outputType(model, isList = true)
-        )(model.id)
+        Some(
+          graphQlField(
+            nameTransformer =
+              _ => "upsert" + Pluralizer.pluralize(model).capitalize,
+            args = Map(
+              Pluralizer.pluralize(model).small -> listFieldType(
+                model,
+                nameTransformer = inputTypeName(_)(OptionalInput)
+              )
+            ),
+            fieldType = outputType(model, isList = true)
+          )(model.id)
+        ),
+      model =>
+        Some(
+          graphQlField(
+            _ => "delete" + Pluralizer.pluralize(model).capitalize,
+            args = Map(
+              model.primaryField.id -> listFieldType(model.primaryField.htype)
+            ),
+            fieldType = outputType(model, isList = true)
+          )(model.id)
+        )
     )
 
     ruleBasedTypeGenerator("Mutation", rules)
@@ -333,6 +398,7 @@ object DefualtApiSchemaGenerator {
   object SingleRecordEvent extends BuiltinGraphQlType
   object AnyScalar extends BuiltinGraphQlType
   object GqlInt extends BuiltinGraphQlType
+  object GqlString extends BuiltinGraphQlType
 
   def typeBuilder[T](
       typeNameCallback: T => String
@@ -361,6 +427,7 @@ object DefualtApiSchemaGenerator {
     case LogicalFilterInput => "LogicalFilterInput"
     case RangeInput         => "RangeInput"
     case GqlInt             => "Int"
+    case GqlString          => "String"
   }
 
   def builtinType(

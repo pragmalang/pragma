@@ -1,7 +1,7 @@
 package running
 import domain.SyntaxTree
 import sangria.ast.Document
-import setup.Storage
+import setup.storage.Storage
 
 case class QueryExecutor(
     schema: SyntaxTree,

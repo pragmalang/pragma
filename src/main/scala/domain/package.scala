@@ -1,6 +1,13 @@
 package domain
+
 import utils._, primitives._
 import org.parboiled2.Position
+
+import org.graalvm.polyglot
+import spray.json._
+import spray.json.{JsValue, JsObject}
+import scala.util.Try
+import domain.Implicits.GraalValueJsonFormater
 
 /**
   * An HType is a data representation (models, enums, and primitive types)
@@ -214,3 +221,25 @@ case class ConfigEntry(
     value: HValue,
     position: Option[PositionRange]
 ) extends Positioned
+
+
+case class DockerFunction(id: String, filePath: String, htype: HType)
+    extends ExternalFunction {
+  override def execute(input: JsValue): Try[JsValue] = ???
+}
+
+case class GraalFunction(
+    id: String,
+    htype: HType,
+    filePath: String,
+    graalCtx: polyglot.Context,
+    languageId: String = "js"
+) extends ExternalFunction {
+  val graalFunction = graalCtx.getBindings(languageId).getMember(id)
+
+  override def execute(input: JsValue): Try[JsValue] =
+    Try(
+      GraalValueJsonFormater
+        .write(graalFunction.execute(graalCtx.eval(languageId, s"($input)")))
+    )
+}

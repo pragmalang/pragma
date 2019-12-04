@@ -1,6 +1,6 @@
-package setup
+package setup.utils
 
-import domain._, primitives._, utils._
+import domain._, primitives._
 
 import sangria.ast._
 import sangria.ast.{Directive => GraphQlDirective}
@@ -98,7 +98,14 @@ class GraphQlConverter(override val syntaxTree: SyntaxTree) extends Converter {
   ): ObjectTypeDefinition = ObjectTypeDefinition(
     s.id,
     Vector.empty,
-    s.fields.map(hShapeField).toVector,
+    s.fields
+      .filter({
+        case field: HInterfaceField => true
+        case field: HModelField =>
+          !field.directives.exists(_.id == "secretCredential")
+      })
+      .map(hShapeField)
+      .toVector,
     directives
   )
 
