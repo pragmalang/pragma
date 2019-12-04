@@ -1,6 +1,6 @@
-package setup
+package setup.utils
 
-import domain._, primitives._, utils._
+import domain._, primitives._
 
 import sangria.ast._
 import sangria.ast.{Directive => GraphQlDirective}

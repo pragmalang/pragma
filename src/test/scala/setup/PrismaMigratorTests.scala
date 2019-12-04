@@ -1,7 +1,7 @@
 package tests.setup
 
 import org.scalatest._
-import setup.PrismaMongoMigrator
+import setup.storage._
 import sangria.schema._
 import sangria.parser.QueryParser
 

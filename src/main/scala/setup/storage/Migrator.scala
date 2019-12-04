@@ -1,4 +1,6 @@
-package setup
+package setup.storage
+
+import setup._, utils._
 
 import domain.SyntaxTree
 

@@ -1,8 +1,9 @@
-package setup
+package setup.storage
 import sangria.ast.Document
 import domain.SyntaxTree
 import running.Request
 import scala.util.Try
+import setup._, setup.utils._
 
 trait Storage {
   val syntaxTree: SyntaxTree

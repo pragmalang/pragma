@@ -2,7 +2,7 @@ package setup
 
 import org.scalatest._
 import sangria.renderer.QueryRenderer
-import setup.DefualtApiSchemaGenerator._
+import setup.schemaGenerator._, DefualtApiSchemaGenerator._
 import sangria.ast.Document
 import sangria.macros._
 import domain.Implicits._

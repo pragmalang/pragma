@@ -1,4 +1,5 @@
-package setup
+package setup.schemaGenerator
+import setup.utils._
 import domain._, primitives._, Implicits._
 
 import sangria.ast._
