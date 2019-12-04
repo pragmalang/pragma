@@ -123,7 +123,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
             arguments = Vector.empty
           ),
           FieldDefinition(
-            name = model.id.toLowerCase,
+            name = model.id.small,
             fieldType = fieldType(model),
             arguments = Vector.empty
           )
@@ -155,7 +155,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
       model =>
         Some(
           graphQlField(
-            nameTransformer = _.toLowerCase,
+            nameTransformer = _.small,
             args = Map(
               model.primaryField.id -> fieldType(model.primaryField.htype)
             ),
@@ -181,7 +181,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
       model =>
         Some(
           graphQlField(
-            _ => model.id.toLowerCase + "Exists",
+            _ => model.id.small + "Exists",
             args = Map("filter" -> builtinType(LogicalFilterInput)),
             fieldType = builtinType(GqlInt)
           )(model.id)
@@ -196,7 +196,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
       model =>
         Some(
           graphQlField(
-            nameTransformer = _.toLowerCase,
+            nameTransformer = _.small,
             args = Map(
               model.primaryField.id -> fieldType(
                 model.primaryField.htype,
@@ -265,7 +265,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
           graphQlField(
             modelId => "create" + modelId.capitalize,
             args = Map(
-              model.id.toLowerCase -> fieldType(
+              model.id.small -> fieldType(
                 model,
                 nameTransformer = inputTypeName(_)(ObjectInput)
               )
@@ -279,7 +279,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
             modelId => "update" + modelId.capitalize,
             args = Map(
               model.primaryField.id -> fieldType(model.primaryField.htype),
-              model.id.toLowerCase -> fieldType(
+              model.id.small -> fieldType(
                 model,
                 nameTransformer = inputTypeName(_)(OptionalInput)
               )
@@ -292,7 +292,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
           graphQlField(
             modelId => "upsert" + modelId.capitalize,
             args = Map(
-              model.id.toLowerCase -> fieldType(
+              model.id.small -> fieldType(
                 model,
                 nameTransformer = inputTypeName(_)(OptionalInput)
               )
