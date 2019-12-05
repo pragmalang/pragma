@@ -4,7 +4,6 @@ import domain.utils._
 import java.io.File
 import scala.util._
 import scala.collection.immutable.ListMap
-import running.Request
 import spray.json.JsValue
 
 package object primitives {
