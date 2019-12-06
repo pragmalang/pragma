@@ -12,7 +12,7 @@ trait ApiSchemaGenerator {
 case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
     extends GraphQlConverter(syntaxTree)
     with ApiSchemaGenerator {
-  import DefualtApiSchemaGenerator._
+  import ApiSchemaGenerator._
 
   def graphQlFieldArgs(args: Map[String, Type]) =
     args.map(arg => InputValueDefinition(arg._1, arg._2, None)).toVector
@@ -380,7 +380,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
   )
 }
 
-object DefualtApiSchemaGenerator {
+object ApiSchemaGenerator {
   sealed trait InputKind
   object ObjectInput extends InputKind
   object ReferenceInput extends InputKind
@@ -399,6 +399,8 @@ object DefualtApiSchemaGenerator {
   object AnyScalar extends BuiltinGraphQlType
   object GqlInt extends BuiltinGraphQlType
   object GqlString extends BuiltinGraphQlType
+
+  def default(syntaxTree: SyntaxTree) = DefaultApiSchemaGenerator(syntaxTree)
 
   def typeBuilder[T](
       typeNameCallback: T => String

@@ -2,7 +2,7 @@ package setup
 
 import org.scalatest._
 import sangria.renderer.QueryRenderer
-import setup.schemaGenerator._, DefualtApiSchemaGenerator._
+import setup.schemaGenerator._, ApiSchemaGenerator._
 import sangria.ast.Document
 import sangria.macros._
 import domain.Implicits._
@@ -181,7 +181,7 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
       """.renderPretty
 
     val generatedTypes =
-      Document(DefualtApiSchemaGenerator.buitlinGraphQlTypeDefinitions.toVector).renderPretty
+      Document(ApiSchemaGenerator.buitlinGraphQlTypeDefinitions.toVector).renderPretty
 
     assert(generatedTypes == expected)
   }
