@@ -69,6 +69,7 @@ case class HModel(
   lazy val primaryField = fields
     .find(f => f.directives.exists(d => d.id == "primary"))
     .get
+  lazy val hooks = directives.filter(d => d.id == "validate")
 }
 
 case class HInterface(
@@ -92,7 +93,9 @@ case class HModelField(
     defaultValue: Option[HValue],
     directives: List[FieldDirective],
     position: Option[PositionRange]
-) extends HShapeField
+) extends HShapeField {
+  lazy val hooks = directives.filter(d => d.id == "get" || d.id == "set")
+}
 
 case class HInterfaceField(
     id: String,
@@ -221,7 +224,6 @@ case class ConfigEntry(
     value: HValue,
     position: Option[PositionRange]
 ) extends Positioned
-
 
 case class DockerFunction(id: String, filePath: String, htype: HType)
     extends ExternalFunction {
