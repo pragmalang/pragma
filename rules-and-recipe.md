@@ -30,6 +30,9 @@
 - Fields annotated with `@primary` must only be of type `Integer` or `String`
 - Every model must have one and only one field annotated with `@primary`, if not a field called `_id: String @primary @id` is created
 - If a plural is specified for a model using the `@plural(name: String)` directive it must not match the name of any other defined model
+- Every user is prohibited from accessing any resource by default unless:
+  - They are their exist an access rule that allows them to access it
+  - The resource that is being accessed is under the hierarchy of their user model (can be turned off using a config entry)
 
 # GraphQL API Generation Recipe
 
