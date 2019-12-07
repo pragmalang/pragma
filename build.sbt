@@ -17,6 +17,7 @@ libraryDependencies ++= Seq(
   "com.github.nscala-time" %% "nscala-time" % "2.22.0",
   "io.spray" %% "spray-json" % "1.3.5",
   "com.pauldijou" %% "jwt-core" % "4.1.0",
+  "com.lihaoyi" %% "pprint" % "0.5.6",
   "org.atteo" % "evo-inflector" % "1.2.2"
     from "http://search.maven.org/remotecontent?filepath=org/atteo/evo-inflector/1.2.2/evo-inflector-1.2.2.jar"
 )
