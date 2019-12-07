@@ -31,7 +31,7 @@ case class QueryExecutor(
           syntaxTree,
           response => {
             val getHookResult = getHookHandler(
-              request.copy(ctx = request.ctx.copy(data = Some(response.body)))
+              request.copy(data = Some(response.body))
             )
             getHookResult match {
               case Failure(exception) =>
