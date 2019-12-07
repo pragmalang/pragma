@@ -27,7 +27,6 @@
 - Fields with `@publicCredential` must ALWAYS be of type `String` or `String?`
 - Fields with `@secretCredential` must ALWAYS be of type `String`
 - The client should be able to perform mutations with full objects or ID strings (DB references) as input values. This can be solved with a scalar input type
-- Each model is allowed to have only one field annotated with `@primary`
 - Fields annotated with `@primary` must only be of type `Integer` or `String`
 - Every model must have one and only one field annotated with `@primary`, if not a field called `_id: String @primary @id` is created
 - If a plural is specified for a model using the `@plural(name: String)` directive it must not match the name of any other defined model
