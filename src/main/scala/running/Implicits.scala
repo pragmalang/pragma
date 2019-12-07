@@ -636,11 +636,17 @@ package object Implicits {
 
   implicit object ContextJsonFormater extends JsonFormat[Context] {
     def read(json: JsValue): Context = Context(
-      data = json.asJsObject.fields.get("data"),
+      graphQlQuery = json.asJsObject.fields("graphQlQuery").convertTo[Document],
+      cookies = json.asJsObject.fields("cookies").convertTo[Map[String, String]],
+      url = json.asJsObject.fields("url").convertTo[String],
+      hostname = json.asJsObject.fields("hostname").convertTo[String],
       user = json.asJsObject.fields("user").convertTo[Option[JwtPaylod]]
     )
     def write(obj: Context): JsValue = JsObject(
-      "data" -> obj.data.toJson,
+      "graphQlQuery" -> obj.graphQlQuery.toJson,
+      "cookies" -> obj.cookies.toJson,
+      "url" -> obj.url.toJson,
+      "hostname" -> obj.hostname.toJson,
       "user" -> obj.user.toJson,
       "kind" -> "Context".toJson
     )
@@ -648,20 +654,14 @@ package object Implicits {
 
   implicit object RequestJsonFormater extends JsonFormat[Request] {
     def read(json: JsValue): Request = Request(
+      data = Some(json.asJsObject.fields("data")),
       ctx = json.asJsObject.fields("ctx").convertTo[Context],
-      graphQlQuery = json.asJsObject.fields("graphQlQuery").convertTo[Document],
-      body = json.asJsObject.fields.get("body").map(_.asJsObject),
-      cookies = json.asJsObject.fields("cookies").convertTo[Map[String, String]],
-      url = json.asJsObject.fields("url").convertTo[String],
-      hostname = json.asJsObject.fields("hostname").convertTo[String]
+      body = Some(json.asJsObject.fields("body").asJsObject)
     )
     def write(obj: Request): JsValue = JsObject(
+      "data" -> obj.data.toJson,
       "ctx" -> obj.ctx.toJson,
-      "graphQlQuery" -> obj.graphQlQuery.toJson,
       "body" -> obj.body.toJson,
-      "cookies" -> obj.cookies.toJson,
-      "url" -> obj.url.toJson,
-      "hostname" -> obj.hostname.toJson,
       "kind" -> "Request".toJson
     )
   }
