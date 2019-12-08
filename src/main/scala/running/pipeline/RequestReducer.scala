@@ -9,15 +9,22 @@ case class RequestReducer(syntaxTree: SyntaxTree, request: Request)
   override def apply(input: Request = request): Try[Request] =
     Try(
       request.copy(
-        ctx =
-          request.ctx.copy(graphQlQuery = reduceQuery(request.ctx.graphQlQuery))
+        ctx = request.ctx.copy(
+          graphQlQuery = RequestReducer.reduceQuery(request.ctx.graphQlQuery)
+        )
       )
     )
-
-  def reduceQuery(queryAst: Document): Document = ???
 }
 
 object RequestReducer {
+
+  def reduceQuery(queryAst: Document): Document =
+    Document(queryAst.definitions.collect {
+      case operationDefinition: OperationDefinition =>
+        RequestReducer
+          .spreadFragmentSpreads(operationDefinition, queryAst)
+          .asInstanceOf[Definition]
+    })
   def spreadFragmentSpreads(
       selectable: SelectionContainer,
       queryAst: Document
@@ -52,7 +59,8 @@ object RequestReducer {
       selection match {
         case selection: Field =>
           acc :+ selection.copy(
-            selections = substituteFragmentSpreads(selection.selections, queryAst)
+            selections =
+              substituteFragmentSpreads(selection.selections, queryAst)
           )
         case selection: InlineFragment =>
           acc ++ substituteFragmentSpreads(selection.selections, queryAst)
@@ -61,7 +69,7 @@ object RequestReducer {
             queryAst.definitions
               .filter {
                 case _: FragmentDefinition => true
-                case _ => false
+                case _                     => false
               }
               .map(_.asInstanceOf[FragmentDefinition])
               .find(_.name == selection.name)
