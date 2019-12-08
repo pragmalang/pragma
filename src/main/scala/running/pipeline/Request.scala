@@ -9,7 +9,7 @@ import scala.util.Try
 
 case class Request(
     data: Option[JsValue],
-    ctx: Context,
+    ctx: RequestContext,
     body: Option[JsObject],
     syntaxTree: Option[SyntaxTree] = None
 ) extends PipelineInput
@@ -46,9 +46,9 @@ case class SelectedField(
 ) {
   lazy val canHaveSelection = field.htype match {
     case HReference(_) => true
-    case HSelf(_) => true
-    case _: HShape => true
-    case _ => false
+    case HSelf(_)      => true
+    case _: HShape     => true
+    case _             => false
   }
 
   lazy val fieldType = field.htype

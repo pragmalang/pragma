@@ -1,8 +1,10 @@
-package running
+package running.pipeline
+
 import spray.json.{JsObject, JsString, JsValue}
 import sangria.ast.Document
+import running._
 
-case class Context(
+case class RequestContext(
     user: Option[JwtPaylod],
     graphQlQuery: Document,
     cookies: Map[String, String],

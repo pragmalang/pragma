@@ -634,15 +634,15 @@ package object Implicits {
       JsObject("userId" -> JsString(obj.userId), "role" -> JsString(obj.role))
   }
 
-  implicit object ContextJsonFormater extends JsonFormat[Context] {
-    def read(json: JsValue): Context = Context(
+  implicit object ContextJsonFormater extends JsonFormat[RequestContext] {
+    def read(json: JsValue): RequestContext = RequestContext(
       graphQlQuery = json.asJsObject.fields("graphQlQuery").convertTo[Document],
       cookies = json.asJsObject.fields("cookies").convertTo[Map[String, String]],
       url = json.asJsObject.fields("url").convertTo[String],
       hostname = json.asJsObject.fields("hostname").convertTo[String],
       user = json.asJsObject.fields("user").convertTo[Option[JwtPaylod]]
     )
-    def write(obj: Context): JsValue = JsObject(
+    def write(obj: RequestContext): JsValue = JsObject(
       "graphQlQuery" -> obj.graphQlQuery.toJson,
       "cookies" -> obj.cookies.toJson,
       "url" -> obj.url.toJson,
@@ -655,7 +655,7 @@ package object Implicits {
   implicit object RequestJsonFormater extends JsonFormat[Request] {
     def read(json: JsValue): Request = Request(
       data = Some(json.asJsObject.fields("data")),
-      ctx = json.asJsObject.fields("ctx").convertTo[Context],
+      ctx = json.asJsObject.fields("ctx").convertTo[RequestContext],
       body = Some(json.asJsObject.fields("body").asJsObject)
     )
     def write(obj: Request): JsValue = JsObject(
