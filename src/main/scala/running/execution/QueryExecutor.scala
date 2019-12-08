@@ -1,21 +1,27 @@
-package running
+package running.execution
+
 import domain.SyntaxTree
-import sangria.ast.Document
 import setup.storage.Storage
-import scala.util.Try
-import scala.util.Failure
-import scala.util.Success
+import setup.schemaGenerator.ApiSchemaGenerator
 import running.pipeline._
-import Implicits._
+import running.Implicits._
+
+import sangria.ast._
+import sangria.execution._
+import sangria.schema._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
+
+import scala.util.{Try, Success, Failure}
+import scala.concurrent.Future
+import sangria.schema.AstSchemaBuilder
 
 case class QueryExecutor(
     syntaxTree: SyntaxTree,
     storage: Storage,
-    resolvers: List[QueryResolver] = QueryExecutor.resolvers
+    resolvers: List[RequestHandler] = RequestHandler.defaultHandlers
 ) {
-  def execute(request: Request): Try[Response] = Try {
+  def execute(request: Request): Try[Future[Response]] = Try {
     val authorizer = Authorizer(syntaxTree)
     val authorizationResult = authorizer(request).get
     val validateHookHandler = ValidateHookHandler(syntaxTree)
@@ -26,7 +32,7 @@ case class QueryExecutor(
     resolvers
       .find(_.matcher(setHookResult).isSuccess)
       .map(
-        _.resolver(
+        _.handler(
           setHookResult,
           syntaxTree,
           response => {
@@ -45,29 +51,26 @@ case class QueryExecutor(
         )
       )
       .get
+    ???
   }
-}
 
-object QueryExecutor {
-  val resolvers = List(
-    CreateResolver
-  )
-}
+  val schema =
+    Schema.buildFromAst(
+      ApiSchemaGenerator.default(syntaxTree).buildApiSchema,
+      AstSchemaBuilder.resolverBased(GenericResolver.fieldResolver)
+    )
 
-trait QueryResolver {
-  val matcher: Matcher
-  def resolver(
-      request: Request,
-      syntaxTree: SyntaxTree,
-      resultTransformer: Response => Response
-  ): Response
-}
-
-object CreateResolver extends QueryResolver {
-  override val matcher: Matcher = CreateMatcher
-  override def resolver(
-      request: Request,
-      syntaxTree: SyntaxTree,
-      resultTransformer: Response => Response
-  ): Response = BaseResponse(200, JsNull)
+  val genericResolver = GenericResolver(syntaxTree, storage)
+  
+  def execute(query: Document): Try[Future[Response]] = {
+    import scala.concurrent.ExecutionContext.Implicits._
+    val result = Executor
+      .execute(
+        schema,
+        query,
+        JsObject("a" -> "a".toJson),
+        deferredResolver = genericResolver
+      )
+    ???
+  }
 }

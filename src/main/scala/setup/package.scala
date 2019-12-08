@@ -3,7 +3,7 @@ package setup
 import storage.Storage, schemaGenerator._
 import domain._
 import primitives._
-import running.QueryExecutor
+import running.execution.QueryExecutor
 
 import sangria.ast._
 
