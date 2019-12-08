@@ -186,7 +186,7 @@ Let's say that we would like to restrict `Instructor`s to accessing course that 
 ```heavenly-x
 acl {
     role Instructor {
-        allow ALL Course(auth.courseBelongsToInstructor)
+        allow ALL Course @attributeBased(auth.courseBelongsToInstructor)
         allow ALL Student
     }
 }
@@ -197,10 +197,10 @@ The `auth.courseBelongsToInstructor` is a JavaScript function imported from a Ja
 ```heavenly-x
 acl {
     role Instructor {
-        allow ALL Course(auth.courseBelongsToInstructor)
+        allow ALL Course @attributeBased(auth.courseBelongsToInstructor)
         allow ALL Student
     }
 }
 ```
 
-> **Note:** The same requirement can be satisfied using the `@ifOwner` directive but we used predicates in this example to demonstrate how you can define attribute-based access rules
+> **Note:** The same requirement can be satisfied using the `@ifOwner` directive but we used the `@attributeBased` directive in this example to demonstrate how you can define attribute-based access rules
