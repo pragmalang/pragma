@@ -7,6 +7,9 @@ import scala.collection.immutable.ListMap
 import spray.json.JsValue
 
 package object primitives {
+  import running.pipeline.{PipelineInput, PipelineOutput}
+  import running.pipeline.PipelineInput
+  import running.pipeline.PipelineOutput
   sealed trait PrimitiveType extends HType
   case object HString extends PrimitiveType
   case object HInteger extends PrimitiveType
@@ -49,16 +52,26 @@ package object primitives {
   case class HFileValue(value: File, htype: HFile) extends HValue
   case class HModelValue(value: HObject, htype: HModel) extends HValue
   case class HInterfaceValue(value: HObject, htype: HInterface) extends HValue
-  case class HFunctionValue(body: HExpression, htype: HFunction) extends HValue
+  trait HFunctionValue[I, O] extends HValue {
+    val htype: HFunction
+    def execute(input: I): O
+  }
   trait ExternalFunction
-      extends HValue
+      extends HFunctionValue[JsValue, Try[JsValue]]
       with Identifiable {
-        override val id: String
-        override val htype: HType
-        val filePath: String
-         
-        def execute(input: JsValue): Try[JsValue]
-      }
+    override val id: String
+    override val htype: HFunction
+    val filePath: String
+
+    def execute(input: JsValue): Try[JsValue]
+  }
+
+  case class BuiltinFunction(id: String, htype: HFunction)
+      extends HFunctionValue[PipelineInput, Try[PipelineOutput]]
+      with Identifiable {
+    override def execute(input: PipelineInput): Try[PipelineOutput] = ???
+  }
+
   case class HOptionValue(value: Option[HValue], valueType: HType)
       extends HValue {
     final val htype = HOption(valueType)
@@ -74,11 +87,13 @@ package object primitives {
     }
   }
 
-  type HObject = ListMap[String, HExpression]
+  type HObject = ListMap[String, HValue]
 
-  case class LiteralExpression(value: HValue, position: Option[PositionRange]) extends HExpression {
+  case class LiteralExpression(value: HValue, position: Option[PositionRange])
+      extends HExpression {
     override def eval(context: HObject = ListMap()): HValue = value
   }
 
-  case class RegexLiteral(payload: Regex, position: Option[PositionRange]) extends Positioned
+  case class RegexLiteral(payload: Regex, position: Option[PositionRange])
+      extends Positioned
 }

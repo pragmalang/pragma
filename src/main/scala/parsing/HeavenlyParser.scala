@@ -4,19 +4,29 @@ import domain._
 import primitives._
 import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
+import domain.utils.`package`.Identifiable
+import running.pipeline.PipelineInput
+import running.pipeline.PipelineOutput
 
 object HeavenlyParser {
+  type ExternalFunction = GraalFunction
   // Dummy classes will be substituted at substitution
   // Dummy placeholder expression
-  case class ReferenceExpression(
-      parent: String,
+  case class Reference(
+      id: String,
+      child: Option[Reference],
       position: Option[PositionRange]
-  ) extends HExpression {
-    override def eval(context: HObject): HValue =
+  ) extends Identifiable
+      with Positioned
+      with HFunctionValue[PipelineInput, PipelineOutput] {
+    override def execute(input: PipelineInput): PipelineOutput =
       throw new Exception(
-        s"Reference expression `$parent` should not be evaluated before validation and substiturion."
+        "Reference should not be executed before substitution"
       )
+    override val htype: HFunction =
+      HFunction(ListMap.empty, new HType {})
   }
+
   // Dummy placeholder resource
   case class ResourceReference(
       resourceId: String,
@@ -110,10 +120,6 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     floatVal | integerVal | stringVal | booleanVal | arrayVal
   }
 
-  def expression: Rule1[HExpression] = rule {
-    (literal ~> (LiteralExpression(_, None))) | memberExpr
-  }
-
   // Returns a PrimitiveType or an HModel with no fields or directives.
   def htypeFrom(typeId: String): HType = typeId match {
     case "String"  => HString
@@ -131,38 +137,27 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
       identifier ~> ((id: String) => htypeFrom(id))
   }
 
-  def memberExpr: Rule1[MemberExpression] = rule {
-    push(cursor) ~ identifier ~ push(cursor) ~ "." ~ identifier ~ push(cursor) ~> {
-      (start: Int, parent: String, parentEnd: Int, child: String, end: Int) =>
-        MemberExpression(
-          ReferenceExpression(parent, Some(PositionRange(start, parentEnd))),
-          child,
-          Some(PositionRange(start, end))
-        )
-    }
-  }
-
   def namedArg = rule {
-    identifier ~ ":" ~ expression ~> ((key: String, value: HExpression) => key -> value)
+    identifier ~ ":" ~ literal ~> ((key: String, value: HValue) => key -> value)
   }
 
   def namedArgs: Rule1[HInterfaceValue] = rule {
     zeroOrMore(namedArg).separatedBy(",") ~>
-      ((pairs: Seq[(String, HExpression)]) => {
+      ((pairs: Seq[(String, HValue)]) => {
         HInterfaceValue(
-          pairs.foldLeft(ListMap.empty[String, HExpression])(_ + _),
+          pairs.foldLeft(ListMap.empty[String, HValue])(_ + _),
           HInterface("", Nil, None)
         )
       })
   }
 
   def positionalArgs: Rule1[HInterfaceValue] = rule {
-    zeroOrMore(expression).separatedBy(",") ~>
-      ((args: Seq[HExpression]) => {
+    zeroOrMore(literal).separatedBy(",") ~>
+      ((args: Seq[HValue]) => {
         HInterfaceValue(
           args.zipWithIndex
             .map(pair => pair._2.toString -> pair._1)
-            .foldLeft(ListMap.empty[String, HExpression])(_ + _),
+            .foldLeft(ListMap.empty[String, HValue])(_ + _),
           HInterface("", Nil, None)
         )
       })
@@ -351,24 +346,37 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     }
   }
 
+  def ref: Rule1[Reference] = rule {
+    push(cursor) ~ identifier ~ push(cursor) ~
+      optional("." ~ ref) ~ push(cursor) ~> {
+      (
+          start: Int,
+          parent: String,
+          parentEnd: Int,
+          child: Option[Reference],
+          end: Int
+      ) =>
+        Reference(parent, child, Some(PositionRange(start, end)))
+    }
+  }
+
+  // a.b.c.dkalb.khara
+
   def globalAccessRule: Rule1[AccessRule] = rule {
     push(cursor) ~ eventsList ~ whitespace() ~
       (modelResource | fieldResource ~> (_.asInstanceOf[Resource])) ~
-      whitespace() ~ memberExpr ~ push(cursor) ~> {
+      whitespace() ~ ref ~ push(cursor) ~> {
       (
           start: Int,
           events: List[HEvent],
           resource: Resource,
-          authorizor: MemberExpression,
+          authorizor: Reference,
           end: Int
       ) =>
         GlobalRule(
           resource,
           events,
-          HFunctionValue(
-            authorizor,
-            HFunction(ListMap.empty, HReference(authorizor.propName))
-          ),
+          authorizor,
           Some(PositionRange(start, end))
         )
     }
@@ -379,7 +387,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
       push(cursor) ~ zeroOrMore(globalAccessRule) ~ push(cursor) ~
       "}" ~> { (start: Int, rules: Seq[AccessRule], end: Int) =>
       Permissions(
-        Tenant("*", rules.toList, None),
+        Tenant("root", rules.toList, None),
         Nil,
         Some(PositionRange(start, end))
       )

@@ -8,6 +8,7 @@ import spray.json._
 import spray.json.{JsValue, JsObject}
 import scala.util.Try
 import domain.Implicits.GraalValueJsonFormater
+import running.pipeline.{PipelineInput, PipelineOutput}
 
 /**
   * An HType is a data representation (models, enums, and primitive types)
@@ -107,7 +108,7 @@ sealed trait Directive extends Identifiable {
   val id: String
   val args: HInterfaceValue
 }
-object Directive {
+object BuiltInDefs {
   def modelDirectives(self: HModel) = Map(
     "validate" -> HInterface(
       "validate",
@@ -137,6 +138,9 @@ object Directive {
     "id" -> HInterface("id", Nil, None),
     "unique" -> HInterface("unique", Nil, None)
   )
+
+  // e.g. ifSelf & ifOwner
+  val builtinFunctions = Map.empty[String, BuiltinFunction]
 }
 
 case class ModelDirective(
@@ -188,7 +192,7 @@ case class Tenant(
 sealed trait AccessRule {
   val resource: Resource
   val actions: List[HEvent]
-  val predicate: HFunctionValue
+  val predicate: HFunctionValue[PipelineInput, PipelineOutput]
   val position: Option[PositionRange]
 }
 
@@ -196,7 +200,7 @@ case class RoleBasedRule(
     user: HModel,
     resource: Resource,
     actions: List[HEvent],
-    predicate: HFunctionValue,
+    predicate: HFunctionValue[PipelineInput, PipelineOutput],
     position: Option[PositionRange]
 ) extends AccessRule
     with Positioned
@@ -204,7 +208,7 @@ case class RoleBasedRule(
 case class GlobalRule(
     resource: Resource,
     actions: List[HEvent],
-    predicate: HFunctionValue,
+    predicate: HFunctionValue[PipelineInput, PipelineOutput],
     position: Option[PositionRange]
 ) extends AccessRule
     with Positioned
@@ -225,14 +229,14 @@ case class ConfigEntry(
     position: Option[PositionRange]
 ) extends Positioned
 
-case class DockerFunction(id: String, filePath: String, htype: HType)
+case class DockerFunction(id: String, filePath: String, htype: HFunction)
     extends ExternalFunction {
   override def execute(input: JsValue): Try[JsValue] = ???
 }
 
 case class GraalFunction(
     id: String,
-    htype: HType,
+    htype: HFunction,
     filePath: String,
     graalCtx: polyglot.Context,
     languageId: String = "js"

@@ -8,10 +8,6 @@ import scala.util.{Try, Success, Failure}
 
 package object Implicits {
   implicit object HvalueJsonFormater extends JsonWriter[HValue] {
-    def matchHObjectValue(value: HExpression) = value match {
-      case le :LiteralExpression => le.eval()
-      case _ => throw new Error("HObject values should be literal")
-    }
 
     @throws[Error]
     def write(value: HValue): JsValue = value match {
@@ -19,7 +15,7 @@ package object Implicits {
         JsObject("id" -> JsString(f.id), "filePath" -> JsString(f.filePath))
       case HIntegerValue(value) => value.toJson
       case HFloatValue(value)   => value.toJson
-      case HFunctionValue(body, htype) =>
+      case _: HFunctionValue[_, _] =>
         throw new Error("Functions are not serializable")
       case HDateValue(value) => value.toString.toJson
       case HBoolValue(value) => value.toJson
@@ -29,9 +25,9 @@ package object Implicits {
           case Some(value) => write(value)
         }
       case HModelValue(value, htype) =>
-        value.map(field => field._1 -> write(matchHObjectValue(field._2))).toMap.toJson
+        value.map(field => field._1 -> write(field._2)).toMap.toJson
       case HInterfaceValue(value, htype) =>
-        value.map(field => field._1 -> write(matchHObjectValue(field._2))).toMap.toJson
+        value.map(field => field._1 -> write(field._2)).toMap.toJson
       case HFileValue(value, htype)         => value.toPath.toUri.toString.toJson
       case HStringValue(value)              => value.toJson
       case HArrayValue(values, elementType) => values.map(write).toJson
