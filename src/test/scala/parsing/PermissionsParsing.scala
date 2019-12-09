@@ -8,72 +8,72 @@ import scala.collection.immutable.ListMap
 class PermissionsParsing extends FlatSpec {
   "Permissions" should "be parsed correctly" in {
     val code = """
-      permit {
-          ALL Book authorizors.f
-          [CREATE, DELETE] Todo authorizors.g
+      acl {
+          allow ALL Book authorizors.f
+          deny [CREATE, DELETE] Todo authorizors.g
       }
       """
-    val parsedPermissions = new HeavenlyParser(code).permitDef.run()
-    val expected = Success(
-      Permissions(
-        Tenant(
-          "root",
-          List(
-            GlobalRule(
-              ShapeResource(
-                ResourceReference(
-                  "Book",
-                  None,
-                  Some(PositionRange(Position(30, 3, 15), Position(34, 3, 19)))
-                )
-              ),
-              List(Create, Read, Update, Delete),
-              Reference(
-                "authorizors",
-                Some(
-                  Reference(
-                    "f",
-                    None,
-                    Some(
-                      PositionRange(Position(47, 3, 32), Position(48, 3, 33))
-                    )
-                  )
-                ),
-                Some(PositionRange(Position(35, 3, 20), Position(48, 3, 33)))
-              ),
-              Some(PositionRange(Position(26, 3, 11), Position(48, 3, 33)))
+    val parsedPermissions = new HeavenlyParser(code).acl.run()
+
+    val expected = Permissions(
+      Tenant(
+        "root",
+        List(
+          AccessRule(
+            Allow,
+            ShapeResource(
+              ResourceReference(
+                "Book",
+                None,
+                Some(PositionRange(Position(33, 3, 21), Position(37, 3, 25)))
+              )
             ),
-            GlobalRule(
-              ShapeResource(
-                ResourceReference(
-                  "Todo",
+            List(Create, Read, Update, Delete),
+            Reference(
+              "authorizors",
+              Some(
+                Reference(
+                  "f",
                   None,
-                  Some(PositionRange(Position(76, 4, 28), Position(80, 4, 32)))
+                  Some(PositionRange(Position(50, 3, 38), Position(51, 3, 39)))
                 )
               ),
-              List(Create, Delete),
-              Reference(
-                "authorizors",
-                Some(
-                  Reference(
-                    "g",
-                    None,
-                    Some(
-                      PositionRange(Position(93, 4, 45), Position(94, 4, 46))
-                    )
-                  )
-                ),
-                Some(PositionRange(Position(81, 4, 33), Position(94, 4, 46)))
-              ),
-              Some(PositionRange(Position(48, 3, 33), Position(94, 4, 46)))
-            )
+              Some(PositionRange(Position(38, 3, 26), Position(51, 3, 39)))
+            ),
+            Some(PositionRange(Position(23, 3, 11), Position(51, 3, 39)))
           ),
-          None
+          AccessRule(
+            Deny,
+            ShapeResource(
+              ResourceReference(
+                "Todo",
+                None,
+                Some(PositionRange(Position(84, 4, 33), Position(88, 4, 37)))
+              )
+            ),
+            List(Create, Delete),
+            Reference(
+              "authorizors",
+              Some(
+                Reference(
+                  "g",
+                  None,
+                  Some(
+                    PositionRange(Position(101, 4, 50), Position(102, 4, 51))
+                  )
+                )
+              ),
+              Some(PositionRange(Position(89, 4, 38), Position(102, 4, 51)))
+            ),
+            Some(PositionRange(Position(51, 3, 39), Position(102, 4, 51)))
+          )
         ),
         List(),
-        Some(PositionRange(Position(26, 3, 11), Position(94, 4, 46)))
-      )
+        None
+      ),
+      List(),
+      Some(PositionRange(Position(23, 3, 11), Position(102, 4, 51)))
     )
-    assert(parsedPermissions == expected)
+    assert(parsedPermissions.get == expected)
   }
 }

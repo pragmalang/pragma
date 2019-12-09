@@ -185,33 +185,24 @@ case class Permissions(
 case class Tenant(
     id: String,
     rules: List[AccessRule],
+    roles: List[Role],
     position: Option[PositionRange]
 ) extends Identifiable
     with Positioned
 
-sealed trait AccessRule {
-  val resource: Resource
-  val actions: List[HEvent]
-  val predicate: HFunctionValue[PipelineInput, PipelineOutput]
-  val position: Option[PositionRange]
-}
+case class Role(user: HType, rules: List[AccessRule])
 
-case class RoleBasedRule(
-    user: HModel,
+sealed trait RuleKind
+case object Allow extends RuleKind
+case object Deny extends RuleKind
+
+case class AccessRule(
+    ruleKind: RuleKind,
     resource: Resource,
     actions: List[HEvent],
     predicate: HFunctionValue[PipelineInput, PipelineOutput],
     position: Option[PositionRange]
-) extends AccessRule
-    with Positioned
-
-case class GlobalRule(
-    resource: Resource,
-    actions: List[HEvent],
-    predicate: HFunctionValue[PipelineInput, PipelineOutput],
-    position: Option[PositionRange]
-) extends AccessRule
-    with Positioned
+)
 
 trait Resource {
   val shape: HShape

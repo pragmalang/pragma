@@ -7,6 +7,7 @@ import scala.language.implicitConversions
 import domain.utils.`package`.Identifiable
 import running.pipeline.PipelineInput
 import running.pipeline.PipelineOutput
+import shapeless._
 
 object HeavenlyParser {
   type ExternalFunction = GraalFunction
@@ -310,6 +311,10 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     )
   }
 
+  def singletonEvent: Rule1[List[HEvent]] = rule {
+    oneOrMore(event) ~> ((events: Seq[HEvent]) => events.toList)
+  }
+
   def allEvents: Rule1[List[HEvent]] = rule {
     "ALL" ~ push(List(Create, Read, Update, Delete))
   }
@@ -360,20 +365,22 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     }
   }
 
-  // a.b.c.dkalb.khara
-
-  def globalAccessRule: Rule1[AccessRule] = rule {
-    push(cursor) ~ eventsList ~ whitespace() ~
+  def accessRule: Rule1[AccessRule] = rule {
+    push(cursor) ~ whitespace() ~
+      valueMap(Map("allow" -> Allow, "deny" -> Deny)) ~
+      whitespace() ~ (singletonEvent | eventsList | allEvents) ~ whitespace() ~
       (modelResource | fieldResource ~> (_.asInstanceOf[Resource])) ~
       whitespace() ~ ref ~ push(cursor) ~> {
       (
           start: Int,
+          ruleKind: RuleKind,
           events: List[HEvent],
           resource: Resource,
           authorizor: Reference,
           end: Int
       ) =>
-        GlobalRule(
+        AccessRule(
+          ruleKind,
           resource,
           events,
           authorizor,
@@ -382,12 +389,25 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     }
   }
 
-  def permitDef: Rule1[Permissions] = rule {
-    "permit" ~ "{" ~
-      push(cursor) ~ zeroOrMore(globalAccessRule) ~ push(cursor) ~
-      "}" ~> { (start: Int, rules: Seq[AccessRule], end: Int) =>
+  def role: Rule1[Role] = rule {
+    "role" ~ push(cursor) ~ identifier ~ push(cursor) ~ "{" ~
+      zeroOrMore(accessRule) ~ "}" ~> {
+      (start: Int, roleName: String, end: Int, rules: Seq[AccessRule]) =>
+        Role(HReference(roleName), rules.toList)
+    }
+  }
+
+  def acl: Rule1[Permissions] = rule {
+    "acl" ~ "{" ~
+      push(cursor) ~ zeroOrMore(role | accessRule) ~ push(cursor) ~
+      "}" ~> { (start: Int, rulesAndRoles: Seq[Product], end: Int) =>
       Permissions(
-        Tenant("root", rules.toList, None),
+        Tenant(
+          "root",
+          rulesAndRoles.collect { case rule: AccessRule => rule }.toList,
+          rulesAndRoles.collect { case role: Role       => role }.toList,
+          None
+        ),
         Nil,
         Some(PositionRange(start, end))
       )
