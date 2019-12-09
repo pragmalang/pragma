@@ -29,7 +29,6 @@ object Pluralizer {
               key = model,
               op = value.args
                 .value("name")
-                .eval(ListMap.empty)
                 .asInstanceOf[HStringValue]
                 .value
             )

@@ -17,7 +17,7 @@ class PermissionsParsing extends FlatSpec {
     val expected = Success(
       Permissions(
         Tenant(
-          "*",
+          "root",
           List(
             GlobalRule(
               ShapeResource(
@@ -28,18 +28,18 @@ class PermissionsParsing extends FlatSpec {
                 )
               ),
               List(Create, Read, Update, Delete),
-              HFunctionValue(
-                MemberExpression(
-                  ReferenceExpression(
-                    "authorizors",
+              Reference(
+                "authorizors",
+                Some(
+                  Reference(
+                    "f",
+                    None,
                     Some(
-                      PositionRange(Position(35, 3, 20), Position(46, 3, 31))
+                      PositionRange(Position(47, 3, 32), Position(48, 3, 33))
                     )
-                  ),
-                  "f",
-                  Some(PositionRange(Position(35, 3, 20), Position(48, 3, 33)))
+                  )
                 ),
-                HFunction(ListMap(), HReference("f"))
+                Some(PositionRange(Position(35, 3, 20), Position(48, 3, 33)))
               ),
               Some(PositionRange(Position(26, 3, 11), Position(48, 3, 33)))
             ),
@@ -52,25 +52,25 @@ class PermissionsParsing extends FlatSpec {
                 )
               ),
               List(Create, Delete),
-              HFunctionValue(
-                MemberExpression(
-                  ReferenceExpression(
-                    "authorizors",
+              Reference(
+                "authorizors",
+                Some(
+                  Reference(
+                    "g",
+                    None,
                     Some(
-                      PositionRange(Position(81, 4, 33), Position(92, 4, 44))
+                      PositionRange(Position(93, 4, 45), Position(94, 4, 46))
                     )
-                  ),
-                  "g",
-                  Some(PositionRange(Position(81, 4, 33), Position(94, 4, 46)))
+                  )
                 ),
-                HFunction(ListMap(), HReference("g"))
+                Some(PositionRange(Position(81, 4, 33), Position(94, 4, 46)))
               ),
               Some(PositionRange(Position(48, 3, 33), Position(94, 4, 46)))
             )
           ),
           None
         ),
-        Nil,
+        List(),
         Some(PositionRange(Position(26, 3, 11), Position(94, 4, 46)))
       )
     )

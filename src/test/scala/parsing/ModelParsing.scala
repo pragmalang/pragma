@@ -95,7 +95,7 @@ class ModelParsing extends FlatSpec {
           ModelDirective(
             "validate",
             HInterfaceValue(
-              ListMap("validator" -> LiteralExpression(HStringValue("Some Function"), None)),
+              ListMap("validator" -> HStringValue("Some Function")),
               HInterface("", List(), None)
             ),
             Some(PositionRange(Position(19, 3, 7), Position(63, 4, 7)))
