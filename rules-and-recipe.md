@@ -33,6 +33,22 @@
 - Every user is prohibited from accessing any resource by default unless:
   - They are their exist an access rule that allows them to access it
   - The resource that is being accessed is under the hierarchy of their user model (can be turned off using a config entry)
+- The built-in hook function `ifSelf` can only be applied to access rules where the resource is of the same type as the role of the enclosing role block. A valid example would be
+```
+acl {
+  role Instructor {
+    allow ALL Instructor ifSelf
+  }
+}
+```
+an invalid example would be
+```
+acl {
+  role Instructor {
+    allow ALL Instructor.name ifSelf
+  }
+}
+```
 
 # GraphQL API Generation Recipe
 
