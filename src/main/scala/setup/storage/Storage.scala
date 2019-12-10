@@ -23,3 +23,12 @@ case class PrismaMongo(syntaxTree: SyntaxTree) extends Storage {
   override def dockerComposeYaml() = ???
   override def reduceQuery(query: Document): Document = ???
 }
+
+case class MockStorage(syntaxTree: SyntaxTree) extends Storage {
+  override def dockerComposeYaml(): DockerCompose = ???
+  override def reduceQuery(query: Document): Document = ???
+  override def migrate(): Try[migrator.Return] = ???
+  override val migrator: Migrator = MockSuccessMigrator(syntaxTree)
+  override def runQuery(query: Document): JsValue = ???
+  override def validateQuery(query: Document): Try[JsValue] = ???
+}
