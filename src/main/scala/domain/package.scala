@@ -9,6 +9,7 @@ import spray.json.{JsValue, JsObject}
 import scala.util.Try
 import domain.Implicits.GraalValueJsonFormater
 import running.pipeline.{PipelineInput, PipelineOutput}
+import parsing.HeavenlyParser
 
 /**
   * An HType is a data representation (models, enums, and primitive types)
@@ -25,15 +26,34 @@ case class HReference(id: String) extends HReferenceType
 sealed trait HConstruct extends Positioned
 
 case class SyntaxTree(
-    constants: List[HConst],
     imports: List[HImport],
     models: List[HModel],
     enums: List[HEnum],
-    permissions: Permissions
+    permissions: Option[Permissions] = None,
+    config: Option[HConfig] = None
 ) {
   def findTypeById(id: String): Option[HType] =
     models.find(model => model.id == id) orElse
       enums.find(enum => enum.id == id)
+}
+object SyntaxTree {
+  def from(code: String): Try[SyntaxTree] =
+    Try(fromConstructs(new HeavenlyParser(code).syntaxTree.run().get))
+
+  def fromConstructs(constructs: List[HConstruct]): SyntaxTree = {
+    val imports = constructs.collect { case i: HImport   => i }
+    val models = constructs.collect { case m: HModel     => m }
+    val enums = constructs.collect { case e: HEnum       => e }
+    val acl = constructs.collect { case acl: Permissions => acl }
+    val config = constructs.collect { case cfg: HConfig  => cfg }
+    SyntaxTree(
+      imports,
+      models,
+      enums,
+      if (acl.isEmpty) None else Some(acl.head),
+      if (config.isEmpty) None else Some(config.head)
+    )
+  }
 }
 
 case class PositionRange(start: Position, end: Position)
@@ -41,10 +61,6 @@ case class PositionRange(start: Position, end: Position)
 trait Positioned {
   val position: Option[PositionRange]
 }
-
-case class HConst(id: String, value: HValue, position: Option[PositionRange])
-    extends Identifiable
-    with HConstruct
 
 case class HImport(
     id: String,
@@ -54,7 +70,7 @@ case class HImport(
     with Identifiable
     with Positioned
 
-trait HShape extends Identifiable with HConstruct {
+trait HShape extends Identifiable {
   override val id: String
   val fields: List[HShapeField]
 }
@@ -65,12 +81,14 @@ case class HModel(
     directives: List[ModelDirective],
     position: Option[PositionRange]
 ) extends HType
+    with HConstruct
     with HShape {
-  lazy val isUser = directives.exists(d => d.id == "user")
-  lazy val primaryField = fields
-    .find(f => f.directives.exists(d => d.id == "primary"))
-    .get
-  lazy val hooks = directives.filter(d => d.id == "validate")
+  lazy val isUser = directives.exists(_.id == "user")
+
+  lazy val primaryField =
+    fields.find(_.directives.exists(_.id == "primary")).get
+
+  lazy val hooks = directives.filter(_.id == "validate")
 }
 
 case class HInterface(
@@ -78,7 +96,7 @@ case class HInterface(
     fields: List[HInterfaceField],
     position: Option[PositionRange]
 ) extends HType
-    with HShape
+    with HShape //with HConstruct
 
 trait HShapeField extends Positioned with Identifiable {
   val htype: HType
