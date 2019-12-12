@@ -1,6 +1,6 @@
 package domain
 import scala.collection.immutable.ListMap
-import primitives._
+import domain.primitives._
 import spray.json._
 import scala.util.{Try, Success, Failure}
 import java.time.ZonedDateTime
@@ -28,23 +28,79 @@ package object utils {
   class UserError(val errors: List[ErrorMessage])
       extends Exception(errors.map(_._1).mkString("\n"))
 
-  def displayHType(hType: HType): String = hType match {
-    case HString           => "String"
-    case HInteger          => "Integer"
-    case HFloat            => "Float"
-    case HBool             => "Boolean"
-    case HDate             => "Date"
-    case HFile(size, exts) => s"File { size = $size, extensions = $exts }"
-    case HArray(t)         => s"[${displayHType(t)}]"
-    case HOption(t)        => s"${displayHType(t)}?"
-    case HReference(id)    => id
-    case i: Identifiable   => i.id
-    case HFunction(namedArgs, returnType) => {
-      val args = namedArgs
-        .map(arg => displayHType(arg._2))
-        .mkString(", ")
-      s"($args) => ${displayHType(returnType)}"
+  def displayHType(hType: HType, isVerbose: Boolean = true): String =
+    hType match {
+      case HAny     => "Any"
+      case HString  => "String"
+      case HInteger => "Integer"
+      case HFloat   => "Float"
+      case HBool    => "Boolean"
+      case HDate    => "Date"
+      case HFile(size, exts) =>
+        if (isVerbose) s"File { size = $size, extensions = $exts }" else "File"
+      case HArray(t)  => s"[${displayHType(t, isVerbose = false)}]"
+      case HOption(t) => s"${displayHType(t, isVerbose = false)}?"
+      case HModel(id, fields, directives, _) =>
+        if (isVerbose)
+          s"${directives.map(displayDirective).mkString("\n")}\nmodel $id {\n${fields.map(displayField).map("  " + _).mkString("\n")}\n}"
+        else id
+      case HInterface(id, fields, position) =>
+        if (isVerbose)
+          s"interface $id {\n${fields.map(displayField).mkString("\n")}\n}"
+        else id
+      case HEnum(id, values, _) =>
+        if (isVerbose)
+          s"enum $id {\n${values.map("  " + _).mkString("\n")}\n}"
+        else id
+      case HReference(id) => id
+      case HFunction(namedArgs, returnType) => {
+        val args = namedArgs
+          .map(arg => displayHType(arg._2))
+          .mkString(", ")
+        s"($args) => ${displayHType(returnType)}"
+      }
+      case i: Identifiable => i.id
     }
+
+  def displayField(field: HShapeField): String = field match {
+    case HInterfaceField(id, htype, position) => s"$id: ${displayHType(htype)}"
+    case HModelField(id, htype, defaultValue, directives, position) =>
+      s"$id: ${displayHType(htype, isVerbose = false)} ${directives.map(displayDirective).mkString(" ")}"
+  }
+
+  def displayDirective(directive: Directive) = {
+    val args =
+      s"(${directive.args.value.map(arg => s"${arg._1}: ${displayHValue(arg._2)}").mkString(", ")})"
+    directive.args.value.isEmpty match {
+      case true  => s"@${directive.id}"
+      case false => s"@${directive.id}${args}"
+    }
+  }
+
+  def displayHValue(value: HValue): String = value match {
+    case HIntegerValue(value) => value.toString
+    case HFloatValue(value)   => value.toString
+    case HFileValue(value, htype) => {
+      val name = value.getName()
+      name match {
+        case "" => "File {}"
+        case _  => s"File { name: $name }"
+      }
+    }
+    case HModelValue(value, htype) =>
+      s"{\n${value.map(v => s" ${v._1}: ${displayHValue(v._2)}").mkString(",\n")}\n}"
+    case HOptionValue(value, valueType) => value.map(displayHValue).mkString
+    case HStringValue(value)            => value
+    case HDateValue(value)              => value.toString
+    case HBoolValue(value)              => value.toString
+    case f: HFunctionValue[_, _] =>
+      s"(${f.htype.args.map(
+        arg => s"${arg._1}: ${displayHType(arg._2, isVerbose = false)}"
+      )}) => ${displayHType(f.htype.returnType, isVerbose = false)}"
+    case HInterfaceValue(value, htype) =>
+      s"{\n${value.map(v => s" ${v._1}: ${v._2}").mkString(",\n")}\n}"
+    case HArrayValue(values, elementType) =>
+      s"[${values.map(displayHValue).mkString(", ")}]"
   }
 
   def typeCheckJson(htype: HType, syntaxTree: SyntaxTree)(
@@ -100,6 +156,10 @@ package object utils {
           typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
         case (henum: HEnum, JsString(value)) if henum.values.contains(value) =>
           json
+        case (htype: HType, json: JsValue) =>
+          throw new Exception(
+            s"The provided JSON value:\n${json.prettyPrint}\ndoesn't pass type validation against type ${displayHType(htype, isVerbose = false)}"
+          )
       }
     }
 }
