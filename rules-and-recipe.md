@@ -34,6 +34,7 @@
   - They are their exist an access rule that allows them to access it
   - The resource that is being accessed is under the hierarchy of their user model (can be turned off using a config entry)
 - The built-in hook function `ifSelf` can only be applied to access rules where the resource is of the same type as the role of the enclosing role block. A valid example would be
+- Every model or enum should have a unique case-insensitive name, meaning, `user` is the smae as `User`. This is important because in many parts of Heavenly-x's codebase `id`s in general are treated in a case-insensitive manner because of some design choices.
 ```
 acl {
   role Instructor {
