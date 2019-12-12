@@ -80,9 +80,9 @@ package object utils {
         case (HArray(htype), JsArray(elements))
             if elements
               .map(e => typeCheckJson(htype, syntaxTree)(e))
-              .exists {
-                case Failure(_) => true
-                case Success(_) => false
+              .forall {
+                case Failure(_) => false
+                case Success(_) => true
               } =>
           json
         case (HInteger, JsNumber(v)) if v.isWhole => json
