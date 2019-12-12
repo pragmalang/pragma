@@ -54,7 +54,7 @@ class ModelParsing extends FlatSpec {
       @user
       @validate(validator: "Some Function")
       model User {
-        @secretCredential
+        @publicCredential
         username: String,
 
         age: Integer = 20
@@ -71,9 +71,9 @@ class ModelParsing extends FlatSpec {
             None,
             List(
               FieldDirective(
-                "secretCredential",
+                "publicCredential",
                 HInterfaceValue(ListMap(), HInterface("", List(), None)),
-                Some(PositionRange(Position(84, 5, 9), Position(110, 6, 9)))
+                Some(PositionRange(Position(84, 5, 9), Position(101, 5, 26)))
               )
             ),
             Some(PositionRange(Position(110, 6, 9), Position(118, 6, 17)))
@@ -81,7 +81,7 @@ class ModelParsing extends FlatSpec {
           HModelField(
             "age",
             HInteger,
-            Some(HIntegerValue(20)),
+            Some(HIntegerValue(20L)),
             List(),
             Some(PositionRange(Position(137, 8, 9), Position(140, 8, 12)))
           )
@@ -90,7 +90,7 @@ class ModelParsing extends FlatSpec {
           ModelDirective(
             "user",
             HInterfaceValue(ListMap(), HInterface("", List(), None)),
-            Some(PositionRange(Position(7, 2, 7), Position(19, 3, 7)))
+            Some(PositionRange(Position(7, 2, 7), Position(12, 2, 12)))
           ),
           ModelDirective(
             "validate",
@@ -128,7 +128,7 @@ class ModelParsing extends FlatSpec {
                 FieldDirective(
                   "publicCredenticl",
                   HInterfaceValue(ListMap(), HInterface("", List(), None)),
-                  Some(PositionRange(Position(41, 3, 24), Position(65, 4, 7)))
+                  Some(PositionRange(Position(41, 3, 24), Position(58, 3, 41)))
                 )
               ),
               Some(PositionRange(Position(24, 3, 7), Position(32, 3, 15)))
@@ -141,7 +141,7 @@ class ModelParsing extends FlatSpec {
                 FieldDirective(
                   "secretCredential",
                   HInterfaceValue(ListMap(), HInterface("", List(), None)),
-                  Some(PositionRange(Position(82, 4, 24), Position(104, 5, 5)))
+                  Some(PositionRange(Position(82, 4, 24), Position(99, 4, 41)))
                 )
               ),
               Some(PositionRange(Position(65, 4, 7), Position(73, 4, 15)))
@@ -153,5 +153,57 @@ class ModelParsing extends FlatSpec {
       )
     )
     assert(parsedModel == expected)
+  }
+
+  "Multiple inline directives" should "be parsed correctly" in {
+    val code = """
+    @user
+    model User {
+      id: String @id @primary
+      name: String
+    }
+    """
+    val parsedModel = new HeavenlyParser(code).modelDef.run()
+    val expected = Success(
+      HModel(
+        "User",
+        List(
+          HModelField(
+            "id",
+            HString,
+            None,
+            List(
+              FieldDirective(
+                "id",
+                HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                Some(PositionRange(Position(45, 4, 18), Position(48, 4, 21)))
+              ),
+              FieldDirective(
+                "primary",
+                HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                Some(PositionRange(Position(49, 4, 22), Position(57, 4, 30)))
+              )
+            ),
+            Some(PositionRange(Position(34, 4, 7), Position(36, 4, 9)))
+          ),
+          HModelField(
+            "name",
+            HString,
+            None,
+            List(),
+            Some(PositionRange(Position(64, 5, 7), Position(68, 5, 11)))
+          )
+        ),
+        List(
+          ModelDirective(
+            "user",
+            HInterfaceValue(ListMap(), HInterface("", List(), None)),
+            Some(PositionRange(Position(5, 2, 5), Position(10, 2, 10)))
+          )
+        ),
+        Some(PositionRange(Position(21, 3, 11), Position(25, 3, 15)))
+      )
+    )
+    assert(expected == parsedModel)
   }
 }

@@ -167,7 +167,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   def arguments: Rule1[HInterfaceValue] = rule { namedArgs | positionalArgs }
 
   def directive = rule {
-    '@' ~ identifier ~ optional("(" ~ arguments ~ ")") ~ whitespace()
+    '@' ~ identifier ~ optional("(" ~ arguments ~ ")")
   }
 
   def modelDirective: Rule1[ModelDirective] = rule {
@@ -191,7 +191,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   }
 
   def modelDef: Rule1[HModel] = rule {
-    whitespace() ~ zeroOrMore(modelDirective) ~
+    whitespace() ~ zeroOrMore(modelDirective).separatedBy(whitespace()) ~
       ("model" ~ push(cursor) ~ identifier ~ push(cursor) ~
         "{" ~ zeroOrMore(fieldDef) ~ "}") ~> {
       (
@@ -213,8 +213,8 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   def defaultValue = rule { "=" ~ literal }
 
   def fieldDef: Rule1[HModelField] = rule {
-    whitespace() ~ zeroOrMore(fieldDirective) ~
-      push(cursor) ~ identifier ~ push(cursor) ~ ":" ~
+    whitespace() ~ zeroOrMore(fieldDirective).separatedBy(whitespace()) ~
+      whitespace() ~ push(cursor) ~ identifier ~ push(cursor) ~ ":" ~
       htype ~ optional(defaultValue) ~
       optional(
         oneOrMore(anyOf(" \r\t")) ~
