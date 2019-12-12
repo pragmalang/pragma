@@ -16,6 +16,8 @@ import parsing.HeavenlyParser
   */
 trait HType
 
+case object HAny extends HType
+
 trait HReferenceType extends HType with Identifiable
 
 // Base case for recursive types
