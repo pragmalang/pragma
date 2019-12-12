@@ -1,7 +1,7 @@
 package running.pipeline
 import spray.json.JsValue
 
-trait Response extends PipelineOutput with Cloneable {
+trait Response extends PipelineOutput {
   val responseCode: Int
   val body: JsValue
 }

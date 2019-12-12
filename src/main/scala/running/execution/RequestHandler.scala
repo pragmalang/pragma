@@ -5,11 +5,11 @@ import spray.json._
 import domain._
 
 sealed trait RequestHandler {
-  val matcher: Matcher
+  def matcher(request: Request): Boolean
   def handler(
       request: Request,
       syntaxTree: SyntaxTree,
-      resultTransformer: Response => Response
+      responseTransformer: Response => Response
   ): Response
 }
 
@@ -20,10 +20,10 @@ object RequestHandler {
 }
 
 object CreateRequestHandler extends RequestHandler {
-  override val matcher: Matcher = CreateMatcher
+  override def matcher(request: Request): Boolean = ???
   override def handler(
       request: Request,
       syntaxTree: SyntaxTree,
-      resultTransformer: Response => Response
+      responseTransformer: Response => Response
   ): Response = BaseResponse(200, JsNull)
 }

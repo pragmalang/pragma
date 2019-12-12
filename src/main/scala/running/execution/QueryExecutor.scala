@@ -3,7 +3,7 @@ package running.execution
 import domain.SyntaxTree
 import setup.storage.Storage
 import setup.schemaGenerator.ApiSchemaGenerator
-import running.pipeline._
+import running.pipeline._, functions._
 import running.Implicits._
 
 import sangria.ast._
@@ -13,64 +13,43 @@ import spray.json._
 import spray.json.DefaultJsonProtocol._
 
 import scala.util.{Try, Success, Failure}
-import scala.concurrent.Future
 import sangria.schema.AstSchemaBuilder
+import sangria.execution.deferred.DeferredResolver
 
 case class QueryExecutor(
     syntaxTree: SyntaxTree,
     storage: Storage,
-    resolvers: List[RequestHandler] = RequestHandler.defaultHandlers
+    requestHandlers: List[RequestHandler] = RequestHandler.defaultHandlers
 ) {
-  def execute(request: Request): Try[Future[Response]] = Try {
-    val authorizer = Authorizer(syntaxTree)
+
+  val authorizer = Authorizer(syntaxTree)
+  val requestValidator = RequestValidator(syntaxTree)
+  val requestReducer = RequestReducer(syntaxTree)
+  val validateHookHandler = ValidateHookHandler(syntaxTree)
+  val setHookHandler = SetHookHandler(syntaxTree)
+  val getHookHandler = GetHookHandler(syntaxTree)
+
+  def execute(request: Request): Try[Response] = Try {
     val authorizationResult = authorizer(request).get
-    val validateHookHandler = ValidateHookHandler(syntaxTree)
-    val validateHookResult = validateHookHandler(authorizationResult).get
-    val setHookHandler = SetHookHandler(syntaxTree)
+    val requestValidationResult = requestValidator(authorizationResult).get
+    val reducedRequest = requestReducer(requestValidationResult).get
+    val validateHookResult = validateHookHandler(reducedRequest).get
     val setHookResult = setHookHandler(validateHookResult).get
-    val getHookHandler = GetHookHandler(syntaxTree)
-    resolvers
-      .find(_.matcher(setHookResult).isSuccess)
+    requestHandlers
+      .find(_.matcher(setHookResult))
       .map(
         _.handler(
-          setHookResult,
-          syntaxTree,
-          response => {
-            val getHookResult = getHookHandler(
+          request = setHookResult,
+          syntaxTree = syntaxTree,
+          responseTransformer = response => {
+            val getHookResult = getHookHandler {
               request.copy(data = Some(response.body))
-            )
-            getHookResult match {
-              case Failure(exception) =>
-                HttpErrorResponse(
-                  422,
-                  JsObject("error" -> "Invalid Input".toJson)
-                )
-              case Success(value) => value
             }
+            getHookResult.get
           }
         )
       )
       .get
-    ???
   }
 
-  val schema =
-    Schema.buildFromAst(
-      ApiSchemaGenerator.default(syntaxTree).buildApiSchema,
-      AstSchemaBuilder.resolverBased(GenericResolver.fieldResolver)
-    )
-
-  val genericResolver = GenericResolver(syntaxTree, storage)
-  
-  def execute(query: Document): Try[Future[Response]] = {
-    import scala.concurrent.ExecutionContext.Implicits._
-    val result = Executor
-      .execute(
-        schema,
-        query,
-        JsObject("a" -> "a".toJson),
-        deferredResolver = genericResolver
-      )
-    ???
-  }
 }
