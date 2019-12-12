@@ -11,11 +11,11 @@ case class Request(
     data: Option[JsValue],
     ctx: RequestContext,
     body: Option[JsObject],
-    syntaxTree: Option[SyntaxTree] = None
+    syntaxTree: Option[SyntaxTree] = None,
 ) extends PipelineInput
     with PipelineOutput {
   lazy val resource: Try[List[Resource]] = Try {
-    val opDef = ctx.graphQlQuery.definitions
+    val opDef = ctx.query.definitions
       .find(_.isInstanceOf[OperationDefinition])
       .get
       .asInstanceOf[OperationDefinition]

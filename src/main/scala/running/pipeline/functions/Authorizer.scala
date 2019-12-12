@@ -1,4 +1,6 @@
-package running.pipeline
+package running.pipeline.functions
+
+import running.pipeline._
 import sangria.ast.Document
 import scala.util.Try
 import domain.SyntaxTree

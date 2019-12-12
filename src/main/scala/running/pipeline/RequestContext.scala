@@ -6,7 +6,8 @@ import running._
 
 case class RequestContext(
     user: Option[JwtPaylod],
-    graphQlQuery: Document,
+    query: Document,
+    queryVariables: Either[JsObject, List[JsObject]],
     cookies: Map[String, String],
     url: String,
     hostname: String

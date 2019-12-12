@@ -636,14 +636,26 @@ package object Implicits {
 
   implicit object ContextJsonFormater extends JsonFormat[RequestContext] {
     def read(json: JsValue): RequestContext = RequestContext(
-      graphQlQuery = json.asJsObject.fields("graphQlQuery").convertTo[Document],
+      query = json.asJsObject.fields("query").convertTo[Document],
+      queryVariables = json.asJsObject.fields("queryVariables") match {
+        case obj: JsObject => Left(obj)
+        case arr: JsArray  => Right(arr.convertTo[List[JsObject]])
+        case _ =>
+          throw DeserializationException(
+            "Query variables must only be an Array or Object"
+          )
+      },
       cookies = json.asJsObject.fields("cookies").convertTo[Map[String, String]],
       url = json.asJsObject.fields("url").convertTo[String],
       hostname = json.asJsObject.fields("hostname").convertTo[String],
       user = json.asJsObject.fields("user").convertTo[Option[JwtPaylod]]
     )
     def write(obj: RequestContext): JsValue = JsObject(
-      "graphQlQuery" -> obj.graphQlQuery.toJson,
+      "query" -> obj.query.toJson,
+      "queryVariables" -> (obj.queryVariables match {
+        case Left(vars)  => vars.toJson
+        case Right(vars) => vars.toJson
+      }),
       "cookies" -> obj.cookies.toJson,
       "url" -> obj.url.toJson,
       "hostname" -> obj.hostname.toJson,

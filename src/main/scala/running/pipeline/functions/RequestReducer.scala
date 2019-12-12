@@ -1,30 +1,45 @@
-package running.pipeline
+package running.pipeline.functions
+
+import running.pipeline._
 import domain.SyntaxTree
 import scala.util.Try
 import sangria._, ast._, execution._
+import spray.json._, DefaultJsonProtocol._
+import running.Implicits._
 
-case class RequestReducer(syntaxTree: SyntaxTree, request: Request)
+case class RequestReducer(syntaxTree: SyntaxTree)
     extends PiplineFunction[Request, Try[Request]] {
 
-  override def apply(input: Request = request): Try[Request] =
-    Try(
-      request.copy(
-        ctx = request.ctx.copy(
-          graphQlQuery = RequestReducer.reduceQuery(request.ctx.graphQlQuery)
+  override def apply(input: Request): Try[Request] =
+    Try {
+      input.copy(
+        ctx = input.ctx.copy(
+          query = RequestReducer
+            .reduceQuery(
+              syntaxTree,
+              input.ctx.query,
+              Some(input.ctx.queryVariables)
+            )
         )
       )
-    )
+    }
 }
 
 object RequestReducer {
 
-  def reduceQuery(queryAst: Document): Document =
+  def reduceQuery(
+      syntaxTree: SyntaxTree,
+      queryAst: Document,
+      variables: Option[Either[JsObject, List[JsObject]]]
+  ): Document =
     Document(queryAst.definitions.collect {
       case operationDefinition: OperationDefinition =>
         RequestReducer
           .spreadFragmentSpreads(operationDefinition, queryAst)
-          .asInstanceOf[Definition]
+          .asInstanceOf[OperationDefinition]
+      case fragmentDefinition: FragmentDefinition => fragmentDefinition
     })
+
   def spreadFragmentSpreads(
       selectable: SelectionContainer,
       queryAst: Document

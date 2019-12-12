@@ -33,7 +33,7 @@ case class SyntaxTree(
     config: Option[HConfig] = None
 ) {
   def findTypeById(id: String): Option[HType] =
-    models.find(model => model.id == id) orElse
+    models.find(model => model.id.toLowerCase == id.toLowerCase) orElse
       enums.find(enum => enum.id == id)
 }
 object SyntaxTree {
