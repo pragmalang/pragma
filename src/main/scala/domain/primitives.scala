@@ -63,7 +63,7 @@ package object primitives {
     override val htype: HFunction
     val filePath: String
 
-    def execute(input: JsValue): Try[JsValue]
+    def execute(args: JsValue): Try[JsValue]
   }
 
   case class BuiltinFunction(id: String, htype: HFunction)
