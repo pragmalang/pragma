@@ -1,6 +1,6 @@
 package setup
 
-import storage.Storage, schemaGenerator._
+import storage.Storage, schemaGenerator.ApiSchemaGenerator
 import domain._
 import primitives._
 import running.execution.QueryExecutor
@@ -37,7 +37,7 @@ case class Setup(
   def build(): (SyntaxTree, QueryExecutor) = (buildApiSchema, buildExecutor)
 
   def buildApiSchema(): SyntaxTree =
-    DefaultApiSchemaGenerator(syntaxTree).buildApiSchemaAsSyntaxTree
+    ApiSchemaGenerator.default(syntaxTree).buildApiSchemaAsSyntaxTree
 
   def buildExecutor(): QueryExecutor = QueryExecutor(syntaxTree, storage)
 }
