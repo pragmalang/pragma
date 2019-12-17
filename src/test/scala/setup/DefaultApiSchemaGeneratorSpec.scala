@@ -178,6 +178,11 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
       }
       
       scalar Any
+      scalar Int
+      scalar Float
+      scalar String
+      scalar Boolean
+      scalar ID
       """.renderPretty
 
     val generatedTypes =
@@ -344,6 +349,11 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
     }
     
     scalar Any
+    scalar Int
+    scalar Float
+    scalar String
+    scalar Boolean
+    scalar ID
     
     type Business {
       username: String
@@ -418,7 +428,7 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
     """.renderPretty
 
     val schema =
-      generator.buildApiSchema.renderPretty
+      generator.buildApiSchemaAsDocument.renderPretty
 
     import java.io.PrintWriter
     import scala.language.postfixOps

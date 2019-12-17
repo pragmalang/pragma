@@ -14,7 +14,9 @@ class Substitution extends FlatSpec {
     val functionObject = Substitutor.readGraalFunctions(himport).get
     val f = functionObject("f").asInstanceOf[GraalFunction]
     val additionResult = f.execute(JsNumber(2))
-    println(additionResult == Success(3.0))
+    assert(
+      additionResult.get.asInstanceOf[JsNumber].value == BigDecimal(Success(3.0).value)
+    )
   }
 
 }
