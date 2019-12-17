@@ -34,10 +34,10 @@ case class Setup(
   def writeDockerComposeYaml() =
     "mkdir .heavenly-x" $ "Filesystem Error: Couldn't create .heavenlyx directory"
 
-  def build(): (Document, QueryExecutor) = (buildApiSchema, buildExecutor)
+  def build(): (SyntaxTree, QueryExecutor) = (buildApiSchema, buildExecutor)
 
-  def buildApiSchema(): Document =
-    DefaultApiSchemaGenerator(syntaxTree).buildApiSchema
+  def buildApiSchema(): SyntaxTree =
+    DefaultApiSchemaGenerator(syntaxTree).buildApiSchemaAsSyntaxTree
 
   def buildExecutor(): QueryExecutor = QueryExecutor(syntaxTree, storage)
 }

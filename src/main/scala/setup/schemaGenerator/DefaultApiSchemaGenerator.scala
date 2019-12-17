@@ -366,7 +366,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
   def gqlFieldToHModelField(
       field: Either[FieldDefinition, InputValueDefinition]
   ): HModelField = {
-    val apiSchema = buildApiSchema
+    val apiSchema = buildApiSchemaAsDocument
     def fieldType(
         tpe: Type,
         fieldHType: HType,
@@ -450,8 +450,13 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
       )
   }
 
-  def buildApiSyntaxTree: SyntaxTree = {
-    val apiSchema = buildApiSchema
+  def build(as: SchemaBuildOutput = AsSyntaxTree): Either[SyntaxTree, Document] = as match {
+    case AsSyntaxTree => Left(buildApiSchemaAsSyntaxTree)
+    case AsDocument => Right(buildApiSchemaAsDocument)
+  }
+
+  lazy val buildApiSchemaAsSyntaxTree: SyntaxTree = {
+    val apiSchema = buildApiSchemaAsDocument
     val definitions = apiSchema.definitions
       .filter {
         case d: ObjectTypeDefinition
@@ -468,7 +473,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
     SyntaxTree.fromConstructs(definitions)
   }
 
-  lazy val buildApiSchema = Document {
+  lazy val buildApiSchemaAsDocument = Document {
     (queryType
       :: mutationType
       :: subscriptionType
@@ -481,7 +486,7 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
   }
 
   def getTypeFromSchema(tpe: Type): Option[TypeFromSchema] = Option {
-    val td = buildApiSchema.definitions
+    val td = buildApiSchemaAsDocument.definitions
       .find({
         case typeDef: TypeDefinition if typeDef.name == tpe.namedType.name =>
           true

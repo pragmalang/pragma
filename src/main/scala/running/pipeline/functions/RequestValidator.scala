@@ -2,7 +2,7 @@ package running.pipeline.functions
 
 import running.pipeline._
 import scala.util.{Try, Success, Failure}
-import domain.SyntaxTree
+import domain.SyntaxTree, domain.utils.typeCheckJson
 import sangria.ast._
 import sangria.validation.Violation
 import sangria.validation.QueryValidator
@@ -11,6 +11,7 @@ import setup.schemaGenerator.ApiSchemaGenerator
 import spray.json._, DefaultJsonProtocol._
 import running.Implicits._
 import running.errors._
+import domain.HReference
 
 case class RequestValidator(syntaxTree: SyntaxTree)
     extends PiplineFunction[Request, Try[Request]] {
@@ -21,15 +22,19 @@ case class RequestValidator(syntaxTree: SyntaxTree)
   }
 
   val queryValidator = QueryValidator.default
-  val apiSchema = ApiSchemaGenerator
+
+  val apiSchemaGenerator = ApiSchemaGenerator
     .default(syntaxTree)
-    .buildApiSchema
-  val schema =
-    Schema.buildFromAst(apiSchema)
+
+  val apiSchemaSyntaxTree: SyntaxTree =
+    apiSchemaGenerator.buildApiSchemaAsSyntaxTree
+
+  val sangriaSchema =
+    Schema.buildFromAst(apiSchemaGenerator.buildApiSchemaAsDocument)
 
   def validateQuery(ctx: RequestContext): Try[RequestContext] = Try {
     val violations = queryValidator
-      .validateQuery(schema, ctx.query)
+      .validateQuery(sangriaSchema, ctx.query)
       .toList
 
     if (!violations.isEmpty)
@@ -60,44 +65,8 @@ case class RequestValidator(syntaxTree: SyntaxTree)
     }
   }
 
-  case class TypeFromSchema(
-      typeDef: TypeDefinition,
-      isEmptyList: Boolean,
-      isNonEmptyList: Boolean,
-      isOptional: Boolean,
-      tpe: Type
-  )
-
-  def getTypeFromSchema(tpe: Type): Option[TypeFromSchema] = Option {
-    val td = apiSchema.definitions
-      .find({
-        case typeDef: TypeDefinition if typeDef.name == tpe.namedType.name =>
-          true
-        case _ => false
-      })
-      .map(_.asInstanceOf[TypeDefinition])
-      .get
-
-    val isEmptyList = tpe match {
-      case ListType(ofType, _) => true
-      case _                   => false
-    }
-
-    val isNonEmptyList = tpe match {
-      case ListType(NotNullType(_, _), _) => true
-      case _                              => false
-    }
-
-    val isOptional = tpe match {
-      case NotNullType(ofType, _) => false
-      case _                      => false
-    }
-
-    TypeFromSchema(td, isEmptyList, isNonEmptyList, isOptional, tpe)
-  }
-
   def isInputType(tpe: Type, syntaxTree: SyntaxTree): Try[Unit] = Try {
-    val typeFromSchema = getTypeFromSchema(tpe).get.typeDef
+    val typeFromSchema = apiSchemaGenerator.getTypeFromSchema(tpe).get.typeDef
     typeFromSchema match {
       case _: InputObjectTypeDefinition => ()
       case _: EnumTypeDefinition        => ()
@@ -131,184 +100,16 @@ case class RequestValidator(syntaxTree: SyntaxTree)
                  .isInstanceOf[NotNullType] && (!hasValue || value == JsNull))
         throw new QueryError("Variables coercion failed")
       else if (hasValue) {
-        if (checkJsonAgainstGraphQlType(variableType)(value).isFailure)
+        if (typeCheckJson(
+              HReference(variableType.namedType.name),
+              apiSchemaSyntaxTree
+            )(
+              value
+            ).isFailure)
           throw new QueryError("Variables coercion failed")
         else coercedValues.addOne(variableName -> value)
       }
     }
     JsObject(Map.from(coercedValues))
   }
-
-  def checkJsonAgainstGraphQlType(td: Type)(json: JsValue): Try[JsValue] =
-    Try {
-      def fieldsRespectsShape(
-          objectFields: Map[String, JsValue],
-          typeFields: List[Either[FieldDefinition, InputValueDefinition]]
-      ) = {
-        val fields = typeFields.map {
-          case Left(value)  => value.name -> value.fieldType
-          case Right(value) => value.name -> value.valueType
-        }
-        objectFields.forall(
-          of =>
-            fields.count(
-              tf =>
-                tf._1 == of._1 &&
-                  checkJsonAgainstGraphQlType(tf._2)(of._2).isSuccess
-            ) == 1
-        ) && fields
-          .filter(
-            f =>
-              f._2 match {
-                case _: NotNullType => true
-                case _              => false
-              }
-          )
-          .forall(
-            f =>
-              objectFields.count(
-                of =>
-                  f._1 == of._1 &&
-                    checkJsonAgainstGraphQlType(f._2)(of._2).isSuccess
-              ) == 1
-          )
-      }
-      (getTypeFromSchema(td).get, json) match {
-        case (
-            t: TypeFromSchema,
-            JsNumber(v)
-            )
-            if t.typeDef.isInstanceOf[ScalarTypeDefinition] && t.typeDef
-              .asInstanceOf[ScalarTypeDefinition]
-              .name == "Int" &&
-              v.isWhole
-              && v >= BigDecimal("-2147483648")
-              && v < BigDecimal("2147483648") =>
-          json
-        case (
-            t: TypeFromSchema,
-            JsNumber(v)
-            )
-            if t.typeDef.isInstanceOf[ScalarTypeDefinition] && t.typeDef
-              .asInstanceOf[ScalarTypeDefinition]
-              .name == "Float" =>
-          json
-        case (
-            TypeFromSchema(
-              typeDef,
-              isEmptyList,
-              isNonEmptyList,
-              isOptional,
-              tpe
-            ),
-            JsArray(elements)
-            )
-            if elements
-              .map(checkJsonAgainstGraphQlType(tpe)(_))
-              .forall {
-                case Failure(_) => false
-                case Success(_) => true
-              } =>
-          json
-
-        case (
-            TypeFromSchema(
-              typeDef,
-              isEmptyList,
-              true,
-              isOptional,
-              tpe
-            ),
-            JsArray(elements)
-            )
-            if elements
-              .map(checkJsonAgainstGraphQlType(tpe)(_))
-              .forall {
-                case Failure(_) => false
-                case Success(_) => true
-              } && !elements.isEmpty =>
-          json
-        case (
-            TypeFromSchema(
-              ScalarTypeDefinition("Boolean", _, _, _, _),
-              _,
-              _,
-              _,
-              _
-            ),
-            JsBoolean(v)
-            ) =>
-          json
-        case (
-            TypeFromSchema(
-              _,
-              _,
-              _,
-              true,
-              _
-            ),
-            JsNull
-            ) =>
-          json
-        case (
-            TypeFromSchema(
-              _,
-              _,
-              _,
-              true,
-              typeDef
-            ),
-            json
-            ) =>
-          checkJsonAgainstGraphQlType(typeDef)(json).get
-        case (
-            TypeFromSchema(
-              ScalarTypeDefinition("Float", _, _, _, _),
-              _,
-              _,
-              _,
-              _
-            ),
-            JsString(v)
-            ) =>
-          json
-        case (
-            TypeFromSchema(
-              shape: ObjectTypeDefinition,
-              _,
-              _,
-              _,
-              _
-            ),
-            JsObject(fields)
-            )
-            if fieldsRespectsShape(fields, shape.fields.map(Left(_)).toList) =>
-          json
-
-        case (
-            TypeFromSchema(
-              shape: InputObjectTypeDefinition,
-              _,
-              _,
-              _,
-              _
-            ),
-            JsObject(fields)
-            )
-            if fieldsRespectsShape(fields, shape.fields.map(Right(_)).toList) =>
-          json
-        case (
-            TypeFromSchema(
-              enumDef: EnumTypeDefinition,
-              _,
-              _,
-              _,
-              _
-            ),
-            JsString(value)
-            ) if enumDef.values.map(_.name).contains(value) =>
-          json
-        case _ => throw new QueryError("Type checking error")
-      }
-    }
 }

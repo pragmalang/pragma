@@ -6,7 +6,8 @@ import sangria.ast._
 import sangria.macros._
 
 trait ApiSchemaGenerator {
-  def buildApiSchema: Document
+  import ApiSchemaGenerator._
+  def build(as: SchemaBuildOutput): Either[SyntaxTree, Document]
 }
 
 object ApiSchemaGenerator {
@@ -39,6 +40,10 @@ object ApiSchemaGenerator {
       isOptional: Boolean,
       tpe: Type
   )
+
+  trait SchemaBuildOutput
+  case object AsDocument extends SchemaBuildOutput
+  case object AsSyntaxTree extends SchemaBuildOutput
 
   def default(syntaxTree: SyntaxTree) = DefaultApiSchemaGenerator(syntaxTree)
 
