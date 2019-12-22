@@ -167,32 +167,19 @@ class Validator(constructs: List[HConstruct]) {
         model.fields.filter(_.directives.exists(_.id == "publicCredential"))
       val secretCredentialFields =
         model.fields.filter(_.directives.exists(_.id == "secretCredential"))
-      val pcErrors = publicCredentialFields match {
-        case Nil =>
+      val pcErrors =
+        if (publicCredentialFields.isEmpty)
           (
             s"Missing public credential for user model `${model.id}`",
             model.position
           ) :: Nil
-        case _ :: Nil => Nil
-        case _ :: _ =>
-          (
-            s"Multiple public credential fields defined for user model `${model.id}` (only one is allowed)",
-            model.position
-          ) :: Nil
-      }
-      val scErrors = secretCredentialFields match {
-        case Nil =>
-          (
-            s"Missing secret credential for user model `${model.id}`",
-            model.position
-          ) :: Nil
-        case _ :: Nil => Nil
-        case _ :: _ =>
-          (
-            s"Multiple secret credential fields defined for user model `${model.id}` (only one is allowed)",
-            model.position
-          ) :: Nil
-      }
+        else Nil
+      val scErrors = if (secretCredentialFields.length > 1)
+        (
+          s"Multiple secret credential fields defined for user model `${model.id}` (only one is allowed)",
+          model.position
+        ) :: Nil
+      else Nil
       pcErrors ::: scErrors
     }
 
