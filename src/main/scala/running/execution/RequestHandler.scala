@@ -3,6 +3,7 @@ package running.execution
 import running.pipeline._
 import spray.json._
 import domain._
+import akka.stream.scaladsl.Source
 
 sealed trait RequestHandler {
   def matcher(request: Request): Boolean
@@ -10,7 +11,7 @@ sealed trait RequestHandler {
       request: Request,
       syntaxTree: SyntaxTree,
       responseTransformer: Response => Response
-  ): Response
+  ): Either[Response, Source[Response, _]]
 }
 
 object RequestHandler {
@@ -25,5 +26,5 @@ object CreateRequestHandler extends RequestHandler {
       request: Request,
       syntaxTree: SyntaxTree,
       responseTransformer: Response => Response
-  ): Response = BaseResponse(200, JsNull)
+  ): Either[Response, Source[Response, _]] = Left(BaseResponse(200, JsNull))
 }
