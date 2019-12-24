@@ -24,8 +24,12 @@ object HeavenlyParser {
       throw new Exception(
         "Reference should not be executed before substitution"
       )
+
     override val htype: HFunction =
-      HFunction(ListMap.empty, new HType {})
+      HFunction(ListMap.empty, HAny)
+
+    override def toString: String =
+      id + child.map("." + _.toString).getOrElse("")
   }
 
   // Dummy placeholder resource
@@ -139,7 +143,8 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   }
 
   def namedArg = rule {
-    identifier ~ ":" ~ literal ~> ((key: String, value: HValue) => key -> value)
+    identifier ~ ":" ~ (literal | ref) ~>
+      ((key: String, value: HValue) => key -> value)
   }
 
   def namedArgs: Rule1[HInterfaceValue] = rule {
@@ -153,7 +158,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   }
 
   def positionalArgs: Rule1[HInterfaceValue] = rule {
-    zeroOrMore(literal).separatedBy(",") ~>
+    zeroOrMore(literal | ref).separatedBy(",") ~>
       ((args: Seq[HValue]) => {
         HInterfaceValue(
           args.zipWithIndex
@@ -352,12 +357,11 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   }
 
   def ref: Rule1[Reference] = rule {
-    push(cursor) ~ identifier ~ push(cursor) ~
+    push(cursor) ~ identifier ~
       optional("." ~ ref) ~ push(cursor) ~> {
       (
           start: Int,
           parent: String,
-          parentEnd: Int,
           child: Option[Reference],
           end: Int
       ) =>

@@ -1,6 +1,7 @@
 package parsing
 import domain._, primitives._, utils._
 import scala.util._
+import _root_.parsing.HeavenlyParser.Reference
 
 class Validator(constructs: List[HConstruct]) {
 
