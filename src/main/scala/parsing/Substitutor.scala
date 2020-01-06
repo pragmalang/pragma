@@ -102,7 +102,7 @@ object Substitutor {
       case (name, None) =>
         (s"Argument `${dir.args.value(name).toString}` is not defined", None)
     }
-    if (argErrors.size > 0) Failure(new UserError(argErrors.toList))
+    if (!argErrors.isEmpty) Failure(new UserError(argErrors.toList))
     else
       Success(dir match {
         case FieldDirective(id, args, position) =>
@@ -125,5 +125,17 @@ object Substitutor {
           )
       })
   }
+
+  // Adds an _id: String @primary field to the model
+  def withDefaultId(model: HModel) = model.copy(
+    fields = HModelField("_id", HInteger, None, Nil, None) :: model.fields
+  )
+
+  def addDefaultPrimaryFields(st: SyntaxTree): SyntaxTree =
+    st.copy(models = st.models.map { model =>
+      val foundPrimaryField = Validator.findPrimaryField(model)
+      if (foundPrimaryField.isDefined) model
+      else withDefaultId(model)
+    })
 
 }

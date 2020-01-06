@@ -412,7 +412,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
           rulesAndRoles.collect { case role: Role       => role }.toList,
           None
         ),
-        Nil,
+        Nil, // TODO: Add support for user-defined tenants
         Some(PositionRange(start, end))
       )
     }
