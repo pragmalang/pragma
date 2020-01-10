@@ -37,6 +37,8 @@
 - Every model or enum should have a unique case-insensitive name, meaning, `user` is the smae as `User`. This is important because in many parts of Heavenly-x's codebase `id`s in general are treated in a case-insensitive manner because of some design choices.
 - A user model can have one or more fields annotated with `@publicCredential`
 - A user model can have one or zero fields annotated with `@secretCredential`
+- A field of type `Integer` annotated with `@id` is the same as a field of type `Integer` annotated with `@unique` and `@autoIncrement`
+- A field of type `String` annotated with `@id` is the same as a field of type `String` annotated with `@unique` and `@uuid`
 ```
 acl {
   role Instructor {
