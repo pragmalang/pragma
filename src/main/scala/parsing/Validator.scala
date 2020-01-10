@@ -1,6 +1,7 @@
 package parsing
 import domain._, primitives._, utils._
 import scala.util._
+import _root_.parsing.HeavenlyParser.Reference
 
 class Validator(constructs: List[HConstruct]) {
 
@@ -13,18 +14,15 @@ class Validator(constructs: List[HConstruct]) {
       checkTopLevelIdentity,
       checkModelFieldIdentity,
       checkSelfRefOptionality,
-      checkUserModelCredentials
+      checkUserModelCredentials,
+      checkModelPrimaryFields
     )
-    results.foldLeft(List.empty[ErrorMessage])(
-      (errors, result) =>
-        result match {
-          case Failure(err: UserError) =>
-            errors ::: err.errors
-          case Failure(err) =>
-            (s"Unexpected Error: ${err.getMessage}", None) :: errors
-          case _ => errors
-        }
-    )
+    results.flatMap {
+      case Failure(err: UserError) => err.errors
+      case Failure(err) =>
+        (s"Unexpected Error: ${err.getMessage}", None) :: Nil
+      case _ => Nil
+    }
   }
 
   // Type-check the default value ot model fields.
@@ -167,32 +165,19 @@ class Validator(constructs: List[HConstruct]) {
         model.fields.filter(_.directives.exists(_.id == "publicCredential"))
       val secretCredentialFields =
         model.fields.filter(_.directives.exists(_.id == "secretCredential"))
-      val pcErrors = publicCredentialFields match {
-        case Nil =>
+      val pcErrors =
+        if (publicCredentialFields.isEmpty)
           (
             s"Missing public credential for user model `${model.id}`",
             model.position
           ) :: Nil
-        case _ :: Nil => Nil
-        case _ :: _ =>
-          (
-            s"Multiple public credential fields defined for user model `${model.id}` (only one is allowed)",
-            model.position
-          ) :: Nil
-      }
-      val scErrors = secretCredentialFields match {
-        case Nil =>
-          (
-            s"Missing secret credential for user model `${model.id}`",
-            model.position
-          ) :: Nil
-        case _ :: Nil => Nil
-        case _ :: _ =>
-          (
-            s"Multiple secret credential fields defined for user model `${model.id}` (only one is allowed)",
-            model.position
-          ) :: Nil
-      }
+        else Nil
+      val scErrors = if (secretCredentialFields.length > 1)
+        (
+          s"Multiple secret credential fields defined for user model `${model.id}` (only one is allowed)",
+          model.position
+        ) :: Nil
+      else Nil
       pcErrors ::: scErrors
     }
 
@@ -203,10 +188,35 @@ class Validator(constructs: List[HConstruct]) {
     if (!allErrors.isEmpty) throw new UserError(allErrors)
   }
 
+  def checkModelPrimaryFields: Try[Unit] = Try {
+    val errors = st.models.collect {
+      case m if Validator.primaryFieldCount(m) > 1 =>
+        (s"Multiple primary fields defined for `${m.id}`", m.position) :: Nil
+      case m => {
+        val found = Validator.findPrimaryField(m)
+        if (found.isDefined) found.get.htype match {
+          case HString | HInteger => Nil
+          case t =>
+            (
+              s"Invalid type `${displayHType(t)}` for primary field `${found.get.id}` of `${m.id}` (must be String or Integer)",
+              found.get.position
+            ) :: Nil
+        } else Nil
+      }
+    }.flatten
+    if (!errors.isEmpty) new UserError(errors)
+  }
+
 }
 object Validator {
 
   def arrayIsHomogeneous(arr: HArrayValue): Boolean =
     arr.values.forall(_.htype == arr.elementType)
+
+  def primaryFieldCount(model: HModel) =
+    model.fields.count(field => field.directives.exists(_.id == "primary"))
+
+  def findPrimaryField(model: HModel): Option[HModelField] =
+    model.fields.find(_.directives.exists(_.id == "primary"))
 
 }
