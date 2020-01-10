@@ -128,7 +128,17 @@ object Substitutor {
 
   // Adds an _id: String @primary field to the model
   def withDefaultId(model: HModel) = model.copy(
-    fields = HModelField("_id", HInteger, None, Nil, None) :: model.fields
+    fields = HModelField(
+      "_id",
+      HInteger,
+      None,
+      FieldDirective(
+        "primary",
+        HInterfaceValue(ListMap.empty, HInterface("primary", Nil, None)),
+        None
+      ) :: Nil,
+      None
+    ) :: model.fields
   )
 
   def addDefaultPrimaryFields(st: SyntaxTree): SyntaxTree =

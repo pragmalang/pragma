@@ -157,8 +157,11 @@ object BuiltInDefs {
       HInterfaceField("self", model, None) :: Nil,
       None
     ),
-    "id" -> HInterface("id", Nil, None),
-    "unique" -> HInterface("unique", Nil, None)
+    "uuid" -> HInterface("uuid", Nil, None),
+    "autoIncrement" -> HInterface("autoIncrement", Nil, None),
+    "unique" -> HInterface("unique", Nil, None),
+    "primary" -> HInterface("primary", Nil, None),
+    "id" -> HInterface("id", Nil, None) // auto-increment/UUID & unique
   )
 
   // e.g. ifSelf & ifOwner
