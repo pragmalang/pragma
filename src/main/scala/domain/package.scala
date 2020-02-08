@@ -82,7 +82,7 @@ trait HShape extends Identifiable {
 case class HModel(
     id: String,
     fields: List[HModelField],
-    directives: List[ModelDirective],
+    directives: List[Directive],
     position: Option[PositionRange]
 ) extends HType
     with HConstruct
@@ -114,7 +114,7 @@ case class HModelField(
     id: String,
     htype: HType,
     defaultValue: Option[HValue],
-    directives: List[FieldDirective],
+    directives: List[Directive],
     position: Option[PositionRange]
 ) extends HShapeField {
   lazy val hooks = directives.filter(d => d.id == "get" || d.id == "set")
@@ -126,10 +126,19 @@ case class HInterfaceField(
     position: Option[PositionRange]
 ) extends HShapeField
 
-sealed trait Directive extends Identifiable {
-  val id: String
-  val args: HInterfaceValue
-}
+case class Directive(
+    id: String,
+    args: HInterfaceValue,
+    kind: DirectiveKind,
+    position: Option[PositionRange] = None
+) extends Identifiable
+    with Positioned
+
+sealed trait DirectiveKind
+object FieldDirective extends DirectiveKind
+object ModelDirective extends DirectiveKind
+object ServiceDirective extends DirectiveKind
+
 object BuiltInDefs {
   def modelDirectives(self: HModel) = Map(
     "validate" -> HInterface(
@@ -167,24 +176,6 @@ object BuiltInDefs {
   // e.g. ifSelf & ifOwner
   val builtinFunctions = Map.empty[String, BuiltinFunction]
 }
-
-case class ModelDirective(
-    id: String,
-    args: HInterfaceValue,
-    position: Option[PositionRange]
-) extends Directive
-
-case class FieldDirective(
-    id: String,
-    args: HInterfaceValue,
-    position: Option[PositionRange]
-) extends Directive
-
-case class ServiceDirective(
-    id: String,
-    args: HInterfaceValue,
-    position: Option[PositionRange]
-) extends Directive
 
 case class HEnum(
     id: String,

@@ -75,14 +75,14 @@ object Substitutor {
               f.id,
               f.htype,
               f.defaultValue,
-              dirs.map(_.get.asInstanceOf[FieldDirective]),
+              dirs.map(_.get),
               f.position
             )
         }
         HModel(
           model.id,
           newFields,
-          newModelLevel.map(_.get.asInstanceOf[ModelDirective]),
+          newModelLevel.map(_.get),
           model.position
         )
       }
@@ -104,37 +104,24 @@ object Substitutor {
     }
     if (!argErrors.isEmpty) Failure(new UserError(argErrors.toList))
     else
-      Success(dir match {
-        case FieldDirective(id, args, position) =>
-          FieldDirective(
-            id,
-            HInterfaceValue(newArgs.map(p => (p._1, p._2.get)), dir.args.htype),
-            position
-          )
-        case ModelDirective(id, args, position) =>
-          ModelDirective(
-            id,
-            HInterfaceValue(newArgs.map(p => (p._1, p._2.get)), dir.args.htype),
-            position
-          )
-        case ServiceDirective(id, args, position) =>
-          ServiceDirective(
-            id,
-            HInterfaceValue(newArgs.map(p => (p._1, p._2.get)), dir.args.htype),
-            position
-          )
-      })
+      Success(
+        dir.copy(
+          args =
+            HInterfaceValue(newArgs.map(p => (p._1, p._2.get)), dir.args.htype)
+        )
+      )
   }
 
   // Adds an _id: String @primary field to the model
   def withDefaultId(model: HModel) = model.copy(
     fields = HModelField(
       "_id",
-      HInteger,
+      HString,
       None,
-      FieldDirective(
+      Directive(
         "primary",
         HInterfaceValue(ListMap.empty, HInterface("primary", Nil, None)),
+        FieldDirective,
         None
       ) :: Nil,
       None

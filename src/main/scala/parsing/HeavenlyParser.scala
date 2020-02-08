@@ -175,32 +175,23 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     '@' ~ identifier ~ optional("(" ~ arguments ~ ")")
   }
 
-  def modelDirective: Rule1[ModelDirective] = rule {
+  def directive(dirKind: DirectiveKind): Rule1[Directive] = rule {
     push(cursor) ~ directive ~ push(cursor) ~>
       ((start: Int, did: String, args: Option[HInterfaceValue], end: Int) => {
-        ModelDirective(did, args match {
+        Directive(did, args match {
           case Some(args) => args
           case None       => HInterfaceValue(ListMap.empty, HInterface("", Nil, None))
-        }, Some(PositionRange(start, end)))
-      })
-  }
-
-  def fieldDirective: Rule1[FieldDirective] = rule {
-    push(cursor) ~ directive ~ push(cursor) ~>
-      ((start: Int, did: String, args: Option[HInterfaceValue], end: Int) => {
-        FieldDirective(did, args match {
-          case Some(args) => args
-          case None       => HInterfaceValue(ListMap.empty, HInterface("", Nil, None))
-        }, Some(PositionRange(start, end)))
+        }, dirKind, Some(PositionRange(start, end)))
       })
   }
 
   def modelDef: Rule1[HModel] = rule {
-    whitespace() ~ zeroOrMore(modelDirective).separatedBy(whitespace()) ~
+    whitespace() ~ zeroOrMore(directive(ModelDirective))
+      .separatedBy(whitespace()) ~
       ("model" ~ push(cursor) ~ identifier ~ push(cursor) ~
         "{" ~ zeroOrMore(fieldDef) ~ "}") ~> {
       (
-          ds: Seq[ModelDirective],
+          ds: Seq[Directive],
           start: Int,
           id: String,
           end: Int,
@@ -218,21 +209,23 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   def defaultValue = rule { "=" ~ literal }
 
   def fieldDef: Rule1[HModelField] = rule {
-    whitespace() ~ zeroOrMore(fieldDirective).separatedBy(whitespace()) ~
+    whitespace() ~ zeroOrMore(directive(FieldDirective))
+      .separatedBy(whitespace()) ~
       whitespace() ~ push(cursor) ~ identifier ~ push(cursor) ~ ":" ~
       htype ~ optional(defaultValue) ~
       optional(
         oneOrMore(anyOf(" \r\t")) ~
-          zeroOrMore(fieldDirective).separatedBy(oneOrMore(anyOf(" \r\t")))
+          zeroOrMore(directive(FieldDirective))
+            .separatedBy(oneOrMore(anyOf(" \r\t")))
       ) ~ optional(",") ~> {
       (
-          ds: Seq[FieldDirective],
+          ds: Seq[Directive],
           start: Int,
           id: String,
           end: Int,
           ht: HType,
           dv: Option[HValue],
-          trailingDirectives: Option[Seq[FieldDirective]]
+          trailingDirectives: Option[Seq[Directive]]
       ) =>
         {
           val defaultValue = dv.collect {

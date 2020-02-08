@@ -70,9 +70,10 @@ class ModelParsing extends FlatSpec {
             HString,
             None,
             List(
-              FieldDirective(
+              Directive(
                 "publicCredential",
                 HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                FieldDirective,
                 Some(PositionRange(Position(84, 5, 9), Position(101, 5, 26)))
               )
             ),
@@ -87,17 +88,19 @@ class ModelParsing extends FlatSpec {
           )
         ),
         List(
-          ModelDirective(
+          Directive(
             "user",
             HInterfaceValue(ListMap(), HInterface("", List(), None)),
+            ModelDirective,
             Some(PositionRange(Position(7, 2, 7), Position(12, 2, 12)))
           ),
-          ModelDirective(
+          Directive(
             "validate",
             HInterfaceValue(
               ListMap("validator" -> HStringValue("Some Function")),
               HInterface("", List(), None)
             ),
+            ModelDirective,
             Some(PositionRange(Position(19, 3, 7), Position(63, 4, 7)))
           )
         ),
@@ -125,9 +128,10 @@ class ModelParsing extends FlatSpec {
               HString,
               None,
               List(
-                FieldDirective(
+                Directive(
                   "publicCredenticl",
                   HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                  FieldDirective,
                   Some(PositionRange(Position(41, 3, 24), Position(58, 3, 41)))
                 )
               ),
@@ -138,9 +142,10 @@ class ModelParsing extends FlatSpec {
               HString,
               None,
               List(
-                FieldDirective(
+                Directive(
                   "secretCredential",
                   HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                  FieldDirective,
                   Some(PositionRange(Position(82, 4, 24), Position(99, 4, 41)))
                 )
               ),
@@ -173,14 +178,16 @@ class ModelParsing extends FlatSpec {
             HString,
             None,
             List(
-              FieldDirective(
+              Directive(
                 "id",
                 HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                FieldDirective,
                 Some(PositionRange(Position(45, 4, 18), Position(48, 4, 21)))
               ),
-              FieldDirective(
+              Directive(
                 "primary",
                 HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                FieldDirective,
                 Some(PositionRange(Position(49, 4, 22), Position(57, 4, 30)))
               )
             ),
@@ -195,9 +202,10 @@ class ModelParsing extends FlatSpec {
           )
         ),
         List(
-          ModelDirective(
+          Directive(
             "user",
             HInterfaceValue(ListMap(), HInterface("", List(), None)),
+            ModelDirective,
             Some(PositionRange(Position(5, 2, 5), Position(10, 2, 10)))
           )
         ),

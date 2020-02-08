@@ -23,14 +23,16 @@ object MockSyntaxTree {
         HString,
         None,
         List(
-          FieldDirective(
+          Directive(
             "publicCredential",
             HInterfaceValue(ListMap(), HInterface("", List(), None)),
+            FieldDirective,
             None
           ),
-          FieldDirective(
+          Directive(
             "primary",
             HInterfaceValue(ListMap(), HInterface("", List(), None)),
+            FieldDirective,
             None
           )
         ),
@@ -41,9 +43,10 @@ object MockSyntaxTree {
         HString,
         None,
         List(
-          FieldDirective(
+          Directive(
             "secretCredential",
             HInterfaceValue(ListMap(), HInterface("", List(), None)),
+            FieldDirective,
             None
           )
         ),
@@ -72,17 +75,19 @@ object MockSyntaxTree {
       )
     ),
     List(
-      ModelDirective(
+      Directive(
         "user",
         HInterfaceValue(ListMap(), HInterface("", List(), None)),
+        ModelDirective,
         None
       ),
-      ModelDirective(
+      Directive(
         "plural",
         HInterfaceValue(
           ListMap("name" -> HStringValue("manyBusinesses")),
           HInterface("", List(), None)
         ),
+        ModelDirective,
         None
       )
     ),
@@ -98,9 +103,10 @@ object MockSyntaxTree {
           HString,
           None,
           List(
-            FieldDirective(
+            Directive(
               "primary",
               HInterfaceValue(ListMap(), HInterface("", List(), None)),
+              FieldDirective,
               None
             )
           ),
