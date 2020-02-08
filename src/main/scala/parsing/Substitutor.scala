@@ -7,12 +7,49 @@ import scala.collection.immutable.ListMap
 
 object Substitutor {
 
-  def substituteFunctionRefs(st: SyntaxTree): Try[SyntaxTree] = {
-    val importedObjects = st.imports zip st.imports.map(readGraalFunctions)
+  def substitute(st: SyntaxTree): Try[SyntaxTree] = {
+    val ctx = getContext(st.imports) match {
+      case Success(ctx) => ctx
+      case Failure(err) => return Failure(err)
+    }
+    val substitutedModels =
+      st.models.map(substituteDirectiveFunctionRefs(_, ctx))
+    val modelErrors = substitutedModels.collect {
+      case Failure(err: UserError) => err
+    }
+    // TODO: Permission references substitution
+    if (!modelErrors.isEmpty)
+      Failure(new UserError(modelErrors.flatMap(_.errors)))
+    else
+      Success(
+        addDefaultPrimaryFields(
+          st.copy(
+            models = substitutedModels.map(_.get)
+          )
+        )
+      )
+  }
+
+  // Gets all  imported functions as a single object
+  def getContext(imports: List[HImport]): Try[HInterfaceValue] = {
+    val importedObjects = imports zip imports.map(readGraalFunctions)
     val importErrors = importedObjects.collect {
       case (imp, Failure(exception)) => (exception.getMessage, imp.position)
     }
-    ???
+    if (!importErrors.isEmpty) Failure(new UserError(importErrors))
+    else
+      Success {
+        HInterfaceValue(
+          ListMap.from(importedObjects.map(imp => (imp._1.id, imp._2.get))),
+          HInterface(
+            "context",
+            importedObjects.map(
+              imp => HInterfaceField(imp._1.id, HAny, None)
+            ),
+            None
+          )
+        )
+      }
   }
 
   def readGraalFunctions(himport: HImport): Try[HInterfaceValue] = Try {
@@ -95,12 +132,15 @@ object Substitutor {
   ): Try[Directive] = {
     val newArgs = dir.args.value.map {
       case (argId, ref: Reference) =>
-        (argId, getReferencedFunction(ref, dir.args.value))
+        (argId, getReferencedFunction(ref, ctx.value))
       case (argId, v) => (argId, Some(v))
     }
     val argErrors = newArgs.collect {
       case (name, None) =>
-        (s"Argument `${dir.args.value(name).toString}` is not defined", None)
+        (
+          s"Argument `${dir.args.value(name).toString}` is not defined",
+          dir.position
+        )
     }
     if (!argErrors.isEmpty) Failure(new UserError(argErrors.toList))
     else
