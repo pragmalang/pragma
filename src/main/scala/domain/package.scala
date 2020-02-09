@@ -216,7 +216,7 @@ case class AccessRule(
     ruleKind: RuleKind,
     resource: Resource,
     actions: List[HEvent],
-    predicate: HFunctionValue[PipelineInput, PipelineOutput],
+    predicate: HFunctionValue[JsValue, Try[JsValue]],
     position: Option[PositionRange]
 )
 

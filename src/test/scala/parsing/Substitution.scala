@@ -65,4 +65,31 @@ class Substitution extends FlatSpec {
     }
   }
 
+  "Predicate references in permissions" should "be substituted with actual predicates correctly" in {
+    val code = """
+    @user model User {
+      username: String @publicCredential
+      password: String @secretCredential
+      todos: [Todo]
+    }
+
+    model Todo { title: String }
+
+    import "./src/test/scala/parsing/test-functions.js" as fns
+
+    acl {
+      role User {
+        allow ALL Todo fns.isOwner
+      }
+    }
+    """
+    val syntaxTree = SyntaxTree.from(code).get
+    val substituted = Substitutor.substitute(syntaxTree).get
+    val newGlobalTenant = substituted.permissions.get.globalTenant
+    val todoOwnershipPredicate =
+      newGlobalTenant.roles.head.rules.head.predicate
+        .asInstanceOf[GraalFunction]
+    assert(todoOwnershipPredicate.id == "isOwner")
+  }
+
 }

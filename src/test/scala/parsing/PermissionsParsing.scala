@@ -13,7 +13,7 @@ class PermissionsParsing extends FlatSpec {
           deny [CREATE, DELETE] Todo authorizors.g
       }
       """
-    val parsedPermissions = new HeavenlyParser(code).acl.run()
+    val parsedPermissions = new HeavenlyParser(code).aclDef.run()
 
     val expected = Permissions(
       Tenant(

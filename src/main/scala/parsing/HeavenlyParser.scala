@@ -1,4 +1,5 @@
 package parsing
+
 import org.parboiled2._
 import domain._
 import primitives._
@@ -8,6 +9,8 @@ import domain.utils.`package`.Identifiable
 import running.pipeline.PipelineInput
 import running.pipeline.PipelineOutput
 import shapeless._
+import spray.json.JsValue
+import scala.util.{Try, Failure}
 
 object HeavenlyParser {
   type ExternalFunction = GraalFunction
@@ -19,10 +22,12 @@ object HeavenlyParser {
       position: Option[PositionRange]
   ) extends Identifiable
       with Positioned
-      with HFunctionValue[PipelineInput, PipelineOutput] {
-    override def execute(input: PipelineInput): PipelineOutput =
-      throw new Exception(
-        "Reference should not be executed before substitution"
+      with HFunctionValue[JsValue, Try[JsValue]] {
+    override def execute(input: JsValue) =
+      Failure(
+        throw new Exception(
+          "Reference should not be executed before substitution"
+        )
       )
 
     override val htype: HFunction =
@@ -54,7 +59,9 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   import parsing.HeavenlyParser._
 
   def syntaxTree: Rule1[List[HConstruct]] = rule {
-    whitespace() ~ zeroOrMore(importDef | modelDef | enumDef | configDef) ~ whitespace() ~>
+    whitespace() ~
+      zeroOrMore(importDef | modelDef | enumDef | configDef | aclDef) ~
+      whitespace() ~>
       ((cs: Seq[HConstruct]) => cs.toList) ~ EOI
   }
 
@@ -394,7 +401,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     }
   }
 
-  def acl: Rule1[Permissions] = rule {
+  def aclDef: Rule1[Permissions] = rule {
     "acl" ~ "{" ~
       push(cursor) ~ zeroOrMore(role | accessRule) ~ push(cursor) ~
       "}" ~> { (start: Int, rulesAndRoles: Seq[Product], end: Int) =>

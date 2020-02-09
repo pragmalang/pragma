@@ -11,3 +11,7 @@ function addVectors(a, b) {
 function validateCat(cat) {
     return cat.name.length < 20
 }
+
+function isOwner({ user, todo }) {
+    return user.todos.includes(todo)
+}
