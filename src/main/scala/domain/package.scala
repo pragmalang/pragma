@@ -135,9 +135,9 @@ case class Directive(
     with Positioned
 
 sealed trait DirectiveKind
-object FieldDirective extends DirectiveKind
-object ModelDirective extends DirectiveKind
-object ServiceDirective extends DirectiveKind
+case object FieldDirective extends DirectiveKind
+case object ModelDirective extends DirectiveKind
+case object ServiceDirective extends DirectiveKind
 
 object BuiltInDefs {
   def modelDirectives(self: HModel) = Map(
@@ -194,7 +194,7 @@ case object All extends HEvent
 
 case class Permissions(
     globalTenant: Tenant,
-    tenents: List[Tenant],
+    tenants: List[Tenant],
     position: Option[PositionRange]
 ) extends HConstruct
 
