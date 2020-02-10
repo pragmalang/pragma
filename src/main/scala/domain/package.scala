@@ -9,7 +9,7 @@ import spray.json.{JsValue, JsObject}
 import scala.util.Try
 import domain.Implicits.GraalValueJsonFormater
 import running.pipeline.{PipelineInput, PipelineOutput}
-import parsing.HeavenlyParser
+import parsing.{HeavenlyParser, Validator, Substitutor}
 
 /**
   * An HType is a data representation (models, enums, and primitive types)
@@ -41,9 +41,14 @@ case class SyntaxTree(
   def render: String = (models ++ enums).map(displayHType(_)).mkString("\n")
 }
 object SyntaxTree {
+  // The resulting syntax tree is validated and substituted
   def from(code: String): Try[SyntaxTree] =
-    Try(fromConstructs(new HeavenlyParser(code).syntaxTree.run().get))
+    new HeavenlyParser(code).syntaxTree
+      .run()
+      .flatMap(new Validator(_).validSyntaxTree)
+      .flatMap(Substitutor.substitute)
 
+  // The resulting syntax tree is not validated or substituted
   def fromConstructs(constructs: List[HConstruct]): SyntaxTree = {
     val imports = constructs.collect { case i: HImport   => i }
     val models = constructs.collect { case m: HModel     => m }

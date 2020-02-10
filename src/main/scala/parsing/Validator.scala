@@ -7,7 +7,7 @@ class Validator(constructs: List[HConstruct]) {
 
   val st = SyntaxTree.fromConstructs(constructs)
 
-  def results: List[ErrorMessage] = {
+  def validSyntaxTree: Try[SyntaxTree] = {
     val results = List(
       checkTypeExistance,
       checkFieldValueType,
@@ -17,12 +17,14 @@ class Validator(constructs: List[HConstruct]) {
       checkUserModelCredentials,
       checkModelPrimaryFields
     )
-    results.flatMap {
+    val errors = results.flatMap {
       case Failure(err: UserError) => err.errors
       case Failure(err) =>
         (s"Unexpected Error: ${err.getMessage}", None) :: Nil
       case _ => Nil
     }
+    if (errors.isEmpty) Success(st)
+    else Failure(new UserError(errors))
   }
 
   // Type-check the default value ot model fields.
