@@ -15,7 +15,8 @@ class Validator(constructs: List[HConstruct]) {
       checkModelFieldIdentity,
       checkSelfRefOptionality,
       checkUserModelCredentials,
-      checkModelPrimaryFields
+      checkModelPrimaryFields,
+      checkDirectiveArgs
     )
     val errors = results.flatMap {
       case Failure(err: UserError) => err.errors
@@ -207,6 +208,46 @@ class Validator(constructs: List[HConstruct]) {
       }
     }.flatten
     if (!errors.isEmpty) new UserError(errors)
+  }
+
+  def checkDirectiveAgainst(
+      defs: Map[String, HInterface],
+      dir: Directive
+  ): List[ErrorMessage] = defs.get(dir.id) match {
+    case None =>
+      (s"Directive `${dir.id}` is not defined", dir.position) :: Nil
+    case Some(definedDir)
+        if dir.args.value.keys.toList
+          .diff(definedDir.fields.map(_.id)) == Nil =>
+      Nil
+    case Some(definedDir) => {
+      val invalidArgs =
+        dir.args.value.keys.toList.diff(definedDir.fields.map(_.id))
+      invalidArgs.map { arg =>
+        (
+          s"`$arg` is not a parameter of directive `${dir.id}`",
+          dir.position
+        )
+      }
+    }
+  }
+
+  def checkDirectiveArgs: Try[Unit] = {
+    val modelLevelErrors = for {
+      model <- st.models
+      dir <- model.directives
+    } yield checkDirectiveAgainst(BuiltInDefs.modelDirectives(model), dir)
+
+    val fieldLevelErrors = for {
+      model <- st.models
+      field <- model.fields
+      dir <- field.directives
+    } yield
+      checkDirectiveAgainst(BuiltInDefs.fieldDirectives(model, field), dir)
+
+    val allErrors = (modelLevelErrors ::: fieldLevelErrors).flatten
+    if (allErrors.isEmpty) Success(())
+    else Failure(new UserError(allErrors))
   }
 
 }

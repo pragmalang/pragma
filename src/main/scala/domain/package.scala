@@ -175,7 +175,9 @@ object BuiltInDefs {
     "autoIncrement" -> HInterface("autoIncrement", Nil, None),
     "unique" -> HInterface("unique", Nil, None),
     "primary" -> HInterface("primary", Nil, None),
-    "id" -> HInterface("id", Nil, None) // auto-increment/UUID & unique
+    "id" -> HInterface("id", Nil, None), // auto-increment/UUID & unique
+    "publicCredential" -> HInterface("publicCredential", Nil, None),
+    "secretCredential" -> HInterface("secretCredential", Nil, None)
   )
 
   // e.g. ifSelf & ifOwner
