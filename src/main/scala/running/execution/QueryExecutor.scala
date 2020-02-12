@@ -20,8 +20,7 @@ import domain.utils.`package`.UserError
 
 case class QueryExecutor(
     syntaxTree: SyntaxTree,
-    storage: Storage,
-    requestHandlers: List[RequestHandler] = RequestHandler.defaultHandlers
+    storage: Storage
 ) {
   val authorizer = Authorizer(syntaxTree)
   val requestValidator = RequestValidator(syntaxTree)
@@ -30,16 +29,10 @@ case class QueryExecutor(
   val setHookHandler = SetHookHandler(syntaxTree)
   val getHookHandler = GetHookHandler(syntaxTree)
 
-  def responseTransformer(request: Request)(response: Response) = {
-    val getHookResult = getHookHandler {
+  def responseTransformer(request: Request)(response: Response) =
+    getHookHandler {
       request.copy(data = Some(response.body))
     }
-    userErrorFrom(
-        getHookResult,
-        new UserError(List("Failed to ex" -> None))
-      )
-      .get
-  }
 
   def execute(request: Request): Try[Either[Response, Source[Response, _]]] =
     authorizer(request)
@@ -48,16 +41,14 @@ case class QueryExecutor(
       .flatMap(validateHookHandler.apply)
       .flatMap(setHookHandler.apply)
       .map { request =>
-        requestHandlers
-          .find(_.matcher(request))
-          .map {
-            _.handler(
-              request = request,
-              syntaxTree = syntaxTree,
-              responseTransformer = responseTransformer(request)
-            )
-          }
-          .get
+        RequestHandler.handle(
+          request = request,
+          syntaxTree = syntaxTree,
+          responseTransformer = response =>
+            responseTransformer(request)(response) match {
+              case Failure(exception) => throw exception
+              case Success(value)     => value
+            }
+        )
       }
-
 }

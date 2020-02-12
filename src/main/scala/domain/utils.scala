@@ -25,8 +25,16 @@ package object utils {
 
   type ErrorMessage = (String, Option[PositionRange])
 
-  class UserError(val errors: List[ErrorMessage])
+  case class UserError(val errors: List[ErrorMessage])
       extends Exception(errors.map(_._1).mkString("\n"))
+
+  object UserError {
+    def apply(
+        errorMessage: String,
+        position: Option[PositionRange] = None
+    ): UserError =
+      UserError(List(errorMessage -> position))
+  }
 
   def userErrorFrom[T](value: Try[T], exception: UserError): Try[T] =
     value match {
