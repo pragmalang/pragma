@@ -8,9 +8,8 @@ import akka.stream.Materializer
 import scala.util.{Random, Try, Success, Failure}
 
 case class Observable[T]() {
-  import Observable._
 
-  var emittedValues = List.empty[T]
+  private var emittedValues = List.empty[T]
 
   def source = Source.fromIterator(() => emittedValues.iterator)
 

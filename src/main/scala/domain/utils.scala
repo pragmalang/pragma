@@ -28,6 +28,12 @@ package object utils {
   class UserError(val errors: List[ErrorMessage])
       extends Exception(errors.map(_._1).mkString("\n"))
 
+  def userErrorFrom[T](value: Try[T], exception: UserError): Try[T] =
+    value match {
+      case Failure(_)     => Failure(exception)
+      case Success(value) => Success(value)
+    }
+
   def displayHType(hType: HType, isVerbose: Boolean = true): String =
     hType match {
       case HAny     => "Any"

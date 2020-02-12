@@ -1,6 +1,6 @@
 package running.execution
 
-import domain.SyntaxTree
+import domain.{SyntaxTree, utils}, utils.userErrorFrom
 import setup.storage.Storage
 import setup.schemaGenerator.ApiSchemaGenerator
 import running.pipeline._, functions._
@@ -16,13 +16,13 @@ import scala.util.{Try, Success, Failure}
 import sangria.schema.AstSchemaBuilder
 import sangria.execution.deferred.DeferredResolver
 import akka.stream.scaladsl.Source
+import domain.utils.`package`.UserError
 
 case class QueryExecutor(
     syntaxTree: SyntaxTree,
     storage: Storage,
     requestHandlers: List[RequestHandler] = RequestHandler.defaultHandlers
 ) {
-
   val authorizer = Authorizer(syntaxTree)
   val requestValidator = RequestValidator(syntaxTree)
   val requestReducer = RequestReducer(syntaxTree)
@@ -30,27 +30,34 @@ case class QueryExecutor(
   val setHookHandler = SetHookHandler(syntaxTree)
   val getHookHandler = GetHookHandler(syntaxTree)
 
-  def execute(request: Request): Try[Either[Response, Source[Response, _]]] =
-    Try {
-      val authorizationResult = authorizer(request).get
-      val requestValidationResult = requestValidator(authorizationResult).get
-      val reducedRequest = requestReducer(requestValidationResult).get
-      val validateHookResult = validateHookHandler(reducedRequest).get
-      val setHookResult = setHookHandler(validateHookResult).get
-      requestHandlers
-        .find(_.matcher(setHookResult))
-        .map(
-          _.handler(
-            request = setHookResult,
-            syntaxTree = syntaxTree,
-            responseTransformer = response => {
-              val getHookResult = getHookHandler {
-                request.copy(data = Some(response.body))
-              }
-              getHookResult.get
-            }
-          )
-        )
-        .get
+  def responseTransformer(request: Request)(response: Response) = {
+    val getHookResult = getHookHandler {
+      request.copy(data = Some(response.body))
     }
+    userErrorFrom(
+        getHookResult,
+        new UserError(List("Failed to ex" -> None))
+      )
+      .get
+  }
+
+  def execute(request: Request): Try[Either[Response, Source[Response, _]]] =
+    authorizer(request)
+      .flatMap(requestValidator.apply)
+      .flatMap(requestReducer.apply)
+      .flatMap(validateHookHandler.apply)
+      .flatMap(setHookHandler.apply)
+      .map { request =>
+        requestHandlers
+          .find(_.matcher(request))
+          .map {
+            _.handler(
+              request = request,
+              syntaxTree = syntaxTree,
+              responseTransformer = responseTransformer(request)
+            )
+          }
+          .get
+      }
+
 }

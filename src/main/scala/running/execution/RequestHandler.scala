@@ -26,5 +26,5 @@ object CreateRequestHandler extends RequestHandler {
       request: Request,
       syntaxTree: SyntaxTree,
       responseTransformer: Response => Response
-  ): Either[Response, Source[Response, _]] = Left(BaseResponse(200, JsNull))
+  ): Either[Response, Source[Response, _]] = ???
 }
