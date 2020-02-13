@@ -2,6 +2,7 @@ package parsing
 import domain._, primitives._, utils._
 import scala.util._
 import _root_.parsing.HeavenlyParser.Reference
+import _root_.parsing.utils.DependencyGraph
 
 class Validator(constructs: List[HConstruct]) {
 
@@ -16,7 +17,8 @@ class Validator(constructs: List[HConstruct]) {
       checkSelfRefOptionality,
       checkUserModelCredentials,
       checkModelPrimaryFields,
-      checkDirectiveArgs
+      checkDirectiveArgs,
+      checkCircularDeps
     )
     val errors = results.flatMap {
       case Failure(err: UserError) => err.errors
@@ -248,6 +250,17 @@ class Validator(constructs: List[HConstruct]) {
     val allErrors = (modelLevelErrors ::: fieldLevelErrors).flatten
     if (allErrors.isEmpty) Success(())
     else Failure(new UserError(allErrors))
+  }
+
+  def checkCircularDeps: Try[Unit] = {
+    val circularDeps = DependencyGraph(st).circularDeps
+    lazy val errors = circularDeps map {
+      case (m1, m2) =>
+        s"Invalid circular dependency between `$m1` and `$m2` (the reference field in one of the models must be made optional)" ->
+          None
+    }
+    if (circularDeps.isEmpty) Success(())
+    else Failure(new UserError(errors))
   }
 
 }
