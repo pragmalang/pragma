@@ -430,21 +430,21 @@ class DefaultApiSchemaGeneratorSpec extends FunSuite {
     val schema =
       generator.buildApiSchemaAsDocument.renderPretty
 
-    import java.io.PrintWriter
-    import scala.language.postfixOps
-    val createFile =
-      () => new PrintWriter("output.gql") { write(schema); close }
-    val deleteFile = () => "rm output.gql" $ "Removing output.gql failed"
+    // import java.io.PrintWriter
+    // import scala.language.postfixOps
+    // val createFile =
+    //   () => new PrintWriter("output.gql") { write(schema); close }
+    // val deleteFile = () => "rm output.gql" $ "Removing output.gql failed"
 
-    createFile()
-    "graphql-inspector similar output.gql" $ "Schema validation failed" match {
-      case Failure(exception) => {
-        deleteFile()
-        throw exception
-      }
-      case Success(value) => deleteFile()
-    }
-    deleteFile()
+    // createFile()
+    // "graphql-inspector similar output.gql" $ "Schema validation failed" match {
+    //   case Failure(exception) => {
+    //     deleteFile()
+    //     throw exception
+    //   }
+    //   case Success(value) => deleteFile()
+    // }
+    // deleteFile()
 
     assert(schema == expected)
   }
