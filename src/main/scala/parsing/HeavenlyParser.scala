@@ -60,7 +60,9 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
 
   def syntaxTree: Rule1[List[HConstruct]] = rule {
     whitespace() ~
-      zeroOrMore(importDef | modelDef | enumDef | configDef | aclDef) ~
+      zeroOrMore(
+        importDef | modelDef | enumDef | configDef | accessRuleDef | roleDef
+      ) ~
       whitespace() ~>
       ((cs: Seq[HConstruct]) => cs.toList) ~ EOI
   }
@@ -311,7 +313,11 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
         "CREATE" -> Create,
         "READ" -> Read,
         "UPDATE" -> Update,
-        "DELETE" -> Delete
+        "DELETE" -> Delete,
+        "LIST" -> ReadMany,
+        "PUSH_TO" -> PushTo,
+        "DELETE_FROM" -> DeleteFrom,
+        "RECOVER" -> Recover
       )
     )
   }
@@ -369,7 +375,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     }
   }
 
-  def accessRule: Rule1[AccessRule] = rule {
+  def accessRuleDef: Rule1[AccessRule] = rule {
     push(cursor) ~ whitespace() ~
       valueMap(Map("allow" -> Allow, "deny" -> Deny)) ~
       whitespace() ~ (singletonEvent | eventsList | allEvents) ~ whitespace() ~
@@ -393,28 +399,11 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     }
   }
 
-  def role: Rule1[Role] = rule {
+  def roleDef: Rule1[Role] = rule {
     "role" ~ push(cursor) ~ identifier ~ push(cursor) ~ "{" ~
-      zeroOrMore(accessRule) ~ "}" ~> {
+      zeroOrMore(accessRuleDef) ~ "}" ~> {
       (start: Int, roleName: String, end: Int, rules: Seq[AccessRule]) =>
         Role(HReference(roleName), rules.toList)
-    }
-  }
-
-  def aclDef: Rule1[Permissions] = rule {
-    "acl" ~ "{" ~
-      push(cursor) ~ zeroOrMore(role | accessRule) ~ push(cursor) ~
-      "}" ~> { (start: Int, rulesAndRoles: Seq[Product], end: Int) =>
-      Permissions(
-        Tenant(
-          "root",
-          rulesAndRoles.collect { case rule: AccessRule => rule }.toList,
-          rulesAndRoles.collect { case role: Role       => role }.toList,
-          None
-        ),
-        Nil, // TODO: Add support for user-defined tenants
-        Some(PositionRange(start, end))
-      )
     }
   }
 

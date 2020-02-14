@@ -77,10 +77,8 @@ class Substitution extends FlatSpec {
 
     import "./src/test/scala/parsing/test-functions.js" as fns
 
-    acl {
-      role User {
-        allow ALL Todo fns.isOwner
-      }
+    role User {
+      allow ALL Todo fns.isOwner
     }
     """
     val syntaxTree = SyntaxTree.from(code).get

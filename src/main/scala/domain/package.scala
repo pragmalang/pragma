@@ -51,17 +51,23 @@ object SyntaxTree {
       .flatMap(Substitutor.substitute)
 
   // The resulting syntax tree is not validated or substituted
+  // Meant for use only in the HeavenlyParser
   def fromConstructs(constructs: List[HConstruct]): SyntaxTree = {
-    val imports = constructs.collect { case i: HImport   => i }
-    val models = constructs.collect { case m: HModel     => m }
-    val enums = constructs.collect { case e: HEnum       => e }
-    val acl = constructs.collect { case acl: Permissions => acl }
-    val config = constructs.collect { case cfg: HConfig  => cfg }
+    val imports = constructs.collect { case i: HImport         => i }
+    val models = constructs.collect { case m: HModel           => m }
+    val enums = constructs.collect { case e: HEnum             => e }
+    val config = constructs.collect { case cfg: HConfig        => cfg }
+    val accessRules = constructs.collect { case ar: AccessRule => ar }
+    val roles = constructs.collect { case r: Role              => r }
+    lazy val permissions = Permissions(
+      Tenant("root", accessRules, roles, None),
+      Nil // TODO: Add support for user-defined tenants
+    )
     SyntaxTree(
       imports,
       models,
       enums,
-      if (acl.isEmpty) None else Some(acl.head),
+      if (accessRules.isEmpty && roles.isEmpty) None else Some(permissions),
       if (config.isEmpty) None else Some(config.head)
     )
   }
@@ -219,9 +225,8 @@ case object Recover extends HEvent // Undelete a record
 
 case class Permissions(
     globalTenant: Tenant,
-    tenants: List[Tenant],
-    position: Option[PositionRange]
-) extends HConstruct
+    tenants: List[Tenant]
+)
 
 case class Tenant(
     id: String,
@@ -231,7 +236,11 @@ case class Tenant(
 ) extends Identifiable
     with Positioned
 
-case class Role(user: HType, rules: List[AccessRule])
+case class Role(
+    user: HType,
+    rules: List[AccessRule],
+    position: Option[PositionRange] = None
+) extends HConstruct
 
 sealed trait RuleKind
 case object Allow extends RuleKind
@@ -243,7 +252,7 @@ case class AccessRule(
     actions: List[HEvent],
     predicate: HFunctionValue[JsValue, Try[JsValue]],
     position: Option[PositionRange]
-)
+) extends HConstruct
 
 trait Resource {
   val shape: HShape

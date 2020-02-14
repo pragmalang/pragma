@@ -25,8 +25,7 @@ object Substitutor {
       case Some(Success(_))              => Nil
       case None                          => Nil
       case Some(Failure(err: UserError)) => err.errors
-      case Some(Failure(err)) =>
-        (err.getMessage, st.permissions.flatMap(_.position)) :: Nil
+      case Some(Failure(err))            => (err.getMessage, None) :: Nil
     }
     val allErrors = modelErrors ::: aclErrors
     if (allErrors.isEmpty)
