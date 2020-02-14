@@ -8,21 +8,6 @@ import akka.stream.scaladsl.Source
 object RequestHandler {
   def handle(
       request: Request,
-      syntaxTree: SyntaxTree,
-      responseTransformer: Response => Response
+      syntaxTree: SyntaxTree
   ): Either[Response, Source[Response, _]] = ???
-}
-
-sealed trait RequestMatcher {
-  def matches(request: Request): Boolean
-}
-
-object RequestMatcher {
-  val default = List(
-    CreateMatcher
-  )
-}
-
-object CreateMatcher extends RequestMatcher {
-  override def matches(request: Request): Boolean = ???
 }

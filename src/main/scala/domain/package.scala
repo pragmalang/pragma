@@ -7,9 +7,11 @@ import org.graalvm.polyglot
 import spray.json._
 import spray.json.{JsValue, JsObject}
 import scala.util.Try
+import scala.collection.immutable.ListMap
 import domain.Implicits.GraalValueJsonFormater
 import running.pipeline.{PipelineInput, PipelineOutput}
 import parsing.{HeavenlyParser, Validator, Substitutor}
+import running.pipeline.Request
 
 /**
   * An HType is a data representation (models, enums, and primitive types)
@@ -148,7 +150,11 @@ object BuiltInDefs {
   def modelDirectives(self: HModel) = Map(
     "validate" -> HInterface(
       "validate",
-      List(HInterfaceField("validator", self, None)),
+      HInterfaceField(
+        "validator",
+        HFunction(ListMap("request" -> Request.hType), HBool),
+        None
+      ) :: Nil,
       None
     ),
     "user" -> HInterface("user", Nil, None),
@@ -162,13 +168,20 @@ object BuiltInDefs {
   def fieldDirectives(model: HModel, field: HModelField) = Map(
     "set" -> HInterface(
       "set",
-      HInterfaceField("self", model, None) ::
-        HInterfaceField("new", field.htype, None) :: Nil,
+      HInterfaceField(
+        "setter",
+        HFunction(ListMap("request" -> Request.hType), HAny),
+        None
+      ) :: Nil,
       None
     ),
     "get" -> HInterface(
       "get",
-      HInterfaceField("self", model, None) :: Nil,
+      HInterfaceField(
+        "getter",
+        HFunction(ListMap("request" -> Request.hType), HAny),
+        None
+      ) :: Nil,
       None
     ),
     "uuid" -> HInterface("uuid", Nil, None),
@@ -177,7 +190,8 @@ object BuiltInDefs {
     "primary" -> HInterface("primary", Nil, None),
     "id" -> HInterface("id", Nil, None), // auto-increment/UUID & unique
     "publicCredential" -> HInterface("publicCredential", Nil, None),
-    "secretCredential" -> HInterface("secretCredential", Nil, None)
+    "secretCredential" -> HInterface("secretCredential", Nil, None),
+    "recoverable" -> HInterface("recoverable", Nil, None)
   )
 
   // e.g. ifSelf & ifOwner
@@ -193,11 +207,15 @@ case class HEnum(
     with HConstruct
 
 sealed trait HEvent
-case object Read extends HEvent
+case object Read extends HEvent // Retrieve record by IDe
 case object Create extends HEvent
 case object Update extends HEvent
 case object Delete extends HEvent
-case object All extends HEvent
+case object All extends HEvent // Includes all the above
+case object ReadMany extends HEvent // Retrieve many records. Translates to LIST event
+case object PushTo extends HEvent // Add item to array field
+case object DeleteFrom extends HEvent // Remove item from array field
+case object Recover extends HEvent // Undelete a record
 
 case class Permissions(
     globalTenant: Tenant,
@@ -257,9 +275,8 @@ case class GraalFunction(
 ) extends ExternalFunction {
   val graalFunction = graalCtx.getBindings(languageId).getMember(id)
 
-  override def execute(input: JsValue): Try[JsValue] =
-    Try(
-      GraalValueJsonFormater
-        .write(graalFunction.execute(graalCtx.eval(languageId, s"($input)")))
-    )
+  override def execute(input: JsValue): Try[JsValue] = Try {
+    GraalValueJsonFormater
+      .write(graalFunction.execute(graalCtx.eval(languageId, s"($input)")))
+  }
 }

@@ -25,30 +25,10 @@ case class QueryExecutor(
   val authorizer = Authorizer(syntaxTree)
   val requestValidator = RequestValidator(syntaxTree)
   val requestReducer = RequestReducer(syntaxTree)
-  val validateHookHandler = ValidateHookHandler(syntaxTree)
-  val setHookHandler = SetHookHandler(syntaxTree)
-  val getHookHandler = GetHookHandler(syntaxTree)
-
-  def responseTransformer(request: Request)(response: Response) =
-    getHookHandler {
-      request.copy(data = Some(response.body))
-    }
 
   def execute(request: Request): Try[Either[Response, Source[Response, _]]] =
     authorizer(request)
       .flatMap(requestValidator.apply)
       .flatMap(requestReducer.apply)
-      .flatMap(validateHookHandler.apply)
-      .flatMap(setHookHandler.apply)
-      .map { request =>
-        RequestHandler.handle(
-          request = request,
-          syntaxTree = syntaxTree,
-          responseTransformer = response =>
-            responseTransformer(request)(response) match {
-              case Failure(exception) => throw exception
-              case Success(value)     => value
-            }
-        )
-      }
+      .map(request => RequestHandler.handle(request, syntaxTree))
 }
