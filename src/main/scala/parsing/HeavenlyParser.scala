@@ -335,7 +335,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
       ((events: Seq[HEvent]) => events.toList) | allEvents
   }
 
-  def modelResource: Rule1[ShapeResource] = rule {
+  def modelResource: Rule1[Resource] = rule {
     push(cursor) ~ identifier ~ push(cursor) ~> {
       (
           start: Int,
@@ -348,7 +348,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     }
   }
 
-  def fieldResource: Rule1[FieldResource] = rule {
+  def fieldResource: Rule1[Resource] = rule {
     push(cursor) ~ identifier ~ "." ~ identifier ~ push(cursor) ~> {
       (start: Int, modelId: String, childId: String, end: Int) =>
         FieldResource(
@@ -378,8 +378,8 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   def accessRuleDef: Rule1[AccessRule] = rule {
     push(cursor) ~ whitespace() ~
       valueMap(Map("allow" -> Allow, "deny" -> Deny)) ~
-      whitespace() ~ (singletonEvent | eventsList | allEvents) ~ whitespace() ~
-      (modelResource | fieldResource ~> (_.asInstanceOf[Resource])) ~
+      whitespace() ~ (singletonEvent | eventsList | allEvents) ~
+      whitespace() ~ (fieldResource | modelResource) ~
       whitespace() ~ ref ~ push(cursor) ~> {
       (
           start: Int,

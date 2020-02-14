@@ -259,7 +259,7 @@ trait Resource {
 }
 
 case class ShapeResource(shape: HShape) extends Resource
-case class FieldResource(field: HShapeField, shape: HShape)
+case class FieldResource(field: HShapeField, shape: HShape) extends Resource
 
 case class HConfig(values: List[ConfigEntry], position: Option[PositionRange])
     extends HConstruct
