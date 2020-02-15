@@ -13,9 +13,7 @@ import spray.json.JsValue
 import scala.util.{Try, Failure}
 
 object HeavenlyParser {
-  type ExternalFunction = GraalFunction
-  // Dummy classes will be substituted at substitution
-  // Dummy placeholder expression
+  // Dummy classes will be substituted at substitution time
   case class Reference(
       id: String,
       child: Option[Reference],
@@ -37,7 +35,7 @@ object HeavenlyParser {
       id + child.map("." + _.toString).getOrElse("")
   }
 
-  // Dummy placeholder resource
+  // Dummy placeholder resource. Should be substituted
   case class ResourceReference(
       resourceId: String,
       fieldId: Option[String],
@@ -62,8 +60,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     whitespace() ~
       zeroOrMore(
         importDef | modelDef | enumDef | configDef | accessRuleDef | roleDef
-      ) ~
-      whitespace() ~>
+      ) ~ whitespace() ~>
       ((cs: Seq[HConstruct]) => cs.toList) ~ EOI
   }
 
@@ -88,10 +85,10 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
 
   def floatVal: Rule1[HFloatValue] = rule {
     capture(oneOrMore(CharPredicate.Digit)) ~ '.' ~
-      capture(oneOrMore(CharPredicate.Digit)) ~>
-      ((whole: String, fraction: String) => {
+      capture(oneOrMore(CharPredicate.Digit)) ~> {
+      (whole: String, fraction: String) =>
         HFloatValue((whole + '.' + fraction).toDouble)
-      })
+    }
   }
 
   def stringVal: Rule1[HStringValue] = {
@@ -125,7 +122,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
       ((elements: Seq[HValue]) => {
         HArrayValue(elements.toList, elements.headOption match {
           case Some(v) => v.htype
-          case _       => new HType {}
+          case _       => HAny
         })
       })
   }
@@ -157,25 +154,20 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   }
 
   def namedArgs: Rule1[HInterfaceValue] = rule {
-    zeroOrMore(namedArg).separatedBy(",") ~>
-      ((pairs: Seq[(String, HValue)]) => {
-        HInterfaceValue(
-          pairs.foldLeft(ListMap.empty[String, HValue])(_ + _),
-          HInterface("", Nil, None)
-        )
-      })
+    zeroOrMore(namedArg).separatedBy(",") ~> { (pairs: Seq[(String, HValue)]) =>
+      HInterfaceValue(ListMap.from(pairs), HInterface("", Nil, None))
+    }
   }
 
   def positionalArgs: Rule1[HInterfaceValue] = rule {
-    zeroOrMore(literal | ref).separatedBy(",") ~>
-      ((args: Seq[HValue]) => {
-        HInterfaceValue(
-          args.zipWithIndex
-            .map(pair => pair._2.toString -> pair._1)
-            .foldLeft(ListMap.empty[String, HValue])(_ + _),
-          HInterface("", Nil, None)
-        )
-      })
+    zeroOrMore(literal | ref).separatedBy(",") ~> { (args: Seq[HValue]) =>
+      HInterfaceValue(
+        args.zipWithIndex
+          .map(pair => pair._2.toString -> pair._1)
+          .foldLeft(ListMap.empty[String, HValue])(_ + _),
+        HInterface("", Nil, None)
+      )
+    }
   }
 
   def arguments: Rule1[HInterfaceValue] = rule { namedArgs | positionalArgs }
@@ -185,13 +177,13 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   }
 
   def directive(dirKind: DirectiveKind): Rule1[Directive] = rule {
-    push(cursor) ~ directive ~ push(cursor) ~>
-      ((start: Int, did: String, args: Option[HInterfaceValue], end: Int) => {
+    push(cursor) ~ directive ~ push(cursor) ~> {
+      (start: Int, did: String, args: Option[HInterfaceValue], end: Int) =>
         Directive(did, args match {
           case Some(args) => args
           case None       => HInterfaceValue(ListMap.empty, HInterface("", Nil, None))
         }, dirKind, Some(PositionRange(start, end)))
-      })
+    }
   }
 
   def modelDef: Rule1[HModel] = rule {
@@ -241,7 +233,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
             case HArrayValue(Nil, _) =>
               HArrayValue(Nil, ht match {
                 case HArray(htype) => htype
-                case _             => new HType {}
+                case _             => HAny
               })
             case nonArray => nonArray
           }
@@ -267,12 +259,10 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
           values: Seq[java.io.Serializable]
       ) =>
         {
-          val variants = values
-            .map(_ match {
-              case HStringValue(s) => s
-              case s: String       => s
-            })
-            .toList
+          val variants = values.map {
+            case HStringValue(s) => s
+            case s: String       => s
+          }.toList
           HEnum(id, variants, Some(PositionRange(start, end)))
         }
     }
@@ -286,9 +276,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
           id: String,
           end: Int
       ) =>
-        {
-          HImport(id, file.value, Some(PositionRange(start, end)))
-        }
+        HImport(id, file.value, Some(PositionRange(start, end)))
     }
   }
 
@@ -301,10 +289,15 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
 
   def configEntry: Rule1[ConfigEntry] = rule {
     push(cursor) ~ identifier ~ push(cursor) ~ "=" ~
-      literal ~ optional(",") ~ whitespace() ~>
-      ((start: Int, key: String, end: Int, value: HValue) => {
+      literal ~ optional(",") ~ whitespace() ~> {
+      (
+          start: Int,
+          key: String,
+          end: Int,
+          value: HValue
+      ) =>
         ConfigEntry(key, value, Some(PositionRange(start, end)))
-      })
+    }
   }
 
   def event: Rule1[HEvent] = rule {
