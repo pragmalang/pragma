@@ -5,8 +5,6 @@ import parsing.Substitutor
 import domain.{HImport, GraalFunction, SyntaxTree}
 import spray.json._
 import scala.util.Success
-import pprint.pprintln
-import domain.utils.`package`.UserError
 
 class Substitution extends FlatSpec {
 

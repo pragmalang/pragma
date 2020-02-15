@@ -1,9 +1,8 @@
 import org.scalatest._
-import domain._, primitives._
+import domain._
 import parsing._
 import scala.util._
 import org.parboiled2.Position
-import org.parboiled2.ParseError
 
 class ImportParsing extends FlatSpec {
   "An import statement" should "be parsed correctly" in {

@@ -2,15 +2,9 @@ package setup
 
 import storage.Storage, schemaGenerator.ApiSchemaGenerator
 import domain._
-import primitives._
 import running.execution.QueryExecutor
-
-import sangria.ast._
-
 import Implicits._
-import java.io._
-import scala.util.{Success, Failure, Try}
-import domain.utils._
+import scala.util.Try
 
 case class Setup(
     syntaxTree: SyntaxTree,

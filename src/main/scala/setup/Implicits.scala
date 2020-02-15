@@ -1,9 +1,6 @@
 package setup
 import sangria.parser.QueryParser
 import scala.language.implicitConversions
-import scala.language.postfixOps
-import sys.process._
-import scala.util.{Success, Failure}
 import spray.json._
 import domain.Implicits._
 

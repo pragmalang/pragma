@@ -1,11 +1,7 @@
 package running.pipeline
 
-import running._
-import spray.json.{JsObject, JsString, JsValue}
+import spray.json._
 import domain._
-import domain.primitives._
-import sangria.ast._
-import scala.util.Try
 
 case class Request(
     data: Option[JsValue],

@@ -1,9 +1,7 @@
 import org.scalatest._
-import domain._, primitives._
+import domain._
 import parsing._, HeavenlyParser._
-import scala.util._
 import org.parboiled2.Position
-import scala.collection.immutable.ListMap
 
 class PermissionsParsing extends FlatSpec {
   "Permissions" should "be parsed correctly" in {

@@ -5,11 +5,9 @@ import org.parboiled2.Position
 
 import org.graalvm.polyglot
 import spray.json._
-import spray.json.{JsValue, JsObject}
 import scala.util.Try
 import scala.collection.immutable.ListMap
 import domain.Implicits.GraalValueJsonFormater
-import running.pipeline.{PipelineInput, PipelineOutput}
 import parsing.{HeavenlyParser, Validator, Substitutor}
 import running.pipeline.Request
 

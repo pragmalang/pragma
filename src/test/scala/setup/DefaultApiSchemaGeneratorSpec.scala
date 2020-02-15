@@ -1,12 +1,9 @@
 package setup
 
 import org.scalatest._
-import sangria.renderer.QueryRenderer
 import setup.schemaGenerator._, ApiSchemaGenerator._
 import sangria.ast.Document
 import sangria.macros._
-import domain.Implicits._
-import scala.util.{Failure, Success}
 
 class DefaultApiSchemaGeneratorSpec extends FunSuite {
   val generator = DefaultApiSchemaGenerator(MockSyntaxTree.syntaxTree)

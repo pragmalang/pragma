@@ -6,9 +6,6 @@ import primitives._
 import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
 import domain.utils.`package`.Identifiable
-import running.pipeline.PipelineInput
-import running.pipeline.PipelineOutput
-import shapeless._
 import spray.json.JsValue
 import scala.util.{Try, Failure}
 
@@ -349,7 +346,6 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
           new HShape {
             val id = "DUMMY SHAPE"
             val fields = Nil
-            val position = None
           }
         )
     }

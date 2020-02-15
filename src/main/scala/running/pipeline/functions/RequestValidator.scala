@@ -1,18 +1,16 @@
 package running.pipeline.functions
 
 import running.pipeline._
-import scala.util.{Try, Success, Failure}
+import scala.util.Try
 import domain.SyntaxTree, domain.utils.typeCheckJson
 import sangria.ast._
-import sangria.validation.Violation
 import sangria.validation.QueryValidator
 import sangria.schema.Schema
 import setup.schemaGenerator.ApiSchemaGenerator
 import setup.schemaGenerator.Implicits._
-import spray.json._, DefaultJsonProtocol._
+import spray.json._
 import running.Implicits._
 import running.errors._
-import domain.HReference
 
 case class RequestValidator(syntaxTree: SyntaxTree)
     extends PiplineFunction[Request, Try[Request]] {

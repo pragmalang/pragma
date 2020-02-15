@@ -1,17 +1,9 @@
 package setup.storage
 
 import setup._, utils._
-
 import domain.SyntaxTree
-
-import sangria.schema.{Schema}
 import sangria.ast.{Document}
-import sangria.renderer.{SchemaRenderer, SchemaFilter}
-
 import scala.util.{Try, Success, Failure}
-import sys.process._
-import scala.language.postfixOps
-import sangria.ast.Definition
 
 trait Migrator {
   type Return
@@ -28,7 +20,7 @@ case class PrismaMongoMigrator(
   val converter = GraphQlConverter(syntaxTree)
 
   override def run = Try {
-    val renderedSchema = validSchema.renderPretty
+    // val renderedSchema = validSchema.renderPretty
     // ??? TODO: Send renderedPrismaSchema to Prisma server
   }
 

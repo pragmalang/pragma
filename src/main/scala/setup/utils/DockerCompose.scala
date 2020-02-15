@@ -1,7 +1,6 @@
 package setup.utils
 import setup._
 
-import domain.Implicits._
 import Implicits._
 import spray.json._
 import spray.json.DefaultJsonProtocol._

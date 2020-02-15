@@ -1,8 +1,7 @@
 import org.scalatest._
-import domain._, primitives._, utils._
+import domain._, utils._
 import parsing._
 import scala.util._
-import org.parboiled2.Position
 
 class Validation extends FlatSpec {
   "Default field value checker" should "fail in case of type mismatch" in {

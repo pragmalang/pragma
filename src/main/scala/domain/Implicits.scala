@@ -66,7 +66,6 @@ package object Implicits {
   }
 
   implicit class StringMethods(s: String) {
-    import scala.language.postfixOps
     import sys.process._
     def small = s.updated(0, s.head.toString.toLowerCase.head)
     def $(msg: String, logsHandler: String => Unit = _ => ()) =

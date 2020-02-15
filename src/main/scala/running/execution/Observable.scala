@@ -1,11 +1,7 @@
 package running.execution
 
-import running.pipeline.Response
-import running.utils._
-
 import akka.stream.scaladsl.Source
 import akka.stream.Materializer
-import scala.util.{Random, Try, Success, Failure}
 
 case class Observable[T]() {
 

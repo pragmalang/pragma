@@ -25,4 +25,4 @@ libraryDependencies ++= Seq(
     from "http://search.maven.org/remotecontent?filepath=org/atteo/evo-inflector/1.2.2/evo-inflector-1.2.2.jar"
 )
 
-scalacOptions ++= Seq("-feature", "-deprecation")
+scalacOptions ++= Seq("-feature", "-deprecation", "-Xlint:unused")

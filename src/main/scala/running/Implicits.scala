@@ -1,10 +1,9 @@
 package running
+
 import sangria.ast.{Document, Definition}
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 import running.pipeline._
-
-import Implicits._
 import sangria.ast._
 
 package object Implicits {

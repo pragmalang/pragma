@@ -3,9 +3,8 @@ package running.pipeline.functions
 import running.pipeline._
 import domain.SyntaxTree
 import scala.util.Try
-import sangria._, ast._, execution._
-import spray.json._, DefaultJsonProtocol._
-import running.Implicits._
+import sangria._, ast._
+import spray.json._
 
 case class RequestReducer(syntaxTree: SyntaxTree)
     extends PiplineFunction[Request, Try[Request]] {

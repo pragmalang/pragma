@@ -1,11 +1,8 @@
 package setup
 
-import parsing.HeavenlyParser
 import domain._
 import domain.primitives._
-import org.parboiled2.Position
 import scala.collection.immutable.ListMap
-import parsing.HeavenlyParser._
 
 object MockSyntaxTree {
   val businessModel = HModel(

@@ -1,10 +1,6 @@
 package tests.setup
 
 import org.scalatest._
-import setup._
-import domain._
-import sangria.schema._
-import sangria.parser.QueryParser
 
 class SetupTests extends WordSpec {
   "Setup" should {

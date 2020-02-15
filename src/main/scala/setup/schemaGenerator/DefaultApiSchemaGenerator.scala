@@ -1,9 +1,8 @@
 package setup.schemaGenerator
+
 import setup.utils._
 import domain._, primitives._, Implicits._
-
 import sangria.ast._
-import sangria.macros._
 
 case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
     extends GraphQlConverter(syntaxTree)
@@ -147,7 +146,6 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
   )
 
   def queryType: ObjectTypeDefinition = {
-    import domain.utils._
     val rules: List[HModel => Option[FieldDefinition]] = List(
       model =>
         Some(
@@ -366,7 +364,6 @@ case class DefaultApiSchemaGenerator(override val syntaxTree: SyntaxTree)
   def gqlFieldToHModelField(
       field: Either[FieldDefinition, InputValueDefinition]
   ): HModelField = {
-    val apiSchema = buildApiSchemaAsDocument
     def fieldType(
         tpe: Type,
         fieldHType: HType,

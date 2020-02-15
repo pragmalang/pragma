@@ -1,6 +1,6 @@
 package running.pipeline
 
-import spray.json.{JsObject, JsString, JsValue}
+import spray.json._
 import sangria.ast.Document
 import running._
 import domain._

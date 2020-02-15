@@ -1,8 +1,9 @@
 package setup.storage
+
 import sangria.ast.Document
 import domain.SyntaxTree
 import scala.util.Try
-import setup._, setup.utils._
+import setup.utils._
 import spray.json.JsValue
 
 trait Storage {

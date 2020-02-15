@@ -1,7 +1,6 @@
 package setup.schemaGenerator
-import setup.utils._
-import domain._, primitives._, Implicits._
 
+import domain._
 import sangria.ast._
 import sangria.macros._
 

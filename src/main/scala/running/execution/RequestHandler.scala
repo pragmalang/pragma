@@ -1,7 +1,6 @@
 package running.execution
 
 import running.pipeline._
-import spray.json._
 import domain._
 import akka.stream.scaladsl.Source
 

@@ -4,7 +4,6 @@ import domain._, primitives._
 
 import sangria.ast._
 import sangria.ast.{Directive => GraphQlDirective}
-import sangria.macros._
 
 trait Converter {
   type Def

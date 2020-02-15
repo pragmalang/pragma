@@ -1,9 +1,6 @@
 package tests.setup
 
 import org.scalatest._
-import setup.storage._
-import sangria.schema._
-import sangria.parser.QueryParser
 
 class PrismaMigratorTests extends WordSpec {
   // "PrismaMigrator" should {

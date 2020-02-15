@@ -3,7 +3,6 @@ package setup.utils
 import domain.HModel
 import domain.primitives.HStringValue
 import scala.collection.mutable
-import scala.collection.immutable.ListMap
 import org.atteo.evo.inflector.English
 
 object Pluralizer {

@@ -4,8 +4,6 @@ import domain._, primitives._, utils._, HeavenlyParser.Reference
 import scala.util.{Try, Success, Failure}
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.ListMap
-import running.pipeline.PipelineInput
-import running.pipeline.PipelineOutput
 
 object Substitutor {
 

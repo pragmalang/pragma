@@ -1,7 +1,7 @@
 package running
-import pdi.jwt.{Jwt, JwtAlgorithm, JwtHeader, JwtClaim, JwtOptions}
+
+import pdi.jwt.{Jwt, JwtAlgorithm}
 import spray.json._
-import spray.json.DefaultJsonProtocol._
 import Implicits._
 
 case class JwtPaylod(userId: String, role: String) {
