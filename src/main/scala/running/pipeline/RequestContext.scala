@@ -14,6 +14,8 @@ case class RequestContext(
     hostname: String
 ) {
   lazy val operation: HEvent = ???
+  lazy val model: HModel = ???
+  lazy val hooks = ???
 }
 
 object RequestContext {
