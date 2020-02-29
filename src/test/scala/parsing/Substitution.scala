@@ -25,13 +25,13 @@ class Substitution extends FlatSpec {
     val code = """
     import "./src/test/scala/parsing/test-functions.js" as fns
 
-    @validate(validator: fns.validateCat)
+    @validate(function: fns.validateCat)
     model Cat { name: String }
     """
     val syntaxTree = SyntaxTree.from(code).get
     val substituted = Substitutor.substitute(syntaxTree).get
     val directive = substituted.models.head.directives.head
-    directive.args.value("validator") match {
+    directive.args.value("function") match {
       case GraalFunction(id, _, filePath, graalCtx, languageId) => {
         assert(id == "validateCat")
         assert(filePath == "./src/test/scala/parsing/test-functions.js")

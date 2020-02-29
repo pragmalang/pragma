@@ -155,7 +155,7 @@ object BuiltInDefs {
     "validate" -> HInterface(
       "validate",
       HInterfaceField(
-        "validator",
+        "function",
         HFunction(ListMap("request" -> Request.hType), HBool),
         None
       ) :: Nil,
@@ -166,28 +166,29 @@ object BuiltInDefs {
       "plural",
       List(HInterfaceField("name", HString, None)),
       None
-    )
+    ),
+    "onWrite" -> HInterface(
+      "onWrite",
+      HInterfaceField(
+        "function",
+        HFunction(ListMap("self" -> self, "request" -> Request.hType), HAny),
+        None
+      ) :: Nil,
+      None
+    ),
+    "onRead" -> HInterface(
+      "onRead",
+      HInterfaceField(
+        "function",
+        HFunction(ListMap("request" -> Request.hType), HAny),
+        None
+      ) :: Nil,
+      None
+    ),
+    // "noStorage" -> HInterface("noStorage", Nil, None)
   )
 
   def fieldDirectives(model: HModel, field: HModelField) = Map(
-    "set" -> HInterface(
-      "set",
-      HInterfaceField(
-        "setter",
-        HFunction(ListMap("request" -> Request.hType), HAny),
-        None
-      ) :: Nil,
-      None
-    ),
-    "get" -> HInterface(
-      "get",
-      HInterfaceField(
-        "getter",
-        HFunction(ListMap("request" -> Request.hType), HAny),
-        None
-      ) :: Nil,
-      None
-    ),
     "uuid" -> HInterface("uuid", Nil, None),
     "autoIncrement" -> HInterface("autoIncrement", Nil, None),
     "unique" -> HInterface("unique", Nil, None),
