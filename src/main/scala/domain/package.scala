@@ -152,21 +152,7 @@ case object ServiceDirective extends DirectiveKind
 
 object BuiltInDefs {
   def modelDirectives(self: HModel) = Map(
-    "validate" -> HInterface(
-      "validate",
-      HInterfaceField(
-        "function",
-        HFunction(ListMap("request" -> Request.hType), HBool),
-        None
-      ) :: Nil,
-      None
-    ),
     "user" -> HInterface("user", Nil, None),
-    "plural" -> HInterface(
-      "plural",
-      List(HInterfaceField("name", HString, None)),
-      None
-    ),
     "onWrite" -> HInterface(
       "onWrite",
       HInterfaceField(
@@ -184,7 +170,7 @@ object BuiltInDefs {
         None
       ) :: Nil,
       None
-    ),
+    )
     // "noStorage" -> HInterface("noStorage", Nil, None)
   )
 
