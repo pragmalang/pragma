@@ -170,8 +170,8 @@ object BuiltInDefs {
         None
       ) :: Nil,
       None
-    )
-    // "noStorage" -> HInterface("noStorage", Nil, None)
+    ),
+    "noStorage" -> HInterface("noStorage", Nil, None)
   )
 
   def fieldDirectives(model: HModel, field: HModelField) = Map(
