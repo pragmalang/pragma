@@ -122,51 +122,37 @@ scalar Any
   3. ✔️ `{model.id}OptionalInput` input type. Exact copy of `{model.id}ObjectInput` except that all fields are optional
   4. ✔️ `{model.id}ReferenceInput` input type. Exact copy of `{model.id}OptionalInput` except that the primary field is required.
   5. ✔️ `{model.id}Notification` output type. It has two fields `event: MultiRecordEvent!`, and `{model.id}: {model.id}!`.
-  6. ✔️ `login{model.id}` mutation. It takes two optional arguments
-     `publicCredential: String`,
-     `secretCredential: String`
-     and returns
-     `String!`
-  7. ✔️ `create{model.id}` mutation. It takes one required argument
-     `{model.id}: {model.id}ObjectInput!`
-     and returns
-     `{model.id}`
-  8. ✔️ `update{model.id}` mutation. It takes two required arguments
-     `{model.primaryField}: {model.primaryField.type}!`,
-     `{model.id}: {model.id}OptionalInput!`
-     and returns
-     `{model.id}`
-  9. ✔️ `upsert{model.id}` mutation. It takes one required argument
-     `{model.id}: {model.id}OptionalInput!`
-     and returns
-     `{model.id}`
-  10. ✔️ `delete{model.id}` mutation. It takes one required argument
-      `{model.primaryField}: {model.primaryField.type}!`
-      and returns
-      `{model.id}`
-  11. ✔️ `createMany{model.id}` mutation. It takes one required argument
-      `{model.id}: [{model.id}ObjectInput]!`
-      and returns
-      `[{model.id}]`
-  12. ✔️ `updateMany{model.id}` mutation. It takes one required argument
-      `{model.id}: [{model.id}ReferenceInput]!`
-      and returns
-      `[{model.id}]`
-  13. ✔️ `upsertMany{model.id}` mutation. It takes one required argument
-      `{model.id}: [{model.id}OptionalInput]!`
-      and returns
-      `[{model.id}]`
-  14. ✔️ `deleteMany{model.id}` mutation. It takes one required argument
-      `{model.primaryField}: [{model.primaryField.type}]!`
-      and returns
-      `[{model.id}]`
-  15. ✔️ `{model.id}` query. It takes one required argument `{model.primaryKey}: {model.primaryKey.type}!`, and returns `{model.id}`
-  16. ✔️ `{model.id.pluralize}` query. It takes one optional argument `where: WhereInput`, and returns `[{model.id}]`. Note: You cannot supply `range` when `first` or `last` are applied, if you do so, a runtime error will be thrown. You can use this query for pagination, similar to the usage in Prisma https://www.prisma.io/docs/prisma-client/basic-data-access/reading-data-TYPESCRIPT-rsc3/#pagination .
-  17. ✔️ `count{model.id.pluralize}`. Similar to the input of `{model.id.pluralize}` query and returns `Int`. It returns the length of the selected list.
-  18. ✔️ `{model.id}Exists` query. It takes one required argument `filter: LogicalFilterInput`, and returns `Int!` that represents the number of records to which the `predicate` is true.
-  19. ✔️ `{model.id}` subscription. It takes two optional arguments `{model.primaryKey}: {model.primaryKey.type}` and, `on: [SingleRecordEvent!]`. Returns `{model.id}Notification`. If `on` is not supplied then the default value is `[READ, UPDATE, DELETE]`
-  20. ✔️ `{model.id.pluralize}` subscription. It takes two optional arguments `where: WhereInput`, and `on: [MultiRecordEvent!]`. Returns `[{model.id}Notification!]!`. If `on` is not supplied then the default value is `[CREATE, UPDATE, DELETE, READ]`.
-
+  7. `{model.id}Queries` type which it's shape is generated using the folowing template:
+  ```
+  type {model.id}Queries {
+    read({model.primaryKey}: {model.primaryKey.type}!): {model.id}
+    list(where: WhereInput): [{model.id}]!
+  }
+  ```
+  8. `{model.id}Mutations` type which it's shape is generated using the folowing template:
+  ```
+  type {model.id}Mutations {
+    login(publicCredential: String, secretCredential: String): String
+    create({model.id}: {model.id}ObjectInput!): {model.id}
+    update({model.primaryField}: {model.primaryField.type}!, {model.id}: {model.id}OptionalInput!): {model.id}
+    upsert({model.id}: {model.id}OptionalInput!): {model.id}
+    delete({model.primaryField}: {model.primaryField.type}!): {model.id}
+    createMany({model.id}: [{model.id}ObjectInput]!): [{model.id}]
+    updateMany({model.id}: [{model.id}ReferenceInput]!): [{model.id}]
+    upsertMany({model.id}: [{model.id}OptionalInput]!): [{model.id}]
+    deleteMany({model.primaryField}: [{model.primaryField.type}]!): [{model.id}]
+  }
+  ```
+  9. `{model.id}Subscriptions` type which it's shape is generated using the folowing template:
+  ```
+  type {model.id}Subscriptions {
+    read({model.primaryKey}: {model.primaryKey.type}!): {model.id}
+    list(where: WhereInput): [{model.id}]!
+  }
+  ```
+  10. `{model.id}` query that returns `{model.id}Queries`
+  11. `{model.id}` mutation that returns `{model.id}Mutations`
+  12. `{model.id}` subscription that returns `{model.id}Subscriptions`
   ## TODO:
 
   - ✔️ Think about having nested filtering mechanism for fields with list type. Maybe like each list field can take one optional argument `where: WhereInput`
