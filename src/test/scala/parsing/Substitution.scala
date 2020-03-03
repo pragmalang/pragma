@@ -25,7 +25,7 @@ class Substitution extends FlatSpec {
     val code = """
     import "./src/test/scala/parsing/test-functions.js" as fns
 
-    @validate(function: fns.validateCat)
+    @onWrite(function: fns.validateCat)
     model Cat { name: String }
     """
     val syntaxTree = SyntaxTree.from(code).get
