@@ -12,14 +12,12 @@ case class RequestReducer(syntaxTree: SyntaxTree)
   override def apply(input: Request): Try[Request] =
     Try {
       input.copy(
-        ctx = input.ctx.copy(
-          query = RequestReducer
-            .reduceQuery(
-              syntaxTree,
-              input.ctx.query,
-              Some(input.ctx.queryVariables)
-            )
-        )
+        query = RequestReducer
+          .reduceQuery(
+            syntaxTree,
+            input.query,
+            Some(input.queryVariables)
+          )
       )
     }
 }

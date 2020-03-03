@@ -633,8 +633,10 @@ package object Implicits {
       JsObject("userId" -> JsString(obj.userId), "role" -> JsString(obj.role))
   }
 
-  implicit object ContextJsonFormater extends JsonFormat[RequestContext] {
-    def read(json: JsValue): RequestContext = RequestContext(
+  implicit object RequestJsonFormater extends JsonFormat[Request] {
+    def read(json: JsValue): Request = Request(
+      hookData = Some(json.asJsObject.fields("hookData")),
+      body = Some(json.asJsObject.fields("body").asJsObject),
       query = json.asJsObject.fields("query").convertTo[Document],
       queryVariables = json.asJsObject.fields("queryVariables") match {
         case obj: JsObject => Left(obj)
@@ -649,7 +651,10 @@ package object Implicits {
       hostname = json.asJsObject.fields("hostname").convertTo[String],
       user = json.asJsObject.fields("user").convertTo[Option[JwtPaylod]]
     )
-    def write(obj: RequestContext): JsValue = JsObject(
+    def write(obj: Request): JsValue = JsObject(
+      "hookData" -> obj.hookData.toJson,
+      "body" -> obj.body.toJson,
+      "kind" -> "Request".toJson,
       "query" -> obj.query.toJson,
       "queryVariables" -> (obj.queryVariables match {
         case Left(vars)  => vars.toJson
@@ -662,18 +667,17 @@ package object Implicits {
       "kind" -> "Context".toJson
     )
   }
+}
 
-  implicit object RequestJsonFormater extends JsonFormat[Request] {
-    def read(json: JsValue): Request = Request(
-      data = Some(json.asJsObject.fields("data")),
-      ctx = json.asJsObject.fields("ctx").convertTo[RequestContext],
-      body = Some(json.asJsObject.fields("body").asJsObject)
-    )
-    def write(obj: Request): JsValue = JsObject(
-      "data" -> obj.data.toJson,
-      "ctx" -> obj.ctx.toJson,
-      "body" -> obj.body.toJson,
-      "kind" -> "Request".toJson
-    )
+/*
+{
+  User {
+    even: list(where: {}) {
+      username
+    }
+    odd: list(where: {}) {
+      username
+    }
   }
 }
+*/

@@ -16,8 +16,8 @@ case class RequestValidator(syntaxTree: SyntaxTree)
     extends PiplineFunction[Request, Try[Request]] {
 
   override def apply(input: Request): Try[Request] = Try {
-    val newCtx = validateQuery(input.ctx).get
-    input.copy(ctx = newCtx)
+    validateQuery(input).get
+    
   }
 
   val queryValidator = QueryValidator.default
@@ -28,32 +28,32 @@ case class RequestValidator(syntaxTree: SyntaxTree)
   val sangriaSchema =
     Schema.buildFromAst(apiSchemaGenerator.buildApiSchemaAsDocument)
 
-  def validateQuery(ctx: RequestContext): Try[RequestContext] = Try {
+  def validateQuery(request: Request): Try[Request] = Try {
     val violations = queryValidator
-      .validateQuery(sangriaSchema, ctx.query)
+      .validateQuery(sangriaSchema, request.query)
       .toList
 
     if (!violations.isEmpty)
       throw new QueryError(violations.map(_.errorMessage).mkString(","))
 
-    val operationDefinitions = ctx.query.definitions
+    val operationDefinitions = request.query.definitions
       .collect { case d: OperationDefinition => d }
 
     operationDefinitions.size match {
       case 1 =>
-        ctx.copy(
+        request.copy(
           queryVariables = Left(
             coerceVariables(
               operationDefinitions.head,
-              ctx.queryVariables.swap.getOrElse(JsObject.empty)
+              request.queryVariables.swap.getOrElse(JsObject.empty)
             ).get
           )
         )
       case _ =>
-        ctx.copy(
+        request.copy(
           queryVariables = Right(
             operationDefinitions
-              .zip(ctx.queryVariables.getOrElse(Nil))
+              .zip(request.queryVariables.getOrElse(Nil))
               .map(op => coerceVariables(op._1, op._2).get)
               .toList
           )
