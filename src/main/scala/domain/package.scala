@@ -10,6 +10,8 @@ import scala.collection.immutable.ListMap
 import domain.Implicits.GraalValueJsonFormater
 import parsing.{HeavenlyParser, Validator, Substitutor}
 import running.pipeline.Request
+import running.pipeline.PipelineInput
+import running.pipeline.PipelineOutput
 
 /**
   * An HType is a data representation (models, enums, and primitive types)
@@ -186,7 +188,8 @@ object BuiltInDefs {
   )
 
   // e.g. ifSelf & ifOwner
-  val builtinFunctions = Map.empty[String, BuiltinFunction]
+  val builtinFunctions =
+    Map.empty[String, BuiltinFunction[PipelineInput, PipelineOutput]]
 }
 
 case class HEnum(
