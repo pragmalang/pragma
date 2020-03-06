@@ -7,6 +7,10 @@ import scala.collection.immutable.ListMap
 import spray.json.JsValue
 
 package object primitives {
+
+import running.pipeline.Request
+
+  import running.pipeline.{PipelineInput, PipelineOutput}
   import running.pipeline.{PipelineInput, PipelineOutput}
   import running.pipeline.PipelineInput
   import running.pipeline.PipelineOutput
@@ -66,10 +70,27 @@ package object primitives {
     def execute(args: JsValue): Try[JsValue]
   }
 
-  case class BuiltinFunction(id: String, htype: HFunction)
-      extends HFunctionValue[PipelineInput, Try[PipelineOutput]]
+  trait BuiltinFunction[I <: PipelineInput, O <: PipelineOutput]
+      extends HFunctionValue[I, Try[O]]
       with Identifiable {
-    override def execute(input: PipelineInput): Try[PipelineOutput] = ???
+    val htype: HFunction
+    val id: String
+    def execute(input: I): Try[O]
+  }
+
+  case class IfInAuthFunction(id: String, htype: HFunction)
+      extends BuiltinFunction[Request, Request] {
+    def execute(input: Request): Try[Request] = ???
+  }
+
+  case class IfSelfAuthFunction(id: String, htype: HFunction)
+      extends BuiltinFunction[Request, Request] {
+    def execute(input: Request): Try[Request] = ???
+  }
+
+  case class IfRoleAuthFunction(id: String, htype: HFunction)
+      extends BuiltinFunction[Request, Request] {
+    def execute(input: Request): Try[Request] = ???
   }
 
   case class HOptionValue(value: Option[HValue], valueType: HType)

@@ -7,19 +7,15 @@
 - The following is list of reserved type names:
   - `Subscription`
   - `Query`
-  - `Mutations`
+  - `Mutation`
   - `WhereInput`
   - `OrderEnum`
-  - `SingleRecordEvent`
-  - `MultiRecordEvent`
   - `RangeInput`
-  - `EqInput`
-  - `WhereInput`
-  - `OrderEnum`
   - `OrderByInput`
-  - `LogicalFilterInput`
-  - `PredicateInput`
+  - `FilterInput`
   - `Any`
+  - `ComparisonInput`
+  - `MatchesInput`
 - If there is no `permit` block then everything is permitted (Authorization always return `true`)
 - If there exist `CREATE SomeType.someField` an error must be thrown since you can only update a field but you can't create one
 - If a type has a recursive field (field of the same type), this field must be optional
@@ -31,14 +27,8 @@
 - Every model must have one and only one field annotated with `@primary`, if not a field called `_id: String @primary @id` is created
 - If a plural is specified for a model using the `@plural(name: String)` directive it must not match the name of any other defined model
 - Every user is prohibited from accessing any resource by default unless:
-  - They are their exist an access rule that allows them to access it
-  - The resource that is being accessed is under the hierarchy of their user model (can be turned off using a config entry)
+  - Their exist an access rule that allows them to access it
 - The built-in hook function `ifSelf` can only be applied to access rules where the resource is of the same type as the role of the enclosing role block. A valid example would be
-- Every model or enum should have a unique case-insensitive name, meaning, `user` is the smae as `User`. This is important because in many parts of Heavenly-x's codebase `id`s in general are treated in a case-insensitive manner because of some design choices.
-- A user model can have one or more fields annotated with `@publicCredential`
-- A user model can have one or zero fields annotated with `@secretCredential`
-- A field of type `Integer` annotated with `@id` is the same as a field of type `Integer` annotated with `@unique` and `@autoIncrement`
-- A field of type `String` annotated with `@id` is the same as a field of type `String` annotated with `@unique` and `@uuid`
 ```
 acl {
   role Instructor {
@@ -54,19 +44,19 @@ acl {
   }
 }
 ```
+- Every model or enum should have a unique case-insensitive name, meaning, `user` is the same as `User`. This is important because in many parts of Heavenly-x's codebase `id`s in general are treated in a case-insensitive manner because of some design choices. (Rethink this)
+- A user model must have one or more fields annotated with `@publicCredential`
+- A user model must have one or zero fields annotated with `@secretCredential`
+- A field of type `Integer` annotated with `@id` is the same as a field of type `Integer` annotated with `@unique` and `@autoIncrement`
+- A field of type `String` annotated with `@id` is the same as a field of type `String` annotated with `@unique` and `@uuid`
 
 # GraphQL API Generation Recipe
 
 - Heavenly-x Built-in GraphQL types:
 
 ```gql
-input EqInput {
-  field: String!
-  value: Any!
-}
-
 input WhereInput {
-  filter: LogicalFilterInput
+  filter: FilterInput
   orderBy: OrderByInput
   range: RangeInput
   first: Int
@@ -89,28 +79,51 @@ input RangeInput {
   after: ID!
 }
 
-input LogicalFilterInput {
-  AND: [LogicalFilterInput]
-  OR: [LogicalFilterInput]
-  predicate: FilterInput
-}
 
+# Example:
+# {
+#   not: {
+#     eq: { field: "name", value: "anas" },
+#     and: {
+#       matches: ""
+#       or: { eq: { field: "age", value: 18 } }
+#     }
+#   }
+# }
 input FilterInput {
-  eq: EqInput
+  not: FilterInput
+  and: FilterInput
+  or: FilterInput
+  eq: ComparisonInput # works only when the field is of type String or Int or Float
+  gt: ComparisonInput # works only when the field is of type Float or Int
+  gte: ComparisonInput # works only when the field is of type Float or Int
+  lt: ComparisonInput # works only when the field is of type Float or Int
+  lte: ComparisonInput # works only when the field is of type Float or Int
+  matches: MatchesInput # works only when the field is of type String
 }
 
-enum MultiRecordEvent {
-  CREATE
-  UPDATE
-  READ
-  DELETE
+input MatchesInput {
+  # could be a single field like "friend" or a path "friend.name"
+  # works only when the field is of type String
+  field: String! 
+  regex: String!
 }
 
-enum SingleRecordEvent {
-  UPDATE
-  READ
-  DELETE
+input ComparisonInput {
+  # could be a single field like "friend" or a path "friend.name"
+  # If the type of the field or the path is object,
+  # then all fields that exist on value of `value: Any!` must be
+  # compared with fields with the same name in the model recursively  
+  field: String! 
+  value: Any!
 }
+
+directive @filter(filter: FilterInput!)
+directive @order(order: OrderEnum!) on FIELD
+directive @range(range: RangeInput!) on FIELD
+directive @first(first: Int!) on FIELD
+directive @last(last: Int!) on FIELD
+directive @skip(skip: Int!) on FIELD
 
 scalar Any
 ```
@@ -121,52 +134,43 @@ scalar Any
   2. ✔️ `{model.id}ObjectInput` input type where each field on this input type respects the requirements of the model. Meaning, required fields will stay required and optional fields will stay optional. Fields with Non-primitive types will be substituted with `{type.id}ReferenceInput` with `!` appended if the field is not optional.
   3. ✔️ `{model.id}OptionalInput` input type. Exact copy of `{model.id}ObjectInput` except that all fields are optional
   4. ✔️ `{model.id}ReferenceInput` input type. Exact copy of `{model.id}OptionalInput` except that the primary field is required.
-  5. ✔️ `{model.id}Notification` output type. It has two fields `event: MultiRecordEvent!`, and `{model.id}: {model.id}!`.
-  6. ✔️ `login{model.id}` mutation. It takes two optional arguments
-     `publicCredential: String`,
-     `secretCredential: String`
-     and returns
-     `String!`
-  7. ✔️ `create{model.id}` mutation. It takes one required argument
-     `{model.id}: {model.id}ObjectInput!`
-     and returns
-     `{model.id}`
-  8. ✔️ `update{model.id}` mutation. It takes two required arguments
-     `{model.primaryField}: {model.primaryField.type}!`,
-     `{model.id}: {model.id}OptionalInput!`
-     and returns
-     `{model.id}`
-  9. ✔️ `upsert{model.id}` mutation. It takes one required argument
-     `{model.id}: {model.id}OptionalInput!`
-     and returns
-     `{model.id}`
-  10. ✔️ `delete{model.id}` mutation. It takes one required argument
-      `{model.primaryField}: {model.primaryField.type}!`
-      and returns
-      `{model.id}`
-  11. ✔️ `createMany{model.id}` mutation. It takes one required argument
-      `{model.id}: [{model.id}ObjectInput]!`
-      and returns
-      `[{model.id}]`
-  12. ✔️ `updateMany{model.id}` mutation. It takes one required argument
-      `{model.id}: [{model.id}ReferenceInput]!`
-      and returns
-      `[{model.id}]`
-  13. ✔️ `upsertMany{model.id}` mutation. It takes one required argument
-      `{model.id}: [{model.id}OptionalInput]!`
-      and returns
-      `[{model.id}]`
-  14. ✔️ `deleteMany{model.id}` mutation. It takes one required argument
-      `{model.primaryField}: [{model.primaryField.type}]!`
-      and returns
-      `[{model.id}]`
-  15. ✔️ `{model.id}` query. It takes one required argument `{model.primaryKey}: {model.primaryKey.type}!`, and returns `{model.id}`
-  16. ✔️ `{model.id.pluralize}` query. It takes one optional argument `where: WhereInput`, and returns `[{model.id}]`. Note: You cannot supply `range` when `first` or `last` are applied, if you do so, a runtime error will be thrown. You can use this query for pagination, similar to the usage in Prisma https://www.prisma.io/docs/prisma-client/basic-data-access/reading-data-TYPESCRIPT-rsc3/#pagination .
-  17. ✔️ `count{model.id.pluralize}`. Similar to the input of `{model.id.pluralize}` query and returns `Int`. It returns the length of the selected list.
-  18. ✔️ `{model.id}Exists` query. It takes one required argument `filter: LogicalFilterInput`, and returns `Int!` that represents the number of records to which the `predicate` is true.
-  19. ✔️ `{model.id}` subscription. It takes two optional arguments `{model.primaryKey}: {model.primaryKey.type}` and, `on: [SingleRecordEvent!]`. Returns `{model.id}Notification`. If `on` is not supplied then the default value is `[READ, UPDATE, DELETE]`
-  20. ✔️ `{model.id.pluralize}` subscription. It takes two optional arguments `where: WhereInput`, and `on: [MultiRecordEvent!]`. Returns `[{model.id}Notification!]!`. If `on` is not supplied then the default value is `[CREATE, UPDATE, DELETE, READ]`.
-
+  7. `{model.id}Queries` output type which it's shape is generated using the folowing template:
+  ```
+  type {model.id}Queries {
+    read({model.primaryKey}: {model.primaryKey.type.id}!): {model.id}
+    list(where: WhereInput): [{model.id}]! # directives: @filter, @order, @range, @first, @last, @skip
+  }
+  ```
+  8. `{model.id}Mutations` output type which it's shape is generated using the folowing template:
+  ```
+  type {model.id}Mutations {
+    login(publicCredential: String, secretCredential: String): String
+    create({model.id}: {model.id}ObjectInput!): {model.id}
+    update({model.primaryField.id}: {model.primaryField.type}!, {model.id}: {model.id}OptionalInput!): {model.id}
+    upsert({model.id}: {model.id}OptionalInput!): {model.id}
+    delete({model.primaryField.id}: {model.primaryField.type}!): {model.id}
+    createMany({model.id}: [{model.id}ObjectInput]!): [{model.id}]
+    updateMany({model.id}: [{model.id}ReferenceInput]!): [{model.id}]
+    upsertMany({model.id}: [{model.id}OptionalInput]!): [{model.id}]
+    deleteMany({model.primaryField.id}: [{model.primaryField.type}]): [{model.id}] # directives: @filter
+    {for field in model.field.filter(isList)}
+      pushTo{field.id}(item: {field.type.id}OptionalInput!): {field.type}
+      pushManyTo{field.id}(items: [{field.type.id}OptionalInput!]!): {field.type}
+      deleteFrom{field.id}({field.type.primaryField.id}: {field.type.primaryField.type}!): {field.type.id}
+      deleteManyFrom{field.id}({field.primaryField.id}: [{field.type.primaryField.type}]): [{field.type.id}] # directives: @filter
+    {endfor}
+  }
+  ```
+  9. `{model.id}Subscriptions` output type which it's shape is generated using the folowing template:
+  ```
+  type {model.id}Subscriptions {
+    read({model.primaryKey}: {model.primaryKey.type}!): {model.id}
+    list(where: WhereInput): {model.id} # directives: @filter, @order, @range, @first, @last, @skip
+  }
+  ```
+  10. `{model.id}` query that returns `{model.id}Queries`
+  11. `{model.id}` mutation that returns `{model.id}Mutations`
+  12. `{model.id}` subscription that returns `{model.id}Subscriptions`
   ## TODO:
 
   - ✔️ Think about having nested filtering mechanism for fields with list type. Maybe like each list field can take one optional argument `where: WhereInput`
