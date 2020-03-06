@@ -204,6 +204,7 @@ case object Update extends HEvent
 case object Delete extends HEvent
 case object All extends HEvent // Includes all the above
 case object ReadMany extends HEvent // Retrieve many records. Translates to LIST event
+case object Mutate extends HEvent
 case object PushTo extends HEvent // Add item to array field
 case object DeleteFrom extends HEvent // Remove item from array field
 case object Recover extends HEvent // Undelete a record
