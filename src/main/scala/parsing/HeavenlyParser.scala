@@ -131,7 +131,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   // Returns a PrimitiveType or an HModel with no fields or directives.
   def htypeFrom(typeId: String): HType = typeId match {
     case "String"  => HString
-    case "Integer" => HInteger
+    case "Int" => HInteger
     case "Float"   => HFloat
     case "Boolean" => HBool
     case "Date"    => HDate
@@ -305,6 +305,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
         "UPDATE" -> Update,
         "DELETE" -> Delete,
         "LIST" -> ReadMany,
+        "MUTATE" -> Mutate,
         "PUSH_TO" -> PushTo,
         "DELETE_FROM" -> DeleteFrom,
         "RECOVER" -> Recover
