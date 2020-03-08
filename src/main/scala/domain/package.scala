@@ -239,16 +239,19 @@ case class AccessRule(
     ruleKind: RuleKind,
     resource: Resource,
     actions: List[HEvent],
-    predicate: HFunctionValue[JsValue, Try[JsValue]],
+    predicate: Option[HFunctionValue[JsValue, Try[JsValue]]],
     position: Option[PositionRange]
 ) extends HConstruct
 
 trait Resource {
-  val shape: HShape
+  val parent: HShape
+  val child: Option[(HShapeField, Resource)]
 }
 
-case class ShapeResource(shape: HShape) extends Resource
-case class FieldResource(field: HShapeField, shape: HShape) extends Resource
+case class ModelResource(
+    parent: HModel,
+    child: Option[(HModelField, ModelResource)] = None
+) extends Resource
 
 case class HConfig(values: List[ConfigEntry], position: Option[PositionRange])
     extends HConstruct

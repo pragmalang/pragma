@@ -13,47 +13,47 @@ class PermissionsParsing extends FlatSpec {
     val expected = List(
       AccessRule(
         Allow,
-        ShapeResource(
-          ResourceReference(
-            "Book",
-            None,
-            Some(PositionRange(Position(19, 2, 19), Position(23, 2, 23)))
-          )
+        Reference(
+          "Book",
+          None,
+          Some(PositionRange(Position(19, 2, 19), Position(23, 2, 23)))
         ),
         List(Create, Read, Update, Delete),
-        Reference(
-          "authorizors",
-          Some(
-            Reference(
-              "f",
-              None,
-              Some(PositionRange(Position(36, 2, 36), Position(37, 2, 37)))
-            )
-          ),
-          Some(PositionRange(Position(24, 2, 24), Position(37, 2, 37)))
+        Some(
+          Reference(
+            "authorizors",
+            Some(
+              Reference(
+                "f",
+                None,
+                Some(PositionRange(Position(36, 2, 36), Position(37, 2, 37)))
+              )
+            ),
+            Some(PositionRange(Position(24, 2, 24), Position(37, 2, 37)))
+          )
         ),
         Some(PositionRange(Position(9, 2, 9), Position(37, 2, 37)))
       ),
       AccessRule(
         Deny,
-        ShapeResource(
-          ResourceReference(
-            "Todo",
-            None,
-            Some(PositionRange(Position(68, 3, 31), Position(72, 3, 35)))
-          )
+        Reference(
+          "Todo",
+          None,
+          Some(PositionRange(Position(68, 3, 31), Position(72, 3, 35)))
         ),
         List(Create, Delete),
-        Reference(
-          "authorizors",
-          Some(
-            Reference(
-              "g",
-              None,
-              Some(PositionRange(Position(85, 3, 48), Position(86, 3, 49)))
-            )
-          ),
-          Some(PositionRange(Position(73, 3, 36), Position(86, 3, 49)))
+        Some(
+          Reference(
+            "authorizors",
+            Some(
+              Reference(
+                "g",
+                None,
+                Some(PositionRange(Position(85, 3, 48), Position(86, 3, 49)))
+              )
+            ),
+            Some(PositionRange(Position(73, 3, 36), Position(86, 3, 49)))
+          )
         ),
         Some(PositionRange(Position(37, 2, 37), Position(86, 3, 49)))
       )

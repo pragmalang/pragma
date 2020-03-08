@@ -13,11 +13,13 @@ object HeavenlyParser {
   // Dummy classes will be substituted at substitution time
   case class Reference(
       id: String,
-      child: Option[Reference],
+      childRef: Option[Reference],
       position: Option[PositionRange]
   ) extends Identifiable
       with Positioned
-      with HFunctionValue[JsValue, Try[JsValue]] {
+      with HFunctionValue[JsValue, Try[JsValue]]
+      with HShape
+      with Resource {
     override def execute(input: JsValue) =
       Failure(
         throw new Exception(
@@ -29,26 +31,18 @@ object HeavenlyParser {
       HFunction(ListMap.empty, HAny)
 
     override def toString: String =
-      id + child.map("." + _.toString).getOrElse("")
+      id + childRef.map("." + _.toString).getOrElse("")
+
+    override val fields: List[HShapeField] = Nil
+
+    override val child = None
+
+    override val parent = new HShape {
+      val fields: List[domain.HShapeField] = Nil
+      override val id: String = "DUMMY REFERENCE, SHOULD BE SUBSTITUTED"
+    }
   }
 
-  // Dummy placeholder resource. Should be substituted
-  case class ResourceReference(
-      resourceId: String,
-      fieldId: Option[String],
-      position: Option[PositionRange]
-  ) extends HShape {
-    val fields: List[HShapeField] = Nil
-    val id = resourceId
-  }
-  case class FieldReference(
-      modelId: String,
-      childId: String,
-      position: Option[PositionRange]
-  ) extends HShapeField {
-    val htype = HReference(modelId + "." + childId)
-    val id = "DUMMY FIELD"
-  }
 }
 class HeavenlyParser(val input: ParserInput) extends Parser {
   import parsing.HeavenlyParser._
@@ -131,7 +125,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   // Returns a PrimitiveType or an HModel with no fields or directives.
   def htypeFrom(typeId: String): HType = typeId match {
     case "String"  => HString
-    case "Int" => HInteger
+    case "Int"     => HInteger
     case "Float"   => HFloat
     case "Boolean" => HBool
     case "Date"    => HDate
@@ -326,32 +320,6 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
       ((events: Seq[HEvent]) => events.toList) | allEvents
   }
 
-  def modelResource: Rule1[Resource] = rule {
-    push(cursor) ~ identifier ~ push(cursor) ~> {
-      (
-          start: Int,
-          id: String,
-          end: Int
-      ) =>
-        ShapeResource(
-          ResourceReference(id, None, Some(PositionRange(start, end)))
-        )
-    }
-  }
-
-  def fieldResource: Rule1[Resource] = rule {
-    push(cursor) ~ identifier ~ "." ~ identifier ~ push(cursor) ~> {
-      (start: Int, modelId: String, childId: String, end: Int) =>
-        FieldResource(
-          FieldReference(modelId, childId, Some(PositionRange(start, end))),
-          new HShape {
-            val id = "DUMMY SHAPE"
-            val fields = Nil
-          }
-        )
-    }
-  }
-
   def ref: Rule1[Reference] = rule {
     push(cursor) ~ identifier ~
       optional("." ~ ref) ~ push(cursor) ~> {
@@ -369,21 +337,21 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     push(cursor) ~ whitespace() ~
       valueMap(Map("allow" -> Allow, "deny" -> Deny)) ~
       whitespace() ~ (singletonEvent | eventsList | allEvents) ~
-      whitespace() ~ (fieldResource | modelResource) ~
-      whitespace() ~ ref ~ push(cursor) ~> {
+      whitespace() ~ ref ~
+      whitespace() ~ optional(ref) ~ push(cursor) ~> {
       (
           start: Int,
           ruleKind: RuleKind,
           events: List[HEvent],
           resource: Resource,
-          authorizor: Reference,
+          predicate: Option[Reference],
           end: Int
       ) =>
         AccessRule(
           ruleKind,
           resource,
           events,
-          authorizor,
+          predicate,
           Some(PositionRange(start, end))
         )
     }

@@ -18,10 +18,22 @@ case class Request(
     hostname: String
 ) extends PipelineInput
     with PipelineOutput {
-  lazy val operations: List[Operation] = ??? // TODO: Tabzz98
+  // List[Operation] -- TBC
+  lazy val operations = query.operations.flatMap {
+    case (_, op) => Request.operationsFrom(op.operationType, op.selections)
+  }
 }
 
 object Request {
+  def operationsFrom(
+      operationType: GqlOperationType,
+      selections: Vector[Selection]
+  ) =
+    for {
+      selection <- selections
+      // TBD
+    } yield "an operation"
+
   lazy val hType: HInterface = HInterface(
     "Request",
     List(
@@ -42,7 +54,7 @@ trait Operation {
   val arguments: Map[String, JsValue]
   val selections: List[FieldSelection]
   val event: HEvent
-  val model: HModel
+  val resource: Resource
   val role: Option[HModel]
   val user: Option[JwtPaylod]
   // Contains hooks used in @onRead, @onWrite, and @onDelete directives
@@ -51,13 +63,26 @@ trait Operation {
 }
 object Operation {
   type FieldSelection = Field
+  type GqlOperationType = OperationType
+
+  def operationEvent(opName: String): HEvent = opName match {
+    case "read"                              => Read
+    case "list"                              => ReadMany
+    case "create"                            => Create
+    case "update"                            => Update
+    case "mutate"                            => Mutate
+    case "delete"                            => Delete
+    case "recover"                           => Recover
+    case _ if opName startsWith "pushTo"     => PushTo
+    case _ if opName startsWith "deleteFrom" => DeleteFrom
+  }
 }
 
 case class ReadOperation(
     arguments: Map[String, JsValue] = Map.empty,
     selections: List[FieldSelection] = Nil,
     event: HEvent,
-    model: HModel,
+    resource: Resource,
     role: Option[HModel] = None,
     user: Option[JwtPaylod] = None,
     crudHooks: List[ExternalFunction] = Nil,
@@ -68,7 +93,7 @@ case class WriteOperation(
     arguments: Map[String, JsValue] = Map.empty,
     selections: List[FieldSelection] = Nil,
     event: HEvent,
-    model: HModel,
+    resource: Resource,
     role: Option[HModel] = None,
     user: Option[JwtPaylod] = None,
     crudHooks: List[ExternalFunction] = Nil,
@@ -79,7 +104,7 @@ case class DeleteOperation(
     arguments: Map[String, JsValue] = Map.empty,
     selections: List[FieldSelection] = Nil,
     event: HEvent,
-    model: HModel,
+    resource: Resource,
     role: Option[HModel] = None,
     user: Option[JwtPaylod] = None,
     crudHooks: List[ExternalFunction] = Nil,

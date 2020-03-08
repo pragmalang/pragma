@@ -83,7 +83,7 @@ class Substitution extends FlatSpec {
     val substituted = Substitutor.substitute(syntaxTree).get
     val newGlobalTenant = substituted.permissions.get.globalTenant
     val todoOwnershipPredicate =
-      newGlobalTenant.roles.head.rules.head.predicate
+      newGlobalTenant.roles.head.rules.head.predicate.get
         .asInstanceOf[GraalFunction]
     assert(todoOwnershipPredicate.id == "isOwner")
   }

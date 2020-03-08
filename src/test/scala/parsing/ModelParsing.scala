@@ -11,7 +11,7 @@ class ModelParsing extends FlatSpec {
     val code = """
       model User {
           username: String,
-          age: Integer?,
+          age: Int?,
           todos: [Todo],
       }
       """
@@ -39,7 +39,7 @@ class ModelParsing extends FlatSpec {
             HArray(HReference("Todo")),
             None,
             List(),
-            Some(PositionRange(Position(83, 5, 11), Position(88, 5, 16)))
+            Some(PositionRange(Position(79, 5, 11), Position(84, 5, 16)))
           )
         ),
         List(),
@@ -57,7 +57,7 @@ class ModelParsing extends FlatSpec {
         @publicCredential
         username: String,
 
-        age: Integer = 20
+        age: Int = 20
       }
     """
     val parsedModel = new HeavenlyParser(code).modelDef.run()

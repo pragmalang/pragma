@@ -96,9 +96,9 @@ object Substitutor {
       ctx: HObject
   ): Option[GraalFunction] =
     ctx.get(ref.id) match {
-      case Some(f: GraalFunction) if !ref.child.isDefined => Some(f)
-      case Some(HInterfaceValue(hobj, _)) if ref.child.isDefined =>
-        getReferencedFunction(ref.child.get, hobj)
+      case Some(f: GraalFunction) if !ref.childRef.isDefined => Some(f)
+      case Some(HInterfaceValue(hobj, _)) if ref.childRef.isDefined =>
+        getReferencedFunction(ref.childRef.get, hobj)
       case _ => None
     }
 
@@ -167,14 +167,15 @@ object Substitutor {
       ctx: HObject
   ): Try[AccessRule] = {
     val newPredicate = rule.predicate match {
-      case ref: Reference =>
+      case None => (None, rule.position)
+      case Some(ref: Reference) =>
         (getReferencedFunction(ref, ctx), ref.position)
-      case f: HFunctionValue[_, _] =>
+      case Some(f: HFunctionValue[_, _]) =>
         (Some(f), rule.position)
     }
     if (newPredicate._1.isDefined)
       Success {
-        rule.copy(predicate = newPredicate._1.get)
+        rule.copy(predicate = newPredicate._1)
       } else
       Failure {
         new UserError(
