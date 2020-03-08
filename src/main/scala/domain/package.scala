@@ -184,6 +184,11 @@ object BuiltInDefs {
     "id" -> HInterface("id", Nil, None), // auto-increment/UUID & unique
     "publicCredential" -> HInterface("publicCredential", Nil, None),
     "secretCredential" -> HInterface("secretCredential", Nil, None),
+    "connect" -> HInterface(
+      "connect",
+      List(HInterfaceField("to", HString, None)),
+      None
+    ),
     "recoverable" -> HInterface("recoverable", Nil, None)
   )
 
@@ -209,7 +214,11 @@ case object All extends HEvent // Includes all the above
 case object ReadMany extends HEvent // Retrieve many records. Translates to LIST event
 case object Mutate extends HEvent
 case object PushTo extends HEvent // Add item to array field
-case object DeleteFrom extends HEvent // Remove item from array field
+case object RemoveFrom extends HEvent // Remove item from array field
+// Permission to send attribute in create request
+// e.g. If aa `User` model has a `verified` attribute that you don't want the user to set
+// when they create their aaccount.
+case object SetOnCreate extends HEvent
 case object Recover extends HEvent // Undelete a record
 
 case class Permissions(
@@ -237,21 +246,21 @@ case object Deny extends RuleKind
 
 case class AccessRule(
     ruleKind: RuleKind,
-    resource: Resource,
+    resource: ResourcePath,
     actions: List[HEvent],
     predicate: Option[HFunctionValue[JsValue, Try[JsValue]]],
     position: Option[PositionRange]
 ) extends HConstruct
 
-trait Resource {
+trait ResourcePath {
   val parent: HShape
-  val child: Option[(HShapeField, Resource)]
+  val child: Option[(HShapeField, ResourcePath)]
 }
 
 case class ModelResource(
     parent: HModel,
     child: Option[(HModelField, ModelResource)] = None
-) extends Resource
+) extends ResourcePath
 
 case class HConfig(values: List[ConfigEntry], position: Option[PositionRange])
     extends HConstruct

@@ -25,6 +25,6 @@ class RequestOperations extends FlatSpec {
             }
         }
         """
-    pprintln(query.operations)
+    pprintln(query)
   }
 }

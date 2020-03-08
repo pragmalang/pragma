@@ -19,7 +19,7 @@ object HeavenlyParser {
       with Positioned
       with HFunctionValue[JsValue, Try[JsValue]]
       with HShape
-      with Resource {
+      with ResourcePath {
     override def execute(input: JsValue) =
       Failure(
         throw new Exception(
@@ -301,7 +301,8 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
         "LIST" -> ReadMany,
         "MUTATE" -> Mutate,
         "PUSH_TO" -> PushTo,
-        "DELETE_FROM" -> DeleteFrom,
+        "SET_ON_CREATE" -> SetOnCreate,
+        "REMOVE_FROM" -> RemoveFrom,
         "RECOVER" -> Recover
       )
     )
@@ -343,7 +344,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
           start: Int,
           ruleKind: RuleKind,
           events: List[HEvent],
-          resource: Resource,
+          resource: ResourcePath,
           predicate: Option[Reference],
           end: Int
       ) =>

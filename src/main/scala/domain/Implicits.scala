@@ -7,6 +7,8 @@ import org.graalvm.polyglot
 import scala.util.{Try, Success, Failure}
 
 package object Implicits {
+
+  import running.JwtPaylod
   implicit object HvalueJsonFormater extends JsonWriter[HValue] {
 
     @throws[Error]
@@ -68,6 +70,7 @@ package object Implicits {
   implicit class StringMethods(s: String) {
     import sys.process._
     def small = s.updated(0, s.head.toString.toLowerCase.head)
+    def decodeJwt = JwtPaylod.decode(s)
     def $(msg: String, logsHandler: String => Unit = _ => ()) =
       s ! ProcessLogger(logsHandler) match {
         case 1 => Failure(new Exception(msg))
