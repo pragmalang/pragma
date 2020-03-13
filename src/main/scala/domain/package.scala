@@ -299,27 +299,11 @@ case object Deny extends RuleKind
 
 case class AccessRule(
     ruleKind: RuleKind,
-    resourcePath: ResourcePath,
+    resourcePath: (HShape, Option[HShapeField]),
     actions: List[HEvent],
     predicate: Option[HFunctionValue[JsValue, Try[JsValue]]],
     position: Option[PositionRange]
 ) extends HConstruct
-
-trait ResourcePath {
-  type Field <: HShapeField
-  val root: HShape
-  val fieldPath: List[Field]
-
-  override def toString(): String =
-    root.id + fieldPath.foldLeft("")(_ + "." + _.id)
-}
-
-case class ModelResourcePath(
-    root: HModel,
-    fieldPath: List[HModelField]
-) extends ResourcePath {
-  override type Field = HModelField
-}
 
 case class HConfig(values: List[ConfigEntry], position: Option[PositionRange])
     extends HConstruct

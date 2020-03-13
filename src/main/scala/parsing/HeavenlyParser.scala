@@ -12,14 +12,15 @@ import scala.util.{Try, Failure}
 object HeavenlyParser {
   // Dummy classes will be substituted at substitution time
   case class Reference(
-      id: String,
-      childRef: Option[Reference],
-      position: Option[PositionRange]
+      path: List[String],
+      position: Option[PositionRange] = None
   ) extends Identifiable
       with Positioned
       with HFunctionValue[JsValue, Try[JsValue]]
       with HShape
-      with ResourcePath {
+      with HShapeField {
+    override val id = toString
+
     override def execute(input: JsValue) =
       Failure(
         throw new Exception(
@@ -30,17 +31,10 @@ object HeavenlyParser {
     override val htype: HFunction =
       HFunction(ListMap.empty, HAny)
 
-    override def toString: String =
-      id + childRef.map("." + _.toString).getOrElse("")
+    override def toString: String = path.foldLeft("")(_ + "." + _)
 
     override val fields: List[HShapeField] = Nil
 
-    override val fieldPath = Nil
-
-    override val root = new HShape {
-      val fields: List[domain.HShapeField] = Nil
-      override val id: String = "DUMMY REFERENCE, SHOULD BE SUBSTITUTED"
-    }
   }
 
 }
@@ -322,15 +316,13 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   }
 
   def ref: Rule1[Reference] = rule {
-    push(cursor) ~ identifier ~
-      optional("." ~ ref) ~ push(cursor) ~> {
+    push(cursor) ~ oneOrMore(identifier).separatedBy(".") ~ push(cursor) ~> {
       (
           start: Int,
-          parent: String,
-          child: Option[Reference],
+          path: Seq[String],
           end: Int
       ) =>
-        Reference(parent, child, Some(PositionRange(start, end)))
+        Reference(path.toList, Some(PositionRange(start, end)))
     }
   }
 
@@ -344,13 +336,16 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
           start: Int,
           ruleKind: RuleKind,
           events: List[HEvent],
-          resource: ResourcePath,
+          resource: Reference,
           predicate: Option[Reference],
           end: Int
       ) =>
         AccessRule(
           ruleKind,
-          resource,
+          (
+            Reference(resource.path.head :: Nil),
+            resource.path.lift(1).map(child => Reference(child :: Nil))
+          ),
           events,
           predicate,
           Some(PositionRange(start, end))

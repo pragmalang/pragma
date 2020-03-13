@@ -13,22 +13,11 @@ class PermissionsParsing extends FlatSpec {
     val expected = List(
       AccessRule(
         Allow,
-        Reference(
-          "Book",
-          None,
-          Some(PositionRange(Position(19, 2, 19), Position(23, 2, 23)))
-        ),
+        (Reference(List("Book"), None), None),
         List(Create, Read, Update, Delete),
         Some(
           Reference(
-            "authorizors",
-            Some(
-              Reference(
-                "f",
-                None,
-                Some(PositionRange(Position(36, 2, 36), Position(37, 2, 37)))
-              )
-            ),
+            List("authorizors", "f"),
             Some(PositionRange(Position(24, 2, 24), Position(37, 2, 37)))
           )
         ),
@@ -36,22 +25,11 @@ class PermissionsParsing extends FlatSpec {
       ),
       AccessRule(
         Deny,
-        Reference(
-          "Todo",
-          None,
-          Some(PositionRange(Position(68, 3, 31), Position(72, 3, 35)))
-        ),
+        (Reference(List("Todo"), None), None),
         List(Create, Delete),
         Some(
           Reference(
-            "authorizors",
-            Some(
-              Reference(
-                "g",
-                None,
-                Some(PositionRange(Position(85, 3, 48), Position(86, 3, 49)))
-              )
-            ),
+            List("authorizors", "g"),
             Some(PositionRange(Position(73, 3, 36), Position(86, 3, 49)))
           )
         ),

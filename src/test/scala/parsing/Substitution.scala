@@ -48,8 +48,7 @@ class Substitution extends FlatSpec {
     val ctx = Substitutor.getContext(syntaxTree.imports).get
     val ref = HeavenlyParser
       .Reference(
-        "fns",
-        Some(HeavenlyParser.Reference("validateCat", None, None)),
+        List("fns", "validateCat"),
         None
       )
     val retrieved = Substitutor.getReferencedFunction(ref, ctx.value)
@@ -76,12 +75,11 @@ class Substitution extends FlatSpec {
     import "./src/test/scala/parsing/test-functions.js" as fns
 
     role User {
-      allow ALL Todo fns.isOwner
+      allow ALL Todo.title fns.isOwner
     }
     """
     val syntaxTree = SyntaxTree.from(code).get
-    val substituted = Substitutor.substitute(syntaxTree).get
-    val newGlobalTenant = substituted.permissions.get.globalTenant
+    val newGlobalTenant = syntaxTree.permissions.get.globalTenant
     val todoOwnershipPredicate =
       newGlobalTenant.roles.head.rules.head.predicate.get
         .asInstanceOf[GraalFunction]
