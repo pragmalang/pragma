@@ -105,7 +105,53 @@ case class HModel(
   lazy val primaryField =
     fields.find(_.directives.exists(_.id == "primary")).get
 
-  lazy val hooks = directives.filter(_.id == "validate")
+  lazy val readHooks = directives
+    .filter(_.id == "onRead")
+    .map { dir =>
+      dir.args.value.get("function") match {
+        case Some(fn: HFunctionValue[_, _]) => fn
+        case None =>
+          throw new InternalException(
+            s"`onRead` directive of model `$id` must have one function argument. Something must've went wrong during validation"
+          )
+        case _ =>
+          throw new InternalException(
+            s"Function provided to `onRead` of model `$id` should be a function. Something must've went wrong during substitution"
+          )
+      }
+    }
+
+  lazy val writeHooks = directives
+    .filter(_.id == "onWrite")
+    .map { dir =>
+      dir.args.value.get("function") match {
+        case Some(fn: HFunctionValue[_, _]) => fn
+        case None =>
+          throw new InternalException(
+            s"`onWrite` directive of model `$id` must have one function argument. Something must've went wrong during validation"
+          )
+        case _ =>
+          throw new InternalException(
+            s"Value provided to `onWrite` of model `$id` should be a function. Something must've went wrong during substitution"
+          )
+      }
+    }
+
+  lazy val deleteHooks = directives
+    .filter(_.id == "onDelete")
+    .map { dir =>
+      dir.args.value.get("function") match {
+        case Some(fn: HFunctionValue[_, _]) => fn
+        case None =>
+          throw new InternalException(
+            s"`onDelete` directive of model `$id` must have one function argument. Something must've went wrong during validation"
+          )
+        case _ =>
+          throw new InternalException(
+            s"Value provided to `onDelete` of model `$id` should be a function. Something must've went wrong during substitution"
+          )
+      }
+    }
 }
 
 case class HInterface(
@@ -129,9 +175,7 @@ case class HModelField(
     defaultValue: Option[HValue],
     directives: List[Directive],
     position: Option[PositionRange]
-) extends HShapeField {
-  lazy val hooks = directives.filter(d => d.id == "get" || d.id == "set")
-}
+) extends HShapeField
 
 case class HInterfaceField(
     id: String,
@@ -166,6 +210,15 @@ object BuiltInDefs {
     ),
     "onRead" -> HInterface(
       "onRead",
+      HInterfaceField(
+        "function",
+        HFunction(ListMap("request" -> Request.hType), HAny),
+        None
+      ) :: Nil,
+      None
+    ),
+    "onDelete" -> HInterface(
+      "onDelete",
       HInterfaceField(
         "function",
         HFunction(ListMap("request" -> Request.hType), HAny),
@@ -235,7 +288,7 @@ case class Tenant(
     with Positioned
 
 case class Role(
-    user: HType,
+    user: HReference,
     rules: List[AccessRule],
     position: Option[PositionRange] = None
 ) extends HConstruct
@@ -246,21 +299,27 @@ case object Deny extends RuleKind
 
 case class AccessRule(
     ruleKind: RuleKind,
-    resource: ResourcePath,
+    resourcePath: ResourcePath,
     actions: List[HEvent],
     predicate: Option[HFunctionValue[JsValue, Try[JsValue]]],
     position: Option[PositionRange]
 ) extends HConstruct
 
 trait ResourcePath {
-  val parent: HShape
-  val child: Option[(HShapeField, ResourcePath)]
+  type Field <: HShapeField
+  val root: HShape
+  val fieldPath: List[Field]
+
+  override def toString(): String =
+    root.id + fieldPath.foldLeft("")(_ + "." + _.id)
 }
 
-case class ModelResource(
-    parent: HModel,
-    child: Option[(HModelField, ModelResource)] = None
-) extends ResourcePath
+case class ModelResourcePath(
+    root: HModel,
+    fieldPath: List[HModelField]
+) extends ResourcePath {
+  override type Field = HModelField
+}
 
 case class HConfig(values: List[ConfigEntry], position: Option[PositionRange])
     extends HConstruct

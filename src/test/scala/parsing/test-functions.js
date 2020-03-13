@@ -15,3 +15,7 @@ function validateCat(cat) {
 function isOwner({ user, todo }) {
     return user.todos.includes(todo)
 }
+
+function isSelf(self, other) {
+    return self.id == other.id
+}

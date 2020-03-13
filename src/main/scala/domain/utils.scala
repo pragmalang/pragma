@@ -17,6 +17,10 @@ package object utils {
 
   class InternalException(message: String)
       extends Exception(s"Internal Exception: ${message}")
+
+  class InvalidRequestHasPassed(message: String)
+      extends InternalException(message)
+
   class TypeMismatchException(expected: List[HType], found: HType)
       extends InternalException(
         s"Type Mismatch. Expected ${if (expected.length == 1) displayHType(expected.head)

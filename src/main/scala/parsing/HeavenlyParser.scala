@@ -35,9 +35,9 @@ object HeavenlyParser {
 
     override val fields: List[HShapeField] = Nil
 
-    override val child = None
+    override val fieldPath = Nil
 
-    override val parent = new HShape {
+    override val root = new HShape {
       val fields: List[domain.HShapeField] = Nil
       override val id: String = "DUMMY REFERENCE, SHOULD BE SUBSTITUTED"
     }

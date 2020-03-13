@@ -180,7 +180,7 @@ object Substitutor {
       Failure {
         new UserError(
           (
-            s"Predicate `${rule.predicate.asInstanceOf[Reference]}` is not defined",
+            s"Predicate `${rule.predicate.get}` is not defined",
             newPredicate._2
           ) :: Nil
         )
