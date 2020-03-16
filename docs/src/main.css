@@ -2,3 +2,13 @@
     padding: 0;
     line-height: 0;
 }
+
+.logo-img {
+    width: 150px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.hidden {
+    display: none;
+}

@@ -3,11 +3,11 @@ authors = ["Anas Albarghouthy, Mohammed Tabaza"]
 language = "en"
 multilingual = false
 src = "."
-title = "Heavenly-x"
+title = "Pragma"
 
 [build]
 
 [output.html]   
 additional-js = ["./src/main.js"]
 additional-css = ["./src/main.css"]
-default-theme = "ayu"
+default-theme = "navy"

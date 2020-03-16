@@ -125,14 +125,6 @@ input ComparisonInput {
   value: Any!
 }
 
-directive @filter(filter: FilterInput!)
-directive @order(order: OrderEnum!) on FIELD
-directive @range(range: RangeInput!) on FIELD
-directive @first(first: Int!) on FIELD
-directive @last(last: Int!) on FIELD
-directive @skip(skip: Int!) on FIELD
-directive @listen(to: EVENT_ENUM) on FIELD # on field selections inside a subscription
-
 enum EVENT_ENUM {
   REMOVE
   NEW
@@ -140,6 +132,14 @@ enum EVENT_ENUM {
 }
 
 scalar Any
+
+directive @filter(filter: FilterInput!) on FIELD
+directive @order(order: OrderEnum!) on FIELD
+directive @range(range: RangeInput!) on FIELD
+directive @first(first: Int!) on FIELD
+directive @last(last: Int!) on FIELD
+directive @skip(skip: Int!) on FIELD
+directive @listen(to: EVENT_ENUM!) on FIELD # on field selections inside a subscription
 ```
 
 - For each model there exist:
@@ -158,7 +158,7 @@ scalar Any
   ```
   2. ✔️ `{model.id}Input` input type where all fields are optional and field of non-primitive types take the type `{field.type.id}Input`.
   ```
-  type {model.id}Input {
+  input {model.id}Input {
     {model.id.small}: {model.id}
     {for field in model.fields}
       {field.id}: {field.type.id}
@@ -175,7 +175,9 @@ scalar Any
   8. `{model.id}Mutations` output type which it's shape is generated using the folowing template:
   ```
   type {model.id}Mutations {
-    login(publicCredential: String, secretCredential: String): String
+    {if model.isUserModel}
+      login(publicCredential: String, {model.secretCredential}: String): String
+    {endif}
     create({model.id}: {model.id}Input!): {model.id}
     update({model.primaryField.id}: {model.primaryField.type}!, {model.id}: {model.id}Input!): {model.id}
     upsert({model.id}: {model.id}Input!): {model.id}
@@ -183,12 +185,12 @@ scalar Any
     createMany({model.id}: [{model.id}Input]!): [{model.id}]
     updateMany({model.id}: [{model.id}Input]!): [{model.id}]
     upsertMany({model.id}: [{model.id}Input]!): [{model.id}]
-    deleteMany({model.primaryField.id}: [{model.primaryField.type}]): [{model.id}] # directives: @filter
+    deleteMany(items: [{model.primaryField.type}!]!): [{model.id}] # directives: @filter
     {for field in model.field.filter(isList)}
-      pushTo{field.id}(item: {field.type.id}Input!): {field.type}
+      pushTo{field.id}(item: {field.type.id}Input!): {field.type.named}
       pushManyTo{field.id}(items: [{field.type.id}Input!]!): {field.type}
-      deleteFrom{field.id}({field.type.primaryField.id}: {field.type.primaryField.type}!): {field.type.id}
-      deleteManyFrom{field.id}({field.primaryField.id}: [{field.type.primaryField.type}]): [{field.type.id}] # directives: @filter
+      removeFrom{field.id}({field.type.primaryField.id}: {field.type.primaryField.type}!): {field.type.named}
+      removeManyFrom{field.id}(items: [{field.type.primaryField.type}!]!): {field.type} # directives: @filter
     {endfor}
     recover({model.primaryField.id}: {model.primaryField.type}!): {model.id}
     recoverMany({model.primaryField.id}: [{model.primaryField.type}]): [{model.id}] # directives: @filter

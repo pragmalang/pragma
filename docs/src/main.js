@@ -9,7 +9,7 @@ function newTabExternalLinks() {
     .forEach(link => link.setAttribute("target", "_blank"));
 }
 
-function highlightHeavenlyCode() {
+function highlightPragmaCode() {
   // ...
 }
 
@@ -20,17 +20,50 @@ function addLinkToMenuTitle() {
   const newMenuTitle = menuBar.children.item(1).cloneNode()
   newMenuTitle.innerText = title
 
-  const logoImage = document.createElement("img")
-  logoImage.setAttribute("src", "/purple-logo.png")
-  logoImage.setAttribute("class", "logo-img")
+  const isLightTheme = () => {
+    const htmlTagClasses = document.getElementsByTagName("body").item("").classList
+    return htmlTagClasses.contains("rust") || htmlTagClasses.contains("light")
+  }
 
-  a.appendChild(newMenuTitle);
-  a.setAttribute("href", "/")
+  const lightThemeListener = () => {
+    document.getElementById("logo").setAttribute("src", "/purple-logo.svg")
+  }
+
+  const darkThemeListener = () => {
+    document.getElementById("logo").setAttribute("src", "/white-logo.svg")
+  }
+
+  const addClickListenersToThemeButtons = () => {
+    const lightThemes = ["light", "rust"];
+    const darkThemes = ["coal", "navy", "ayu"]
+    for(let lightTheme of lightThemes) {
+      document.getElementById(lightTheme).onclick = lightThemeListener
+    }
+
+    for(let darkTheme of darkThemes) {
+      document.getElementById(darkTheme).onclick = darkThemeListener
+    }
+  }
+
+  const logoImage = document.createElement("img")
+
+  if(isLightTheme()) {
+    logoImage.setAttribute("src", "/purple-logo.svg")
+  } else {
+    logoImage.setAttribute("src", "/white-logo.svg")
+  }
+
+  logoImage.setAttribute("class", "logo-img")
+  logoImage.setAttribute("id", "logo")
+  addClickListenersToThemeButtons()
+
+  a.appendChild(logoImage);
+  a.setAttribute("href", "https://pragmalang.com")
   a.className = "menu-title custom-a"
   menuBar.children.item(1).insertAdjacentElement("afterend",a)
   menuBar.children.item(1).remove()
 }
 
 newTabExternalLinks();
-highlightHeavenlyCode();
+highlightPragmaCode();
 addLinkToMenuTitle();

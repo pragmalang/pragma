@@ -2,7 +2,7 @@
 
 An *enum* is a definition of all possible values of a particular type. For example:
 
-```heavenly-x
+```pragma
 enum WeekDay {
     SUNDAY
     MONDAY
@@ -16,7 +16,7 @@ enum WeekDay {
 
 Enum values are dealt with as regular `String` values, so the above definition is equivalent to:
 
-```heavenly-x
+```pragma
 enum WeekDay {
     "SUNDAY"
     "MONDAY"

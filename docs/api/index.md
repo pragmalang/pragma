@@ -1,4 +1,5 @@
-# API
+# The Generated GraphQL API
 
-- [Request](./request.md)
-- [Response](./response.md)
+- Queryies
+- Mutations
+- Subscriptions

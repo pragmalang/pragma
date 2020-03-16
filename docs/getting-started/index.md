@@ -1,3 +1,3 @@
 # Getting Started
 
-> Heavenly-x is currently under active development and will be released by December 25th. You can sign up for [early access here](https://heavenlyx.com/get-started)
+> Pragma is currently under active development and will be released in April 2020. You can sign up for [beta here](https://pragmalang.com/beta)
