@@ -57,4 +57,4 @@ mutation createUser {
 }
 ```
 
-This returns the `username` and `fullName` of the newly created user. See The Generated API section for more details.
+This returns the `username` and `fullName` of the newly created user. See The [Generated API](./api/index.md) section for more details.

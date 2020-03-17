@@ -6,7 +6,7 @@ One way of setting up autorization for an app, is by using [Access Control Lists
 
 ## Example Online Course App
 
-Let's say we're designing an online course management tool. Each instructor teaches one course, and they control which students enrol in it. Instructors, students, and courses can be modeled as follows:
+Let's say we're designing an online course management app. Each instructor teaches one course, and they control which students enrol in it. Instructors, students, and courses can be modeled as follows:
 
 ```pragma
 @user
@@ -45,16 +45,18 @@ Here we define a `role` block where we specify that the `Instructor` can do `ALL
 
 ### Rules with Custom Predicates
 
-Let's say that we want to restrict `Instructor`s to accessing the course that belongs to them. We can do this by passing a predicate (a function that returns a `true` or `false`) in which we compare the course that the `Instructor` is trying to access with the `Instructor`'s `course` field.
+Let's say that we want to restrict `Instructor`s to accessing the course that belongs to them. We can do this by passing a predicate (a function that returns `true` or `false`) in which we compare the course that the `Instructor` is trying to access with the instructor's `course` field.
 
 ```pragma
+import auth from "./auth-rules.js"
+
 role Instructor {
   allow ALL Course auth.courseBelongsToInstructor
   allow ALL Student
 }
 ```
 
-`auth.courseBelongsToInstructor` is just a JavaScript function defined in `./auth-rules.js`:
+`auth.courseBelongsToInstructor` is a JavaScript function defined in `./auth-rules.js`:
 
 ```js
 export const courseBelongsToInstructor = 
@@ -75,4 +77,4 @@ role Instructor {
 allow CREATE Student
 ```
 
-Notice that the newly added rule is not inside any `role` block. This tells Pragma that anyone can create a `Student`
+Notice that the newly added rule is not inside any `role` block. This tells Pragma that anyone can create a `Student`, even if there is not user model defined for them.

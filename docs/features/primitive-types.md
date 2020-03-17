@@ -1,5 +1,7 @@
 # Primitive Types
 
+Pragma supports many primitive types that can be used in model field definitions.
+
 ## String
 Represents a sequence of utf-8 characters. `String` values can be expressed using `String` literals, for example: `"Hello"`.
 
