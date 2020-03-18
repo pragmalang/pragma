@@ -59,9 +59,15 @@ package object utils {
       case HArray(t)  => s"[${displayHType(t, isVerbose = false)}]"
       case HOption(t) => s"${displayHType(t, isVerbose = false)}?"
       case HModel(id, fields, directives, _) =>
-        if (isVerbose)
-          s"${directives.map(displayDirective).mkString("\n")}\nmodel $id {\n${fields.map(displayField).map("  " + _).mkString("\n")}\n}"
-        else id
+        if (isVerbose) {
+          val renderedModel =
+            s"model $id {\n${fields.map(displayField).map("  " + _).mkString("\n")}\n}\n"
+          if (directives.isEmpty) {
+            renderedModel
+          } else {
+            s"${directives.map(displayDirective).mkString("\n")}\n$renderedModel"
+          }
+        } else id
       case HInterface(id, fields, position) =>
         if (isVerbose)
           s"interface $id {\n${fields.map(displayField).mkString("\n")}\n}"
@@ -108,7 +114,7 @@ package object utils {
     case HModelValue(value, htype) =>
       s"{\n${value.map(v => s" ${v._1}: ${displayHValue(v._2)}").mkString(",\n")}\n}"
     case HOptionValue(value, valueType) => value.map(displayHValue).mkString
-    case HStringValue(value)            => value
+    case HStringValue(value)            => s""""$value""""
     case HDateValue(value)              => value.toString
     case HBoolValue(value)              => value.toString
     case f: HFunctionValue[_, _] =>
