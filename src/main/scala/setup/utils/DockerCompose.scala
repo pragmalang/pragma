@@ -11,8 +11,7 @@ case class DockerCompose(
     volumes: Option[JsObject] = None,
     version: String = "3"
 ) {
-
-  def render: String =
+  override def toString(): String =
     JsObject(
       volumes match {
         case None =>
@@ -28,4 +27,15 @@ case class DockerCompose(
           )
       }
     ).renderYaml()
+
+  def +(that: DockerCompose): DockerCompose = DockerCompose(
+    services = JsObject(that.services.fields ++ services.fields),
+    volumes = (this.volumes, that.volumes) match {
+      case (Some(thisVolumes), Some(thatVolumes)) =>
+        Some(JsObject(thisVolumes.fields ++ thisVolumes.fields))
+      case (Some(thisVolumes), None) => Some(thisVolumes)
+      case (None, Some(thatVolumes)) => Some(thatVolumes)
+      case _                         => None
+    }
+  )
 }
