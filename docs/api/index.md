@@ -2,6 +2,8 @@
 
 ## Example:
 
+This is the same example in the [demo video that's on our landing page](https://pragmalang.com)
+
 ```pragma
 @user
 model User {
@@ -31,17 +33,17 @@ The above Pragma schema will generate the bellow GraphQL API schema:
 ```graphql
 type Query {
   User: UserQueries
-	Tweet: TweetQueries
+  Tweet: TweetQueries
 }
 
 type Mutation {
-	User: UserMutations
-	Tweet: TweetMutations
+  User: UserMutations
+  Tweet: TweetMutations
 }
 
 type Subscription {
-	User: UserSubscriptions
-	Tweet: TweetSubscriptions
+  User: UserSubscriptions
+  Tweet: TweetSubscriptions
 }
 
 type User {
@@ -59,53 +61,53 @@ type User {
 }
 
 type UserQueries {
-	read(username: String!): User
-	list(where: WhereInput): [User]!
+  read(username: String!): User
+  list(where: WhereInput): [User]!
 }
 
 type UserSubscriptions {
-	read(username: String!): User
-	list(where: WhereInput): User
+  read(username: String!): User
+  list(where: WhereInput): User
 }
 
 type UserMutations {
-	login(publicCredential: String, secretCredential: String): String
-	create(user: UserInput!): User
-	update(username: String!, user: UserInput!): User
-	upsert(user: UserInput!): User
-	delete(username: String!): User
-	createMany(user: [UserInput]!): [User]
-	updateMany(user: [UserInput]!): [User]
-	upsertMany(user: [UserInput]!): [User]
-	deleteMany(items: [String]): [User]
+  login(publicCredential: String, secretCredential: String): String
+  create(user: UserInput!): User
+  update(username: String!, user: UserInput!): User
+  upsert(user: UserInput!): User
+  delete(username: String!): User
+  createMany(user: [UserInput]!): [User]
+  updateMany(user: [UserInput]!): [User]
+  upsertMany(user: [UserInput]!): [User]
+  deleteMany(items: [String]): [User]
 
-	pushToFollowers(item: UserInput!): User
-	pushManyToFollowers(items: [UserInput!]!): [User]
-	removeFromFollowers(username: String!): User
-	removeManyFromFollowers(items: [String!]!): [User]
+  pushToFollowers(item: UserInput!): User
+  pushManyToFollowers(items: [UserInput!]!): [User]
+  removeFromFollowers(username: String!): User
+  removeManyFromFollowers(items: [String!]!): [User]
 
-	pushToFollowing(item: UserInput!): User
-	pushManyToFollowing(items: [UserInput!]!): [User]
-	removeFromFollowing(username: String!): User
-	removeManyFromFollowing(items: [String!]!): [User]
+  pushToFollowing(item: UserInput!): User
+  pushManyToFollowing(items: [UserInput!]!): [User]
+  removeFromFollowing(username: String!): User
+  removeManyFromFollowing(items: [String!]!): [User]
 
-	pushToTweets(item: TweetInput!): Tweet
-	pushManyToTweets(items: [TweetInput!]!): [Tweet]
-	removeFromTweets(id: String!): Tweet
-	removeManyFromTweets(items: [String!]!): [Tweet]
+  pushToTweets(item: TweetInput!): Tweet
+  pushManyToTweets(items: [TweetInput!]!): [Tweet]
+  removeFromTweets(id: String!): Tweet
+  removeManyFromTweets(items: [String!]!): [Tweet]
 
-	pushToRetweets(item: TweetInput!): Tweet
-	pushManyToRetweets(items: [TweetInput!]!): [Tweet]
-	removeFromRetweets(id: String!): Tweet
-	removeManyFromRetweets(items: [String!]!): [Tweet]
+  pushToRetweets(item: TweetInput!): Tweet
+  pushManyToRetweets(items: [TweetInput!]!): [Tweet]
+  removeFromRetweets(id: String!): Tweet
+  removeManyFromRetweets(items: [String!]!): [Tweet]
 
-	pushToLikes(item: TweetInput!): Tweet
-	pushManyToLikes(items: [TweetInput!]!): [Tweet]
-	removeFromLikes(id: String!): Tweet
-	removeManyFromLikes(items: [String!]!): [Tweet]
+  pushToLikes(item: TweetInput!): Tweet
+  pushManyToLikes(items: [TweetInput!]!): [Tweet]
+  removeFromLikes(id: String!): Tweet
+  removeManyFromLikes(items: [String!]!): [Tweet]
 
-	recover(id: String!): User
-	recoverMany(id: [String]): [User]
+  recover(id: String!): User
+  recoverMany(id: [String]): [User]
 }
 
 input UserInput {
@@ -132,41 +134,41 @@ type Tweet {
 }
 
 type TweetQueries {
-	read(id: String!): Tweet
-	list(where: WhereInput): [Tweet]!
+  read(id: String!): Tweet
+  list(where: WhereInput): [Tweet]!
 }
 
 type TweetSubscriptions {
-	read(id: String!): Tweet
-	list(where: WhereInput): Tweet
+  read(id: String!): Tweet
+  list(where: WhereInput): Tweet
 }
 
 type TweetMutations {
-	create(tweet: TweetInput!): Tweet
-	update(id: String!, tweet: TweetInput!): Tweet
-	upsert(tweet: TweetInput!): Tweet
-	delete(id: String!): Tweet
-	createMany(tweet: [TweetInput]!): [Tweet]
-	updateMany(tweet: [TweetInput]!): [Tweet]
-	upsertMany(tweet: [TweetInput]!): [Tweet]
-	deleteMany(items: [String!]!): [Tweet]
-	recover(id: String!): Tweet
-	recoverMany(id: [String]): [Tweet]
+  create(tweet: TweetInput!): Tweet
+  update(id: String!, tweet: TweetInput!): Tweet
+  upsert(tweet: TweetInput!): Tweet
+  delete(id: String!): Tweet
+  createMany(tweet: [TweetInput]!): [Tweet]
+  updateMany(tweet: [TweetInput]!): [Tweet]
+  upsertMany(tweet: [TweetInput]!): [Tweet]
+  deleteMany(items: [String!]!): [Tweet]
+  recover(id: String!): Tweet
+  recoverMany(id: [String]): [Tweet]
 
-	pushToLikes(item: UserInput!): User
-	pushManyToLikes(items: [UserInput!]!): [User]
-	removeFromLikes(username: String!): User
-	removeManyFromLikes(items: [String!]!): [User]
+  pushToLikes(item: UserInput!): User
+  pushManyToLikes(items: [UserInput!]!): [User]
+  removeFromLikes(username: String!): User
+  removeManyFromLikes(items: [String!]!): [User]
 
-	pushToRetweets(item: UserInput!): User
-	pushManyToRetweets(items: [UserInput!]!): [User]
-	removeFromRetweets(username: String!): User
-	removeManyFromRetweets(items: [String!]!): [User]
+  pushToRetweets(item: UserInput!): User
+  pushManyToRetweets(items: [UserInput!]!): [User]
+  removeFromRetweets(username: String!): User
+  removeManyFromRetweets(items: [String!]!): [User]
 
-	pushToReplies(item: TweetInput!): Tweet
-	pushManyToReplies(items: [TweetInput!]!): [Tweet]
-	removeFromReplies(id: String!): Tweet
-	removeManyFromReplies(items: [String!]!): [Tweet]
+  pushToReplies(item: TweetInput!): Tweet
+  pushManyToReplies(items: [TweetInput!]!): [Tweet]
+  removeFromReplies(id: String!): Tweet
+  removeManyFromReplies(items: [String!]!): [Tweet]
 }
 
 input TweetInput {
