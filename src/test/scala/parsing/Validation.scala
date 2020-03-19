@@ -8,7 +8,7 @@ class Validation extends FlatSpec {
     val code = """
       model User {
           name: String = "John Doe"
-          age: Integer = "Not an Integer"
+          age: Int = "Not an Integer"
           petName: String? = "Fluffykins"
           friends: [String] = ["John", "James", "Jane"]
           favoriteNumbers: [Float] = [1.0, 42.0, "TEXT", 2]
@@ -19,9 +19,9 @@ class Validation extends FlatSpec {
     val st = new HeavenlyParser(code).syntaxTree.run().get
     val validator = new Validator(st)
     val expectedErrors = List(
-      "Invalid default value of type `String` for field `age` of type `Integer`",
+      "Invalid default value of type `String` for field `age` of type `Int`",
       "Invalid values for array field `favoriteNumbers` (all array elements must have the same type)",
-      "Invalid default value of type `Integer` for optional field `invalidOptional` of type `String?`"
+      "Invalid default value of type `Int` for optional field `invalidOptional` of type `String?`"
     )
     validator.checkFieldValueType match {
       case Failure(e: UserError) =>
