@@ -5,13 +5,16 @@ import parsing.Substitutor
 import domain.{HImport, GraalFunction, SyntaxTree}
 import spray.json._
 import scala.util.Success
+import org.graalvm.polyglot.Context
 
 class Substitution extends FlatSpec {
 
   "Substitutor" should "return an object containing all defined functions in a file as GraalFunctionValues using readGraalFunctions" in {
     val himport =
       HImport("functions", "./src/test/scala/parsing/test-functions.js", None)
-    val functionObject = Substitutor.readGraalFunctions(himport).get
+    val graalCtx = Context.create()
+    val functionObject =
+      Substitutor.readGraalFunctionsIntoContext(himport, graalCtx).get
     val f = functionObject.value("f").asInstanceOf[GraalFunction]
     val additionResult = f.execute(JsNumber(2))
     assert(
@@ -45,7 +48,8 @@ class Substitution extends FlatSpec {
     import "./src/test/scala/parsing/test-functions.js" as fns
     """
     val syntaxTree = SyntaxTree.from(code).get
-    val ctx = Substitutor.getContext(syntaxTree.imports).get
+    val graalCtx = Context.create()
+    val ctx = Substitutor.getContext(syntaxTree.imports, graalCtx).get
     val ref = HeavenlyParser
       .Reference(
         List("fns", "validateCat"),

@@ -4,11 +4,13 @@ import domain._, primitives._, utils._, HeavenlyParser.Reference
 import scala.util.{Try, Success, Failure}
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.ListMap
+import org.graalvm.polyglot._
 
 object Substitutor {
 
   def substitute(st: SyntaxTree): Try[SyntaxTree] = {
-    val ctx = getContext(st.imports) match {
+    val graalCtx = Context.create()
+    val ctx = getContext(st.imports, graalCtx) match {
       case Success(ctx) => ctx
       case Failure(err) => return Failure(err)
     }
@@ -41,12 +43,16 @@ object Substitutor {
       )
     else
       Failure(new UserError(allErrors))
-
   }
 
   // Gets all  imported functions as a single object
-  def getContext(imports: List[HImport]): Try[HInterfaceValue] = {
-    val importedObjects = imports zip imports.map(readGraalFunctions)
+  def getContext(
+      imports: List[HImport],
+      graalCtx: Context
+  ): Try[HInterfaceValue] = {
+    val importedObjects = imports zip imports.map(
+      readGraalFunctionsIntoContext(_, graalCtx)
+    )
     val importErrors = importedObjects.collect {
       case (imp, Failure(exception)) => (exception.getMessage, imp.position)
     }
@@ -66,14 +72,20 @@ object Substitutor {
       }
   }
 
-  def readGraalFunctions(himport: HImport): Try[HInterfaceValue] = Try {
-    import org.graalvm.polyglot._
-    val graalCtx = Context.create("js")
+  /** Reads code into the passed `graalCtx` and returns the
+    * definitions in the import
+    */
+  def readGraalFunctionsIntoContext(
+      himport: HImport,
+      graalCtx: Context
+  ): Try[HInterfaceValue] = Try {
     val file = new java.io.File(himport.filePath)
     val languageId = Source.findLanguage(file)
     val source = Source.newBuilder(languageId, file).build()
     graalCtx.eval(source)
-    val defKeys = graalCtx.getBindings(languageId).getMemberKeys()
+    val throwawayCtx = Context.create(languageId)
+    throwawayCtx.eval(source)
+    val defKeys = throwawayCtx.getBindings(languageId).getMemberKeys()
     val hobj = ListMap.from(
       defKeys.asScala.map { defId =>
         defId -> GraalFunction(

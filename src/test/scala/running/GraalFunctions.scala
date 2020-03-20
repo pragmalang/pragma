@@ -4,12 +4,14 @@ import org.graalvm.polyglot._
 import domain.Implicits.GraalValueJsonFormater
 import org.scalatest.FlatSpec
 import spray.json._
+import domain.SyntaxTree
+import parsing.Substitutor
+import domain._
+import domain.primitives.`package`.HInterfaceValue
 
 class GraalFunctions extends FlatSpec {
   "GraalValueJsonFormater" should "read and write Graal values correctly" in {
     val ctx = Context.create()
-    // ctx.eval("python", "def f(d): return d['id']")
-    // ctx.eval("js", "const g = o => o.name")
 
     val graalValue = ctx.eval(
       "js",
@@ -67,6 +69,27 @@ class GraalFunctions extends FlatSpec {
             )
           case _ => fail()
         }
+      }
+      case _ => fail()
+    }
+  }
+
+  "Graal Functions from different languages" should "compose" in {
+    val code = """
+      import "./src/test/scala/parsing/test-functions.js" as jsFns
+      import "./src/test/scala/parsing/test_functions.py" as pyFns
+    """
+    val st = SyntaxTree.from(code).get
+    val graalCtx = Context.create()
+    val ctx = Substitutor.getContext(st.imports, graalCtx).get
+    (
+      ctx.value("jsFns").asInstanceOf[HInterfaceValue].value("f"),
+      ctx.value("pyFns").asInstanceOf[HInterfaceValue].value("increment")
+    ) match {
+      case (jsFn: GraalFunction, pyFn: GraalFunction) => {
+        val jsFnOf1 = jsFn.execute(JsNumber(1)).get
+        val pyFnOfJsFnOf1 = pyFn.execute(jsFnOf1).get
+        assert(pyFnOfJsFnOf1 == JsNumber(3))
       }
       case _ => fail()
     }
