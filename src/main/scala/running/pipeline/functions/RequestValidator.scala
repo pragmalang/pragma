@@ -11,14 +11,15 @@ import setup.schemaGenerator.Implicits._
 import spray.json._
 import running.Implicits._
 import running.errors._
+import akka.stream.scaladsl.Source
 
 case class RequestValidator(syntaxTree: SyntaxTree)
-    extends PiplineFunction[Request, Try[Request]] {
+    extends PiplineFunction[Request, Source[Request, _]] {
 
-  override def apply(input: Request): Try[Request] = Try {
-    validateQuery(input).get
-    
-  }
+  override def apply(input: Request): Source[Request, _] =
+    Source.fromIterator { () =>
+      Iterator(validateQuery(input).get)
+    }
 
   val queryValidator = QueryValidator.default
 

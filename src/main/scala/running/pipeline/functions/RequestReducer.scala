@@ -2,23 +2,25 @@ package running.pipeline.functions
 
 import running.pipeline._
 import domain.SyntaxTree
-import scala.util.Try
 import sangria._, ast._
 import spray.json._
+import akka.stream.scaladsl.Source
 
 case class RequestReducer(syntaxTree: SyntaxTree)
-    extends PiplineFunction[Request, Try[Request]] {
+    extends PiplineFunction[Request, Source[Request, _]] {
 
-  override def apply(input: Request): Try[Request] =
-    Try {
-      input.copy(
-        query = RequestReducer
-          .reduceQuery(
-            syntaxTree,
-            input.query,
-            Some(input.queryVariables)
-          )
-      )
+  override def apply(input: Request): Source[Request, _] =
+    Source.fromIterator { () =>
+      Iterator {
+        input.copy(
+          query = RequestReducer
+            .reduceQuery(
+              syntaxTree,
+              input.query,
+              Some(input.queryVariables)
+            )
+        )
+      }
     }
 }
 

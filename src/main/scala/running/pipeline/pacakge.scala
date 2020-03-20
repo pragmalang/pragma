@@ -1,11 +1,11 @@
 package running.pipeline
 
-import scala.util.Try
+import akka.stream.scaladsl.Source
 
 trait PipelineInput
 
 trait PipelineOutput
 
-trait PiplineFunction[I <: PipelineInput, O <: Try[PipelineOutput]] {
+trait PiplineFunction[I <: PipelineInput, O <: Source[PipelineOutput, _]] {
   def apply(input: I): O
 }

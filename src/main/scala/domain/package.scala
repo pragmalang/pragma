@@ -40,7 +40,8 @@ case class SyntaxTree(
     models.find(model => model.id.toLowerCase == id.toLowerCase) orElse
       enums.find(enum => enum.id == id)
 
-  def render: String = (models ++ enums).map(displayHType(_, true)).mkString("\n\n")
+  def render: String =
+    (models ++ enums).map(displayHType(_, true)).mkString("\n\n")
 }
 object SyntaxTree {
   // The resulting syntax tree is validated and substituted
@@ -258,7 +259,22 @@ case class HEnum(
     with HType
     with HConstruct
 
-sealed trait HEvent
+sealed trait HEvent {
+  override def toString(): String = this match {
+    case All         => "ALL"
+    case Create      => "CREATE"
+    case Delete      => "DELETE"
+    case Mutate      => "MUTATE"
+    case PushTo      => "PUSH_TO"
+    case Read        => "READ"
+    case ReadMany    => "LIST"
+    case Recover     => "RECOVER"
+    case RemoveFrom  => "REMOVE_FROM"
+    case SetOnCreate => "SET_ON_CREATE"
+    case Update      => "UPDATE"
+    case e           => e.toString
+  }
+}
 case object Read extends HEvent // Retrieve record by IDe
 case object Create extends HEvent
 case object Update extends HEvent

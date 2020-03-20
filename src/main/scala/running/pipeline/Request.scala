@@ -243,4 +243,7 @@ object Operation {
     }
   }
 
+  def displayOpResource(op: Operation): String =
+    op.targetModel.id + op.fieldPath.foldLeft(".")(_ + _.field.id)
+
 }

@@ -15,11 +15,20 @@ package object utils {
   type Args = Either[PositionalArgs, NamedArgs]
   type Date = java.time.ZonedDateTime
 
-  class InternalException(message: String)
+  case class InternalException(message: String)
       extends Exception(s"Internal Exception: ${message}")
 
   class InvalidRequestHasPassed(message: String)
       extends InternalException(message)
+
+  case class AuthorizationError(
+      message: String,
+      cause: Option[String] = None,
+      suggestion: Option[String] = None,
+      position: Option[PositionRange] = None
+  ) extends Exception(
+        s"Authorization Error: $message${cause.map(". " + _).getOrElse("")}${suggestion.map(". " + _).getOrElse("")}"
+      )
 
   class TypeMismatchException(expected: List[HType], found: HType)
       extends InternalException(
@@ -38,6 +47,9 @@ package object utils {
         position: Option[PositionRange] = None
     ): UserError =
       UserError(List(errorMessage -> position))
+
+    def fromAuthErrors(authErrors: List[AuthorizationError]): UserError =
+      UserError(authErrors.map(_.message -> None))
   }
 
   def userErrorFrom[T](value: Try[T], exception: UserError): Try[T] =
