@@ -46,11 +46,11 @@ package object utils {
       case Success(value) => Success(value)
     }
 
-  def displayHType(hType: HType, isVerbose: Boolean = true): String =
+  def displayHType(hType: HType, isVerbose: Boolean = false): String =
     hType match {
       case HAny     => "Any"
       case HString  => "String"
-      case HInteger => "Integer"
+      case HInteger => "Int"
       case HFloat   => "Float"
       case HBool    => "Boolean"
       case HDate    => "Date"
@@ -61,7 +61,7 @@ package object utils {
       case HModel(id, fields, directives, _) =>
         if (isVerbose) {
           val renderedModel =
-            s"model $id {\n${fields.map(displayField).map("  " + _).mkString("\n")}\n}\n"
+            s"model $id {\n${fields.map(displayField).map("  " + _).mkString("\n")}\n}"
           if (directives.isEmpty) {
             renderedModel
           } else {

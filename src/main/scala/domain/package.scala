@@ -40,7 +40,7 @@ case class SyntaxTree(
     models.find(model => model.id.toLowerCase == id.toLowerCase) orElse
       enums.find(enum => enum.id == id)
 
-  def render: String = (models ++ enums).map(displayHType(_)).mkString("\n")
+  def render: String = (models ++ enums).map(displayHType(_, true)).mkString("\n\n")
 }
 object SyntaxTree {
   // The resulting syntax tree is validated and substituted
