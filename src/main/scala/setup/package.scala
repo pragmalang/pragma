@@ -32,7 +32,7 @@ case class Setup(
   def build(): (SyntaxTree, QueryExecutor) = (buildApiSchema, buildExecutor)
 
   def buildApiSchema(): SyntaxTree =
-    ApiSchemaGenerator.default(syntaxTree).buildApiSchemaAsSyntaxTree
+    ApiSchemaGenerator(syntaxTree).buildApiSchemaAsSyntaxTree
 
   def buildExecutor(): QueryExecutor = QueryExecutor(syntaxTree, storage)
 }

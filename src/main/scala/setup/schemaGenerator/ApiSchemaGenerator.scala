@@ -1,12 +1,605 @@
 package setup.schemaGenerator
 
-import domain._
+import domain._, primitives._, Implicits._
 import sangria.ast._
+import sangria.ast.{Directive => GraphQlDirective}
 import sangria.macros._
 
-trait ApiSchemaGenerator {
+case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
   import ApiSchemaGenerator._
-  def build(as: SchemaBuildOutput): Either[SyntaxTree, Document]
+
+  def buildGraphQLAst() = Document(typeDefinitions.toVector)
+
+  def typeDefinitions(): List[Definition] =
+    syntaxTree.models.map(hShape(_)) ++ syntaxTree.enums.map(hEnum(_))
+
+  def graphQlFieldArgs(args: Map[String, Type]) =
+    args.map(arg => InputValueDefinition(arg._1, arg._2, None)).toVector
+
+  def graphQlField(
+      nameTransformer: String => String = identity,
+      args: Map[String, Type] = Map.empty,
+      fieldType: Type
+  )(name: String) = FieldDefinition(
+    name = nameTransformer(name),
+    fieldType = fieldType,
+    arguments = graphQlFieldArgs(args)
+  )
+
+  def outputTypes: List[Definition] = typeDefinitions map {
+    case objDef: ObjectTypeDefinition =>
+      objDef.copy(fields = objDef.fields map { field =>
+        field.fieldType match {
+          case ListType(_, _) =>
+            field.copy(
+              arguments = graphQlFieldArgs(
+                Map("where" -> builtinType(WhereInput, isOptional = true))
+              )
+            )
+          case NotNullType(ListType(_, _), _) =>
+            field.copy(
+              arguments = graphQlFieldArgs(
+                Map("where" -> builtinType(WhereInput, isOptional = true))
+              )
+            )
+          case _ => field
+        }
+      })
+    case td => td
+  }
+
+  def modelMutationsTypes: List[Definition] =
+    syntaxTree.models.map(model => {
+
+      val login = model.isUser match {
+        case true => {
+          val secretCredentialField = model.fields
+            .find(
+              f => f.directives.exists(d => d.id == "secretCredential")
+            )
+            .get
+          Some(
+            graphQlField(
+              nameTransformer = _ => "login",
+              args = Map(
+                "publicCredential" -> builtinType(StringScalar),
+                secretCredentialField.id -> fieldType(
+                  secretCredentialField.htype
+                )
+              ),
+              fieldType = builtinType(StringScalar)
+            )(model.id)
+          )
+        }
+        case false => None
+      }
+
+      val create = Some(
+        graphQlField(
+          nameTransformer = _ => "create",
+          args = Map(
+            model.id.small -> fieldType(
+              model,
+              nameTransformer = inputTypeName(_)(OptionalInput)
+            )
+          ),
+          fieldType = fieldType(model)
+        )(model.id)
+      )
+
+      val update = Some(
+        graphQlField(
+          nameTransformer = _ => "update",
+          args = Map(
+            model.primaryField.id -> fieldType(model.primaryField.htype),
+            model.id.small -> fieldType(
+              model,
+              nameTransformer = inputTypeName(_)(OptionalInput)
+            )
+          ),
+          fieldType = fieldType(model)
+        )(model.id)
+      )
+
+      val upsert = Some(
+        graphQlField(
+          nameTransformer = _ => "upsert",
+          args = Map(
+            model.id.small -> fieldType(
+              model,
+              nameTransformer = inputTypeName(_)(OptionalInput)
+            )
+          ),
+          fieldType = fieldType(model)
+        )(model.id)
+      )
+
+      val delete = Some(
+        graphQlField(
+          nameTransformer = _ => "delete",
+          args = Map(
+            model.primaryField.id -> fieldType(model.primaryField.htype)
+          ),
+          fieldType = fieldType(model)
+        )(model.id)
+      )
+
+      val recover = Some(
+        graphQlField(
+          nameTransformer = _ => "recover",
+          args = Map(
+            model.primaryField.id -> fieldType(model.primaryField.htype)
+          ),
+          fieldType = fieldType(model)
+        )(model.id)
+      )
+
+      val createMany = Some(
+        graphQlField(
+          nameTransformer = _ => "createMany",
+          args = Map(
+            "items" -> listFieldType(
+              model,
+              nameTransformer = inputTypeName(_)(OptionalInput),
+              isEmptiable = false
+            )
+          ),
+          fieldType = listFieldType(model)
+        )(model.id)
+      )
+
+      val updateMany = Some(
+        graphQlField(
+          nameTransformer = _ => "updateMany",
+          args = Map(
+            "items" -> listFieldType(
+              model,
+              nameTransformer = inputTypeName(_)(OptionalInput),
+              isEmptiable = false
+            )
+          ),
+          fieldType = listFieldType(model)
+        )(model.id)
+      )
+
+      val upsertMany = Some(
+        graphQlField(
+          nameTransformer = _ => "upsertMany",
+          args = Map(
+            "items" -> listFieldType(
+              model,
+              nameTransformer = inputTypeName(_)(OptionalInput),
+              isEmptiable = false
+            )
+          ),
+          fieldType = listFieldType(model)
+        )(model.id)
+      )
+
+      val deleteMany = Some(
+        graphQlField(
+          nameTransformer = _ => "deleteMany",
+          args = Map(
+            "items" -> listFieldType(
+              model.primaryField.htype,
+              isEmptiable = false
+            )
+          ),
+          fieldType = listFieldType(model)
+        )(model.id)
+      )
+
+      val recoverMany = Some(
+        graphQlField(
+          nameTransformer = _ => "recoverMany",
+          args = Map(
+            "items" -> listFieldType(
+              model.primaryField.htype,
+              isEmptiable = false
+            )
+          ),
+          fieldType = listFieldType(model)
+        )(model.id)
+      )
+
+      val modelListFields = model.fields.collect(
+        f =>
+          f.htype match {
+            case _: HArray => f
+          }
+      )
+
+      val modelListFieldOperations = modelListFields
+        .flatMap(f => {
+          val listFieldInnerType = f.htype.asInstanceOf[HArray].htype
+
+          val pushTo = Some(
+            graphQlField(
+              nameTransformer = fieldId => s"pushTo${fieldId.capitalize}",
+              Map(
+                "item" -> fieldType(
+                  listFieldInnerType,
+                  nameTransformer =
+                    fieldTypeName => s"${fieldTypeName.capitalize}Input"
+                )
+              ),
+              fieldType(listFieldInnerType)
+            )(f.id)
+          )
+
+          val removeFrom = Some(
+            graphQlField(
+              nameTransformer = fieldId => s"removeFrom${fieldId.capitalize}",
+              Map(
+                "item" -> fieldType(
+                  listFieldInnerType match {
+                    case m: HModel => m.primaryField.htype
+                    case t         => t
+                  },
+                  nameTransformer =
+                    fieldTypeName => s"${fieldTypeName.capitalize}Input"
+                )
+              ),
+              fieldType(listFieldInnerType)
+            )(f.id)
+          )
+
+          val pushManyTo = Some(
+            graphQlField(
+              nameTransformer = fieldId => s"pushManyTo${fieldId.capitalize}",
+              Map(
+                "item" -> listFieldType(
+                  listFieldInnerType,
+                  nameTransformer =
+                    fieldTypeName => s"${fieldTypeName.capitalize}Input",
+                  isEmptiable = false
+                )
+              ),
+              fieldType(f.htype)
+            )(f.id)
+          )
+
+          val removeManyFrom = Some(
+            graphQlField(
+              nameTransformer =
+                fieldId => s"removeManyFrom${fieldId.capitalize}",
+              Map(
+                "item" -> listFieldType(
+                  listFieldInnerType match {
+                    case m: HModel => m.primaryField.htype
+                    case t         => t
+                  },
+                  nameTransformer =
+                    fieldTypeName => s"${fieldTypeName.capitalize}Input",
+                  isEmptiable = false
+                )
+              ),
+              fieldType(f.htype)
+            )(f.id)
+          )
+
+          List(pushTo, pushManyTo, removeFrom, removeManyFrom)
+        })
+        .toVector
+
+      val fields: Vector[FieldDefinition] = (Vector(
+        login,
+        create,
+        update,
+        upsert,
+        delete,
+        recover,
+        createMany,
+        updateMany,
+        upsertMany,
+        deleteMany,
+        recoverMany
+      ) :++ modelListFieldOperations).collect { case Some(value) => value }
+
+      ObjectTypeDefinition(s"${model.id}Mutations", Vector.empty, fields)
+    })
+
+  def modelQueriesTypes: List[Definition] =
+    syntaxTree.models.map(model => {
+
+      val read = Some(
+        graphQlField(
+          nameTransformer = _ => "read",
+          args = Map(
+            model.primaryField.id -> fieldType(model.primaryField.htype)
+          ),
+          fieldType = fieldType(model, isOptional = true)
+        )(model.id)
+      )
+
+      val list = Some(
+        graphQlField(
+          nameTransformer = _ => "list",
+          args = Map(
+            "where" -> builtinType(WhereInput, isOptional = true)
+          ),
+          fieldType = listFieldType(model)
+        )(model.id)
+      )
+
+      val fields: Vector[FieldDefinition] = Vector(read, list).collect {
+        case Some(value) => value
+      }
+
+      ObjectTypeDefinition(s"${model.id}Queries", Vector.empty, fields)
+    })
+
+  def modelSubscriptionsTypes: List[Definition] =
+    syntaxTree.models.map(model => {
+
+      val read = Some(
+        graphQlField(
+          nameTransformer = _ => "read",
+          args = Map(
+            model.primaryField.id -> fieldType(model.primaryField.htype)
+          ),
+          fieldType = fieldType(model, isOptional = true)
+        )(model.id)
+      )
+
+      val list = Some(
+        graphQlField(
+          nameTransformer = _ => "list",
+          args = Map(
+            "where" -> builtinType(WhereInput, isOptional = true)
+          ),
+          fieldType = fieldType(model, isOptional = true)
+        )(model.id)
+      )
+
+      val fields: Vector[FieldDefinition] = Vector(read, list).collect {
+        case Some(value) => value
+      }
+
+      ObjectTypeDefinition(s"${model.id}Subscriptions", Vector.empty, fields)
+    })
+
+  def inputFieldType(field: HModelField) = {
+    val hReferenceType = fieldType(
+      ht = field.htype,
+      nameTransformer = inputTypeName(_)(OptionalInput),
+      isOptional = true
+    )
+
+    val isReferenceToModel = (t: HReferenceType) =>
+      syntaxTree.models.exists(_.id == t.id)
+
+    field.htype match {
+      case t: HReferenceType if isReferenceToModel(t) =>
+        hReferenceType
+      case HArray(t: HReferenceType) if isReferenceToModel(t) =>
+        hReferenceType
+      case HOption(t: HReferenceType) if isReferenceToModel(t) =>
+        hReferenceType
+      case _ =>
+        fieldType(
+          ht = field.htype,
+          isOptional = true
+        )
+    }
+  }
+
+  def inputTypes: List[Definition] =
+    syntaxTree.models.map { model =>
+      InputObjectTypeDefinition(
+        name = inputTypeName(model)(OptionalInput),
+        fields = model.fields.toVector.map(
+          field =>
+            InputValueDefinition(
+              name = field.id,
+              valueType = inputFieldType(field),
+              None
+            )
+        )
+      )
+    }
+
+  def ruleBasedTypeGenerator(
+      typeName: String,
+      rules: List[HModel => Option[FieldDefinition]]
+  ) = ObjectTypeDefinition(
+    name = typeName,
+    interfaces = Vector.empty,
+    fields = rules
+      .foldLeft(List.empty[Option[FieldDefinition]])(
+        (acc, rule) => acc ::: syntaxTree.models.map(rule)
+      )
+      .filter({
+        case Some(field) => true
+        case None        => false
+      })
+      .map(_.get)
+      .toVector
+  )
+
+  def queryType: ObjectTypeDefinition = {
+    val rules: List[HModel => Option[FieldDefinition]] = List(
+      model =>
+        Some(
+          graphQlField(fieldType = NamedType(s"${model.id}Queries"))(model.id)
+        )
+    )
+    ruleBasedTypeGenerator("Query", rules)
+  }
+
+  def subscriptionType: ObjectTypeDefinition = {
+    val rules: List[HModel => Option[FieldDefinition]] = List(
+      model =>
+        Some(
+          graphQlField(fieldType = NamedType(s"${model.id}Subscriptions"))(
+            model.id
+          )
+        )
+    )
+    ruleBasedTypeGenerator("Subscription", rules)
+  }
+
+  def mutationType: ObjectTypeDefinition = {
+    val rules: List[HModel => Option[FieldDefinition]] = List(
+      model =>
+        Some(
+          graphQlField(fieldType = NamedType(s"${model.id}Mutations"))(model.id)
+        )
+    )
+
+    ruleBasedTypeGenerator("Mutation", rules)
+  }
+
+  def gqlFieldToHModelField(
+      field: Either[FieldDefinition, InputValueDefinition]
+  ): HModelField = {
+    def fieldType(
+        tpe: Type,
+        fieldHType: HType,
+        isOptional: Boolean = true
+    ): HType =
+      tpe match {
+        case ListType(ofType, _) =>
+          HArray(fieldType(ofType, fieldHType))
+        case NamedType(name, _) =>
+          if (isOptional) HOption(fieldHType) else fieldHType
+        case NotNullType(ofType, _) => fieldType(ofType, fieldHType, false)
+      }
+
+    field match {
+      case Left(field) => {
+        val fieldHType = gqlTypeToHType(
+          getTypeFromSchema(field.fieldType.namedType).get.typeDef
+        )
+        HModelField(
+          id = field.name,
+          htype = fieldType(field.fieldType, fieldHType),
+          None,
+          Nil,
+          None
+        )
+      }
+      case Right(value) => {
+        val fieldHType = gqlTypeToHType(
+          getTypeFromSchema(value.valueType.namedType).get.typeDef
+        )
+        HModelField(
+          id = value.name,
+          htype = fieldType(value.valueType, fieldHType),
+          None,
+          Nil,
+          None
+        )
+      }
+    }
+  }
+
+  def gqlTypeToHType(
+      typeDef: TypeDefinition,
+      isReference: Boolean = true
+  ): HType = typeDef match {
+    case i: InterfaceTypeDefinition if isReference => HReference(i.name)
+    case i: InterfaceTypeDefinition if !isReference =>
+      HModel(
+        id = i.name,
+        fields = i.fields.map(f => gqlFieldToHModelField(Left(f))).toList,
+        Nil,
+        None
+      )
+    case e: EnumTypeDefinition =>
+      HEnum(id = e.name, values = e.values.map(v => v.name).toList, None)
+    case s: ScalarTypeDefinition if s.name == "Int"     => HInteger
+    case s: ScalarTypeDefinition if s.name == "String"  => HString
+    case s: ScalarTypeDefinition if s.name == "Float"   => HFloat
+    case s: ScalarTypeDefinition if s.name == "Boolean" => HBool
+    case s: ScalarTypeDefinition if s.name == "ID"      => HString
+    case s: ScalarTypeDefinition if s.name == "Any"     => HAny
+    case _: UnionTypeDefinition =>
+      throw new Exception(
+        "GraphQL unions types can't be converted to Heavenly-x types"
+      )
+    case o: ObjectTypeDefinition if isReference => HReference(o.name)
+    case o: ObjectTypeDefinition if !isReference =>
+      HModel(
+        id = o.name,
+        fields = o.fields.map(f => gqlFieldToHModelField(Left(f))).toList,
+        Nil,
+        None
+      )
+    case i: InputObjectTypeDefinition if isReference => HReference(i.name)
+    case i: InputObjectTypeDefinition if !isReference =>
+      HModel(
+        id = i.name,
+        fields = i.fields.map(f => gqlFieldToHModelField(Right(f))).toList,
+        Nil,
+        None
+      )
+  }
+
+  def build(
+      as: SchemaBuildOutput = AsSyntaxTree
+  ): Either[SyntaxTree, Document] = as match {
+    case AsSyntaxTree => Left(buildApiSchemaAsSyntaxTree)
+    case AsDocument   => Right(buildApiSchemaAsDocument)
+  }
+
+  lazy val buildApiSchemaAsSyntaxTree: SyntaxTree = {
+    val apiSchema = buildApiSchemaAsDocument
+    val definitions = apiSchema.definitions
+      .filter {
+        case d: ObjectTypeDefinition
+            if d.name == "Query" || d.name == "Mutation" || d.name == "Subscription" =>
+          false
+        case d: TypeDefinition if d.name == "Any" => false
+        case _: TypeDefinition                    => true
+        case _                                    => false
+      }
+      .map(_.asInstanceOf[TypeDefinition])
+      .map(t => gqlTypeToHType(t, false))
+      .collect { case t: HConstruct => t }
+      .toList
+    SyntaxTree.fromConstructs(definitions)
+  }
+
+  lazy val buildApiSchemaAsDocument = Document {
+    (queryType
+      :: mutationType
+      :: subscriptionType
+      :: buitlinGraphQlDefinitions
+      ::: outputTypes
+      ::: inputTypes
+      ::: modelMutationsTypes
+      ::: modelQueriesTypes
+      ::: modelSubscriptionsTypes).toVector
+  }
+
+  def getTypeFromSchema(tpe: Type): Option[TypeFromSchema] = Option {
+    val td = buildApiSchemaAsDocument.definitions
+      .find({
+        case typeDef: TypeDefinition if typeDef.name == tpe.namedType.name =>
+          true
+        case _ => false
+      })
+      .map(_.asInstanceOf[TypeDefinition])
+      .get
+
+    val isEmptyList = tpe match {
+      case ListType(ofType, _) => true
+      case _                   => false
+    }
+
+    val isNonEmptyList = tpe match {
+      case ListType(NotNullType(_, _), _) => true
+      case _                              => false
+    }
+
+    val isOptional = tpe match {
+      case NotNullType(ofType, _) => false
+      case _                      => false
+    }
+
+    TypeFromSchema(td, isEmptyList, isNonEmptyList, isOptional, tpe)
+  }
 }
 
 object ApiSchemaGenerator {
@@ -43,8 +636,6 @@ object ApiSchemaGenerator {
   trait SchemaBuildOutput
   case object AsDocument extends SchemaBuildOutput
   case object AsSyntaxTree extends SchemaBuildOutput
-
-  def default(syntaxTree: SyntaxTree) = DefaultApiSchemaGenerator(syntaxTree)
 
   def typeBuilder[T](
       typeNameCallback: T => String
@@ -99,7 +690,7 @@ object ApiSchemaGenerator {
 
   def inputKindSuffix(kind: InputKind) = kind match {
     case ObjectInput    => "ObjectInput"
-    case OptionalInput  => "OptionalInput"
+    case OptionalInput  => "Input"
     case ReferenceInput => "ReferenceInput"
   }
 
@@ -112,66 +703,169 @@ object ApiSchemaGenerator {
     modelId.capitalize + inputKindSuffix(kind)
   def inputTypeName(model: HModel)(kind: InputKind): String =
     inputTypeName(model.id)(kind)
+  // def inputTypeName(hType: HType)(kind: InputKind): String = hType match {
+  //   case t: PrimitiveType => primitiveTypeToGql(t)
+  // }
 
-  lazy val buitlinGraphQlTypeDefinitions =
+  def listFieldType(
+      ht: HType,
+      isOptional: Boolean = false,
+      isEmptiable: Boolean = true,
+      nameTransformer: String => String = identity
+  ): Type = (isOptional, isEmptiable) match {
+    case (true, false) =>
+      ListType(fieldType(ht, isOptional = false, nameTransformer))
+    case (false, true) =>
+      NotNullType(ListType(fieldType(ht, isOptional = true, nameTransformer)))
+    case (true, true) =>
+      ListType(fieldType(ht, isOptional = true, nameTransformer))
+    case (false, false) =>
+      NotNullType(ListType(fieldType(ht, isOptional = false, nameTransformer)))
+  }
+
+  def fieldType(
+      ht: HType,
+      isOptional: Boolean = false,
+      nameTransformer: String => String = identity
+  ): Type =
+    ht match {
+      case HArray(ht) =>
+        if (isOptional)
+          ListType(fieldType(ht, isOptional = true, nameTransformer))
+        else
+          NotNullType(
+            ListType(fieldType(ht, isOptional = true, nameTransformer))
+          )
+      case HBool =>
+        if (isOptional) NamedType("Boolean")
+        else NotNullType(NamedType("Boolean"))
+      case HDate =>
+        if (isOptional) NamedType("Date") else NotNullType(NamedType("Date"))
+      case HFloat =>
+        if (isOptional) NamedType("Float") else NotNullType(NamedType("Float"))
+      case HInteger =>
+        if (isOptional) NamedType("Int") else NotNullType(NamedType("Int"))
+      case HString =>
+        if (isOptional) NamedType("String")
+        else NotNullType(NamedType("String"))
+      case HOption(ht) => fieldType(ht, isOptional = true, nameTransformer)
+      case HFile(_, _) =>
+        if (isOptional) NamedType("String")
+        else NotNullType(NamedType("String"))
+      case s: HShape =>
+        if (isOptional) NamedType(nameTransformer(s.id))
+        else NotNullType(NamedType(nameTransformer(s.id)))
+      case e: HEnum =>
+        if (isOptional) NamedType(e.id) else NotNullType(NamedType(e.id))
+      case HReference(id) =>
+        if (isOptional) NamedType(nameTransformer(id))
+        else NotNullType(NamedType(nameTransformer(id)))
+      case HSelf(id) =>
+        if (isOptional) NamedType(nameTransformer(id))
+        else NotNullType(NamedType(nameTransformer(id)))
+      case HFunction(args, returnType) =>
+        throw new Exception("Function can't be used as a field type")
+    }
+
+  def hEnum(e: HEnum): EnumTypeDefinition =
+    EnumTypeDefinition(
+      name = e.id,
+      values = e.values.map(v => EnumValueDefinition(name = v)).toVector
+    )
+
+  def hShape(
+      s: HShape,
+      directives: Vector[GraphQlDirective] = Vector.empty
+  ): ObjectTypeDefinition = ObjectTypeDefinition(
+    s.id,
+    Vector.empty,
+    s.fields
+      .filter({
+        case field: HInterfaceField => true
+        case field: HModelField =>
+          !field.directives.exists(_.id == "secretCredential")
+      })
+      .map(hShapeField)
+      .toVector,
+    directives
+  )
+
+  def hShapeField(
+      f: HShapeField
+  ): FieldDefinition = FieldDefinition(
+    name = f.id,
+    fieldType = fieldType(f.htype),
+    Vector.empty
+  )
+
+  lazy val buitlinGraphQlDefinitions =
     gql"""
-      input EqInput {
-        field: String!
-        value: Any!
-      }
-      
       input WhereInput {
-        filter: LogicalFilterInput
-        orderBy: OrderByInput
-        range: RangeInput
-        first: Int
-        last: Int
-        skip: Int
-      }
-      
-      input OrderByInput {
-        field: String!
-        order: OrderEnum
-      }
-      
-      enum OrderEnum {
-        DESC
-        ASC
-      }
-      
-      input RangeInput {
-        before: ID!
-        after: ID!
-      }
-    
-      input LogicalFilterInput {
-        AND: [LogicalFilterInput]
-        OR: [LogicalFilterInput]
-        predicate: FilterInput
-      }
-      
-      input FilterInput {
-        eq: EqInput
-      }
-      
-      enum MultiRecordEvent {
-        CREATE
-        UPDATE
-        READ
-        DELETE
-      }
-      
-      enum SingleRecordEvent {
-        UPDATE
-        READ
-        DELETE
-      }
-      
-      scalar Any
-      scalar Int
-      scalar Float
-      scalar String
-      scalar Boolean
-      scalar ID
+      filter: FilterInput
+      orderBy: OrderByInput
+      range: RangeInput
+      first: Int
+      last: Int
+      skip: Int
+    }
+
+    input OrderByInput {
+      field: String!
+      order: OrderEnum
+    }
+
+    enum OrderEnum {
+      DESC
+      ASC
+    }
+
+    input RangeInput {
+      before: ID!
+      after: ID!
+    }
+
+    input FilterInput {
+      not: FilterInput
+      and: FilterInput
+      or: FilterInput
+      eq: ComparisonInput # works only when the field is of type String or Int or Float
+      gt: ComparisonInput # works only when the field is of type Float or Int
+      gte: ComparisonInput # works only when the field is of type Float or Int
+      lt: ComparisonInput # works only when the field is of type Float or Int
+      lte: ComparisonInput # works only when the field is of type Float or Int
+      matches: MatchesInput # works only when the field is of type String
+    }
+
+    input MatchesInput {
+      # could be a single field like "friend" or a path "friend.name"
+      # works only when the field is of type String
+      field: String! 
+      regex: String!
+    }
+
+    input ComparisonInput {
+      # could be a single field like "friend" or a path "friend.name"
+      # If the type of the field or the path is object,
+      # then all fields that exist on value of `value: Any!` must be
+      # compared with fields with the same name in the model recursively  
+      field: String! 
+      value: Any!
+    }
+
+    enum EVENT_ENUM {
+      REMOVE
+      NEW
+      CHANGE
+    }
+
+    scalar Any
+
+    directive @filter(filter: FilterInput!) on FIELD
+    directive @order(order: OrderEnum!) on FIELD
+    directive @range(range: RangeInput!) on FIELD
+    directive @first(first: Int!) on FIELD
+    directive @last(last: Int!) on FIELD
+    directive @skip(skip: Int!) on FIELD
+    directive @listen(to: EVENT_ENUM!) on FIELD # on field selections inside a subscription
       """.definitions.toList
 }

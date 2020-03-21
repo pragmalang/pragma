@@ -86,17 +86,6 @@ input RangeInput {
   after: ID!
 }
 
-
-# Example:
-# {
-#   not: {
-#     eq: { field: "name", value: "anas" },
-#     and: {
-#       matches: ""
-#       or: { eq: { field: "age", value: 18 } }
-#     }
-#   }
-# }
 input FilterInput {
   not: FilterInput
   and: FilterInput
@@ -147,7 +136,6 @@ directive @listen(to: EVENT_ENUM!) on FIELD # on field selections inside a subsc
   1. ✔️ `{model.id}` output type where each field on this input type respects the requirements of the model. Meaning, required fields will stay required and optional fields will stay optional. Fields with Non-primitive types will be substituted with `{type.id}` with `!` appended if the field is not optional. Fields with list type will take one optional argument `where: WhereInput` for filtering and selecting values. With an optional field 
   ```
   type {model.id} {
-    {model.id.small}: {model.id}
     {for field in model.fields.filter(!isList)}
       {field.id}: {field.type.id} {!field.type.isOptional ? "!" : ""}
     {endfor}
@@ -159,7 +147,6 @@ directive @listen(to: EVENT_ENUM!) on FIELD # on field selections inside a subsc
   2. ✔️ `{model.id}Input` input type where all fields are optional and field of non-primitive types take the type `{field.type.id}Input`.
   ```
   input {model.id}Input {
-    {model.id.small}: {model.id}
     {for field in model.fields}
       {field.id}: {field.type.id}
     {endfor}
@@ -182,18 +169,18 @@ directive @listen(to: EVENT_ENUM!) on FIELD # on field selections inside a subsc
     update({model.primaryField.id}: {model.primaryField.type}!, {model.id}: {model.id}Input!): {model.id}
     upsert({model.id}: {model.id}Input!): {model.id}
     delete({model.primaryField.id}: {model.primaryField.type}!): {model.id}
-    createMany({model.id}: [{model.id}Input]!): [{model.id}]
-    updateMany({model.id}: [{model.id}Input]!): [{model.id}]
-    upsertMany({model.id}: [{model.id}Input]!): [{model.id}]
-    deleteMany(items: [{model.primaryField.type}!]!): [{model.id}] # directives: @filter
+    recover({model.primaryField.id}: {model.primaryField.type}!): {model.id}
+    createMany(items: [{model.id}Input]!): [{model.id}]!
+    updateMany(items: [{model.id}Input]!): [{model.id}]!
+    upsertMany(items: [{model.id}Input]!): [{model.id}]!
+    deleteMany(items: [{model.primaryField.type}!]!): [{model.id}]! # directives: @where
+    recoverMany(items: [{model.primaryField.type}]): [{model.id}]! # directives: @where
     {for field in model.field.filter(isList)}
       pushTo{field.id}(item: {field.type.id}Input!): {field.type.named}
       pushManyTo{field.id}(items: [{field.type.id}Input!]!): {field.type}
       removeFrom{field.id}({field.type.primaryField.id}: {field.type.primaryField.type}!): {field.type.named}
       removeManyFrom{field.id}(items: [{field.type.primaryField.type}!]!): {field.type} # directives: @filter
     {endfor}
-    recover({model.primaryField.id}: {model.primaryField.type}!): {model.id}
-    recoverMany({model.primaryField.id}: [{model.primaryField.type}]): [{model.id}] # directives: @filter
   }
   ```
   9. `{model.id}Subscriptions` output type which it's shape is generated using the folowing template:

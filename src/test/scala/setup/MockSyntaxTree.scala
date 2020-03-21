@@ -5,6 +5,30 @@ import domain.primitives._
 import scala.collection.immutable.ListMap
 
 object MockSyntaxTree {
+
+  val schema =
+    """
+  @user
+  model Business {
+    username: String? 
+    email: String @publicCredential @primary
+    password: String @secretCredential
+    branches: [Branch] 
+    mainBranch: Branch? 
+    businessType: BusinessType 
+  }
+
+  model Branch {
+    address: String @primary
+    business: Business 
+  }
+
+  enum BusinessType {
+    FOOD
+    CLOTHING
+    OTHER
+  }"""
+
   val businessModel = HModel(
     "Business",
     List(
@@ -75,15 +99,6 @@ object MockSyntaxTree {
       Directive(
         "user",
         HInterfaceValue(ListMap(), HInterface("", List(), None)),
-        ModelDirective,
-        None
-      ),
-      Directive(
-        "plural",
-        HInterfaceValue(
-          ListMap("name" -> HStringValue("manyBusinesses")),
-          HInterface("", List(), None)
-        ),
         ModelDirective,
         None
       )

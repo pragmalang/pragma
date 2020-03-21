@@ -23,8 +23,7 @@ case class RequestValidator(syntaxTree: SyntaxTree)
 
   val queryValidator = QueryValidator.default
 
-  val apiSchemaGenerator = ApiSchemaGenerator
-    .default(syntaxTree)
+  val apiSchemaGenerator = ApiSchemaGenerator(syntaxTree)
 
   val sangriaSchema =
     Schema.buildFromAst(apiSchemaGenerator.buildApiSchemaAsDocument)
