@@ -6,7 +6,7 @@ Definitions are concise, readable, and maintainable. [A simple todo app](./getti
 
 ## It Integrates with Many Languages
 
-You can define the functions used for data processing in many languages, including JavaScript, Python, Ruby, R, LLVM languages (Rust, Go, C, C++, etc), and seemlessly compose them using [directives](./features/directives.md).
+You can define the functions used for data processing in many languages, including JavaScript, Python, Ruby, R, LLVM languages (Rust, Go, C, C++, etc), and seamlessly compose them using [directives](./features/directives.md).
 
 ## It Runs Locally
 
