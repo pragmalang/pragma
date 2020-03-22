@@ -33,7 +33,7 @@ class PermissionsParsing extends FlatSpec {
             Some(PositionRange(Position(73, 3, 36), Position(86, 3, 49)))
           )
         ),
-        Some(PositionRange(Position(37, 2, 37), Position(86, 3, 49)))
+        Some(PositionRange(Position(46, 3, 9), Position(86, 3, 49)))
       )
     )
     assert(parsedPermissions == expected)

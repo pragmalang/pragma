@@ -8,14 +8,16 @@ import spray.json._
 import domain.SyntaxTree
 import setup.storage.MockStorage
 import akka.actor._
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits._
 import scala.util.Failure
 import scala.util.Success
+import scala.concurrent._
+import scala.concurrent.duration.Duration
+import scala.util.{Try, Success, Failure}
 
 class Authorization extends FlatSpec {
   "Authorizer" should "authorize requests correctly" in {
     val code = """
+    deny UPDATE User.isVerified
     @user
     model User {
       username: String @primary @publicCredential
@@ -23,20 +25,11 @@ class Authorization extends FlatSpec {
       isVerified: Boolean = false
     }
     allow CREATE User
-    deny [SET_ON_CREATE] User.isVerified
     """
 
-    val syntaxTree = SyntaxTree.from(code) match {
-      case Failure(exception) => {
-        pprint.pprintln(exception)
-        throw exception
-      }
-      case Success(value) => value
-    }
+    val syntaxTree = SyntaxTree.from(code).get
     val mockStorage = MockStorage(syntaxTree)
     val authorizer = Authorizer(syntaxTree, mockStorage, true)
-
-    // pprint.pprintln(syntaxTree)
 
     val req = Request(
       None,
@@ -56,13 +49,13 @@ class Authorization extends FlatSpec {
         }
       }
       
-   #   query getUser {
-   #     User {
-   #       read(username: "John Doe") {
-   #         username
-   #       }
-   #     }
-   #   }
+      query getUser {
+        User {
+          read(username: "John Doe") {
+            username
+          }
+        }
+      }
       """,
       Left(JsObject(Map.empty[String, JsValue])),
       Map.empty,
@@ -70,14 +63,12 @@ class Authorization extends FlatSpec {
       ""
     )
 
-    implicit val system = ActorSystem("test-system")
-    authorizer(req).runForeach { result =>
-      println(result)
-    } recoverWith {
-      case e => {
-        // pprint.pprintln(e)
-        Future(req)
-      }
+    implicit val system = ActorSystem("Fuck-me")
+    Try {
+      Await.result(authorizer(req).runForeach(result => {}), Duration.Inf)
+    } match {
+      case Success(_) => fail()
+      case Failure(_) => ()
     }
   }
 }

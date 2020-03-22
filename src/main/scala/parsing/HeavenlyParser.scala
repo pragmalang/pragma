@@ -45,7 +45,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     whitespace() ~
       zeroOrMore(
         importDef | modelDef | enumDef | configDef | accessRuleDef | roleDef
-      ) ~ whitespace() ~>
+      ).separatedBy(whitespace()) ~ whitespace() ~>
       ((cs: Seq[HConstruct]) => cs.toList) ~ EOI
   }
 
@@ -312,11 +312,12 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
 
   def eventsList: Rule1[List[HEvent]] = rule {
     ("[" ~ oneOrMore(event).separatedBy(",") ~ "]") ~>
-      ((events: Seq[HEvent]) => events.toList) | allEvents
+      ((events: Seq[HEvent]) => events.toList)
   }
 
   def ref: Rule1[Reference] = rule {
-    push(cursor) ~ oneOrMore(identifier).separatedBy(".") ~ push(cursor) ~> {
+    push(cursor) ~ oneOrMore(identifier)
+      .separatedBy(ch('.')) ~ push(cursor) ~> {
       (
           start: Int,
           path: Seq[String],
@@ -327,11 +328,12 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   }
 
   def accessRuleDef: Rule1[AccessRule] = rule {
-    push(cursor) ~ whitespace() ~
+    push(cursor) ~
       valueMap(Map("allow" -> Allow, "deny" -> Deny)) ~
-      whitespace() ~ (singletonEvent | eventsList) ~
+      whitespace() ~ (singletonEvent | eventsList | allEvents) ~
       whitespace() ~ ref ~
-      whitespace() ~ optional(ref) ~ push(cursor) ~> {
+      optional(whitespace() ~ ref) ~
+      push(cursor) ~> {
       (
           start: Int,
           ruleKind: RuleKind,
