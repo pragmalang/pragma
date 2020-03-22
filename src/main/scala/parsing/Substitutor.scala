@@ -181,27 +181,17 @@ object Substitutor {
   def substituteAccessRulePredicate(
       rule: AccessRule,
       ctx: HObject
-  ): Try[AccessRule] = {
-    val newPredicate = rule.predicate match {
-      case None => (None, rule.position)
+  ): Try[AccessRule] =
+    rule.predicate match {
+      case None => Success(rule)
       case Some(ref: Reference) =>
-        (getReferencedFunction(ref, ctx), ref.position)
+        getReferencedFunction(ref, ctx) match {
+          case Some(value) => Success(rule.copy(predicate = Some(value)))
+          case None        => Failure(UserError(s"Predicate `$ref` is not defined"))
+        }
       case Some(f: HFunctionValue[_, _]) =>
-        (Some(f), rule.position)
+        Success(rule)
     }
-    if (newPredicate._1.isDefined)
-      Success {
-        rule.copy(predicate = newPredicate._1)
-      } else
-      Failure {
-        new UserError(
-          (
-            s"Predicate `${rule.predicate.get}` is not defined",
-            newPredicate._2
-          ) :: Nil
-        )
-      }
-  }
 
   def substituteTenant(t: Tenant, ctx: HObject): Try[Tenant] = {
     val newGlobalRules = t.rules.map(substituteAccessRulePredicate(_, ctx))

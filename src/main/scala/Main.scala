@@ -1,3 +1,3 @@
 object Main extends App {
-  println("Pragma CLI is not ready yest...")
+  println("Pragma CLI is not ready yet...")
 }

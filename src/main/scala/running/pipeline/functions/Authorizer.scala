@@ -10,24 +10,30 @@ import running.pipeline.Operation.ReadOperation
 import akka.stream.scaladsl.Source
 import sangria.ast._
 import running.JwtPaylod
-import domain.utils.`package`.UserError
+import domain.utils.UserError
 
 case class Authorizer(
     syntaxTree: SyntaxTree,
     storage: Storage,
     devModeOn: Boolean = true
-) extends PiplineFunction[Request, Source[Request, _]] {
+) {
   import Authorizer._
 
-  def apply(request: Request): Source[Request, _] =
+  def apply(request: Request): Source[(List[AuthorizationError], Request), _] =
     (syntaxTree.permissions, request.user) match {
-      case (None, _) => Source.fromIterator(() => Iterator(request))
+      case (None, _) =>
+        Source.failed(
+          UserError.fromAuthErrors(AuthorizationError("Access Denied") :: Nil)
+        )
       case (Some(permissions), None) => {
         val reqOps = Operation.operationsFrom(request)(syntaxTree)
         opsPass(reqOps.values.flatten.toVector, JsNull, devModeOn) match {
-          case Right(true) => Source.fromIterator(() => Iterator(request))
+          case Right(true) => Source.fromIterator(() => Iterator((Nil, request)))
           case Right(false) =>
-            Source.failed(AuthorizationError("Unauthorized request"))
+            Source.failed(
+              UserError
+                .fromAuthErrors(AuthorizationError("Access Denied") :: Nil)
+            )
           case Left(errors) =>
             Source.failed(UserError.fromAuthErrors(errors.toList))
         }
@@ -49,7 +55,7 @@ case class Authorizer(
         user.map { userJson =>
           val reqOps = Operation.operationsFrom(request)(syntaxTree)
           opsPass(reqOps.values.flatten.toVector, userJson, devModeOn) match {
-            case Right(true) => request
+            case Right(true) => (Nil, request)
             case Right(false) =>
               throw AuthorizationError("Unauthorized request")
             case Left(errors) => throw UserError.fromAuthErrors(errors.toList)
@@ -68,8 +74,8 @@ object Authorizer {
     val results = for {
       op <- ops
       (allows, denies) = op.authRules.partition(_.ruleKind == Allow)
-      denyExists = ops.forall(op => !denies.exists(opPasses(_, op, user)))
-      allowExists = ops.forall(op => allows.exists(opPasses(_, op, user)))
+      denyExists = denies.exists(!opPasses(_, op, user))
+      allowExists = allows.exists(opPasses(_, op, user))
     } yield (denyExists, allowExists, denies, allows)
 
     val allOpsAllowed = results.forall {

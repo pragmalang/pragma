@@ -303,7 +303,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   }
 
   def singletonEvent: Rule1[List[HEvent]] = rule {
-    oneOrMore(event) ~> ((events: Seq[HEvent]) => events.toList)
+    event ~> ((event: HEvent) => event :: Nil)
   }
 
   def allEvents: Rule1[List[HEvent]] = rule {
@@ -329,7 +329,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
   def accessRuleDef: Rule1[AccessRule] = rule {
     push(cursor) ~ whitespace() ~
       valueMap(Map("allow" -> Allow, "deny" -> Deny)) ~
-      whitespace() ~ (singletonEvent | eventsList | allEvents) ~
+      whitespace() ~ (singletonEvent | eventsList) ~
       whitespace() ~ ref ~
       whitespace() ~ optional(ref) ~ push(cursor) ~> {
       (

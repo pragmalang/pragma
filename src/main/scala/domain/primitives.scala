@@ -10,10 +10,6 @@ package object primitives {
 
 import running.pipeline.Request
 
-  import running.pipeline.{PipelineInput, PipelineOutput}
-  import running.pipeline.{PipelineInput, PipelineOutput}
-  import running.pipeline.PipelineInput
-  import running.pipeline.PipelineOutput
   sealed trait PrimitiveType extends HType
   case object HString extends PrimitiveType
   case object HInteger extends PrimitiveType
@@ -70,7 +66,7 @@ import running.pipeline.Request
     def execute(args: JsValue): Try[JsValue]
   }
 
-  trait BuiltinFunction[I <: PipelineInput, O <: PipelineOutput]
+  trait BuiltinFunction[I, O]
       extends HFunctionValue[I, Try[O]]
       with Identifiable {
     val htype: HFunction

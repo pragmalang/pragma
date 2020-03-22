@@ -17,8 +17,7 @@ case class Request(
     cookies: Map[String, String],
     url: String,
     hostname: String
-) extends PipelineInput
-    with PipelineOutput
+)
 
 object Request {
   lazy val hType: HInterface = HInterface(
@@ -183,11 +182,7 @@ object Operation {
           permissions.globalTenant.roles
             .find(_.user.id == role.id)
             .map(_.rules)
-            .getOrElse {
-              throw new InternalException(
-                s"Requested rules for `${role.id}` are not defined. Something must've went wrong during validation"
-              )
-            }
+            .getOrElse(Nil)
       }
       Vector(
         Operation(

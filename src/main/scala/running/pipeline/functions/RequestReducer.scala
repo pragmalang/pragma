@@ -6,10 +6,9 @@ import sangria._, ast._
 import spray.json._
 import akka.stream.scaladsl.Source
 
-case class RequestReducer(syntaxTree: SyntaxTree)
-    extends PiplineFunction[Request, Source[Request, _]] {
+case class RequestReducer(syntaxTree: SyntaxTree) {
 
-  override def apply(input: Request): Source[Request, _] =
+  def apply(input: Request): Source[Request, _] =
     Source.fromIterator { () =>
       Iterator {
         input.copy(

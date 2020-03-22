@@ -22,39 +22,18 @@
   - `EVENT_ENUM`
 - The following is a list of reserved field names:
   - `_id`
-  - `_event`
-- If there is no `permit` block then everything is permitted (Authorization always return `true`)
 - If there exist `CREATE SomeType.someField` an error must be thrown since you can only update a field but you can't create one
 - If a type has a recursive field (field of the same type), this field must be optional
 - If there's a circular dependency between two types `A` and `B`, one of the dependant fields must be optional. (Not sure about this rule, check Prisma)
 - Fields with `@publicCredential` must ALWAYS be of type `String` or `String?`
 - Fields with `@secretCredential` must ALWAYS be of type `String`
 - The client should be able to perform mutations with full objects or ID strings (DB references) as input values. This can be solved with a scalar input type
-- Fields annotated with `@primary` must only be of type `Integer` or `String`
+- Fields annotated with `@primary` must only be of type `Int` or `String`
 - Every model must have one and only one field annotated with `@primary`, if not a field called `_id: String @primary @id` is created
-- If a plural is specified for a model using the `@plural(name: String)` directive it must not match the name of any other defined model
-- Every user is prohibited from accessing any resource by default unless:
-  - Their exist an access rule that allows them to access it
-- The built-in hook function `ifSelf` can only be applied to access rules where the resource is of the same type as the role of the enclosing role block. A valid example would be
-```
-acl {
-  role Instructor {
-    allow ALL Instructor ifSelf
-  }
-}
-```
-an invalid example would be
-```
-acl {
-  role Instructor {
-    allow ALL Instructor.name ifSelf
-  }
-}
-```
-- Every model or enum should have a unique case-insensitive name, meaning, `user` is the same as `User`. This is important because in many parts of Heavenly-x's codebase `id`s in general are treated in a case-insensitive manner because of some design choices. (Rethink this)
+- Every user is prohibited from accessing any resource by default unless their exist an access rule that allows them to access it
 - A user model must have one or more fields annotated with `@publicCredential`
 - A user model must have one or zero fields annotated with `@secretCredential`
-- A field of type `Integer` annotated with `@id` is the same as a field of type `Integer` annotated with `@unique` and `@autoIncrement`
+- A field of type `Int` annotated with `@id` is the same as a field of type `Int` annotated with `@unique` and `@autoIncrement`
 - A field of type `String` annotated with `@id` is the same as a field of type `String` annotated with `@unique` and `@uuid`
 
 # GraphQL API Generation Recipe

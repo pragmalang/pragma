@@ -13,10 +13,9 @@ import running.Implicits._
 import running.errors._
 import akka.stream.scaladsl.Source
 
-case class RequestValidator(syntaxTree: SyntaxTree)
-    extends PiplineFunction[Request, Source[Request, _]] {
+case class RequestValidator(syntaxTree: SyntaxTree) {
 
-  override def apply(input: Request): Source[Request, _] =
+  def apply(input: Request): Source[Request, _] =
     Source.fromIterator { () =>
       Iterator(validateQuery(input).get)
     }
