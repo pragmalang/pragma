@@ -1,14 +1,18 @@
 package parsing
+
 import domain._, primitives._, utils._
+import parsing.utils.DependencyGraph
 import scala.util._
-import _root_.parsing.utils.DependencyGraph
 
 class Validator(constructs: List[HConstruct]) {
+
+  import Validator._
 
   val st = SyntaxTree.fromConstructs(constructs)
 
   def validSyntaxTree: Try[SyntaxTree] = {
     val results = List(
+      checkReservedTypeIdentifiers,
       checkTypeExistance,
       checkFieldValueType,
       checkTopLevelIdentity,
@@ -26,7 +30,18 @@ class Validator(constructs: List[HConstruct]) {
       case _ => Nil
     }
     if (errors.isEmpty) Success(st)
-    else Failure(new UserError(errors))
+    else Failure(UserError(errors))
+  }
+
+  // Check that types don't have one of the `Validator.invalidTypeIdentifiers`
+  def checkReservedTypeIdentifiers: Try[Unit] = {
+    val errors = (st.models :: st.enums) collect {
+      case c: Identifiable with Positioned
+          if invalidTypeIdentifiers.contains(c.id) =>
+        (s"Identifier `${c.id}` is reserved", c.position)
+    }
+    if (errors.isEmpty) Success(())
+    else Failure(UserError(errors))
   }
 
   // Type-check the default value ot model fields.
@@ -273,5 +288,17 @@ object Validator {
 
   def findPrimaryField(model: HModel): Option[HModelField] =
     model.fields.find(_.directives.exists(_.id == "primary"))
+
+  val invalidTypeIdentifiers = List(
+    "WhereInput",
+    "OrderByInput",
+    "OrderEnum",
+    "RangeInput",
+    "FilterInput",
+    "MatchesInput",
+    "ComparisonInput",
+    "EVENT_ENUM",
+    "Any"
+  )
 
 }
