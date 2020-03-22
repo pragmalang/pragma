@@ -21,7 +21,8 @@ object Substitutor {
     }.flatten
     val substitutedPermissions = st.permissions.map { permissions =>
       for {
-        withResources <- substituteAccessRuleResourceRefs(permissions, st)
+        withEvents <- substitutePermissionsEvents(permissions)
+        withResources <- substituteAccessRuleResourceRefs(withEvents, st)
         withPredicates <- substitutePredicateRefs(withResources, ctx.value)
       } yield withPredicates
     }
@@ -42,7 +43,7 @@ object Substitutor {
         )
       )
     else
-      Failure(new UserError(allErrors))
+      Failure(UserError(allErrors))
   }
 
   // Gets all  imported functions as a single object
@@ -305,6 +306,104 @@ object Substitutor {
         )
       )
     else Failure(UserError(errors))
+  }
+
+  def substituteAccessRuleEvents(rule: AccessRule): Try[AccessRule] = {
+    lazy val allowedArrayFieldEvents =
+      List(Read, Update, SetOnCreate, PushTo, RemoveFrom, Mutate)
+    lazy val allowedPrimitiveFieldEvents =
+      List(Read, Update, SetOnCreate)
+    lazy val allowedModelEvents =
+      List(Read, Update, Create, Delete, ReadMany, Recover)
+    lazy val allowedModelFieldEvents =
+      List(Read, Update, Mutate, SetOnCreate)
+
+    val newEvents = rule match {
+      case AccessRule(_, (_, Some(field)), All :: Nil, _, _)
+          if field.htype.isInstanceOf[HArray] =>
+        Right(allowedArrayFieldEvents)
+      case AccessRule(_, (_, Some(field)), All :: Nil, _, _)
+          if field.htype.isInstanceOf[HArray] =>
+        Right(allowedArrayFieldEvents)
+      case AccessRule(_, (_, Some(field)), All :: Nil, _, _)
+          if field.htype.isInstanceOf[PrimitiveType] ||
+            field.htype.isInstanceOf[HEnum] =>
+        Right(allowedPrimitiveFieldEvents)
+      case AccessRule(_, (_, Some(field)), All :: Nil, _, _) =>
+        Right(allowedModelEvents)
+      case AccessRule(_, (_, Some(field)), events, _, _)
+          if field.htype.isInstanceOf[HArray] =>
+        events.find(!allowedArrayFieldEvents.contains(_)) match {
+          case None => Right(events)
+          case Some(event) =>
+            Left(
+              (
+                s"Permission `$event` cannot be specified for array field `${field.id}`",
+                rule.position
+              )
+            )
+        }
+      case AccessRule(_, (_, Some(field)), events, _, _)
+          if field.htype.isInstanceOf[PrimitiveType] ||
+            field.htype.isInstanceOf[HEnum] =>
+        events.find(!allowedPrimitiveFieldEvents.contains(_)) match {
+          case None => Right(events)
+          case Some(event) =>
+            Left(
+              (
+                s"Permission `$event` cannot be specified for primitive field `${field.id}`",
+                rule.position
+              )
+            )
+        }
+      case AccessRule(_, (_, Some(field)), events, _, _) =>
+        events.find(!allowedModelFieldEvents.contains(_)) match {
+          case None => Right(events)
+          case Some(event) =>
+            Left(
+              (
+                s"Permission `$event` cannot be specified for model field `${field.id}`",
+                rule.position
+              )
+            )
+        }
+      case AccessRule(_, (model, None), events, _, _) =>
+        events.find(!allowedModelEvents.contains(_)) match {
+          case None => Right(events)
+          case Some(event) =>
+            Left(
+              (
+                s"Permission `$event` cannot be specified for model `${model.id}`",
+                rule.position
+              )
+            )
+        }
+    }
+
+    newEvents match {
+      case Right(events) => Success(rule.copy(actions = events))
+      case Left(errMsg)  => Failure(UserError(errMsg :: Nil))
+    }
+  }
+
+  def substitutePermissionsEvents(p: Permissions): Try[Permissions] = {
+    val newGlobalRules = p.globalTenant.rules.map(substituteAccessRuleEvents)
+    val newRoles = p.globalTenant.roles.map { role =>
+      (role, role.rules.map(substituteAccessRuleEvents))
+    }
+
+    val errors = (newGlobalRules ::: newRoles.flatMap(_._2)).collect {
+      case Failure(err: UserError) => err.errors
+    }.flatten
+
+    if (errors.isEmpty) Success {
+      p.copy(
+        globalTenant = p.globalTenant.copy(
+          rules = newGlobalRules.map(_.get),
+          roles = newRoles.map(role => role._1.copy(rules = role._2.map(_.get)))
+        )
+      )
+    } else Failure(UserError(errors))
   }
 
   // Adds an _id: String @primary field to the model

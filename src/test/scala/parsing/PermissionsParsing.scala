@@ -14,7 +14,7 @@ class PermissionsParsing extends FlatSpec {
       AccessRule(
         Allow,
         (Reference(List("Book"), None), None),
-        List(Create, Read, Update, Delete),
+        List(All),
         Some(
           Reference(
             List("authorizors", "f"),

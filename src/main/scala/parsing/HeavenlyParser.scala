@@ -307,9 +307,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     event ~> ((event: HEvent) => event :: Nil)
   }
 
-  def allEvents: Rule1[List[HEvent]] = rule {
-    "ALL" ~ push(List(Create, Read, Update, Delete))
-  }
+  def allEvents: Rule1[List[HEvent]] = rule { "ALL" ~ push(All :: Nil) }
 
   def eventsList: Rule1[List[HEvent]] = rule {
     ("[" ~ oneOrMore(event).separatedBy(",") ~ "]") ~>

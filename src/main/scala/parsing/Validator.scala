@@ -21,7 +21,8 @@ class Validator(constructs: List[HConstruct]) {
       checkUserModelCredentials,
       checkModelPrimaryFields,
       checkDirectiveArgs,
-      checkCircularDeps
+      checkCircularDeps,
+      checkCreateAccessRules
     )
     val errors = results.flatMap {
       case Failure(err: UserError) => err.errors
@@ -274,7 +275,27 @@ class Validator(constructs: List[HConstruct]) {
           None
     }
     if (circularDeps.isEmpty) Success(())
-    else Failure(new UserError(errors))
+    else Failure(UserError(errors))
+  }
+
+  def checkCreateAccessRules: Try[Unit] = {
+    val rules = st.permissions match {
+      case None => Nil
+      case Some(permissions) =>
+        permissions.globalTenant.rules :::
+          permissions.globalTenant.roles.flatMap(_.rules)
+    }
+    val errors = for {
+      rule <- rules
+      if rule.actions.contains(Create)
+      resourceField <- rule.resourcePath._2
+    } yield
+      (
+        s"`CREATE` event is not allowed to be specified for access rules on field resources (`${resourceField}`, in this case)",
+        rule.position
+      )
+    if (errors.isEmpty) Success(())
+    else Failure(UserError(errors))
   }
 
 }
