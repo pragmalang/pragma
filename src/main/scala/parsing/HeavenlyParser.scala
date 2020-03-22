@@ -57,10 +57,11 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
 
   implicit def intToPos(i: Int) = Position(i, input)
 
+  // An identifier starts with a non-underscore alphabetic character
   def identifier: Rule1[String] = rule {
     capture(predicate(CharPredicate.Alpha)) ~
-      optional(capture(oneOrMore(CharPredicate.AlphaNum))) ~>
-      ((init: String, rest: Option[String]) => init + rest.getOrElse(""))
+      capture(zeroOrMore(CharPredicate.AlphaNum | '_')) ~>
+      ((head: String, rest: String) => head + rest)
   }
 
   def integerVal: Rule1[HIntegerValue] = rule {
