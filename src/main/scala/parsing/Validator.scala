@@ -48,36 +48,48 @@ class Validator(constructs: List[HConstruct]) {
   // Type-check the default value ot model fields.
   def checkFieldValueType: Try[Unit] = Try {
     val errors: List[ErrorMessage] = st.models.flatMap { m =>
-      m.fields.foldLeft(List.empty[ErrorMessage])(
-        (errors, field) =>
-          field.defaultValue match {
-            case Some(v: HValue) if field.isOptional => {
-              val typesMatch = field.htype match {
-                case HOption(t) => t == v.htype
-                case _          => false
-              }
-              if (typesMatch) errors
-              else
-                errors :+ (
-                  s"Invalid default value of type `${displayHType(v.htype)}` for optional field `${field.id}` of type `${displayHType(field.htype)}`",
-                  field.position
-                )
+      m.fields.foldLeft(List.empty[ErrorMessage]) { (errors, field) =>
+        field.defaultValue match {
+          case Some(v: HValue) if field.isOptional => {
+            val typesMatch = field.htype match {
+              case HOption(t) => t == v.htype
+              case _          => false
             }
-            case Some(arr: HArrayValue)
-                if !Validator.arrayIsHomogeneous(arr) ||
-                  arr.htype != field.htype =>
+            if (typesMatch) errors
+            else
               errors :+ (
-                s"Invalid values for array field `${field.id}` (all array elements must have the same type)",
+                s"Invalid default value of type `${displayHType(v.htype)}` for optional field `${field.id}` of type `${displayHType(field.htype)}`",
                 field.position
               )
-            case Some(v: HValue) if v.htype != field.htype =>
-              errors :+ (
-                s"Invalid default value of type `${displayHType(v.htype)}` for field `${field.id}` of type `${displayHType(field.htype)}`",
-                field.position
-              )
-            case _ => errors
           }
-      )
+          case Some(arr: HArrayValue)
+              if !Validator.arrayIsHomogeneous(arr) ||
+                arr.htype != field.htype =>
+            errors :+ (
+              s"Invalid values for array field `${field.id}` (all array elements must have the same type)",
+              field.position
+            )
+          case Some(HStringValue(value))
+              if field.htype.isInstanceOf[HReference] => {
+            val found = st.enums
+              .find(_.id == field.htype.asInstanceOf[Identifiable].id)
+              .flatMap(foundEnum => foundEnum.values.find(_ == value))
+              .isDefined
+            if (found) errors
+            else
+              errors :+ (
+                s"The default value given to field `${field.id}` is not a member of a defined ${field.htype.asInstanceOf[Identifiable].id} enum",
+                field.position
+              )
+          }
+          case Some(v: HValue) if v.htype != field.htype =>
+            errors :+ (
+              s"Invalid default value of type `${displayHType(v.htype)}` for field `${field.id}` of type `${displayHType(field.htype)}`",
+              field.position
+            )
+          case _ => errors
+        }
+      }
     }
     if (!errors.isEmpty) throw new UserError(errors)
   }
