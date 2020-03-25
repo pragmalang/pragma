@@ -8,7 +8,7 @@ import spray.json.JsValue
 
 package object primitives {
 
-import running.pipeline.Request
+  import running.pipeline.Request
 
   sealed trait PrimitiveType extends PType
   case object PString extends PrimitiveType
@@ -94,22 +94,7 @@ import running.pipeline.Request
     final val ptype = POption(valueType)
   }
 
-  trait PExpression extends Positioned {
-    protected var cache: Option[(PObject, PValue)] = None
-    def eval(context: PObject): PValue
-    def checkCache(context: PObject)(cb: () => PValue): PValue = cache match {
-      case Some((prevContext, prevValue)) if prevContext == context =>
-        prevValue
-      case _ => cb()
-    }
-  }
-
   type PObject = ListMap[String, PValue]
-
-  case class LiteralExpression(value: PValue, position: Option[PositionRange])
-      extends PExpression {
-    override def eval(context: PObject = ListMap()): PValue = value
-  }
 
   case class RegexLiteral(payload: Regex, position: Option[PositionRange])
       extends Positioned
