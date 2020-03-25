@@ -1,6 +1,6 @@
 import org.scalatest._
 import domain._
-import parsing._, HeavenlyParser._
+import parsing._, PragmaParser._
 import org.parboiled2.Position
 
 class PermissionsParsing extends FlatSpec {
@@ -9,7 +9,7 @@ class PermissionsParsing extends FlatSpec {
         allow ALL Book authorizors.f
         deny [CREATE, DELETE] Todo authorizors.g
       """
-    val parsedPermissions = new HeavenlyParser(code).syntaxTree.run().get
+    val parsedPermissions = new PragmaParser(code).syntaxTree.run().get
     val expected = List(
       AccessRule(
         Allow,

@@ -146,7 +146,7 @@ object Authorizer {
     }
   }
 
-  def userReadOperation(role: HModel, jwt: JwtPaylod) =
+  def userReadOperation(role: PModel, jwt: JwtPaylod) =
     Operation(
       ReadOperation,
       Map(role.primaryField.id -> JsString(jwt.userId)),
@@ -160,7 +160,7 @@ object Authorizer {
     )
 
   // Construct the query to get the user to be authorized from storage
-  def userQuery(role: HModel, userId: String) =
+  def userQuery(role: PModel, userId: String) =
     Document(
       Vector(
         OperationDefinition(

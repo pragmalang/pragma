@@ -9,16 +9,16 @@ import domain.utils.`package`.Identifiable
 import spray.json.JsValue
 import scala.util.{Try, Failure}
 
-object HeavenlyParser {
+object PragmaParser {
   // Dummy classes will be substituted at substitution time
   case class Reference(
       path: List[String],
       position: Option[PositionRange] = None
   ) extends Identifiable
       with Positioned
-      with HFunctionValue[JsValue, Try[JsValue]]
-      with HShape
-      with HShapeField {
+      with PFunctionValue[JsValue, Try[JsValue]]
+      with PShape
+      with PShapeField {
     override val id = toString
 
     override def execute(input: JsValue) =
@@ -28,25 +28,25 @@ object HeavenlyParser {
         )
       )
 
-    override val htype: HFunction =
-      HFunction(ListMap.empty, HAny)
+    override val ptype: PFunction =
+      PFunction(ListMap.empty, HAny)
 
     override def toString: String = path.foldLeft("")(_ + "." + _)
 
-    override val fields: List[HShapeField] = Nil
+    override val fields: List[PShapeField] = Nil
 
   }
 
 }
-class HeavenlyParser(val input: ParserInput) extends Parser {
-  import parsing.HeavenlyParser._
+class PragmaParser(val input: ParserInput) extends Parser {
+  import parsing.PragmaParser._
 
-  def syntaxTree: Rule1[List[HConstruct]] = rule {
+  def syntaxTree: Rule1[List[PConstruct]] = rule {
     whitespace() ~
       zeroOrMore(
         importDef | modelDef | enumDef | configDef | accessRuleDef | roleDef
       ).separatedBy(whitespace()) ~ whitespace() ~>
-      ((cs: Seq[HConstruct]) => cs.toList) ~ EOI
+      ((cs: Seq[PConstruct]) => cs.toList) ~ EOI
   }
 
   implicit def whitespace(terminal: String = ""): Rule0 = rule {
@@ -64,20 +64,20 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
       ((head: String, rest: String) => head + rest)
   }
 
-  def integerVal: Rule1[HIntegerValue] = rule {
+  def integerVal: Rule1[PIntValue] = rule {
     capture(oneOrMore(CharPredicate.Digit)) ~>
-      ((int: String) => HIntegerValue(int.toLong))
+      ((int: String) => PIntValue(int.toLong))
   }
 
-  def floatVal: Rule1[HFloatValue] = rule {
+  def floatVal: Rule1[PFloatValue] = rule {
     capture(oneOrMore(CharPredicate.Digit)) ~ '.' ~
       capture(oneOrMore(CharPredicate.Digit)) ~> {
       (whole: String, fraction: String) =>
-        HFloatValue((whole + '.' + fraction).toDouble)
+        PFloatValue((whole + '.' + fraction).toDouble)
     }
   }
 
-  def stringVal: Rule1[HStringValue] = {
+  def stringVal: Rule1[PStringValue] = {
     def escapedChar: Rule1[String] = rule {
       valueMap(
         Map(
@@ -92,71 +92,71 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     }
     rule {
       '"' ~ zeroOrMore(escapedChar) ~ '"' ~>
-        ((s: Seq[String]) => HStringValue(s.mkString))
+        ((s: Seq[String]) => PStringValue(s.mkString))
     }
   }
 
-  def booleanVal: Rule1[HBoolValue] = rule {
-    valueMap(Map("true" -> HBoolValue(true), "false" -> HBoolValue(false)))
+  def booleanVal: Rule1[PBoolValue] = rule {
+    valueMap(Map("true" -> PBoolValue(true), "false" -> PBoolValue(false)))
   }
 
   val arrayItem = () => rule { literal ~ optional(",") }
 
   // Note: returns an array with unknown element type if the array is empty.
-  def arrayVal: Rule1[HArrayValue] = rule {
+  def arrayVal: Rule1[PArrayValue] = rule {
     "[" ~ zeroOrMore(arrayItem()) ~ "]" ~>
-      ((elements: Seq[HValue]) => {
-        HArrayValue(elements.toList, elements.headOption match {
-          case Some(v) => v.htype
+      ((elements: Seq[PValue]) => {
+        PArrayValue(elements.toList, elements.headOption match {
+          case Some(v) => v.ptype
           case _       => HAny
         })
       })
   }
 
-  def literal: Rule1[HValue] = rule {
+  def literal: Rule1[PValue] = rule {
     floatVal | integerVal | stringVal | booleanVal | arrayVal
   }
 
   // Returns a PrimitiveType or an HModel with no fields or directives.
-  def htypeFrom(typeId: String): HType = typeId match {
-    case "String"  => HString
-    case "Int"     => HInteger
-    case "Float"   => HFloat
-    case "Boolean" => HBool
-    case "Date"    => HDate
+  def ptypeFrom(typeId: String): PType = typeId match {
+    case "String"  => PString
+    case "Int"     => PInt
+    case "Float"   => PFloat
+    case "Boolean" => PBool
+    case "Date"    => PDate
     case "File"    => HFile(0, Nil)
-    case id        => HReference(id)
+    case id        => PReference(id)
   }
 
-  def htype: Rule1[HType] = rule {
-    '[' ~ identifier ~ ']' ~> ((id: String) => HArray(htypeFrom(id))) |
-      (identifier ~ '?') ~> ((id: String) => HOption(htypeFrom(id))) |
-      identifier ~> ((id: String) => htypeFrom(id))
+  def ptype: Rule1[PType] = rule {
+    '[' ~ identifier ~ ']' ~> ((id: String) => PArray(ptypeFrom(id))) |
+      (identifier ~ '?') ~> ((id: String) => POption(ptypeFrom(id))) |
+      identifier ~> ((id: String) => ptypeFrom(id))
   }
 
   def namedArg = rule {
     identifier ~ ":" ~ (literal | ref) ~>
-      ((key: String, value: HValue) => key -> value)
+      ((key: String, value: PValue) => key -> value)
   }
 
-  def namedArgs: Rule1[HInterfaceValue] = rule {
-    zeroOrMore(namedArg).separatedBy(",") ~> { (pairs: Seq[(String, HValue)]) =>
-      HInterfaceValue(ListMap.from(pairs), HInterface("", Nil, None))
+  def namedArgs: Rule1[PInterfaceValue] = rule {
+    zeroOrMore(namedArg).separatedBy(",") ~> { (pairs: Seq[(String, PValue)]) =>
+      PInterfaceValue(ListMap.from(pairs), PInterface("", Nil, None))
     }
   }
 
-  def positionalArgs: Rule1[HInterfaceValue] = rule {
-    zeroOrMore(literal | ref).separatedBy(",") ~> { (args: Seq[HValue]) =>
-      HInterfaceValue(
+  def positionalArgs: Rule1[PInterfaceValue] = rule {
+    zeroOrMore(literal | ref).separatedBy(",") ~> { (args: Seq[PValue]) =>
+      PInterfaceValue(
         args.zipWithIndex
           .map(pair => pair._2.toString -> pair._1)
-          .foldLeft(ListMap.empty[String, HValue])(_ + _),
-        HInterface("", Nil, None)
+          .foldLeft(ListMap.empty[String, PValue])(_ + _),
+        PInterface("", Nil, None)
       )
     }
   }
 
-  def arguments: Rule1[HInterfaceValue] = rule { namedArgs | positionalArgs }
+  def arguments: Rule1[PInterfaceValue] = rule { namedArgs | positionalArgs }
 
   def directive = rule {
     '@' ~ identifier ~ optional("(" ~ arguments ~ ")")
@@ -164,15 +164,15 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
 
   def directive(dirKind: DirectiveKind): Rule1[Directive] = rule {
     push(cursor) ~ directive ~ push(cursor) ~> {
-      (start: Int, did: String, args: Option[HInterfaceValue], end: Int) =>
+      (start: Int, did: String, args: Option[PInterfaceValue], end: Int) =>
         Directive(did, args match {
           case Some(args) => args
-          case None       => HInterfaceValue(ListMap.empty, HInterface("", Nil, None))
+          case None       => PInterfaceValue(ListMap.empty, PInterface("", Nil, None))
         }, dirKind, Some(PositionRange(start, end)))
     }
   }
 
-  def modelDef: Rule1[HModel] = rule {
+  def modelDef: Rule1[PModel] = rule {
     whitespace() ~ zeroOrMore(directive(ModelDirective))
       .separatedBy(whitespace()) ~
       ("model" ~ push(cursor) ~ identifier ~ push(cursor) ~
@@ -182,9 +182,9 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
           start: Int,
           id: String,
           end: Int,
-          fields: Seq[HModelField]
+          fields: Seq[PModelField]
       ) =>
-        HModel(
+        PModel(
           id,
           fields.toList,
           ds.toList,
@@ -195,11 +195,11 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
 
   def defaultValue = rule { "=" ~ literal }
 
-  def fieldDef: Rule1[HModelField] = rule {
+  def fieldDef: Rule1[PModelField] = rule {
     whitespace() ~ zeroOrMore(directive(FieldDirective))
       .separatedBy(whitespace()) ~
       whitespace() ~ push(cursor) ~ identifier ~ push(cursor) ~ ":" ~
-      htype ~ optional(defaultValue) ~
+      ptype ~ optional(defaultValue) ~
       optional(
         oneOrMore(anyOf(" \r\t")) ~
           zeroOrMore(directive(FieldDirective))
@@ -210,20 +210,20 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
           start: Int,
           id: String,
           end: Int,
-          ht: HType,
-          dv: Option[HValue],
+          ht: PType,
+          dv: Option[PValue],
           trailingDirectives: Option[Seq[Directive]]
       ) =>
         {
           val defaultValue = dv.collect {
-            case HArrayValue(Nil, _) =>
-              HArrayValue(Nil, ht match {
-                case HArray(htype) => htype
+            case PArrayValue(Nil, _) =>
+              PArrayValue(Nil, ht match {
+                case PArray(ptype) => ptype
                 case _             => HAny
               })
             case nonArray => nonArray
           }
-          HModelField(
+          PModelField(
             id,
             ht,
             defaultValue,
@@ -234,7 +234,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     }
   }
 
-  def enumDef: Rule1[HEnum] = rule {
+  def enumDef: Rule1[PEnum] = rule {
     "enum" ~ push(cursor) ~ identifier ~ push(cursor) ~ "{" ~
       zeroOrMore(whitespace() ~ (identifier | stringVal) ~ whitespace())
         .separatedBy(optional(",")) ~ "}" ~> {
@@ -246,30 +246,30 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
       ) =>
         {
           val variants = values.map {
-            case HStringValue(s) => s
+            case PStringValue(s) => s
             case s: String       => s
           }.toList
-          HEnum(id, variants, Some(PositionRange(start, end)))
+          PEnum(id, variants, Some(PositionRange(start, end)))
         }
     }
   }
 
-  def importDef: Rule1[HImport] = rule {
+  def importDef: Rule1[PImport] = rule {
     "import" ~ stringVal ~ "as" ~ push(cursor) ~ identifier ~ push(cursor) ~> {
       (
-          file: HStringValue,
+          file: PStringValue,
           start: Int,
           id: String,
           end: Int
       ) =>
-        HImport(id, file.value, Some(PositionRange(start, end)))
+        PImport(id, file.value, Some(PositionRange(start, end)))
     }
   }
 
-  def configDef: Rule1[HConfig] = rule {
+  def configDef: Rule1[PConfig] = rule {
     push(cursor) ~ "config" ~ push(cursor) ~ "{" ~ zeroOrMore(configEntry) ~ "}" ~>
       ((start: Int, end: Int, entries: Seq[ConfigEntry]) => {
-        HConfig(entries.toList, Some(PositionRange(start, end)))
+        PConfig(entries.toList, Some(PositionRange(start, end)))
       })
   }
 
@@ -280,13 +280,13 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
           start: Int,
           key: String,
           end: Int,
-          value: HValue
+          value: PValue
       ) =>
         ConfigEntry(key, value, Some(PositionRange(start, end)))
     }
   }
 
-  def event: Rule1[HEvent] = rule {
+  def event: Rule1[PEvent] = rule {
     valueMap(
       Map(
         "CREATE" -> Create,
@@ -303,15 +303,15 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     )
   }
 
-  def singletonEvent: Rule1[List[HEvent]] = rule {
-    event ~> ((event: HEvent) => event :: Nil)
+  def singletonEvent: Rule1[List[PEvent]] = rule {
+    event ~> ((event: PEvent) => event :: Nil)
   }
 
-  def allEvents: Rule1[List[HEvent]] = rule { "ALL" ~ push(All :: Nil) }
+  def allEvents: Rule1[List[PEvent]] = rule { "ALL" ~ push(All :: Nil) }
 
-  def eventsList: Rule1[List[HEvent]] = rule {
+  def eventsList: Rule1[List[PEvent]] = rule {
     ("[" ~ oneOrMore(event).separatedBy(",") ~ "]") ~>
-      ((events: Seq[HEvent]) => events.toList)
+      ((events: Seq[PEvent]) => events.toList)
   }
 
   def ref: Rule1[Reference] = rule {
@@ -336,7 +336,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
       (
           start: Int,
           ruleKind: RuleKind,
-          events: List[HEvent],
+          events: List[PEvent],
           resource: Reference,
           predicate: Option[Reference],
           end: Int
@@ -358,7 +358,7 @@ class HeavenlyParser(val input: ParserInput) extends Parser {
     "role" ~ push(cursor) ~ identifier ~ push(cursor) ~ "{" ~
       zeroOrMore(accessRuleDef) ~ "}" ~> {
       (start: Int, roleName: String, end: Int, rules: Seq[AccessRule]) =>
-        Role(HReference(roleName), rules.toList)
+        Role(PReference(roleName), rules.toList)
     }
   }
 

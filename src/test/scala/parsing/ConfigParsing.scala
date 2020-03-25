@@ -12,19 +12,19 @@ class ConfigParsing extends FlatSpec {
             someOtherKey = 42
         }
         """
-    val syntaxTree = new HeavenlyParser(code).syntaxTree.run()
+    val syntaxTree = new PragmaParser(code).syntaxTree.run()
     val expected = Success(
       List(
-        HConfig(
+        PConfig(
           List(
             ConfigEntry(
               "someKey",
-              HStringValue("some value"),
+              PStringValue("some value"),
               Some(PositionRange(Position(30, 3, 13), Position(37, 3, 20)))
             ),
             ConfigEntry(
               "someOtherKey",
-              HIntegerValue(42),
+              PIntValue(42),
               Some(PositionRange(Position(65, 4, 13), Position(77, 4, 25)))
             )
           ),

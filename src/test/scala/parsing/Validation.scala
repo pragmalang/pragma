@@ -16,7 +16,7 @@ class Validation extends FlatSpec {
           someEmptyArray: [Float] = []
       }
       """
-    val st = new HeavenlyParser(code).syntaxTree.run().get
+    val st = new PragmaParser(code).syntaxTree.run().get
     val validator = new Validator(st)
     val expectedErrors = List(
       "Invalid default value of type `String` for field `age` of type `Int`",

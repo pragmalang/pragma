@@ -9,7 +9,7 @@ case class JwtPaylod(userId: String, role: String) {
 }
 
 object JwtPaylod {
-  val secret = sys.env("HEAVENLYX_SECRET")
+  val secret = sys.env("PRAGMA_SECRET")
   def decode(token: String) =
     Jwt
       .decodeRawAll(token, secret, Seq(JwtAlgorithm.HS256))

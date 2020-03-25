@@ -38,7 +38,7 @@
 
 # GraphQL API Generation Recipe
 
-- Heavenly-x Built-in GraphQL types:
+- Pragma Built-in GraphQL types:
 
 ```gql
 input WhereInput {

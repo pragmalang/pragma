@@ -29,67 +29,67 @@ object MockSyntaxTree {
     OTHER
   }"""
 
-  val businessModel = HModel(
+  val businessModel = PModel(
     "Business",
     List(
-      HModelField(
+      PModelField(
         "username",
-        HOption(HString),
+        POption(PString),
         None,
         List(),
         None
       ),
-      HModelField(
+      PModelField(
         "email",
-        HString,
+        PString,
         None,
         List(
           Directive(
             "publicCredential",
-            HInterfaceValue(ListMap(), HInterface("", List(), None)),
+            PInterfaceValue(ListMap(), PInterface("", List(), None)),
             FieldDirective,
             None
           ),
           Directive(
             "primary",
-            HInterfaceValue(ListMap(), HInterface("", List(), None)),
+            PInterfaceValue(ListMap(), PInterface("", List(), None)),
             FieldDirective,
             None
           )
         ),
         None
       ),
-      HModelField(
+      PModelField(
         "password",
-        HString,
+        PString,
         None,
         List(
           Directive(
             "secretCredential",
-            HInterfaceValue(ListMap(), HInterface("", List(), None)),
+            PInterfaceValue(ListMap(), PInterface("", List(), None)),
             FieldDirective,
             None
           )
         ),
         None
       ),
-      HModelField(
+      PModelField(
         "branches",
-        HArray(HReference("Branch")),
+        PArray(PReference("Branch")),
         None,
         Nil,
         None
       ),
-      HModelField(
+      PModelField(
         "mainBranch",
-        HOption(HReference("Branch")),
+        POption(PReference("Branch")),
         None,
         Nil,
         None
       ),
-      HModelField(
+      PModelField(
         "businessType",
-        HReference("BusinessType"),
+        PReference("BusinessType"),
         None,
         Nil,
         None
@@ -98,7 +98,7 @@ object MockSyntaxTree {
     List(
       Directive(
         "user",
-        HInterfaceValue(ListMap(), HInterface("", List(), None)),
+        PInterfaceValue(ListMap(), PInterface("", List(), None)),
         ModelDirective,
         None
       )
@@ -106,27 +106,27 @@ object MockSyntaxTree {
     None
   )
 
-  val branchModel =
-    HModel(
+  val brancPModel =
+    PModel(
       "Branch",
       List(
-        HModelField(
+        PModelField(
           "address",
-          HString,
+          PString,
           None,
           List(
             Directive(
               "primary",
-              HInterfaceValue(ListMap(), HInterface("", List(), None)),
+              PInterfaceValue(ListMap(), PInterface("", List(), None)),
               FieldDirective,
               None
             )
           ),
           None
         ),
-        HModelField(
+        PModelField(
           "business",
-          HReference("Business"),
+          PReference("Business"),
           None,
           Nil,
           None
@@ -137,13 +137,13 @@ object MockSyntaxTree {
     )
 
   val businessTypeEnum =
-    HEnum("BusinessType", List("FOOD", "CLOTHING", "OTHER"), None)
+    PEnum("BusinessType", List("FOOD", "CLOTHING", "OTHER"), None)
   val permissions = None
 
   val syntaxTree =
     SyntaxTree(
       Nil,
-      List(businessModel, branchModel),
+      List(businessModel, brancPModel),
       List(businessTypeEnum),
       permissions,
       None

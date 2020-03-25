@@ -10,8 +10,8 @@ package object utils {
     val id: String
   }
 
-  type NamedArgs = ListMap[String, HType]
-  type PositionalArgs = List[HType]
+  type NamedArgs = ListMap[String, PType]
+  type PositionalArgs = List[PType]
   type Args = Either[PositionalArgs, NamedArgs]
   type Date = java.time.ZonedDateTime
 
@@ -30,10 +30,10 @@ package object utils {
         s"Authorization Error: $message${cause.map(". " + _).getOrElse("")}${suggestion.map(". " + _).getOrElse("")}"
       )
 
-  class TypeMismatchException(expected: List[HType], found: HType)
+  class TypeMismatchException(expected: List[PType], found: PType)
       extends InternalException(
-        s"Type Mismatch. Expected ${if (expected.length == 1) displayHType(expected.head)
-        else s"one of [${expected.map(displayHType(_)).mkString(", ")}]"}, but found ${displayHType(found)}"
+        s"Type Mismatch. Expected ${if (expected.length == 1) displayPType(expected.head)
+        else s"one of [${expected.map(displayPType(_)).mkString(", ")}]"}, but found ${displayPType(found)}"
       )
 
   type ErrorMessage = (String, Option[PositionRange])
@@ -58,19 +58,19 @@ package object utils {
       case Success(value) => Success(value)
     }
 
-  def displayHType(hType: HType, isVerbose: Boolean = false): String =
-    hType match {
+  def displayPType(ptype: PType, isVerbose: Boolean = false): String =
+    ptype match {
       case HAny     => "Any"
-      case HString  => "String"
-      case HInteger => "Int"
-      case HFloat   => "Float"
-      case HBool    => "Boolean"
-      case HDate    => "Date"
+      case PString  => "String"
+      case PInt => "Int"
+      case PFloat   => "Float"
+      case PBool    => "Boolean"
+      case PDate    => "Date"
       case HFile(size, exts) =>
         if (isVerbose) s"File { size = $size, extensions = $exts }" else "File"
-      case HArray(t)  => s"[${displayHType(t, isVerbose = false)}]"
-      case HOption(t) => s"${displayHType(t, isVerbose = false)}?"
-      case HModel(id, fields, directives, _) =>
+      case PArray(t)  => s"[${displayPType(t, isVerbose = false)}]"
+      case POption(t) => s"${displayPType(t, isVerbose = false)}?"
+      case PModel(id, fields, directives, _) =>
         if (isVerbose) {
           val renderedModel =
             s"model $id {\n${fields.map(displayField).map("  " + _).mkString("\n")}\n}"
@@ -80,28 +80,28 @@ package object utils {
             s"${directives.map(displayDirective).mkString("\n")}\n$renderedModel"
           }
         } else id
-      case HInterface(id, fields, position) =>
+      case PInterface(id, fields, position) =>
         if (isVerbose)
           s"interface $id {\n${fields.map(displayField).mkString("\n")}\n}"
         else id
-      case HEnum(id, values, _) =>
+      case PEnum(id, values, _) =>
         if (isVerbose)
           s"enum $id {\n${values.map("  " + _).mkString("\n")}\n}"
         else id
-      case HReference(id) => id
-      case HFunction(namedArgs, returnType) => {
+      case PReference(id) => id
+      case PFunction(namedArgs, returnType) => {
         val args = namedArgs
-          .map(arg => displayHType(arg._2))
+          .map(arg => displayPType(arg._2))
           .mkString(", ")
-        s"($args) => ${displayHType(returnType)}"
+        s"($args) => ${displayPType(returnType)}"
       }
       case i: Identifiable => i.id
     }
 
-  def displayField(field: HShapeField): String = field match {
-    case HInterfaceField(id, htype, position) => s"$id: ${displayHType(htype)}"
-    case HModelField(id, htype, defaultValue, directives, position) =>
-      s"$id: ${displayHType(htype, isVerbose = false)} ${directives.map(displayDirective).mkString(" ")}"
+  def displayField(field: PShapeField): String = field match {
+    case PInterfaceField(id, ptype, position) => s"$id: ${displayPType(ptype)}"
+    case PModelField(id, ptype, defaultValue, directives, position) =>
+      s"$id: ${displayPType(ptype, isVerbose = false)} ${directives.map(displayDirective).mkString(" ")}"
   }
 
   def displayDirective(directive: Directive) = {
@@ -113,46 +113,46 @@ package object utils {
     }
   }
 
-  def displayHValue(value: HValue): String = value match {
-    case HIntegerValue(value) => value.toString
-    case HFloatValue(value)   => value.toString
-    case HFileValue(value, htype) => {
+  def displayHValue(value: PValue): String = value match {
+    case PIntValue(value) => value.toString
+    case PFloatValue(value)   => value.toString
+    case PFileValue(value, ptype) => {
       val name = value.getName()
       name match {
         case "" => "File {}"
         case _  => s"File { name: $name }"
       }
     }
-    case HModelValue(value, htype) =>
+    case PModelValue(value, ptype) =>
       s"{\n${value.map(v => s" ${v._1}: ${displayHValue(v._2)}").mkString(",\n")}\n}"
-    case HOptionValue(value, valueType) => value.map(displayHValue).mkString
-    case HStringValue(value)            => s""""$value""""
-    case HDateValue(value)              => value.toString
-    case HBoolValue(value)              => value.toString
-    case f: HFunctionValue[_, _] =>
-      s"(${f.htype.args.map(
-        arg => s"${arg._1}: ${displayHType(arg._2, isVerbose = false)}"
-      )}) => ${displayHType(f.htype.returnType, isVerbose = false)}"
-    case HInterfaceValue(value, htype) =>
+    case POptionValue(value, valueType) => value.map(displayHValue).mkString
+    case PStringValue(value)            => s""""$value""""
+    case PDateValue(value)              => value.toString
+    case PBoolValue(value)              => value.toString
+    case f: PFunctionValue[_, _] =>
+      s"(${f.ptype.args.map(
+        arg => s"${arg._1}: ${displayPType(arg._2, isVerbose = false)}"
+      )}) => ${displayPType(f.ptype.returnType, isVerbose = false)}"
+    case PInterfaceValue(value, ptype) =>
       s"{\n${value.map(v => s" ${v._1}: ${v._2}").mkString(",\n")}\n}"
-    case HArrayValue(values, elementType) =>
+    case PArrayValue(values, elementType) =>
       s"[${values.map(displayHValue).mkString(", ")}]"
   }
 
-  def typeCheckJson(htype: HType, syntaxTree: SyntaxTree)(
+  def typeCheckJson(ptype: PType, syntaxTree: SyntaxTree)(
       json: JsValue
   ): Try[JsValue] =
     Try {
       def fieldsRespectsShape(
           objectFields: Map[String, JsValue],
-          shapeFields: List[HShapeField]
+          shapeFields: List[PShapeField]
       ) =
         objectFields.forall(
           of =>
             shapeFields.count(
               sf =>
                 sf.id == of._1 &&
-                  typeCheckJson(sf.htype, syntaxTree)(of._2).isSuccess
+                  typeCheckJson(sf.ptype, syntaxTree)(of._2).isSuccess
             ) == 1
         ) && shapeFields
           .filterNot(_.isOptional)
@@ -161,40 +161,40 @@ package object utils {
               objectFields.count(
                 of =>
                   sf.id == of._1 &&
-                    typeCheckJson(sf.htype, syntaxTree)(of._2).isSuccess
+                    typeCheckJson(sf.ptype, syntaxTree)(of._2).isSuccess
               ) == 1
           )
-      (htype, json) match {
-        case (HDate, JsString(v)) if Try(ZonedDateTime.parse(v)).isSuccess =>
+      (ptype, json) match {
+        case (PDate, JsString(v)) if Try(ZonedDateTime.parse(v)).isSuccess =>
           json
-        case (HDate, _) =>
+        case (PDate, _) =>
           throw new Exception("Date must be a valid ISO date")
-        case (HArray(htype), JsArray(elements))
+        case (PArray(ptype), JsArray(elements))
             if elements
-              .map(e => typeCheckJson(htype, syntaxTree)(e))
+              .map(e => typeCheckJson(ptype, syntaxTree)(e))
               .forall {
                 case Failure(_) => false
                 case Success(_) => true
               } =>
           json
-        case (HInteger, JsNumber(v)) if v.isWhole => json
-        case (HBool, JsBoolean(v))                => json
-        case (HOption(htype), JsNull)             => json
-        case (HOption(htype), _)                  => typeCheckJson(htype, syntaxTree)(json).get
-        case (HString, JsString(v))               => json
-        case (HFloat, JsNumber(value))            => json
-        case (shape: HShape, JsObject(fields))
+        case (PInt, JsNumber(v)) if v.isWhole => json
+        case (PBool, JsBoolean(v))                => json
+        case (POption(ptype), JsNull)             => json
+        case (POption(ptype), _)                  => typeCheckJson(ptype, syntaxTree)(json).get
+        case (PString, JsString(v))               => json
+        case (PFloat, JsNumber(value))            => json
+        case (shape: PShape, JsObject(fields))
             if fieldsRespectsShape(fields, shape.fields) =>
           json
-        case (HSelf(id), _: JsValue) =>
+        case (PSelf(id), _: JsValue) =>
           typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
-        case (HReference(id), _: JsValue) =>
+        case (PReference(id), _: JsValue) =>
           typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
-        case (henum: HEnum, JsString(value)) if henum.values.contains(value) =>
+        case (henum: PEnum, JsString(value)) if henum.values.contains(value) =>
           json
-        case (htype: HType, json: JsValue) =>
+        case (ptype: PType, json: JsValue) =>
           throw new Exception(
-            s"The provided JSON value:\n${json.prettyPrint}\ndoesn't pass type validation against type ${displayHType(htype, isVerbose = false)}"
+            s"The provided JSON value:\n${json.prettyPrint}\ndoesn't pass type validation against type ${displayPType(ptype, isVerbose = false)}"
           )
       }
     }

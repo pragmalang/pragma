@@ -1,6 +1,6 @@
 package parsing
 
-import domain._, primitives._, utils._, HeavenlyParser.Reference
+import domain._, primitives._, utils._, PragmaParser.Reference
 import scala.util.{Try, Success, Failure}
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.ListMap
@@ -48,9 +48,9 @@ object Substitutor {
 
   // Gets all  imported functions as a single object
   def getContext(
-      imports: List[HImport],
+      imports: List[PImport],
       graalCtx: Context
-  ): Try[HInterfaceValue] = {
+  ): Try[PInterfaceValue] = {
     val importedObjects = imports zip imports.map(
       readGraalFunctionsIntoContext(_, graalCtx)
     )
@@ -60,12 +60,12 @@ object Substitutor {
     if (!importErrors.isEmpty) Failure(new UserError(importErrors))
     else
       Success {
-        HInterfaceValue(
+        PInterfaceValue(
           ListMap.from(importedObjects.map(imp => (imp._1.id, imp._2.get))),
-          HInterface(
+          PInterface(
             "context",
             importedObjects.map(
-              imp => HInterfaceField(imp._1.id, HAny, None)
+              imp => PInterfaceField(imp._1.id, HAny, None)
             ),
             None
           )
@@ -77,9 +77,9 @@ object Substitutor {
     * definitions in the import
     */
   def readGraalFunctionsIntoContext(
-      himport: HImport,
+      himport: PImport,
       graalCtx: Context
-  ): Try[HInterfaceValue] = Try {
+  ): Try[PInterfaceValue] = Try {
     val file = new java.io.File(himport.filePath)
     val languageId = Source.findLanguage(file)
     val source = Source.newBuilder(languageId, file).build()
@@ -91,38 +91,38 @@ object Substitutor {
       defKeys.asScala.map { defId =>
         defId -> GraalFunction(
           id = defId,
-          htype = HFunction(ListMap.empty, HAny),
+          ptype = PFunction(ListMap.empty, HAny),
           filePath = himport.filePath,
           graalCtx,
           languageId
         )
       }
     )
-    val ctxHtype = HInterface(
+    val ctxPtype = PInterface(
       himport.id,
       hobj.keys
-        .map(k => HInterfaceField(k, HFunction(ListMap.empty, HAny), None))
+        .map(k => PInterfaceField(k, PFunction(ListMap.empty, HAny), None))
         .toList,
       None
     )
-    HInterfaceValue(hobj, ctxHtype)
+    PInterfaceValue(hobj, ctxPtype)
   }
 
   def getReferencedFunction(
       ref: Reference,
-      ctx: HObject
+      ctx: PObject
   ): Option[GraalFunction] =
     ctx.get(ref.path.head) match {
       case Some(f: GraalFunction) if ref.path.length == 1 => Some(f)
-      case Some(HInterfaceValue(hobj, _)) if ref.path.length > 1 =>
+      case Some(PInterfaceValue(hobj, _)) if ref.path.length > 1 =>
         getReferencedFunction(ref.copy(path = ref.path.tail), hobj)
       case _ => None
     }
 
   def substituteDirectiveFunctionRefs(
-      model: HModel,
-      ctx: HInterfaceValue
-  ): Try[HModel] = {
+      model: PModel,
+      ctx: PInterfaceValue
+  ): Try[PModel] = {
     val newModelLevel = model.directives.map(substituteDirectiveRefArgs(ctx))
     val newFieldLevel = model.fields.map { field =>
       field.directives.map(substituteDirectiveRefArgs(ctx))
@@ -135,15 +135,15 @@ object Substitutor {
       Success {
         val newFields = model.fields.zip(newFieldLevel).map {
           case (f, dirs) =>
-            HModelField(
+            PModelField(
               f.id,
-              f.htype,
+              f.ptype,
               f.defaultValue,
               dirs.map(_.get),
               f.position
             )
         }
-        HModel(
+        PModel(
           model.id,
           newFields,
           newModelLevel.map(_.get),
@@ -153,7 +153,7 @@ object Substitutor {
   }
 
   def substituteDirectiveRefArgs(
-      ctx: HInterfaceValue
+      ctx: PInterfaceValue
   )(
       dir: Directive
   ): Try[Directive] = {
@@ -174,14 +174,14 @@ object Substitutor {
       Success(
         dir.copy(
           args =
-            HInterfaceValue(newArgs.map(p => (p._1, p._2.get)), dir.args.htype)
+            PInterfaceValue(newArgs.map(p => (p._1, p._2.get)), dir.args.ptype)
         )
       )
   }
 
   def substituteAccessRulePredicate(
       rule: AccessRule,
-      ctx: HObject
+      ctx: PObject
   ): Try[AccessRule] =
     rule.predicate match {
       case None => Success(rule)
@@ -190,11 +190,11 @@ object Substitutor {
           case Some(value) => Success(rule.copy(predicate = Some(value)))
           case None        => Failure(UserError(s"Predicate `$ref` is not defined"))
         }
-      case Some(f: HFunctionValue[_, _]) =>
+      case Some(f: PFunctionValue[_, _]) =>
         Success(rule)
     }
 
-  def substituteTenant(t: Tenant, ctx: HObject): Try[Tenant] = {
+  def substituteTenant(t: Tenant, ctx: PObject): Try[Tenant] = {
     val newGlobalRules = t.rules.map(substituteAccessRulePredicate(_, ctx))
     val newRoles = t.roles.map { role =>
       (role, role.rules.map(substituteAccessRulePredicate(_, ctx)))
@@ -214,7 +214,7 @@ object Substitutor {
 
   def substitutePredicateRefs(
       acl: Permissions,
-      ctx: HObject
+      ctx: PObject
   ): Try[Permissions] = {
     val newGlobalTenant = substituteTenant(acl.globalTenant, ctx)
     val newTenants = acl.tenants.map(substituteTenant(_, ctx))
@@ -320,19 +320,19 @@ object Substitutor {
 
     val newEvents = rule match {
       case AccessRule(_, (_, Some(field)), All :: Nil, _, _)
-          if field.htype.isInstanceOf[HArray] =>
+          if field.ptype.isInstanceOf[PArray] =>
         Right(allowedArrayFieldEvents)
       case AccessRule(_, (_, Some(field)), All :: Nil, _, _)
-          if field.htype.isInstanceOf[HArray] =>
+          if field.ptype.isInstanceOf[PArray] =>
         Right(allowedArrayFieldEvents)
       case AccessRule(_, (_, Some(field)), All :: Nil, _, _)
-          if field.htype.isInstanceOf[PrimitiveType] ||
-            field.htype.isInstanceOf[HEnum] =>
+          if field.ptype.isInstanceOf[PrimitiveType] ||
+            field.ptype.isInstanceOf[PEnum] =>
         Right(allowedPrimitiveFieldEvents)
       case AccessRule(_, (_, Some(field)), All :: Nil, _, _) =>
         Right(allowedModelEvents)
       case AccessRule(_, (_, Some(field)), events, _, _)
-          if field.htype.isInstanceOf[HArray] =>
+          if field.ptype.isInstanceOf[PArray] =>
         events.find(!allowedArrayFieldEvents.contains(_)) match {
           case None => Right(events)
           case Some(event) =>
@@ -344,8 +344,8 @@ object Substitutor {
             )
         }
       case AccessRule(_, (_, Some(field)), events, _, _)
-          if field.htype.isInstanceOf[PrimitiveType] ||
-            field.htype.isInstanceOf[HEnum] =>
+          if field.ptype.isInstanceOf[PrimitiveType] ||
+            field.ptype.isInstanceOf[PEnum] =>
         events.find(!allowedPrimitiveFieldEvents.contains(_)) match {
           case None => Right(events)
           case Some(event) =>
@@ -407,14 +407,14 @@ object Substitutor {
   }
 
   // Adds an _id: String @primary field to the model
-  def withDefaultId(model: HModel) = model.copy(
-    fields = HModelField(
+  def withDefaultId(model: PModel) = model.copy(
+    fields = PModelField(
       "_id",
-      HString,
+      PString,
       None,
       Directive(
         "primary",
-        HInterfaceValue(ListMap.empty, HInterface("primary", Nil, None)),
+        PInterfaceValue(ListMap.empty, PInterface("primary", Nil, None)),
         FieldDirective,
         None
       ) :: Nil,

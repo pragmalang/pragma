@@ -15,28 +15,28 @@ class ModelParsing extends FlatSpec {
           todos: [Todo],
       }
       """
-    val parsedModel = new HeavenlyParser(code).modelDef.run()
+    val parsedModel = new PragmaParser(code).modelDef.run()
     val exprected = Success(
-      HModel(
+      PModel(
         "User",
         List(
-          HModelField(
+          PModelField(
             "username",
-            HString,
+            PString,
             None,
             List(),
             Some(PositionRange(Position(30, 3, 11), Position(38, 3, 19)))
           ),
-          HModelField(
+          PModelField(
             "age",
-            HOption(HInteger),
+            POption(PInt),
             None,
             List(),
             Some(PositionRange(Position(58, 4, 11), Position(61, 4, 14)))
           ),
-          HModelField(
+          PModelField(
             "todos",
-            HArray(HReference("Todo")),
+            PArray(PReference("Todo")),
             None,
             List(),
             Some(PositionRange(Position(79, 5, 11), Position(84, 5, 16)))
@@ -60,29 +60,29 @@ class ModelParsing extends FlatSpec {
         age: Int = 20
       }
     """
-    val parsedModel = new HeavenlyParser(code).modelDef.run()
+    val parsedModel = new PragmaParser(code).modelDef.run()
     val expected = Success(
-      HModel(
+      PModel(
         "User",
         List(
-          HModelField(
+          PModelField(
             "username",
-            HString,
+            PString,
             None,
             List(
               Directive(
                 "publicCredential",
-                HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                PInterfaceValue(ListMap(), PInterface("", List(), None)),
                 FieldDirective,
                 Some(PositionRange(Position(84, 5, 9), Position(101, 5, 26)))
               )
             ),
             Some(PositionRange(Position(110, 6, 9), Position(118, 6, 17)))
           ),
-          HModelField(
+          PModelField(
             "age",
-            HInteger,
-            Some(HIntegerValue(20L)),
+            PInt,
+            Some(PIntValue(20L)),
             List(),
             Some(PositionRange(Position(137, 8, 9), Position(140, 8, 12)))
           )
@@ -90,15 +90,15 @@ class ModelParsing extends FlatSpec {
         List(
           Directive(
             "user",
-            HInterfaceValue(ListMap(), HInterface("", List(), None)),
+            PInterfaceValue(ListMap(), PInterface("", List(), None)),
             ModelDirective,
             Some(PositionRange(Position(7, 2, 7), Position(12, 2, 12)))
           ),
           Directive(
             "validate",
-            HInterfaceValue(
-              ListMap("validator" -> HStringValue("Some Function")),
-              HInterface("", List(), None)
+            PInterfaceValue(
+              ListMap("validator" -> PStringValue("Some Function")),
+              PInterface("", List(), None)
             ),
             ModelDirective,
             Some(PositionRange(Position(19, 3, 7), Position(63, 4, 7)))
@@ -117,34 +117,34 @@ class ModelParsing extends FlatSpec {
       password: String @secretCredential
     }
     """
-    val parsedModel = new HeavenlyParser(code).syntaxTree.run()
+    val parsedModel = new PragmaParser(code).syntaxTree.run()
     val expected = Success(
       List(
-        HModel(
+        PModel(
           "User",
           List(
-            HModelField(
+            PModelField(
               "username",
-              HString,
+              PString,
               None,
               List(
                 Directive(
                   "publicCredenticl",
-                  HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                  PInterfaceValue(ListMap(), PInterface("", List(), None)),
                   FieldDirective,
                   Some(PositionRange(Position(41, 3, 24), Position(58, 3, 41)))
                 )
               ),
               Some(PositionRange(Position(24, 3, 7), Position(32, 3, 15)))
             ),
-            HModelField(
+            PModelField(
               "password",
-              HString,
+              PString,
               None,
               List(
                 Directive(
                   "secretCredential",
-                  HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                  PInterfaceValue(ListMap(), PInterface("", List(), None)),
                   FieldDirective,
                   Some(PositionRange(Position(82, 4, 24), Position(99, 4, 41)))
                 )
@@ -168,34 +168,34 @@ class ModelParsing extends FlatSpec {
       name: String
     }
     """
-    val parsedModel = new HeavenlyParser(code).modelDef.run()
+    val parsedModel = new PragmaParser(code).modelDef.run()
     val expected = Success(
-      HModel(
+      PModel(
         "User",
         List(
-          HModelField(
+          PModelField(
             "id",
-            HString,
+            PString,
             None,
             List(
               Directive(
                 "id",
-                HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                PInterfaceValue(ListMap(), PInterface("", List(), None)),
                 FieldDirective,
                 Some(PositionRange(Position(45, 4, 18), Position(48, 4, 21)))
               ),
               Directive(
                 "primary",
-                HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                PInterfaceValue(ListMap(), PInterface("", List(), None)),
                 FieldDirective,
                 Some(PositionRange(Position(49, 4, 22), Position(57, 4, 30)))
               )
             ),
             Some(PositionRange(Position(34, 4, 7), Position(36, 4, 9)))
           ),
-          HModelField(
+          PModelField(
             "name",
-            HString,
+            PString,
             None,
             List(),
             Some(PositionRange(Position(64, 5, 7), Position(68, 5, 11)))
@@ -204,7 +204,7 @@ class ModelParsing extends FlatSpec {
         List(
           Directive(
             "user",
-            HInterfaceValue(ListMap(), HInterface("", List(), None)),
+            PInterfaceValue(ListMap(), PInterface("", List(), None)),
             ModelDirective,
             Some(PositionRange(Position(5, 2, 5), Position(10, 2, 10)))
           )

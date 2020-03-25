@@ -64,7 +64,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
               args = Map(
                 "publicCredential" -> builtinType(StringScalar),
                 secretCredentialField.id -> fieldType(
-                  secretCredentialField.htype
+                  secretCredentialField.ptype
                 )
               ),
               fieldType = builtinType(StringScalar)
@@ -91,7 +91,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         graphQlField(
           nameTransformer = _ => "update",
           args = Map(
-            model.primaryField.id -> fieldType(model.primaryField.htype),
+            model.primaryField.id -> fieldType(model.primaryField.ptype),
             model.id.small -> fieldType(
               model,
               nameTransformer = inputTypeName(_)(OptionalInput)
@@ -118,7 +118,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         graphQlField(
           nameTransformer = _ => "delete",
           args = Map(
-            model.primaryField.id -> fieldType(model.primaryField.htype)
+            model.primaryField.id -> fieldType(model.primaryField.ptype)
           ),
           fieldType = fieldType(model)
         )(model.id)
@@ -128,7 +128,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         graphQlField(
           nameTransformer = _ => "recover",
           args = Map(
-            model.primaryField.id -> fieldType(model.primaryField.htype)
+            model.primaryField.id -> fieldType(model.primaryField.ptype)
           ),
           fieldType = fieldType(model)
         )(model.id)
@@ -181,7 +181,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           nameTransformer = _ => "deleteMany",
           args = Map(
             "items" -> listFieldType(
-              model.primaryField.htype,
+              model.primaryField.ptype,
               isEmptiable = false
             )
           ),
@@ -194,7 +194,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           nameTransformer = _ => "recoverMany",
           args = Map(
             "items" -> listFieldType(
-              model.primaryField.htype,
+              model.primaryField.ptype,
               isEmptiable = false
             )
           ),
@@ -204,14 +204,14 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
 
       val modelListFields = model.fields.collect(
         f =>
-          f.htype match {
-            case _: HArray => f
+          f.ptype match {
+            case _: PArray => f
           }
       )
 
       val modelListFieldOperations = modelListFields
         .flatMap(f => {
-          val listFieldInnerType = f.htype.asInstanceOf[HArray].htype
+          val listFieldInnerType = f.ptype.asInstanceOf[PArray].ptype
 
           val pushTo = Some(
             graphQlField(
@@ -233,7 +233,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
               Map(
                 "item" -> fieldType(
                   listFieldInnerType match {
-                    case m: HModel => m.primaryField.htype
+                    case m: PModel => m.primaryField.ptype
                     case t         => t
                   },
                   nameTransformer =
@@ -255,7 +255,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
                   isEmptiable = false
                 )
               ),
-              fieldType(f.htype)
+              fieldType(f.ptype)
             )(f.id)
           )
 
@@ -266,7 +266,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
               Map(
                 "item" -> listFieldType(
                   listFieldInnerType match {
-                    case m: HModel => m.primaryField.htype
+                    case m: PModel => m.primaryField.ptype
                     case t         => t
                   },
                   nameTransformer =
@@ -274,7 +274,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
                   isEmptiable = false
                 )
               ),
-              fieldType(f.htype)
+              fieldType(f.ptype)
             )(f.id)
           )
 
@@ -306,7 +306,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         graphQlField(
           nameTransformer = _ => "read",
           args = Map(
-            model.primaryField.id -> fieldType(model.primaryField.htype)
+            model.primaryField.id -> fieldType(model.primaryField.ptype)
           ),
           fieldType = fieldType(model, isOptional = true)
         )(model.id)
@@ -336,7 +336,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         graphQlField(
           nameTransformer = _ => "read",
           args = Map(
-            model.primaryField.id -> fieldType(model.primaryField.htype)
+            model.primaryField.id -> fieldType(model.primaryField.ptype)
           ),
           fieldType = fieldType(model, isOptional = true)
         )(model.id)
@@ -359,26 +359,26 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       ObjectTypeDefinition(s"${model.id}Subscriptions", Vector.empty, fields)
     })
 
-  def inputFieldType(field: HModelField) = {
-    val hReferenceType = fieldType(
-      ht = field.htype,
+  def inputFieldType(field: PModelField) = {
+    val PReferenceType = fieldType(
+      ht = field.ptype,
       nameTransformer = inputTypeName(_)(OptionalInput),
       isOptional = true
     )
 
-    val isReferenceToModel = (t: HReferenceType) =>
+    val isReferenceToModel = (t: PReferenceType) =>
       syntaxTree.models.exists(_.id == t.id)
 
-    field.htype match {
-      case t: HReferenceType if isReferenceToModel(t) =>
-        hReferenceType
-      case HArray(t: HReferenceType) if isReferenceToModel(t) =>
-        hReferenceType
-      case HOption(t: HReferenceType) if isReferenceToModel(t) =>
-        hReferenceType
+    field.ptype match {
+      case t: PReferenceType if isReferenceToModel(t) =>
+        PReferenceType
+      case PArray(t: PReferenceType) if isReferenceToModel(t) =>
+        PReferenceType
+      case POption(t: PReferenceType) if isReferenceToModel(t) =>
+        PReferenceType
       case _ =>
         fieldType(
-          ht = field.htype,
+          ht = field.ptype,
           isOptional = true
         )
     }
@@ -401,7 +401,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
 
   def ruleBasedTypeGenerator(
       typeName: String,
-      rules: List[HModel => Option[FieldDefinition]]
+      rules: List[PModel => Option[FieldDefinition]]
   ) = ObjectTypeDefinition(
     name = typeName,
     interfaces = Vector.empty,
@@ -418,7 +418,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
   )
 
   def queryType: ObjectTypeDefinition = {
-    val rules: List[HModel => Option[FieldDefinition]] = List(
+    val rules: List[PModel => Option[FieldDefinition]] = List(
       model =>
         Some(
           graphQlField(fieldType = NamedType(s"${model.id}Queries"))(model.id)
@@ -428,7 +428,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
   }
 
   def subscriptionType: ObjectTypeDefinition = {
-    val rules: List[HModel => Option[FieldDefinition]] = List(
+    val rules: List[PModel => Option[FieldDefinition]] = List(
       model =>
         Some(
           graphQlField(fieldType = NamedType(s"${model.id}Subscriptions"))(
@@ -440,7 +440,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
   }
 
   def mutationType: ObjectTypeDefinition = {
-    val rules: List[HModel => Option[FieldDefinition]] = List(
+    val rules: List[PModel => Option[FieldDefinition]] = List(
       model =>
         Some(
           graphQlField(fieldType = NamedType(s"${model.id}Mutations"))(model.id)
@@ -452,40 +452,40 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
 
   def gqlFieldToHModelField(
       field: Either[FieldDefinition, InputValueDefinition]
-  ): HModelField = {
+  ): PModelField = {
     def fieldType(
         tpe: Type,
-        fieldHType: HType,
+        fieldPType: PType,
         isOptional: Boolean = true
-    ): HType =
+    ): PType =
       tpe match {
         case ListType(ofType, _) =>
-          HArray(fieldType(ofType, fieldHType))
+          PArray(fieldType(ofType, fieldPType))
         case NamedType(name, _) =>
-          if (isOptional) HOption(fieldHType) else fieldHType
-        case NotNullType(ofType, _) => fieldType(ofType, fieldHType, false)
+          if (isOptional) POption(fieldPType) else fieldPType
+        case NotNullType(ofType, _) => fieldType(ofType, fieldPType, false)
       }
 
     field match {
       case Left(field) => {
-        val fieldHType = gqlTypeToHType(
+        val fieldPType = gqlTypeToPType(
           getTypeFromSchema(field.fieldType.namedType).get.typeDef
         )
-        HModelField(
+        PModelField(
           id = field.name,
-          htype = fieldType(field.fieldType, fieldHType),
+          ptype = fieldType(field.fieldType, fieldPType),
           None,
           Nil,
           None
         )
       }
       case Right(value) => {
-        val fieldHType = gqlTypeToHType(
+        val fieldPType = gqlTypeToPType(
           getTypeFromSchema(value.valueType.namedType).get.typeDef
         )
-        HModelField(
+        PModelField(
           id = value.name,
-          htype = fieldType(value.valueType, fieldHType),
+          ptype = fieldType(value.valueType, fieldPType),
           None,
           Nil,
           None
@@ -494,41 +494,41 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     }
   }
 
-  def gqlTypeToHType(
+  def gqlTypeToPType(
       typeDef: TypeDefinition,
       isReference: Boolean = true
-  ): HType = typeDef match {
-    case i: InterfaceTypeDefinition if isReference => HReference(i.name)
+  ): PType = typeDef match {
+    case i: InterfaceTypeDefinition if isReference => PReference(i.name)
     case i: InterfaceTypeDefinition if !isReference =>
-      HModel(
+      PModel(
         id = i.name,
         fields = i.fields.map(f => gqlFieldToHModelField(Left(f))).toList,
         Nil,
         None
       )
     case e: EnumTypeDefinition =>
-      HEnum(id = e.name, values = e.values.map(v => v.name).toList, None)
-    case s: ScalarTypeDefinition if s.name == "Int"     => HInteger
-    case s: ScalarTypeDefinition if s.name == "String"  => HString
-    case s: ScalarTypeDefinition if s.name == "Float"   => HFloat
-    case s: ScalarTypeDefinition if s.name == "Boolean" => HBool
-    case s: ScalarTypeDefinition if s.name == "ID"      => HString
+      PEnum(id = e.name, values = e.values.map(v => v.name).toList, None)
+    case s: ScalarTypeDefinition if s.name == "Int"     => PInt
+    case s: ScalarTypeDefinition if s.name == "String"  => PString
+    case s: ScalarTypeDefinition if s.name == "Float"   => PFloat
+    case s: ScalarTypeDefinition if s.name == "Boolean" => PBool
+    case s: ScalarTypeDefinition if s.name == "ID"      => PString
     case s: ScalarTypeDefinition if s.name == "Any"     => HAny
     case _: UnionTypeDefinition =>
       throw new Exception(
-        "GraphQL unions types can't be converted to Heavenly-x types"
+        "GraphQL unions types can't be converted to Pragma types"
       )
-    case o: ObjectTypeDefinition if isReference => HReference(o.name)
+    case o: ObjectTypeDefinition if isReference => PReference(o.name)
     case o: ObjectTypeDefinition if !isReference =>
-      HModel(
+      PModel(
         id = o.name,
         fields = o.fields.map(f => gqlFieldToHModelField(Left(f))).toList,
         Nil,
         None
       )
-    case i: InputObjectTypeDefinition if isReference => HReference(i.name)
+    case i: InputObjectTypeDefinition if isReference => PReference(i.name)
     case i: InputObjectTypeDefinition if !isReference =>
-      HModel(
+      PModel(
         id = i.name,
         fields = i.fields.map(f => gqlFieldToHModelField(Right(f))).toList,
         Nil,
@@ -555,8 +555,8 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         case _                                    => false
       }
       .map(_.asInstanceOf[TypeDefinition])
-      .map(t => gqlTypeToHType(t, false))
-      .collect { case t: HConstruct => t }
+      .map(t => gqlTypeToPType(t, false))
+      .collect { case t: PConstruct => t }
       .toList
     SyntaxTree.fromConstructs(definitions)
   }
@@ -677,12 +677,12 @@ object ApiSchemaGenerator {
   ): Type = typeBuilder(builtinTypeName)(t, isOptional, isList)
 
   def outputType(
-      model: HModel,
+      model: PModel,
       isOptional: Boolean = false,
       isList: Boolean = false,
       nameTransformer: String => String = identity
   ): Type =
-    typeBuilder((model: HModel) => nameTransformer(model.id))(
+    typeBuilder((model: PModel) => nameTransformer(model.id))(
       model,
       isOptional,
       isList
@@ -696,19 +696,17 @@ object ApiSchemaGenerator {
 
   def notificationTypeName(modelId: String): String =
     s"${modelId.capitalize}Notification"
-  def notificationTypeName(model: HModel): String =
+  def notificationTypeName(model: PModel): String =
     notificationTypeName(model.id)
 
   def inputTypeName(modelId: String)(kind: InputKind): String =
     modelId.capitalize + inputKindSuffix(kind)
-  def inputTypeName(model: HModel)(kind: InputKind): String =
+
+  def inputTypeName(model: PModel)(kind: InputKind): String =
     inputTypeName(model.id)(kind)
-  // def inputTypeName(hType: HType)(kind: InputKind): String = hType match {
-  //   case t: PrimitiveType => primitiveTypeToGql(t)
-  // }
 
   def listFieldType(
-      ht: HType,
+      ht: PType,
       isOptional: Boolean = false,
       isEmptiable: Boolean = true,
       nameTransformer: String => String = identity
@@ -724,65 +722,65 @@ object ApiSchemaGenerator {
   }
 
   def fieldType(
-      ht: HType,
+      ht: PType,
       isOptional: Boolean = false,
       nameTransformer: String => String = identity
   ): Type =
     ht match {
-      case HArray(ht) =>
+      case PArray(ht) =>
         if (isOptional)
           ListType(fieldType(ht, isOptional = true, nameTransformer))
         else
           NotNullType(
             ListType(fieldType(ht, isOptional = true, nameTransformer))
           )
-      case HBool =>
+      case PBool =>
         if (isOptional) NamedType("Boolean")
         else NotNullType(NamedType("Boolean"))
-      case HDate =>
+      case PDate =>
         if (isOptional) NamedType("Date") else NotNullType(NamedType("Date"))
-      case HFloat =>
+      case PFloat =>
         if (isOptional) NamedType("Float") else NotNullType(NamedType("Float"))
-      case HInteger =>
+      case PInt =>
         if (isOptional) NamedType("Int") else NotNullType(NamedType("Int"))
-      case HString =>
+      case PString =>
         if (isOptional) NamedType("String")
         else NotNullType(NamedType("String"))
-      case HOption(ht) => fieldType(ht, isOptional = true, nameTransformer)
+      case POption(ht) => fieldType(ht, isOptional = true, nameTransformer)
       case HFile(_, _) =>
         if (isOptional) NamedType("String")
         else NotNullType(NamedType("String"))
-      case s: HShape =>
+      case s: PShape =>
         if (isOptional) NamedType(nameTransformer(s.id))
         else NotNullType(NamedType(nameTransformer(s.id)))
-      case e: HEnum =>
+      case e: PEnum =>
         if (isOptional) NamedType(e.id) else NotNullType(NamedType(e.id))
-      case HReference(id) =>
+      case PReference(id) =>
         if (isOptional) NamedType(nameTransformer(id))
         else NotNullType(NamedType(nameTransformer(id)))
-      case HSelf(id) =>
+      case PSelf(id) =>
         if (isOptional) NamedType(nameTransformer(id))
         else NotNullType(NamedType(nameTransformer(id)))
-      case HFunction(args, returnType) =>
+      case PFunction(args, returnType) =>
         throw new Exception("Function can't be used as a field type")
     }
 
-  def hEnum(e: HEnum): EnumTypeDefinition =
+  def hEnum(e: PEnum): EnumTypeDefinition =
     EnumTypeDefinition(
       name = e.id,
       values = e.values.map(v => EnumValueDefinition(name = v)).toVector
     )
 
   def hShape(
-      s: HShape,
+      s: PShape,
       directives: Vector[GraphQlDirective] = Vector.empty
   ): ObjectTypeDefinition = ObjectTypeDefinition(
     s.id,
     Vector.empty,
     s.fields
       .filter({
-        case field: HInterfaceField => true
-        case field: HModelField =>
+        case field: PInterfaceField => true
+        case field: PModelField =>
           !field.directives.exists(_.id == "secretCredential")
       })
       .map(hShapeField)
@@ -791,10 +789,10 @@ object ApiSchemaGenerator {
   )
 
   def hShapeField(
-      f: HShapeField
+      f: PShapeField
   ): FieldDefinition = FieldDefinition(
     name = f.id,
-    fieldType = fieldType(f.htype),
+    fieldType = fieldType(f.ptype),
     Vector.empty
   )
 

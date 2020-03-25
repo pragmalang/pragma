@@ -11,30 +11,30 @@ package object Implicits {
   import domain.utils.`package`.InternalException
 
   import running.JwtPaylod
-  implicit object HvalueJsonFormater extends JsonWriter[HValue] {
+  implicit object HvalueJsonFormater extends JsonWriter[PValue] {
 
     @throws[Error]
-    def write(value: HValue): JsValue = value match {
+    def write(value: PValue): JsValue = value match {
       case f: ExternalFunction =>
         JsObject("id" -> JsString(f.id), "filePath" -> JsString(f.filePath))
-      case HIntegerValue(value) => value.toJson
-      case HFloatValue(value)   => value.toJson
-      case _: HFunctionValue[_, _] =>
+      case PIntValue(value) => value.toJson
+      case PFloatValue(value)   => value.toJson
+      case _: PFunctionValue[_, _] =>
         throw new Error("Functions are not serializable")
-      case HDateValue(value) => value.toString.toJson
-      case HBoolValue(value) => value.toJson
-      case HOptionValue(value, valueType) =>
+      case PDateValue(value) => value.toString.toJson
+      case PBoolValue(value) => value.toJson
+      case POptionValue(value, valueType) =>
         value match {
           case None        => JsNull
           case Some(value) => write(value)
         }
-      case HModelValue(value, htype) =>
+      case PModelValue(value, ptype) =>
         value.map(field => field._1 -> write(field._2)).toMap.toJson
-      case HInterfaceValue(value, htype) =>
+      case PInterfaceValue(value, ptype) =>
         value.map(field => field._1 -> write(field._2)).toMap.toJson
-      case HFileValue(value, htype)         => value.toPath.toUri.toString.toJson
-      case HStringValue(value)              => value.toJson
-      case HArrayValue(values, elementType) => values.map(write).toJson
+      case PFileValue(value, ptype)         => value.toPath.toUri.toString.toJson
+      case PStringValue(value)              => value.toJson
+      case PArrayValue(values, elementType) => values.map(write).toJson
     }
   }
 

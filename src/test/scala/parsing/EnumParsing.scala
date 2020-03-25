@@ -16,10 +16,10 @@ class EnumParsing extends FlatSpec {
             Saturday
         }
         """
-    val parsedEnum = new HeavenlyParser(code).syntaxTree.run()
+    val parsedEnum = new PragmaParser(code).syntaxTree.run()
     val expected = Success(
       List(
-        HEnum(
+        PEnum(
           "WeekDay",
           List(
             "Sunday",

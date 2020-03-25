@@ -5,7 +5,7 @@ import running.JwtPaylod
 import domain._, utils.InternalException
 import sangria.ast._
 import running.Implicits.GraphQlValueJsonFormater
-import domain.primitives.`package`.HFunctionValue
+import domain.primitives.`package`.PFunctionValue
 import domain.primitives._
 
 case class Request(
@@ -20,17 +20,17 @@ case class Request(
 )
 
 object Request {
-  lazy val hType: HInterface = HInterface(
+  lazy val pType: PInterface = PInterface(
     "Request",
     List(
-      HInterfaceField("hookData", HAny, None),
-      HInterfaceField("body", HAny, None),
-      HInterfaceField("user", HAny, None),
-      HInterfaceField("query", HAny, None),
-      HInterfaceField("queryVariable", HAny, None),
-      HInterfaceField("cookies", HAny, None),
-      HInterfaceField("url", HAny, None),
-      HInterfaceField("hostname", HAny, None)
+      PInterfaceField("hookData", HAny, None),
+      PInterfaceField("body", HAny, None),
+      PInterfaceField("user", HAny, None),
+      PInterfaceField("query", HAny, None),
+      PInterfaceField("queryVariable", HAny, None),
+      PInterfaceField("cookies", HAny, None),
+      PInterfaceField("url", HAny, None),
+      PInterfaceField("hostname", HAny, None)
     ),
     None
   )
@@ -39,13 +39,13 @@ object Request {
 case class Operation(
     opKind: Operation.OperationKind,
     arguments: Map[String, JsValue],
-    event: HEvent,
-    targetModel: HModel,
+    event: PEvent,
+    targetModel: PModel,
     fieldPath: Operation.AliasedResourcePath,
-    role: Option[HModel],
+    role: Option[PModel],
     user: Option[JwtPaylod],
     // Contains hooks used in @onRead, @onWrite, and @onDelete directives
-    crudHooks: List[HFunctionValue[_, _]],
+    crudHooks: List[PFunctionValue[_, _]],
     authRules: List[AccessRule]
 )
 object Operation {
@@ -54,7 +54,7 @@ object Operation {
   case object WriteOperation extends OperationKind
   case object DeleteOperation extends OperationKind
 
-  case class AliasedField(field: HShapeField, alias: Option[String] = None)
+  case class AliasedField(field: PShapeField, alias: Option[String] = None)
   type AliasedResourcePath = List[AliasedField]
   type FieldSelection = Field
   type GqlOperationType = OperationType
@@ -73,7 +73,7 @@ object Operation {
       }
     }
 
-  def opSelectionEvent(opSelection: String): HEvent =
+  def opSelectionEvent(opSelection: String): PEvent =
     opSelection match {
       case "read"                                   => Read
       case "list"                                   => ReadMany
@@ -118,9 +118,9 @@ object Operation {
   }
 
   def fromOperationSelection(
-      model: HModel,
+      model: PModel,
       opSelection: FieldSelection,
-      role: Option[HModel],
+      role: Option[PModel],
       user: Option[JwtPaylod],
       st: SyntaxTree
   ): Vector[Operation] = {
@@ -149,16 +149,16 @@ object Operation {
   def fromModelFieldSelection(
       modelFieldSelection: FieldSelection,
       opArguments: Map[String, JsValue],
-      event: HEvent,
-      model: HModel,
-      role: Option[HModel],
+      event: PEvent,
+      model: PModel,
+      role: Option[PModel],
       user: Option[JwtPaylod],
       st: SyntaxTree,
       fieldPath: AliasedResourcePath = Nil
   ): Vector[Operation] = {
     val selectedModelField =
       model.fields.find(_.id == modelFieldSelection.name) match {
-        case Some(field: HModelField) => field
+        case Some(field: PModelField) => field
         case _ =>
           throw new InternalException(
             s"Requested field `${modelFieldSelection.name}` of model `${model.id}` is not defined. Something must've went wrong during query validation"
@@ -202,17 +202,17 @@ object Operation {
         selectedModelField,
         modelFieldSelection.alias
       )
-      val fieldModelId = selectedModelField.htype match {
-        case m: HReference          => m.id
-        case HArray(m: HReference)  => m.id
-        case HOption(m: HReference) => m.id
+      val fieldModelId = selectedModelField.ptype match {
+        case m: PReference          => m.id
+        case PArray(m: PReference)  => m.id
+        case POption(m: PReference) => m.id
         case _ =>
           throw new InternalException(
             s"Field `${selectedModelField.id}` is not of a model type (it cannot have inner sellections in a GraphQL query). Something must've went wrong during query validation"
           )
       }
       val fieldModel = st.models.find(_.id == fieldModelId) match {
-        case Some(model: HModel) => model
+        case Some(model: PModel) => model
         case None =>
           throw new InternalException(
             s"Requested model `${fieldModelId}` is not defined. Something must've went wrong during validation"

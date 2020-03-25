@@ -8,54 +8,54 @@ import spray.json._
 import scala.util.Try
 import scala.collection.immutable.ListMap
 import domain.Implicits.GraalValueJsonFormater
-import parsing.{HeavenlyParser, Validator, Substitutor}
+import parsing.{PragmaParser, Validator, Substitutor}
 import running.pipeline.Request
 
 /**
-  * An HType is a data representation (models, enums, and primitive types)
+  * A PType is a data representation (models, enums, and primitive types)
   */
-trait HType
+trait PType
 
-case object HAny extends HType
+case object HAny extends PType
 
-trait HReferenceType extends HType with Identifiable
+trait PReferenceType extends PType with Identifiable
 
 // Base case for recursive types
-case class HSelf(id: String) extends HReferenceType
+case class PSelf(id: String) extends PReferenceType
 
-case class HReference(id: String) extends HReferenceType
+case class PReference(id: String) extends PReferenceType
 
-sealed trait HConstruct extends Positioned
+sealed trait PConstruct extends Positioned
 
 case class SyntaxTree(
-    imports: List[HImport],
-    models: List[HModel],
-    enums: List[HEnum],
+    imports: List[PImport],
+    models: List[PModel],
+    enums: List[PEnum],
     permissions: Option[Permissions] = None,
-    config: Option[HConfig] = None
+    config: Option[PConfig] = None
 ) {
-  def findTypeById(id: String): Option[HType] =
+  def findTypeById(id: String): Option[PType] =
     models.find(model => model.id.toLowerCase == id.toLowerCase) orElse
       enums.find(enum => enum.id == id)
 
   def render: String =
-    (models ++ enums).map(displayHType(_, true)).mkString("\n\n")
+    (models ++ enums).map(displayPType(_, true)).mkString("\n\n")
 }
 object SyntaxTree {
   // The resulting syntax tree is validated and substituted
   def from(code: String): Try[SyntaxTree] =
-    new HeavenlyParser(code).syntaxTree
+    new PragmaParser(code).syntaxTree
       .run()
       .flatMap(new Validator(_).validSyntaxTree)
       .flatMap(Substitutor.substitute)
 
   // The resulting syntax tree is not validated or substituted
-  // Meant for use only in the HeavenlyParser
-  def fromConstructs(constructs: List[HConstruct]): SyntaxTree = {
-    val imports = constructs.collect { case i: HImport         => i }
-    val models = constructs.collect { case m: HModel           => m }
-    val enums = constructs.collect { case e: HEnum             => e }
-    val config = constructs.collect { case cfg: HConfig        => cfg }
+  // Meant for use only in the PragmaParser
+  def fromConstructs(constructs: List[PConstruct]): SyntaxTree = {
+    val imports = constructs.collect { case i: PImport         => i }
+    val models = constructs.collect { case m: PModel           => m }
+    val enums = constructs.collect { case e: PEnum             => e }
+    val config = constructs.collect { case cfg: PConfig        => cfg }
     val accessRules = constructs.collect { case ar: AccessRule => ar }
     val roles = constructs.collect { case r: Role              => r }
     lazy val permissions = Permissions(
@@ -78,27 +78,27 @@ trait Positioned {
   val position: Option[PositionRange]
 }
 
-case class HImport(
+case class PImport(
     id: String,
     filePath: String,
     position: Option[PositionRange]
-) extends HConstruct
+) extends PConstruct
     with Identifiable
     with Positioned
 
-trait HShape extends Identifiable {
+trait PShape extends Identifiable {
   override val id: String
-  val fields: List[HShapeField]
+  val fields: List[PShapeField]
 }
 
-case class HModel(
+case class PModel(
     id: String,
-    fields: List[HModelField],
+    fields: List[PModelField],
     directives: List[Directive],
     position: Option[PositionRange]
-) extends HType
-    with HConstruct
-    with HShape {
+) extends PType
+    with PConstruct
+    with PShape {
   lazy val isUser = directives.exists(_.id == "user")
 
   lazy val primaryField =
@@ -108,7 +108,7 @@ case class HModel(
     .filter(_.id == "onRead")
     .map { dir =>
       dir.args.value.get("function") match {
-        case Some(fn: HFunctionValue[_, _]) => fn
+        case Some(fn: PFunctionValue[_, _]) => fn
         case None =>
           throw new InternalException(
             s"`onRead` directive of model `$id` must have one function argument. Something must've went wrong during validation"
@@ -124,7 +124,7 @@ case class HModel(
     .filter(_.id == "onWrite")
     .map { dir =>
       dir.args.value.get("function") match {
-        case Some(fn: HFunctionValue[_, _]) => fn
+        case Some(fn: PFunctionValue[_, _]) => fn
         case None =>
           throw new InternalException(
             s"`onWrite` directive of model `$id` must have one function argument. Something must've went wrong during validation"
@@ -140,7 +140,7 @@ case class HModel(
     .filter(_.id == "onDelete")
     .map { dir =>
       dir.args.value.get("function") match {
-        case Some(fn: HFunctionValue[_, _]) => fn
+        case Some(fn: PFunctionValue[_, _]) => fn
         case None =>
           throw new InternalException(
             s"`onDelete` directive of model `$id` must have one function argument. Something must've went wrong during validation"
@@ -153,38 +153,38 @@ case class HModel(
     }
 }
 
-case class HInterface(
+case class PInterface(
     id: String,
-    fields: List[HInterfaceField],
+    fields: List[PInterfaceField],
     position: Option[PositionRange]
-) extends HType
-    with HShape //with HConstruct
+) extends PType
+    with PShape //with HConstruct
 
-trait HShapeField extends Positioned with Identifiable {
-  val htype: HType
-  def isOptional = htype match {
-    case HOption(_) => true
+trait PShapeField extends Positioned with Identifiable {
+  val ptype: PType
+  def isOptional = ptype match {
+    case POption(_) => true
     case _          => false
   }
 }
 
-case class HModelField(
+case class PModelField(
     id: String,
-    htype: HType,
-    defaultValue: Option[HValue],
+    ptype: PType,
+    defaultValue: Option[PValue],
     directives: List[Directive],
     position: Option[PositionRange]
-) extends HShapeField
+) extends PShapeField
 
-case class HInterfaceField(
+case class PInterfaceField(
     id: String,
-    htype: HType,
+    ptype: PType,
     position: Option[PositionRange]
-) extends HShapeField
+) extends PShapeField
 
 case class Directive(
     id: String,
-    args: HInterfaceValue,
+    args: PInterfaceValue,
     kind: DirectiveKind,
     position: Option[PositionRange] = None
 ) extends Identifiable
@@ -196,52 +196,52 @@ case object ModelDirective extends DirectiveKind
 case object ServiceDirective extends DirectiveKind
 
 object BuiltInDefs {
-  def modelDirectives(self: HModel) = Map(
-    "user" -> HInterface("user", Nil, None),
-    "onWrite" -> HInterface(
+  def modelDirectives(self: PModel) = Map(
+    "user" -> PInterface("user", Nil, None),
+    "onWrite" -> PInterface(
       "onWrite",
-      HInterfaceField(
+      PInterfaceField(
         "function",
-        HFunction(ListMap("self" -> self, "request" -> Request.hType), HAny),
+        PFunction(ListMap("self" -> self, "request" -> Request.pType), HAny),
         None
       ) :: Nil,
       None
     ),
-    "onRead" -> HInterface(
+    "onRead" -> PInterface(
       "onRead",
-      HInterfaceField(
+      PInterfaceField(
         "function",
-        HFunction(ListMap("request" -> Request.hType), HAny),
+        PFunction(ListMap("request" -> Request.pType), HAny),
         None
       ) :: Nil,
       None
     ),
-    "onDelete" -> HInterface(
+    "onDelete" -> PInterface(
       "onDelete",
-      HInterfaceField(
+      PInterfaceField(
         "function",
-        HFunction(ListMap("request" -> Request.hType), HAny),
+        PFunction(ListMap("request" -> Request.pType), HAny),
         None
       ) :: Nil,
       None
     ),
-    "noStorage" -> HInterface("noStorage", Nil, None)
+    "noStorage" -> PInterface("noStorage", Nil, None)
   )
 
-  def fieldDirectives(model: HModel, field: HModelField) = Map(
-    "uuid" -> HInterface("uuid", Nil, None),
-    "autoIncrement" -> HInterface("autoIncrement", Nil, None),
-    "unique" -> HInterface("unique", Nil, None),
-    "primary" -> HInterface("primary", Nil, None),
-    "id" -> HInterface("id", Nil, None), // auto-increment/UUID & unique
-    "publicCredential" -> HInterface("publicCredential", Nil, None),
-    "secretCredential" -> HInterface("secretCredential", Nil, None),
-    "connect" -> HInterface(
+  def fieldDirectives(model: PModel, field: PModelField) = Map(
+    "uuid" -> PInterface("uuid", Nil, None),
+    "autoIncrement" -> PInterface("autoIncrement", Nil, None),
+    "unique" -> PInterface("unique", Nil, None),
+    "primary" -> PInterface("primary", Nil, None),
+    "id" -> PInterface("id", Nil, None), // auto-increment/UUID & unique
+    "publicCredential" -> PInterface("publicCredential", Nil, None),
+    "secretCredential" -> PInterface("secretCredential", Nil, None),
+    "connect" -> PInterface(
       "connect",
-      List(HInterfaceField("to", HString, None)),
+      List(PInterfaceField("to", PString, None)),
       None
     ),
-    "recoverable" -> HInterface("recoverable", Nil, None)
+    "recoverable" -> PInterface("recoverable", Nil, None)
   )
 
   // e.g. ifSelf & ifOwner
@@ -249,15 +249,15 @@ object BuiltInDefs {
     Map.empty[String, BuiltinFunction[JsValue, JsValue]]
 }
 
-case class HEnum(
+case class PEnum(
     id: String,
     values: List[String],
     position: Option[PositionRange]
 ) extends Identifiable
-    with HType
-    with HConstruct
+    with PType
+    with PConstruct
 
-sealed trait HEvent {
+sealed trait PEvent {
   override def toString(): String = this match {
     case All         => "ALL"
     case Create      => "CREATE"
@@ -273,20 +273,20 @@ sealed trait HEvent {
     case e           => e.toString
   }
 }
-case object Read extends HEvent // Retrieve record by IDe
-case object Create extends HEvent
-case object Update extends HEvent
-case object Delete extends HEvent
-case object All extends HEvent // Includes all the above
-case object ReadMany extends HEvent // Retrieve many records. Translates to LIST event
-case object Mutate extends HEvent
-case object PushTo extends HEvent // Add item to array field
-case object RemoveFrom extends HEvent // Remove item from array field
+case object Read extends PEvent // Retrieve record by IDe
+case object Create extends PEvent
+case object Update extends PEvent
+case object Delete extends PEvent
+case object All extends PEvent // Includes all the above
+case object ReadMany extends PEvent // Retrieve many records. Translates to LIST event
+case object Mutate extends PEvent
+case object PushTo extends PEvent // Add item to array field
+case object RemoveFrom extends PEvent // Remove item from array field
 // Permission to send attribute in create request
 // e.g. If aa `User` model has a `verified` attribute that you don't want the user to set
 // when they create their aaccount.
-case object SetOnCreate extends HEvent
-case object Recover extends HEvent // Undelete a record
+case object SetOnCreate extends PEvent
+case object Recover extends PEvent // Undelete a record
 
 case class Permissions(
     globalTenant: Tenant,
@@ -302,10 +302,10 @@ case class Tenant(
     with Positioned
 
 case class Role(
-    user: HReference,
+    user: PReference,
     rules: List[AccessRule],
     position: Option[PositionRange] = None
-) extends HConstruct
+) extends PConstruct
 
 sealed trait RuleKind
 case object Allow extends RuleKind
@@ -313,29 +313,29 @@ case object Deny extends RuleKind
 
 case class AccessRule(
     ruleKind: RuleKind,
-    resourcePath: (HShape, Option[HShapeField]),
-    actions: List[HEvent],
-    predicate: Option[HFunctionValue[JsValue, Try[JsValue]]],
+    resourcePath: (PShape, Option[PShapeField]),
+    actions: List[PEvent],
+    predicate: Option[PFunctionValue[JsValue, Try[JsValue]]],
     position: Option[PositionRange]
-) extends HConstruct
+) extends PConstruct
 
-case class HConfig(values: List[ConfigEntry], position: Option[PositionRange])
-    extends HConstruct
+case class PConfig(values: List[ConfigEntry], position: Option[PositionRange])
+    extends PConstruct
 
 case class ConfigEntry(
     key: String,
-    value: HValue,
+    value: PValue,
     position: Option[PositionRange]
 ) extends Positioned
 
-case class DockerFunction(id: String, filePath: String, htype: HFunction)
+case class DockerFunction(id: String, filePath: String, ptype: PFunction)
     extends ExternalFunction {
   override def execute(input: JsValue): Try[JsValue] = ???
 }
 
 case class GraalFunction(
     id: String,
-    htype: HFunction,
+    ptype: PFunction,
     filePath: String,
     graalCtx: polyglot.Context,
     languageId: String = "js"

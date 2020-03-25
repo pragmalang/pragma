@@ -27,7 +27,7 @@ case class Setup(
       "Error: Couldn't run docker-compose. Make sure docker and docker-compose are installed on your machine"
 
   def writeDockerComposeYaml(dockerComposeFile: DockerCompose) =
-    "mkdir .pragma" $ "Filesystem Error: Couldn't create .heavenlyx directory"
+    "mkdir .pragma" $ "Filesystem Error: Couldn't create .pragma directory"
 
   def build(): (SyntaxTree, QueryExecutor) = (buildApiSchema, buildExecutor)
 

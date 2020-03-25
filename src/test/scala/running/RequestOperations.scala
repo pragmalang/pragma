@@ -80,19 +80,19 @@ class RequestOperations extends FlatSpec {
             )
           ),
           Read,
-          HModel(
+          PModel(
             "User",
             List(
-              HModelField(
+              PModelField(
                 "_id",
-                HString,
+                PString,
                 None,
                 List(
                   Directive(
                     "primary",
-                    HInterfaceValue(
+                    PInterfaceValue(
                       ListMap(),
-                      HInterface("primary", List(), None)
+                      PInterface("primary", List(), None)
                     ),
                     FieldDirective,
                     None
@@ -100,14 +100,14 @@ class RequestOperations extends FlatSpec {
                 ),
                 None
               ),
-              HModelField(
+              PModelField(
                 "username",
-                HString,
+                PString,
                 None,
                 List(
                   Directive(
                     "publicCredential",
-                    HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                    PInterfaceValue(ListMap(), PInterface("", List(), None)),
                     FieldDirective,
                     Some(
                       PositionRange(Position(125, 5, 30), Position(142, 5, 47))
@@ -116,16 +116,16 @@ class RequestOperations extends FlatSpec {
                 ),
                 Some(PositionRange(Position(108, 5, 13), Position(116, 5, 21)))
               ),
-              HModelField(
+              PModelField(
                 "todos",
-                HReference("Todo"),
+                PReference("Todo"),
                 None,
                 List(),
                 Some(PositionRange(Position(155, 6, 13), Position(160, 6, 18)))
               ),
-              HModelField(
+              PModelField(
                 "friend",
-                HOption(HReference("User")),
+                POption(PReference("User")),
                 None,
                 List(),
                 Some(PositionRange(Position(179, 7, 13), Position(185, 7, 19)))
@@ -134,7 +134,7 @@ class RequestOperations extends FlatSpec {
             List(
               Directive(
                 "user",
-                HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                PInterfaceValue(ListMap(), PInterface("", List(), None)),
                 ModelDirective,
                 Some(PositionRange(Position(77, 4, 9), Position(82, 4, 14)))
               )
@@ -143,16 +143,16 @@ class RequestOperations extends FlatSpec {
           ),
           List(
             AliasedField(
-              HModelField(
+              PModelField(
                 "_id",
-                HString,
+                PString,
                 None,
                 List(
                   Directive(
                     "primary",
-                    HInterfaceValue(
+                    PInterfaceValue(
                       ListMap(),
-                      HInterface("primary", List(), None)
+                      PInterface("primary", List(), None)
                     ),
                     FieldDirective,
                     None
@@ -179,19 +179,19 @@ class RequestOperations extends FlatSpec {
             )
           ),
           Read,
-          HModel(
+          PModel(
             "User",
             List(
-              HModelField(
+              PModelField(
                 "_id",
-                HString,
+                PString,
                 None,
                 List(
                   Directive(
                     "primary",
-                    HInterfaceValue(
+                    PInterfaceValue(
                       ListMap(),
-                      HInterface("primary", List(), None)
+                      PInterface("primary", List(), None)
                     ),
                     FieldDirective,
                     None
@@ -199,14 +199,14 @@ class RequestOperations extends FlatSpec {
                 ),
                 None
               ),
-              HModelField(
+              PModelField(
                 "username",
-                HString,
+                PString,
                 None,
                 List(
                   Directive(
                     "publicCredential",
-                    HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                    PInterfaceValue(ListMap(), PInterface("", List(), None)),
                     FieldDirective,
                     Some(
                       PositionRange(Position(125, 5, 30), Position(142, 5, 47))
@@ -215,16 +215,16 @@ class RequestOperations extends FlatSpec {
                 ),
                 Some(PositionRange(Position(108, 5, 13), Position(116, 5, 21)))
               ),
-              HModelField(
+              PModelField(
                 "todos",
-                HReference("Todo"),
+                PReference("Todo"),
                 None,
                 List(),
                 Some(PositionRange(Position(155, 6, 13), Position(160, 6, 18)))
               ),
-              HModelField(
+              PModelField(
                 "friend",
-                HOption(HReference("User")),
+                POption(PReference("User")),
                 None,
                 List(),
                 Some(PositionRange(Position(179, 7, 13), Position(185, 7, 19)))
@@ -233,7 +233,7 @@ class RequestOperations extends FlatSpec {
             List(
               Directive(
                 "user",
-                HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                PInterfaceValue(ListMap(), PInterface("", List(), None)),
                 ModelDirective,
                 Some(PositionRange(Position(77, 4, 9), Position(82, 4, 14)))
               )
@@ -242,132 +242,14 @@ class RequestOperations extends FlatSpec {
           ),
           List(
             AliasedField(
-              HModelField(
+              PModelField(
                 "username",
-                HString,
+                PString,
                 None,
                 List(
                   Directive(
                     "publicCredential",
-                    HInterfaceValue(ListMap(), HInterface("", List(), None)),
-                    FieldDirective,
-                    Some(
-                      PositionRange(Position(125, 5, 30), Position(142, 5, 47))
-                    )
-                  )
-                ),
-                Some(PositionRange(Position(108, 5, 13), Position(116, 5, 21)))
-              ),
-              None
-            )
-          ),
-          None,
-          None,
-          List(),
-          List()
-        ),
-        Operation(
-          ReadOperation,
-          Map(
-            "id" -> JsObject(
-              TreeMap(
-                "kind" -> JsString("StringValue"),
-                "value" -> JsString("123")
-              )
-            )
-          ),
-          Read,
-          HModel(
-            "User",
-            List(
-              HModelField(
-                "_id",
-                HString,
-                None,
-                List(
-                  Directive(
-                    "primary",
-                    HInterfaceValue(
-                      ListMap(),
-                      HInterface("primary", List(), None)
-                    ),
-                    FieldDirective,
-                    None
-                  )
-                ),
-                None
-              ),
-              HModelField(
-                "username",
-                HString,
-                None,
-                List(
-                  Directive(
-                    "publicCredential",
-                    HInterfaceValue(ListMap(), HInterface("", List(), None)),
-                    FieldDirective,
-                    Some(
-                      PositionRange(Position(125, 5, 30), Position(142, 5, 47))
-                    )
-                  )
-                ),
-                Some(PositionRange(Position(108, 5, 13), Position(116, 5, 21)))
-              ),
-              HModelField(
-                "todos",
-                HReference("Todo"),
-                None,
-                List(),
-                Some(PositionRange(Position(155, 6, 13), Position(160, 6, 18)))
-              ),
-              HModelField(
-                "friend",
-                HOption(HReference("User")),
-                None,
-                List(),
-                Some(PositionRange(Position(179, 7, 13), Position(185, 7, 19)))
-              )
-            ),
-            List(
-              Directive(
-                "user",
-                HInterfaceValue(ListMap(), HInterface("", List(), None)),
-                ModelDirective,
-                Some(PositionRange(Position(77, 4, 9), Position(82, 4, 14)))
-              )
-            ),
-            Some(PositionRange(Position(89, 4, 21), Position(93, 4, 25)))
-          ),
-          List(
-            AliasedField(
-              HModelField(
-                "friend",
-                HOption(HReference("User")),
-                None,
-                List(),
-                Some(PositionRange(Position(179, 7, 13), Position(185, 7, 19)))
-              ),
-              None
-            ),
-            AliasedField(
-              HModelField(
-                "friend",
-                HOption(HReference("User")),
-                None,
-                List(),
-                Some(PositionRange(Position(179, 7, 13), Position(185, 7, 19)))
-              ),
-              None
-            ),
-            AliasedField(
-              HModelField(
-                "username",
-                HString,
-                None,
-                List(
-                  Directive(
-                    "publicCredential",
-                    HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                    PInterfaceValue(ListMap(), PInterface("", List(), None)),
                     FieldDirective,
                     Some(
                       PositionRange(Position(125, 5, 30), Position(142, 5, 47))
@@ -395,19 +277,19 @@ class RequestOperations extends FlatSpec {
             )
           ),
           Read,
-          HModel(
+          PModel(
             "User",
             List(
-              HModelField(
+              PModelField(
                 "_id",
-                HString,
+                PString,
                 None,
                 List(
                   Directive(
                     "primary",
-                    HInterfaceValue(
+                    PInterfaceValue(
                       ListMap(),
-                      HInterface("primary", List(), None)
+                      PInterface("primary", List(), None)
                     ),
                     FieldDirective,
                     None
@@ -415,14 +297,14 @@ class RequestOperations extends FlatSpec {
                 ),
                 None
               ),
-              HModelField(
+              PModelField(
                 "username",
-                HString,
+                PString,
                 None,
                 List(
                   Directive(
                     "publicCredential",
-                    HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                    PInterfaceValue(ListMap(), PInterface("", List(), None)),
                     FieldDirective,
                     Some(
                       PositionRange(Position(125, 5, 30), Position(142, 5, 47))
@@ -431,16 +313,16 @@ class RequestOperations extends FlatSpec {
                 ),
                 Some(PositionRange(Position(108, 5, 13), Position(116, 5, 21)))
               ),
-              HModelField(
+              PModelField(
                 "todos",
-                HReference("Todo"),
+                PReference("Todo"),
                 None,
                 List(),
                 Some(PositionRange(Position(155, 6, 13), Position(160, 6, 18)))
               ),
-              HModelField(
+              PModelField(
                 "friend",
-                HOption(HReference("User")),
+                POption(PReference("User")),
                 None,
                 List(),
                 Some(PositionRange(Position(179, 7, 13), Position(185, 7, 19)))
@@ -449,7 +331,7 @@ class RequestOperations extends FlatSpec {
             List(
               Directive(
                 "user",
-                HInterfaceValue(ListMap(), HInterface("", List(), None)),
+                PInterfaceValue(ListMap(), PInterface("", List(), None)),
                 ModelDirective,
                 Some(PositionRange(Position(77, 4, 9), Position(82, 4, 14)))
               )
@@ -458,9 +340,9 @@ class RequestOperations extends FlatSpec {
           ),
           List(
             AliasedField(
-              HModelField(
+              PModelField(
                 "friend",
-                HOption(HReference("User")),
+                POption(PReference("User")),
                 None,
                 List(),
                 Some(PositionRange(Position(179, 7, 13), Position(185, 7, 19)))
@@ -468,9 +350,9 @@ class RequestOperations extends FlatSpec {
               None
             ),
             AliasedField(
-              HModelField(
+              PModelField(
                 "friend",
-                HOption(HReference("User")),
+                POption(PReference("User")),
                 None,
                 List(),
                 Some(PositionRange(Position(179, 7, 13), Position(185, 7, 19)))
@@ -478,9 +360,127 @@ class RequestOperations extends FlatSpec {
               None
             ),
             AliasedField(
-              HModelField(
+              PModelField(
+                "username",
+                PString,
+                None,
+                List(
+                  Directive(
+                    "publicCredential",
+                    PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                    FieldDirective,
+                    Some(
+                      PositionRange(Position(125, 5, 30), Position(142, 5, 47))
+                    )
+                  )
+                ),
+                Some(PositionRange(Position(108, 5, 13), Position(116, 5, 21)))
+              ),
+              None
+            )
+          ),
+          None,
+          None,
+          List(),
+          List()
+        ),
+        Operation(
+          ReadOperation,
+          Map(
+            "id" -> JsObject(
+              TreeMap(
+                "kind" -> JsString("StringValue"),
+                "value" -> JsString("123")
+              )
+            )
+          ),
+          Read,
+          PModel(
+            "User",
+            List(
+              PModelField(
+                "_id",
+                PString,
+                None,
+                List(
+                  Directive(
+                    "primary",
+                    PInterfaceValue(
+                      ListMap(),
+                      PInterface("primary", List(), None)
+                    ),
+                    FieldDirective,
+                    None
+                  )
+                ),
+                None
+              ),
+              PModelField(
+                "username",
+                PString,
+                None,
+                List(
+                  Directive(
+                    "publicCredential",
+                    PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                    FieldDirective,
+                    Some(
+                      PositionRange(Position(125, 5, 30), Position(142, 5, 47))
+                    )
+                  )
+                ),
+                Some(PositionRange(Position(108, 5, 13), Position(116, 5, 21)))
+              ),
+              PModelField(
                 "todos",
-                HReference("Todo"),
+                PReference("Todo"),
+                None,
+                List(),
+                Some(PositionRange(Position(155, 6, 13), Position(160, 6, 18)))
+              ),
+              PModelField(
+                "friend",
+                POption(PReference("User")),
+                None,
+                List(),
+                Some(PositionRange(Position(179, 7, 13), Position(185, 7, 19)))
+              )
+            ),
+            List(
+              Directive(
+                "user",
+                PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                ModelDirective,
+                Some(PositionRange(Position(77, 4, 9), Position(82, 4, 14)))
+              )
+            ),
+            Some(PositionRange(Position(89, 4, 21), Position(93, 4, 25)))
+          ),
+          List(
+            AliasedField(
+              PModelField(
+                "friend",
+                POption(PReference("User")),
+                None,
+                List(),
+                Some(PositionRange(Position(179, 7, 13), Position(185, 7, 19)))
+              ),
+              None
+            ),
+            AliasedField(
+              PModelField(
+                "friend",
+                POption(PReference("User")),
+                None,
+                List(),
+                Some(PositionRange(Position(179, 7, 13), Position(185, 7, 19)))
+              ),
+              None
+            ),
+            AliasedField(
+              PModelField(
+                "todos",
+                PReference("Todo"),
                 None,
                 List(),
                 Some(PositionRange(Position(155, 6, 13), Position(160, 6, 18)))
@@ -527,19 +527,19 @@ class RequestOperations extends FlatSpec {
             )
           ),
           Update,
-          HModel(
+          PModel(
             "Todo",
             List(
-              HModelField(
+              PModelField(
                 "_id",
-                HString,
+                PString,
                 None,
                 List(
                   Directive(
                     "primary",
-                    HInterfaceValue(
+                    PInterfaceValue(
                       ListMap(),
-                      HInterface("primary", List(), None)
+                      PInterface("primary", List(), None)
                     ),
                     FieldDirective,
                     None
@@ -547,18 +547,18 @@ class RequestOperations extends FlatSpec {
                 ),
                 None
               ),
-              HModelField(
+              PModelField(
                 "title",
-                HString,
+                PString,
                 None,
                 List(),
                 Some(
                   PositionRange(Position(307, 15, 13), Position(312, 15, 18))
                 )
               ),
-              HModelField(
+              PModelField(
                 "content",
-                HString,
+                PString,
                 None,
                 List(),
                 Some(
@@ -571,9 +571,9 @@ class RequestOperations extends FlatSpec {
           ),
           List(
             AliasedField(
-              HModelField(
+              PModelField(
                 "content",
-                HString,
+                PString,
                 None,
                 List(),
                 Some(

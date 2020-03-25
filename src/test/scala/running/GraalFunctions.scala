@@ -7,7 +7,7 @@ import spray.json._
 import domain.SyntaxTree
 import parsing.Substitutor
 import domain._
-import domain.primitives.`package`.HInterfaceValue
+import domain.primitives.`package`.PInterfaceValue
 
 class GraalFunctions extends FlatSpec {
   "GraalValueJsonFormater" should "read and write Graal values correctly" in {
@@ -83,8 +83,8 @@ class GraalFunctions extends FlatSpec {
     val graalCtx = Context.create()
     val ctx = Substitutor.getContext(st.imports, graalCtx).get
     (
-      ctx.value("jsFns").asInstanceOf[HInterfaceValue].value("f"),
-      ctx.value("pyFns").asInstanceOf[HInterfaceValue].value("increment")
+      ctx.value("jsFns").asInstanceOf[PInterfaceValue].value("f"),
+      ctx.value("pyFns").asInstanceOf[PInterfaceValue].value("increment")
     ) match {
       case (jsFn: GraalFunction, pyFn: GraalFunction) => {
         val jsFnOf1 = jsFn.execute(JsNumber(1)).get

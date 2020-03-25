@@ -96,7 +96,7 @@ case class RequestValidator(syntaxTree: SyntaxTree) {
         throw new QueryError("Variables coercion failed")
       else if (hasValue) {
         if (typeCheckJson(
-              fromGraphQLNamedTypeToHType(variableType.namedType),
+              fromGraphQLNamedTypeToPType(variableType.namedType),
               apiSchemaGenerator.buildApiSchemaAsSyntaxTree
             )(
               value
@@ -145,7 +145,7 @@ case class RequestValidator(syntaxTree: SyntaxTree) {
           coercedValues.addOne(argumentName -> argumentValue.get.value.toJson)
         else {
           val coercedValue = typeCheckJson(
-            fromGraphQLNamedTypeToHType(argumentType.namedType),
+            fromGraphQLNamedTypeToPType(argumentType.namedType),
             apiSchemaGenerator.buildApiSchemaAsSyntaxTree
           )(value.get)
           if (coercedValue.isFailure)

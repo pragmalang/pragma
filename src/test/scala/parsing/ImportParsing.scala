@@ -10,16 +10,16 @@ class ImportParsing extends FlatSpec {
         import "./somefile.js" as f
         import "./someotherfile.js" as g
         """
-    val parser = new HeavenlyParser(code)
+    val parser = new PragmaParser(code)
     val syntaxTree = parser.syntaxTree.run()
     val expected = Success(
       List(
-        HImport(
+        PImport(
           "f",
           "./somefile.js",
           Some(PositionRange(Position(35, 2, 35), Position(36, 2, 36)))
         ),
-        HImport(
+        PImport(
           "g",
           "./someotherfile.js",
           Some(PositionRange(Position(76, 3, 40), Position(77, 3, 41)))

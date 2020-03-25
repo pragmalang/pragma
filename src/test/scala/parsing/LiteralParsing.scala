@@ -5,37 +5,37 @@ import parsing._
 import scala.util._
 
 class LiteralParsing extends FlatSpec {
-  "The literal: 123" should "be parsed as an HIntegerValue(123)" in {
-    val result = new HeavenlyParser("123").literal.run()
-    assert(result == Success(HIntegerValue(123)))
+  "The literal: 123" should "be parsed as an PIntValue(123)" in {
+    val result = new PragmaParser("123").literal.run()
+    assert(result == Success(PIntValue(123)))
   }
 
   "The literal: 20.3" should "be parsed as an HFloatValue(20.3)" in {
-    val result = new HeavenlyParser("20.3").literal.run()
-    assert(result == Success(HFloatValue(20.3)))
+    val result = new PragmaParser("20.3").literal.run()
+    assert(result == Success(PFloatValue(20.3)))
   }
 
-  "The literal: \"Hello \\\"Heavenly-x\\\"\"" should "be parsed as an HStringValue(Hello \\\"Heavenly-x\\\")" in {
+  "The literal: \"Hello \\\"Heavenly-x\\\"\"" should "be parsed as an PStringValue(Hello \\\"Heavenly-x\\\")" in {
     val result =
-      new HeavenlyParser(""""Hello \"Heaveny-x\"""""").literal.run()
-    assert(result == Success(HStringValue("Hello \"Heaveny-x\"")))
+      new PragmaParser(""""Hello \"Heaveny-x\"""""").literal.run()
+    assert(result == Success(PStringValue("Hello \"Heaveny-x\"")))
   }
 
-  "The literal: true" should "be parsed as an HBoolValue(true)" in {
-    val result = new HeavenlyParser("true").literal.run()
-    assert(result == Success(HBoolValue(true)))
+  "The literal: true" should "be parsed as an PBoolValue(true)" in {
+    val result = new PragmaParser("true").literal.run()
+    assert(result == Success(PBoolValue(true)))
   }
 
-  "The literal: [1, 2, 3]" should "be parsed as an HArrayValue(List(1, 2, 3))" in {
-    val result = new HeavenlyParser("[1, 2, 3]").literal.run()
+  "The literal: [1, 2, 3]" should "be parsed as an PArrayValue(List(1, 2, 3))" in {
+    val result = new PragmaParser("[1, 2, 3]").literal.run()
     val expected =
-      HArrayValue(
-        List(HIntegerValue(1), HIntegerValue(2), HIntegerValue(3)),
-        new HType {}
+      PArrayValue(
+        List(PIntValue(1), PIntValue(2), PIntValue(3)),
+        HAny
       )
     assert(
       result.get
-        .asInstanceOf[HArrayValue]
+        .asInstanceOf[PArrayValue]
         .values == expected.values
     )
   }

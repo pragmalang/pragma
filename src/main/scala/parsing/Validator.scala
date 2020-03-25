@@ -4,7 +4,7 @@ import domain._, primitives._, utils._
 import parsing.utils.DependencyGraph
 import scala.util._
 
-class Validator(constructs: List[HConstruct]) {
+class Validator(constructs: List[PConstruct]) {
 
   import Validator._
 
@@ -50,41 +50,41 @@ class Validator(constructs: List[HConstruct]) {
     val errors: List[ErrorMessage] = st.models.flatMap { m =>
       m.fields.foldLeft(List.empty[ErrorMessage]) { (errors, field) =>
         field.defaultValue match {
-          case Some(v: HValue) if field.isOptional => {
-            val typesMatch = field.htype match {
-              case HOption(t) => t == v.htype
+          case Some(v: PValue) if field.isOptional => {
+            val typesMatch = field.ptype match {
+              case POption(t) => t == v.ptype
               case _          => false
             }
             if (typesMatch) errors
             else
               errors :+ (
-                s"Invalid default value of type `${displayHType(v.htype)}` for optional field `${field.id}` of type `${displayHType(field.htype)}`",
+                s"Invalid default value of type `${displayPType(v.ptype)}` for optional field `${field.id}` of type `${displayPType(field.ptype)}`",
                 field.position
               )
           }
-          case Some(arr: HArrayValue)
+          case Some(arr: PArrayValue)
               if !Validator.arrayIsHomogeneous(arr) ||
-                arr.htype != field.htype =>
+                arr.ptype != field.ptype =>
             errors :+ (
               s"Invalid values for array field `${field.id}` (all array elements must have the same type)",
               field.position
             )
-          case Some(HStringValue(value))
-              if field.htype.isInstanceOf[HReference] => {
+          case Some(PStringValue(value))
+              if field.ptype.isInstanceOf[PReference] => {
             val found = st.enums
-              .find(_.id == field.htype.asInstanceOf[Identifiable].id)
+              .find(_.id == field.ptype.asInstanceOf[Identifiable].id)
               .flatMap(foundEnum => foundEnum.values.find(_ == value))
               .isDefined
             if (found) errors
             else
               errors :+ (
-                s"The default value given to field `${field.id}` is not a member of a defined ${field.htype.asInstanceOf[Identifiable].id} enum",
+                s"The default value given to field `${field.id}` is not a member of a defined ${field.ptype.asInstanceOf[Identifiable].id} enum",
                 field.position
               )
           }
-          case Some(v: HValue) if v.htype != field.htype =>
+          case Some(v: PValue) if v.ptype != field.ptype =>
             errors :+ (
-              s"Invalid default value of type `${displayHType(v.htype)}` for field `${field.id}` of type `${displayHType(field.htype)}`",
+              s"Invalid default value of type `${displayPType(v.ptype)}` for field `${field.id}` of type `${displayPType(field.ptype)}`",
               field.position
             )
           case _ => errors
@@ -130,8 +130,8 @@ class Validator(constructs: List[HConstruct]) {
     val nonExistantFieldTypeErrors =
       for (model <- st.models; field <- model.fields)
         yield
-          field.htype match {
-            case r: HReference => {
+          field.ptype match {
+            case r: PReference => {
               val foundType = types.find(r.id == _.id)
               if (foundType.isDefined) None
               else Some((s"Type ${r.id} is not defined", field.position))
@@ -147,7 +147,7 @@ class Validator(constructs: List[HConstruct]) {
   def checkSelfRefOptionality: Try[Unit] = Try {
     val errors = st.models.flatMap { m =>
       m.fields.collect {
-        case f if f.htype == HSelf(m.id) && !f.isOptional =>
+        case f if f.ptype == PSelf(m.id) && !f.isOptional =>
           s"Recursive field `${f.id}` of `${m.id}` must be optional" ->
             f.position
       }
@@ -157,7 +157,7 @@ class Validator(constructs: List[HConstruct]) {
 
   // A user model's public credential can only be String or Integer.
   // A secret credential can only be a String
-  def checkCredentialTypes(model: HModel): List[ErrorMessage] =
+  def checkCredentialTypes(model: PModel): List[ErrorMessage] =
     if (!model.isUser) Nil
     else {
       val publicField =
@@ -167,19 +167,19 @@ class Validator(constructs: List[HConstruct]) {
       publicField zip secretField match {
         case None => Nil
         case Some((pc, sc)) => {
-          val pcError = pc.htype match {
-            case HString | HInteger => Nil
-            case t: HType =>
+          val pcError = pc.ptype match {
+            case PString | PInt => Nil
+            case t: PType =>
               (
-                s"Invalid type `${utils.displayHType(t)}` for public credential `${pc.id}` (must be either String or Integer)",
+                s"Invalid type `${utils.displayPType(t)}` for public credential `${pc.id}` (must be either String or Integer)",
                 pc.position
               ) :: Nil
           }
-          val scError = sc.htype match {
-            case HString => Nil
-            case t: HType =>
+          val scError = sc.ptype match {
+            case PString => Nil
+            case t: PType =>
               (
-                s"Invalid type `${utils.displayHType(t)}` for secret credential `${pc.id}` (must String)",
+                s"Invalid type `${utils.displayPType(t)}` for secret credential `${pc.id}` (must String)",
                 pc.position
               ) :: Nil
           }
@@ -190,7 +190,7 @@ class Validator(constructs: List[HConstruct]) {
 
   // Each user model must have exactly one public credential and
   // exactly one secret credential.
-  def checkCredentialCount(model: HModel): List[ErrorMessage] =
+  def checkCredentialCount(model: PModel): List[ErrorMessage] =
     if (!model.isUser) Nil
     else {
       val publicCredentialFields =
@@ -226,11 +226,11 @@ class Validator(constructs: List[HConstruct]) {
         (s"Multiple primary fields defined for `${m.id}`", m.position) :: Nil
       case m => {
         val found = Validator.findPrimaryField(m)
-        if (found.isDefined) found.get.htype match {
-          case HString | HInteger => Nil
+        if (found.isDefined) found.get.ptype match {
+          case PString | PInt => Nil
           case t =>
             (
-              s"Invalid type `${displayHType(t)}` for primary field `${found.get.id}` of `${m.id}` (must be String or Integer)",
+              s"Invalid type `${displayPType(t)}` for primary field `${found.get.id}` of `${m.id}` (must be String or Integer)",
               found.get.position
             ) :: Nil
         } else Nil
@@ -240,7 +240,7 @@ class Validator(constructs: List[HConstruct]) {
   }
 
   def checkDirectiveAgainst(
-      defs: Map[String, HInterface],
+      defs: Map[String, PInterface],
       dir: Directive
   ): List[ErrorMessage] = defs.get(dir.id) match {
     case None =>
@@ -313,13 +313,13 @@ class Validator(constructs: List[HConstruct]) {
 }
 object Validator {
 
-  def arrayIsHomogeneous(arr: HArrayValue): Boolean =
-    arr.values.forall(_.htype == arr.elementType)
+  def arrayIsHomogeneous(arr: PArrayValue): Boolean =
+    arr.values.forall(_.ptype == arr.elementType)
 
-  def primaryFieldCount(model: HModel) =
+  def primaryFieldCount(model: PModel) =
     model.fields.count(field => field.directives.exists(_.id == "primary"))
 
-  def findPrimaryField(model: HModel): Option[HModelField] =
+  def findPrimaryField(model: PModel): Option[PModelField] =
     model.fields.find(_.directives.exists(_.id == "primary"))
 
   val invalidTypeIdentifiers = List(
