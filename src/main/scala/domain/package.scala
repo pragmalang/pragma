@@ -40,6 +40,9 @@ case class SyntaxTree(
 
   def render: String =
     (models ++ enums).map(displayPType(_, true)).mkString("\n\n")
+
+  def getConfigEntry(key: String): Option[ConfigEntry] =
+    config.flatMap(_.getConfigEntry(key))
 }
 object SyntaxTree {
   // The resulting syntax tree is validated and substituted
@@ -320,7 +323,11 @@ case class AccessRule(
 ) extends PConstruct
 
 case class PConfig(values: List[ConfigEntry], position: Option[PositionRange])
-    extends PConstruct
+    extends PConstruct {
+  def getConfigEntry(key: String): Option[ConfigEntry] =
+    values
+      .find(configEntry => configEntry.key == key)
+}
 
 case class ConfigEntry(
     key: String,

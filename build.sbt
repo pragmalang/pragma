@@ -21,7 +21,8 @@ libraryDependencies ++= Seq(
   "com.github.nscala-time" %% "nscala-time" % "2.22.0",
   "io.spray" %% "spray-json" % "1.3.5",
   "com.pauldijou" %% "jwt-core" % "4.1.0",
-  "com.typesafe.akka" %% "akka-stream" % "2.6.1"
+  "com.typesafe.akka" %% "akka-stream" % "2.6.1",
+  "org.mongodb.scala" %% "mongo-scala-driver" % "2.8.0"
 )
 
 // Requires `native-image` utility from Graal
