@@ -125,22 +125,21 @@ class Validator(constructs: List[PConstruct]) {
     if (!errors.isEmpty) throw new UserError(errors.flatten)
   }
 
-  // Check if types are defined
-  def checkTypeExistance: Try[Unit] = Try {
-    val types: List[Identifiable] = st.models ::: st.enums
-    val nonExistantFieldTypeErrors =
-      for (model <- st.models; field <- model.fields)
-        yield
-          field.ptype match {
-            case r: PReference => {
-              val foundType = types.find(r.id == _.id)
-              if (foundType.isDefined) None
-              else Some((s"Type ${r.id} is not defined", field.position))
-            }
-            case _: PrimitiveType => None
-          }
-    val errors = nonExistantFieldTypeErrors.flatten
-    if (errors.isEmpty) throw new UserError(errors)
+  // Check if field types are defined
+  def checkTypeExistance: Try[Unit] = {
+    val errors = for {
+      model <- st.models
+      field <- model.fields
+      referenceedId <- field.ptype match {
+        case PReference(id)          => Some(id)
+        case PArray(PReference(id))  => Some(id)
+        case POption(PReference(id)) => Some(id)
+        case _: PrimitiveType        => None
+      }
+      if !st.findTypeById(referenceedId).isDefined
+    } yield (s"Type `$referenceedId` is not defined", field.position)
+    if (errors.isEmpty) Success(())
+    else Failure(UserError(errors))
   }
 
   // Check that a recursive type's self references are optional
