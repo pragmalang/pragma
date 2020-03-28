@@ -67,7 +67,7 @@ object Substitutor {
           PInterface(
             "context",
             importedObjects.map(
-              imp => PInterfaceField(imp._1.id, HAny, None)
+              imp => PInterfaceField(imp._1.id, PAny, None)
             ),
             None
           )
@@ -93,7 +93,7 @@ object Substitutor {
       defKeys.asScala.map { defId =>
         defId -> GraalFunction(
           id = defId,
-          ptype = PFunction(ListMap.empty, HAny),
+          ptype = PFunction(ListMap.empty, PAny),
           filePath = himport.filePath,
           graalCtx,
           languageId
@@ -103,7 +103,7 @@ object Substitutor {
     val ctxPtype = PInterface(
       himport.id,
       hobj.keys
-        .map(k => PInterfaceField(k, PFunction(ListMap.empty, HAny), None))
+        .map(k => PInterfaceField(k, PFunction(ListMap.empty, PAny), None))
         .toList,
       None
     )

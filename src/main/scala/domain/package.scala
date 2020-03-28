@@ -16,7 +16,7 @@ import running.pipeline.Request
   */
 trait PType
 
-case object HAny extends PType
+case object PAny extends PType
 
 trait PReferenceType extends PType with Identifiable
 
@@ -205,7 +205,7 @@ object BuiltInDefs {
       "onWrite",
       PInterfaceField(
         "function",
-        PFunction(ListMap("self" -> self, "request" -> Request.pType), HAny),
+        PFunction(ListMap("self" -> self, "request" -> Request.pType), PAny),
         None
       ) :: Nil,
       None
@@ -214,7 +214,7 @@ object BuiltInDefs {
       "onRead",
       PInterfaceField(
         "function",
-        PFunction(ListMap("request" -> Request.pType), HAny),
+        PFunction(ListMap("request" -> Request.pType), PAny),
         None
       ) :: Nil,
       None
@@ -223,7 +223,7 @@ object BuiltInDefs {
       "onDelete",
       PInterfaceField(
         "function",
-        PFunction(ListMap("request" -> Request.pType), HAny),
+        PFunction(ListMap("request" -> Request.pType), PAny),
         None
       ) :: Nil,
       None

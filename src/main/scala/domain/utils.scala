@@ -60,7 +60,7 @@ package object utils {
 
   def displayPType(ptype: PType, isVerbose: Boolean = false): String =
     ptype match {
-      case HAny     => "Any"
+      case PAny     => "Any"
       case PString  => "String"
       case PInt => "Int"
       case PFloat   => "Float"

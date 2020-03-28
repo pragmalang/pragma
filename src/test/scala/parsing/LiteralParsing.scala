@@ -31,7 +31,7 @@ class LiteralParsing extends FlatSpec {
     val expected =
       PArrayValue(
         List(PIntValue(1), PIntValue(2), PIntValue(3)),
-        HAny
+        PAny
       )
     assert(
       result.get

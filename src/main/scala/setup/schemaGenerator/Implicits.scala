@@ -12,7 +12,7 @@ package object Implicits {
       case "Float"   => PFloat
       case "ID"      => PString
       case "Boolean" => PBool
-      case "Any"     => HAny
+      case "Any"     => PAny
       case name      => PReference(name)
     }
 }

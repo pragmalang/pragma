@@ -29,7 +29,7 @@ object PragmaParser {
       )
 
     override val ptype: PFunction =
-      PFunction(ListMap.empty, HAny)
+      PFunction(ListMap.empty, PAny)
 
     override def toString: String =
       path.head + path.tail.foldLeft("")(_ + "." + _)
@@ -109,7 +109,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
       ((elements: Seq[PValue]) => {
         PArrayValue(elements.toList, elements.headOption match {
           case Some(v) => v.ptype
-          case _       => HAny
+          case _       => PAny
         })
       })
   }
@@ -220,7 +220,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
             case PArrayValue(Nil, _) =>
               PArrayValue(Nil, ht match {
                 case PArray(ptype) => ptype
-                case _             => HAny
+                case _             => PAny
               })
             case nonArray => nonArray
           }

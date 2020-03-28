@@ -513,7 +513,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     case s: ScalarTypeDefinition if s.name == "Float"   => PFloat
     case s: ScalarTypeDefinition if s.name == "Boolean" => PBool
     case s: ScalarTypeDefinition if s.name == "ID"      => PString
-    case s: ScalarTypeDefinition if s.name == "Any"     => HAny
+    case s: ScalarTypeDefinition if s.name == "Any"     => PAny
     case _: UnionTypeDefinition =>
       throw new Exception(
         "GraphQL unions types can't be converted to Pragma types"

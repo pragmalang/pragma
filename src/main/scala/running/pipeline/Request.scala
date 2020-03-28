@@ -23,14 +23,14 @@ object Request {
   lazy val pType: PInterface = PInterface(
     "Request",
     List(
-      PInterfaceField("hookData", HAny, None),
-      PInterfaceField("body", HAny, None),
-      PInterfaceField("user", HAny, None),
-      PInterfaceField("query", HAny, None),
-      PInterfaceField("queryVariable", HAny, None),
-      PInterfaceField("cookies", HAny, None),
-      PInterfaceField("url", HAny, None),
-      PInterfaceField("hostname", HAny, None)
+      PInterfaceField("hookData", PAny, None),
+      PInterfaceField("body", PAny, None),
+      PInterfaceField("user", PAny, None),
+      PInterfaceField("query", PAny, None),
+      PInterfaceField("queryVariable", PAny, None),
+      PInterfaceField("cookies", PAny, None),
+      PInterfaceField("url", PAny, None),
+      PInterfaceField("hostname", PAny, None)
     ),
     None
   )
