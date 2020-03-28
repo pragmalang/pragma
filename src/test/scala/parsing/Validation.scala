@@ -49,7 +49,7 @@ class Validation extends FlatSpec {
       UserError(
         List(
           (
-            "Roles can only be defined for user models, but `Todo` is not a user model",
+            "Roles can only be defined for user models, but `Todo` is not a defined user model",
             None
           )
         )
