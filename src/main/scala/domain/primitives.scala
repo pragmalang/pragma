@@ -16,7 +16,7 @@ package object primitives {
   case object PBool extends PrimitiveType
   case object PDate extends PrimitiveType
   case class PArray(ptype: PType) extends PrimitiveType
-  case class HFile(sizeInBytes: Int, extensions: List[String])
+  case class PFile(sizeInBytes: Int, extensions: List[String])
       extends PrimitiveType
   case class PFunction(args: NamedArgs, returnType: PType) extends PrimitiveType
   case class POption(ptype: PType) extends PrimitiveType
@@ -48,7 +48,7 @@ package object primitives {
       extends PValue {
     final val ptype = PArray(elementType)
   }
-  case class PFileValue(value: File, ptype: HFile) extends PValue
+  case class PFileValue(value: File, ptype: PFile) extends PValue
   case class PModelValue(value: PObject, ptype: PModel) extends PValue
   case class PInterfaceValue(value: PObject, ptype: PInterface) extends PValue
   trait PFunctionValue[I, +O] extends Function[I, O] with PValue {

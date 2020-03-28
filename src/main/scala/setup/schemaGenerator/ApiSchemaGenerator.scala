@@ -747,7 +747,7 @@ object ApiSchemaGenerator {
         if (isOptional) NamedType("String")
         else NotNullType(NamedType("String"))
       case POption(ht) => fieldType(ht, isOptional = true, nameTransformer)
-      case HFile(_, _) =>
+      case PFile(_, _) =>
         if (isOptional) NamedType("String")
         else NotNullType(NamedType("String"))
       case s: PShape =>

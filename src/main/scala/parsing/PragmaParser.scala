@@ -125,7 +125,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
     case "Float"   => PFloat
     case "Boolean" => PBool
     case "Date"    => PDate
-    case "File"    => HFile(0, Nil)
+    case "File"    => PFile(0, Nil)
     case id        => PReference(id)
   }
 

@@ -66,7 +66,7 @@ package object utils {
       case PFloat   => "Float"
       case PBool    => "Boolean"
       case PDate    => "Date"
-      case HFile(size, exts) =>
+      case PFile(size, exts) =>
         if (isVerbose) s"File { size = $size, extensions = $exts }" else "File"
       case PArray(t)  => s"[${displayPType(t, isVerbose = false)}]"
       case POption(t) => s"${displayPType(t, isVerbose = false)}?"
