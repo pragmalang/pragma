@@ -22,6 +22,7 @@ class Validator(constructs: List[PConstruct]) {
       checkModelPrimaryFields,
       checkDirectiveArgs,
       checkCircularDeps,
+      checkRolesBelongToUserModels,
       checkCreateAccessRules
     )
     val errors = results.flatMap {
@@ -309,6 +310,23 @@ class Validator(constructs: List[PConstruct]) {
     if (errors.isEmpty) Success(())
     else Failure(UserError(errors))
   }
+
+  def checkRolesBelongToUserModels: Try[Unit] =
+    st.permissions match {
+      case None => Success(())
+      case Some(permissions) => {
+        val errors = permissions.globalTenant.roles.filter { role =>
+          !st.models.filter(_.isUser).exists(_.id == role.user.id)
+        } map { userlessRole =>
+          (
+            s"Roles can only be defined for user models, but `${userlessRole.user.id}` is not a defined user model",
+            userlessRole.position
+          )
+        }
+        if (errors.isEmpty) Success(())
+        else Failure(UserError(errors))
+      }
+    }
 
 }
 object Validator {

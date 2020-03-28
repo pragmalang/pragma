@@ -32,4 +32,29 @@ class Validation extends FlatSpec {
         )
     }
   }
+
+  "Roles defined for non-user models" should "not be allowed" in {
+    val code = """
+    model Todo {
+      title: String
+      content: String
+    }
+
+    role Todo {
+      allow ALL self
+    }
+    """
+    val syntaxTree = SyntaxTree.from(code)
+    val expected = Failure(
+      UserError(
+        List(
+          (
+            "Roles can only be defined for user models, but `Todo` is not a user model",
+            None
+          )
+        )
+      )
+    )
+    assert(syntaxTree == expected)
+  }
 }
