@@ -21,7 +21,9 @@ object Substitutor {
     }.flatten
     val substitutedPermissions = st.permissions.map { permissions =>
       for {
-        withEvents <- substitutePermissionsEvents(permissions)
+        withEvents <- substitutePermissionsEvents(
+          substituteSelfRules(permissions, st.models)
+        )
         withResources <- substituteAccessRuleResourceRefs(withEvents, st)
         withPredicates <- substitutePredicateRefs(withResources, ctx.value)
       } yield withPredicates
@@ -270,6 +272,48 @@ object Substitutor {
     }.flatten
     if (errors.isEmpty) Success(newRules.map(_.get))
     else Failure(UserError(errors))
+  }
+
+  def substituteSelfRules(
+      permissions: Permissions,
+      modelDefs: List[PModel]
+  ): Permissions = {
+    val newRoles = permissions.globalTenant.roles
+      .map(substituteSelfRulesInRole(_, modelDefs))
+    permissions.copy(
+      globalTenant = permissions.globalTenant.copy(roles = newRoles)
+    )
+  }
+
+  def substituteSelfRulesInRole(role: Role, modelDefs: List[PModel]): Role = {
+    val selfModel = modelDefs.find(_.id == role.user.id) match {
+      case Some(model) => model
+      case _ =>
+        throw InternalException(
+          "Trying to substitute `self` references in a role that has no defined user model. Something must've went wrong during validation"
+        )
+    }
+    val newRules = role.rules.map {
+      case selfRule if selfRule.resourcePath._1.id == "self" =>
+        selfRule.copy(
+          predicate = selfRule.predicate match {
+            case None => Some(IfSelfAuthPredicate(selfModel))
+            case Some(userPredicate) =>
+              Some(
+                PredicateAnd(
+                  selfModel,
+                  IfSelfAuthPredicate(selfModel),
+                  userPredicate
+                )
+              )
+          },
+          resourcePath = selfRule.resourcePath match {
+            case (_, rest) => (Reference(selfModel.id :: Nil), rest)
+          }
+        )
+      case nonSelfRule => nonSelfRule
+    }
+    role.copy(rules = newRules)
   }
 
   def substituteAccessRuleResourceRefs(

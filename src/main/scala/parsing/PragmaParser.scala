@@ -31,7 +31,8 @@ object PragmaParser {
     override val ptype: PFunction =
       PFunction(ListMap.empty, HAny)
 
-    override def toString: String = path.foldLeft("")(_ + "." + _)
+    override def toString: String =
+      path.head + path.tail.foldLeft("")(_ + "." + _)
 
     override val fields: List[PShapeField] = Nil
 

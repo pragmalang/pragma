@@ -6,6 +6,9 @@ import domain.{PImport, GraalFunction, SyntaxTree}
 import spray.json._
 import scala.util.Success
 import org.graalvm.polyglot.Context
+import domain._, primitives._
+import collection.immutable.ListMap
+import org.parboiled2.Position
 
 class Substitution extends FlatSpec {
 
@@ -88,6 +91,147 @@ class Substitution extends FlatSpec {
       newGlobalTenant.roles.head.rules.head.predicate.get
         .asInstanceOf[GraalFunction]
     assert(todoOwnershipPredicate.id == "isOwner")
+  }
+
+  "Substitutor" should "substitute `self` references in access rules with appropriate model ref and predicate" in {
+    val code = """
+      @user model User {
+        username: String @publicCredential
+        password: String @secretCredential
+        bio: String
+      }
+
+      role User {
+        allow UPDATE self.bio
+      }
+    """
+    val st = SyntaxTree.from(code).get
+    val permissions = st.permissions.get
+    val selfRule = permissions.globalTenant.roles.head.rules.head
+    val expectedSelfRule = AccessRule(
+      Allow,
+      (
+        PModel(
+          "User",
+          List(
+            PModelField(
+              "username",
+              PString,
+              None,
+              List(
+                Directive(
+                  "publicCredential",
+                  PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                  FieldDirective,
+                  Some(PositionRange(Position(51, 3, 26), Position(68, 3, 43)))
+                )
+              ),
+              Some(PositionRange(Position(34, 3, 9), Position(42, 3, 17)))
+            ),
+            PModelField(
+              "password",
+              PString,
+              None,
+              List(
+                Directive(
+                  "secretCredential",
+                  PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                  FieldDirective,
+                  Some(PositionRange(Position(94, 4, 26), Position(111, 4, 43)))
+                )
+              ),
+              Some(PositionRange(Position(77, 4, 9), Position(85, 4, 17)))
+            ),
+            PModelField(
+              "bio",
+              PString,
+              None,
+              List(),
+              Some(PositionRange(Position(120, 5, 9), Position(123, 5, 12)))
+            )
+          ),
+          List(
+            Directive(
+              "user",
+              PInterfaceValue(ListMap(), PInterface("", List(), None)),
+              ModelDirective,
+              Some(PositionRange(Position(7, 2, 7), Position(12, 2, 12)))
+            )
+          ),
+          Some(PositionRange(Position(19, 2, 19), Position(23, 2, 23)))
+        ),
+        Some(
+          PModelField(
+            "bio",
+            PString,
+            None,
+            List(),
+            Some(PositionRange(Position(120, 5, 9), Position(123, 5, 12)))
+          )
+        )
+      ),
+      List(Update),
+      Some(
+        IfSelfAuthPredicate(
+          PModel(
+            "User",
+            List(
+              PModelField(
+                "username",
+                PString,
+                None,
+                List(
+                  Directive(
+                    "publicCredential",
+                    PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                    FieldDirective,
+                    Some(
+                      PositionRange(Position(51, 3, 26), Position(68, 3, 43))
+                    )
+                  )
+                ),
+                Some(PositionRange(Position(34, 3, 9), Position(42, 3, 17)))
+              ),
+              PModelField(
+                "password",
+                PString,
+                None,
+                List(
+                  Directive(
+                    "secretCredential",
+                    PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                    FieldDirective,
+                    Some(
+                      PositionRange(Position(94, 4, 26), Position(111, 4, 43))
+                    )
+                  )
+                ),
+                Some(PositionRange(Position(77, 4, 9), Position(85, 4, 17)))
+              ),
+              PModelField(
+                "bio",
+                PString,
+                None,
+                List(),
+                Some(PositionRange(Position(120, 5, 9), Position(123, 5, 12)))
+              )
+            ),
+            List(
+              Directive(
+                "user",
+                PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                ModelDirective,
+                Some(PositionRange(Position(7, 2, 7), Position(12, 2, 12)))
+              )
+            ),
+            Some(PositionRange(Position(19, 2, 19), Position(23, 2, 23)))
+          )
+        )
+      ),
+      Some(PositionRange(Position(167, 9, 9), Position(188, 9, 30)))
+    )
+
+    assert(selfRule == expectedSelfRule)
   }
 
 }

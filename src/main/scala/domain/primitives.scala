@@ -4,11 +4,10 @@ import domain.utils._
 import java.io.File
 import scala.util._
 import scala.collection.immutable.ListMap
-import spray.json.JsValue
+import spray.json._
+import running.pipeline.Request
 
 package object primitives {
-
-  import running.pipeline.Request
 
   sealed trait PrimitiveType extends PType
   case object PString extends PrimitiveType
@@ -52,9 +51,10 @@ package object primitives {
   case class PFileValue(value: File, ptype: HFile) extends PValue
   case class PModelValue(value: PObject, ptype: PModel) extends PValue
   case class PInterfaceValue(value: PObject, ptype: PInterface) extends PValue
-  trait PFunctionValue[I, O] extends PValue {
+  trait PFunctionValue[I, +O] extends Function[I, O] with PValue {
     val ptype: PFunction
     def execute(input: I): O
+    override def apply(input: I) = execute(input)
   }
   trait ExternalFunction
       extends PFunctionValue[JsValue, Try[JsValue]]
@@ -66,7 +66,7 @@ package object primitives {
     def execute(args: JsValue): Try[JsValue]
   }
 
-  trait BuiltinFunction[I, O]
+  trait BuiltinFunction[I, +O]
       extends PFunctionValue[I, Try[O]]
       with Identifiable {
     val ptype: PFunction
@@ -74,17 +74,74 @@ package object primitives {
     def execute(input: I): Try[O]
   }
 
+  // Takes two predicates of the same input type and
+  // returns a predicate that 'ANDs' the result of both input predicates.
+  case class PredicateAnd(
+      predicateInputType: PType,
+      p1: PFunctionValue[JsValue, Try[JsValue]],
+      p2: PFunctionValue[JsValue, Try[JsValue]]
+  ) extends BuiltinFunction[JsValue, JsBoolean] {
+    override val id = "predicateAnd"
+    override val ptype = PFunction(ListMap("data" -> predicateInputType), PBool)
+
+    override def execute(input: JsValue): Try[JsBoolean] =
+      for {
+        p1Result <- p1.execute(input)
+        p2Result <- p2.execute(input)
+      } yield (p1Result, p2Result) match {
+        case (JsBoolean(p), JsBoolean(q)) => JsBoolean(p && q)
+        case _ => JsFalse
+      }
+  }
+
   case class IfInAuthFunction(id: String, ptype: PFunction)
       extends BuiltinFunction[Request, Request] {
     def execute(input: Request): Try[Request] = ???
   }
 
-  case class IfSelfAuthFunction(id: String, ptype: PFunction)
-      extends BuiltinFunction[Request, Request] {
-    def execute(input: Request): Try[Request] = ???
+  case class IfSelfAuthPredicate(selfModel: PModel)
+      extends BuiltinFunction[JsValue, JsBoolean] {
+    val id = "ifSelf"
+
+    val ptype = PFunction(
+      ListMap(
+        "args" -> PInterface(
+          "authPredicateArgs",
+          List(
+            PInterfaceField("user", selfModel, None),
+            PInterfaceField("data", selfModel, None)
+          ),
+          None
+        )
+      ),
+      PBool
+    )
+
+    def execute(args: JsValue): Try[JsBoolean] = {
+      val ids = args match {
+        case JsObject(inputFields) =>
+          inputFields
+            .get("user")
+            .flatMap {
+              case JsObject(fields) => fields.get(selfModel.primaryField.id)
+              case _                => None
+            }
+            .zip {
+              inputFields.get("data").flatMap {
+                case JsObject(fields) => fields.get(selfModel.primaryField.id)
+                case _                => None
+              }
+            }
+        case _ => None
+      }
+      Success(ids match {
+        case Some((userId, otherId)) if userId == otherId => JsTrue
+        case _                                            => JsFalse
+      })
+    }
   }
 
-  case class IfRoleAuthFunction(id: String, ptype: PFunction)
+  case class IfRoleAuthPredicate(id: String, ptype: PFunction)
       extends BuiltinFunction[Request, Request] {
     def execute(input: Request): Try[Request] = ???
   }
