@@ -4,8 +4,7 @@ import spray.json._
 import running.JwtPaylod
 import domain._, utils.InternalException
 import sangria.ast._
-import running.Implicits.GraphQlValueJsonFormater
-import domain.primitives.`package`.PFunctionValue
+import domain.primitives.PFunctionValue
 import domain.primitives._
 
 case class Request(
@@ -38,7 +37,10 @@ object Request {
 
 case class Operation(
     opKind: Operation.OperationKind,
-    arguments: Map[String, JsValue],
+    gqlOpKind: Operation.GqlOperationType,
+    opArguments: Vector[Argument],
+    modelLevelDirectives: Vector[sangria.ast.Directive], // Not useful now, might be later.
+    directives: Vector[sangria.ast.Directive],
     event: PEvent,
     targetModel: PModel,
     fieldPath: Operation.AliasedResourcePath,
@@ -54,7 +56,11 @@ object Operation {
   case object WriteOperation extends OperationKind
   case object DeleteOperation extends OperationKind
 
-  case class AliasedField(field: PShapeField, alias: Option[String] = None)
+  case class AliasedField(
+      field: PShapeField,
+      alias: Option[String] = None,
+      directives: Vector[sangria.ast.Directive]
+  )
   type AliasedResourcePath = List[AliasedField]
   type FieldSelection = Field
   type GqlOperationType = OperationType
@@ -69,7 +75,12 @@ object Operation {
               s"GraphQL query model selections must all be field selections. Something must've went wrond during query reduction"
             )
         }
-        (name, modelSelections.flatMap(fromModelSelection(_, request.user, st)))
+        (
+          name,
+          modelSelections.flatMap(
+            fromModelSelection(_, op.operationType, request.user, st)
+          )
+        )
       }
     }
 
@@ -88,6 +99,7 @@ object Operation {
 
   def fromModelSelection(
       modelSelection: FieldSelection,
+      gqlOpKind: GqlOperationType,
       user: Option[JwtPaylod],
       st: SyntaxTree
   ): Vector[Operation] = {
@@ -105,9 +117,11 @@ object Operation {
       case opSelection: FieldSelection =>
         fromOperationSelection(
           targettedModel,
+          gqlOpKind,
           opSelection,
           userRole,
           user,
+          modelSelection.directives,
           st
         )
       case _ =>
@@ -119,20 +133,22 @@ object Operation {
 
   def fromOperationSelection(
       model: PModel,
+      gqlOpKind: GqlOperationType,
       opSelection: FieldSelection,
       role: Option[PModel],
       user: Option[JwtPaylod],
+      modelLevelDirectives: Vector[sangria.ast.Directive],
       st: SyntaxTree
   ): Vector[Operation] = {
     val event = opSelectionEvent(opSelection.name)
-    val opArguments = opSelection.arguments.map { arg =>
-      arg.name -> GraphQlValueJsonFormater.write(arg.value)
-    }.toMap
     opSelection.selections.flatMap {
       case modelFieldSelection: FieldSelection =>
         fromModelFieldSelection(
           modelFieldSelection,
-          opArguments,
+          gqlOpKind,
+          opSelection.directives,
+          modelLevelDirectives,
+          opSelection.arguments,
           event,
           model,
           role,
@@ -148,7 +164,10 @@ object Operation {
 
   def fromModelFieldSelection(
       modelFieldSelection: FieldSelection,
-      opArguments: Map[String, JsValue],
+      gqlOpKind: GqlOperationType,
+      opLevelDirectives: Vector[sangria.ast.Directive],
+      modelLevelDirectives: Vector[sangria.ast.Directive],
+      opArguments: Vector[Argument],
       event: PEvent,
       model: PModel,
       role: Option[PModel],
@@ -167,7 +186,8 @@ object Operation {
     if (modelFieldSelection.selections.isEmpty) {
       val newPath = fieldPath :+ AliasedField(
         selectedModelField,
-        modelFieldSelection.alias
+        modelFieldSelection.alias,
+        modelFieldSelection.directives
       )
       val (crudHooks, kind) = event match {
         case Read | ReadMany => (model.readHooks, ReadOperation)
@@ -186,21 +206,25 @@ object Operation {
       }
       Vector(
         Operation(
-          kind,
-          opArguments,
-          event,
-          model,
-          newPath,
-          role,
-          user,
-          crudHooks,
-          authRules
+          opKind = kind,
+          gqlOpKind = gqlOpKind,
+          opArguments = opArguments,
+          modelLevelDirectives = modelLevelDirectives,
+          directives = opLevelDirectives,
+          event = event,
+          targetModel = model,
+          fieldPath = newPath,
+          role = role,
+          user = user,
+          crudHooks = crudHooks,
+          authRules = authRules
         )
       )
     } else {
       val newPath = fieldPath :+ AliasedField(
         selectedModelField,
-        modelFieldSelection.alias
+        modelFieldSelection.alias,
+        modelFieldSelection.directives
       )
       val fieldModelId = selectedModelField.ptype match {
         case m: PReference          => m.id
@@ -222,6 +246,9 @@ object Operation {
         case f: FieldSelection =>
           fromModelFieldSelection(
             f,
+            gqlOpKind,
+            opLevelDirectives,
+            modelLevelDirectives,
             opArguments,
             event,
             fieldModel,

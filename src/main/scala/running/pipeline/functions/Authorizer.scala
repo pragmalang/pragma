@@ -28,7 +28,8 @@ case class Authorizer(
       case (Some(permissions), None) => {
         val reqOps = Operation.operationsFrom(request)(syntaxTree)
         opsPass(reqOps.values.flatten.toVector, JsNull, devModeOn) match {
-          case Right(true) => Source.fromIterator(() => Iterator((Nil, request)))
+          case Right(true) =>
+            Source.fromIterator(() => Iterator((Nil, request)))
           case Right(false) =>
             Source.failed(
               UserError
@@ -149,7 +150,10 @@ object Authorizer {
   def userReadOperation(role: PModel, jwt: JwtPaylod) =
     Operation(
       ReadOperation,
-      Map(role.primaryField.id -> JsString(jwt.userId)),
+      sangria.ast.OperationType.Query,
+      Vector(Argument(role.primaryField.id, StringValue(jwt.userId))),
+      Vector.empty,
+      Vector.empty,
       Read,
       role,
       Nil,
