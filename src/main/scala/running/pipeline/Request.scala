@@ -84,17 +84,52 @@ object Operation {
       }
     }
 
-  def opSelectionEvent(opSelection: String): PEvent =
+  def opSelectionEvent(opSelection: String, model: PModel): PEvent =
     opSelection match {
-      case "read"                                   => Read
-      case "list"                                   => ReadMany
-      case "create"                                 => Create
-      case "update"                                 => Update
-      case "mutate"                                 => Mutate
-      case "delete"                                 => Delete
-      case "recover"                                => Recover
-      case _ if opSelection startsWith "pushTo"     => PushTo
-      case _ if opSelection startsWith "deleteFrom" => RemoveFrom
+      case "read"        => Read
+      case "list"        => ReadMany
+      case "create"      => Create
+      case "createMany"  => CreateMany
+      case "update"      => Update
+      case "updateMany"  => UpdateMany
+      case "mutate"      => Mutate
+      case "delete"      => Delete
+      case "deleteMany"  => DeleteMany
+      case "recover"     => Recover
+      case "recoverMany" => RecoverMany
+      case _ if opSelection startsWith "pushTo" =>
+        PushTo(
+          model.fields.find(
+            field =>
+              opSelection
+                .replace("pushTo", "")
+                .toLowerCase == field.id.toLowerCase
+          )
+        )
+      case _ if opSelection startsWith "pushManyTo"     => PushManyTo(
+          model.fields.find(
+            field =>
+              opSelection
+                .replace("pushManyTo", "")
+                .toLowerCase == field.id.toLowerCase
+          )
+        )
+      case _ if opSelection startsWith "removeFrom"     => RemoveFrom(
+          model.fields.find(
+            field =>
+              opSelection
+                .replace("removeFrom", "")
+                .toLowerCase == field.id.toLowerCase
+          )
+        )
+      case _ if opSelection startsWith "removeManyFrom" => RemoveManyFrom(
+          model.fields.find(
+            field =>
+              opSelection
+                .replace("removeManyFrom", "")
+                .toLowerCase == field.id.toLowerCase
+          )
+        )
     }
 
   def fromModelSelection(
@@ -140,7 +175,7 @@ object Operation {
       modelLevelDirectives: Vector[sangria.ast.Directive],
       st: SyntaxTree
   ): Vector[Operation] = {
-    val event = opSelectionEvent(opSelection.name)
+    val event = opSelectionEvent(opSelection.name, model)
     opSelection.selections.flatMap {
       case modelFieldSelection: FieldSelection =>
         fromModelFieldSelection(
@@ -191,7 +226,8 @@ object Operation {
       )
       val (crudHooks, kind) = event match {
         case Read | ReadMany => (model.readHooks, ReadOperation)
-        case Create | Update | Mutate | PushTo | RemoveFrom =>
+        case Create | Update | Mutate | PushTo(_) | PushManyTo(_) | RemoveFrom(_) |
+            RemoveManyFrom(_) =>
           (model.writeHooks, WriteOperation)
         case Delete => (model.deleteHooks, DeleteOperation)
         case _      => throw new InternalException(s"Invalid operation event $event")

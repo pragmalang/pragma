@@ -296,9 +296,9 @@ class PragmaParser(val input: ParserInput) extends Parser {
         "DELETE" -> Delete,
         "LIST" -> ReadMany,
         "MUTATE" -> Mutate,
-        "PUSH_TO" -> PushTo,
+        "PUSH_TO" -> PushTo(),
         "SET_ON_CREATE" -> SetOnCreate,
-        "REMOVE_FROM" -> RemoveFrom,
+        "REMOVE_FROM" -> RemoveFrom(),
         "RECOVER" -> Recover
       )
     )

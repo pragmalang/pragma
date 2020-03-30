@@ -353,8 +353,8 @@ object Substitutor {
   }
 
   def substituteAccessRuleEvents(rule: AccessRule): Try[AccessRule] = {
-    lazy val allowedArrayFieldEvents =
-      List(Read, Update, SetOnCreate, PushTo, RemoveFrom, Mutate)
+    lazy val allowedArrayFieldEvents: List[PEvent] =
+      List(Read, Update, SetOnCreate, PushTo(), RemoveFrom(), Mutate)
     lazy val allowedPrimitiveFieldEvents =
       List(Read, Update, SetOnCreate)
     lazy val allowedModelEvents =

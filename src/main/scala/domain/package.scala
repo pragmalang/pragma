@@ -262,34 +262,42 @@ case class PEnum(
 
 sealed trait PEvent {
   override def toString(): String = this match {
-    case All         => "ALL"
-    case Create      => "CREATE"
-    case Delete      => "DELETE"
-    case Mutate      => "MUTATE"
-    case PushTo      => "PUSH_TO"
-    case Read        => "READ"
-    case ReadMany    => "LIST"
-    case Recover     => "RECOVER"
-    case RemoveFrom  => "REMOVE_FROM"
-    case SetOnCreate => "SET_ON_CREATE"
-    case Update      => "UPDATE"
-    case e           => e.toString
+    case All               => "ALL"
+    case Create            => "CREATE"
+    case Delete            => "DELETE"
+    case Mutate            => "MUTATE"
+    case PushTo(_)         => "PUSH_TO"
+    case PushManyTo(_)     => "PUSH_MANY_TO"
+    case Read              => "READ"
+    case ReadMany          => "LIST"
+    case Recover           => "RECOVER"
+    case RemoveFrom(_)     => "REMOVE_FROM"
+    case RemoveManyFrom(_) => "REMOVE_MANY_FROM"
+    case SetOnCreate       => "SET_ON_CREATE"
+    case Update            => "UPDATE"
+    case e                 => e.toString
   }
 }
 case object Read extends PEvent // Retrieve record by IDe
-case object Create extends PEvent
-case object Update extends PEvent
-case object Delete extends PEvent
-case object All extends PEvent // Includes all the above
 case object ReadMany extends PEvent // Retrieve many records. Translates to LIST event
+case object Create extends PEvent
+case object CreateMany extends PEvent
+case object Update extends PEvent
+case object UpdateMany extends PEvent
+case object Delete extends PEvent
+case object DeleteMany extends PEvent
+case object All extends PEvent // Includes all the above
 case object Mutate extends PEvent
-case object PushTo extends PEvent // Add item to array field
-case object RemoveFrom extends PEvent // Remove item from array field
+case class PushTo(listField: Option[PModelField] = None) extends PEvent // Add item to array field
+case class PushManyTo(listField: Option[PModelField] = None) extends PEvent
+case class RemoveFrom(listField: Option[PModelField] = None) extends PEvent // Remove item from array field
+case class RemoveManyFrom(listField: Option[PModelField] = None) extends PEvent
 // Permission to send attribute in create request
 // e.g. If aa `User` model has a `verified` attribute that you don't want the user to set
 // when they create their aaccount.
 case object SetOnCreate extends PEvent
 case object Recover extends PEvent // Undelete a record
+case object RecoverMany extends PEvent // Undelete a record
 
 case class Permissions(
     globalTenant: Tenant,
