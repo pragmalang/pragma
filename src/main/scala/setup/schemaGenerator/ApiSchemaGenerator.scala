@@ -101,19 +101,6 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         )(model.id)
       )
 
-      val upsert = Some(
-        graphQlField(
-          nameTransformer = _ => "upsert",
-          args = Map(
-            model.id.small -> fieldType(
-              model,
-              nameTransformer = inputTypeName(_)(OptionalInput)
-            )
-          ),
-          fieldType = fieldType(model)
-        )(model.id)
-      )
-
       val delete = Some(
         graphQlField(
           nameTransformer = _ => "delete",
@@ -151,20 +138,6 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       val updateMany = Some(
         graphQlField(
           nameTransformer = _ => "updateMany",
-          args = Map(
-            "items" -> listFieldType(
-              model,
-              nameTransformer = inputTypeName(_)(OptionalInput),
-              isEmptiable = false
-            )
-          ),
-          fieldType = listFieldType(model)
-        )(model.id)
-      )
-
-      val upsertMany = Some(
-        graphQlField(
-          nameTransformer = _ => "upsertMany",
           args = Map(
             "items" -> listFieldType(
               model,
@@ -286,12 +259,10 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         login,
         create,
         update,
-        upsert,
         delete,
         recover,
         createMany,
         updateMany,
-        upsertMany,
         deleteMany,
         recoverMany
       ) :++ modelListFieldOperations).collect { case Some(value) => value }

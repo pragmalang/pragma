@@ -135,12 +135,10 @@ class ApiSchemaGeneratorSpec extends FunSuite {
         login(publicCredential: String!, password: String!): String!
         create(business: BusinessInput!): Business!
         update(email: String!, business: BusinessInput!): Business!
-        upsert(business: BusinessInput!): Business!
         delete(email: String!): Business!
         recover(email: String!): Business!
         createMany(items: [BusinessInput!]!): [Business]!
         updateMany(items: [BusinessInput!]!): [Business]!
-        upsertMany(items: [BusinessInput!]!): [Business]!
         deleteMany(items: [String!]!): [Business]!
         recoverMany(items: [String!]!): [Business]!
         pushToBranches(item: BranchInput!): Branch!
@@ -152,12 +150,10 @@ class ApiSchemaGeneratorSpec extends FunSuite {
       type BranchMutations {
         create(branch: BranchInput!): Branch!
         update(address: String!, branch: BranchInput!): Branch!
-        upsert(branch: BranchInput!): Branch!
         delete(address: String!): Branch!
         recover(address: String!): Branch!
         createMany(items: [BranchInput!]!): [Branch]!
         updateMany(items: [BranchInput!]!): [Branch]!
-        upsertMany(items: [BranchInput!]!): [Branch]!
         deleteMany(items: [String!]!): [Branch]!
         recoverMany(items: [String!]!): [Branch]!
       }
