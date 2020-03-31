@@ -98,42 +98,35 @@ object Operation {
       case "recoverMany" => RecoverMany
       case "login"       => Login
       case _ if opSelection startsWith "pushTo" =>
-        PushTo(
-          model.fields.find(
-            field =>
-              opSelection
-                .replace("pushTo", "")
-                .toLowerCase == field.id.toLowerCase
-          )
-        )
+        PushTo(captureListField(model, opSelection.replace("pushTo", "")))
       case _ if opSelection startsWith "pushManyTo" =>
         PushManyTo(
-          model.fields.find(
-            field =>
-              opSelection
-                .replace("pushManyTo", "")
-                .toLowerCase == field.id.toLowerCase
-          )
+          captureListField(model, opSelection.replace("pushManyTo", ""))
         )
       case _ if opSelection startsWith "removeFrom" =>
         RemoveFrom(
-          model.fields.find(
-            field =>
-              opSelection
-                .replace("removeFrom", "")
-                .toLowerCase == field.id.toLowerCase
-          )
+          captureListField(model, opSelection.replace("removeFrom", ""))
         )
       case _ if opSelection startsWith "removeManyFrom" =>
         RemoveManyFrom(
-          model.fields.find(
-            field =>
-              opSelection
-                .replace("removeManyFrom", "")
-                .toLowerCase == field.id.toLowerCase
-          )
+          captureListField(model, opSelection.replace("removeManyFrom", ""))
         )
     }
+
+  def captureListField(
+      model: PModel,
+      capturedFieldName: String
+  ): Option[PModelField] = {
+    if (model.fields
+          .filter(
+            _.id.toLowerCase == capturedFieldName.toLowerCase
+          )
+          .length == 1) {
+      model.fields.find(_.id.toLowerCase == capturedFieldName.toLowerCase)
+    } else {
+      model.fields.find(_.id == capturedFieldName)
+    }
+  }
 
   def fromModelSelection(
       modelSelection: FieldSelection,

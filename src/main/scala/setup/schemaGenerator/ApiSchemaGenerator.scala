@@ -185,10 +185,15 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       val modelListFieldOperations = modelListFields
         .flatMap(f => {
           val listFieldInnerType = f.ptype.asInstanceOf[PArray].ptype
+          val transformedFieldId =
+            if(modelListFields.filter(_.id.toLowerCase == f.id.toLowerCase).length > 1)
+              f.id
+            else
+              f.id.capitalize
 
           val pushTo = Some(
             graphQlField(
-              nameTransformer = fieldId => s"pushTo${fieldId.capitalize}",
+              nameTransformer = _ => s"pushTo${transformedFieldId}",
               Map(
                 "item" -> fieldType(
                   listFieldInnerType,
@@ -202,7 +207,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
 
           val removeFrom = Some(
             graphQlField(
-              nameTransformer = fieldId => s"removeFrom${fieldId.capitalize}",
+              nameTransformer = fieldId => s"removeFrom${transformedFieldId}",
               Map(
                 "item" -> fieldType(
                   listFieldInnerType match {
@@ -219,7 +224,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
 
           val pushManyTo = Some(
             graphQlField(
-              nameTransformer = fieldId => s"pushManyTo${fieldId.capitalize}",
+              nameTransformer = fieldId => s"pushManyTo${transformedFieldId}",
               Map(
                 "item" -> listFieldType(
                   listFieldInnerType,
@@ -235,7 +240,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           val removeManyFrom = Some(
             graphQlField(
               nameTransformer =
-                fieldId => s"removeManyFrom${fieldId.capitalize}",
+                fieldId => s"removeManyFrom${transformedFieldId}",
               Map(
                 "item" -> listFieldType(
                   listFieldInnerType match {
