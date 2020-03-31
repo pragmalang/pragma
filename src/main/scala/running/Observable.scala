@@ -1,4 +1,4 @@
-package running.execution
+package running
 
 import akka.stream.scaladsl.Source
 import akka.stream.Materializer

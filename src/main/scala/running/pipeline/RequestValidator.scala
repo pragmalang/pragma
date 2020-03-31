@@ -10,7 +10,7 @@ import setup.schemaGenerator.ApiSchemaGenerator
 import setup.schemaGenerator.Implicits._
 import spray.json._
 import running.Implicits._
-import running.errors._
+import running.utils.QueryError
 import akka.stream.scaladsl.Source
 
 case class RequestValidator(syntaxTree: SyntaxTree) {

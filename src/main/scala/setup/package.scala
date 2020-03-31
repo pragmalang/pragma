@@ -2,7 +2,6 @@ package setup
 
 import storage.Storage, schemaGenerator.ApiSchemaGenerator
 import domain._
-import running.execution.QueryExecutor
 import Implicits._
 import scala.util.Try
 import setup.utils.DockerCompose
@@ -29,10 +28,7 @@ case class Setup(
   def writeDockerComposeYaml(dockerComposeFile: DockerCompose) =
     "mkdir .pragma" $ "Filesystem Error: Couldn't create .pragma directory"
 
-  def build(): (SyntaxTree, QueryExecutor) = (buildApiSchema, buildExecutor)
-
   def buildApiSchema(): SyntaxTree =
     ApiSchemaGenerator(syntaxTree).buildApiSchemaAsSyntaxTree
 
-  def buildExecutor(): QueryExecutor = QueryExecutor(syntaxTree, storage)
 }

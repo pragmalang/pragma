@@ -5,4 +5,6 @@ package object utils {
     val r = generator()
     if (cond(r)) r else constrainedRandom(cond, generator)
   }
+
+  class QueryError(message: String) extends Exception(s"QueryError: $message")
 }
