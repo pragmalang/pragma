@@ -92,7 +92,6 @@ object Operation {
       case "createMany"  => CreateMany
       case "update"      => Update
       case "updateMany"  => UpdateMany
-      case "mutate"      => Mutate
       case "delete"      => Delete
       case "deleteMany"  => DeleteMany
       case "recover"     => Recover
