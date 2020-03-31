@@ -275,7 +275,11 @@ sealed trait PEvent {
     case RemoveManyFrom(_) => "REMOVE_MANY_FROM"
     case SetOnCreate       => "SET_ON_CREATE"
     case Update            => "UPDATE"
-    case e                 => e.toString
+    case CreateMany        => "CREATE_MANY"
+    case DeleteMany        => "DELETE_MANY"
+    case Login             => "LOGIN"
+    case RecoverMany       => "RECOVER_MANY"
+    case UpdateMany        => "UPDATE_MANY"
   }
 }
 case object Read extends PEvent // Retrieve record by IDe
@@ -296,6 +300,7 @@ case class RemoveManyFrom(listField: Option[PModelField] = None) extends PEvent
 // e.g. If aa `User` model has a `verified` attribute that you don't want the user to set
 // when they create their aaccount.
 case object SetOnCreate extends PEvent
+case object Login extends PEvent
 case object Recover extends PEvent // Undelete a record
 case object RecoverMany extends PEvent // Undelete a record
 

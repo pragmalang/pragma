@@ -96,6 +96,7 @@ object Operation {
       case "deleteMany"  => DeleteMany
       case "recover"     => Recover
       case "recoverMany" => RecoverMany
+      case "login"       => Login
       case _ if opSelection startsWith "pushTo" =>
         PushTo(
           model.fields.find(
@@ -105,7 +106,8 @@ object Operation {
                 .toLowerCase == field.id.toLowerCase
           )
         )
-      case _ if opSelection startsWith "pushManyTo"     => PushManyTo(
+      case _ if opSelection startsWith "pushManyTo" =>
+        PushManyTo(
           model.fields.find(
             field =>
               opSelection
@@ -113,7 +115,8 @@ object Operation {
                 .toLowerCase == field.id.toLowerCase
           )
         )
-      case _ if opSelection startsWith "removeFrom"     => RemoveFrom(
+      case _ if opSelection startsWith "removeFrom" =>
+        RemoveFrom(
           model.fields.find(
             field =>
               opSelection
@@ -121,7 +124,8 @@ object Operation {
                 .toLowerCase == field.id.toLowerCase
           )
         )
-      case _ if opSelection startsWith "removeManyFrom" => RemoveManyFrom(
+      case _ if opSelection startsWith "removeManyFrom" =>
+        RemoveManyFrom(
           model.fields.find(
             field =>
               opSelection
@@ -225,8 +229,8 @@ object Operation {
       )
       val (crudHooks, kind) = event match {
         case Read | ReadMany => (model.readHooks, ReadOperation)
-        case Create | Update | Mutate | PushTo(_) | PushManyTo(_) | RemoveFrom(_) |
-            RemoveManyFrom(_) =>
+        case Create | Update | Mutate | PushTo(_) | PushManyTo(_) |
+            RemoveFrom(_) | RemoveManyFrom(_) =>
           (model.writeHooks, WriteOperation)
         case Delete => (model.deleteHooks, DeleteOperation)
         case _      => throw new InternalException(s"Invalid operation event $event")
