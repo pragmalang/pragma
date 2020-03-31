@@ -1,8 +1,10 @@
 # The Generated GraphQL API
 
-## Example:
+Pragma autogenerates a powerful GraphQL API based on model/enum definitions. For more details on how this is done, check out the [GraphQL APi Schema Generation](.//schema-generation.md) section.
 
-This is the same example in the [demo video that's on our landing page](https://pragmalang.com)
+## Example
+
+This is the same example presented in the [demo video that's on our landing page](https://pragmalang.com).
 
 ```pragma
 @user
@@ -29,7 +31,9 @@ model Tweet {
   replies: [Tweet]
 }
 ```
+
 The above Pragma schema will generate the bellow GraphQL API schema:
+
 ```graphql
 type Query {
   User: UserQueries

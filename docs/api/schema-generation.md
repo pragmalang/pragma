@@ -1,13 +1,14 @@
-# General Notes
-- Uploading images will not be using the GraphQL API, instead, an endpoint for each field of type file will be genrated following this pattern `/upload/{model.id}/{field.id}/<recordId>` where `recordId` is an actual URL paramater provided by the client when uploading a file. Authorization rules will apply to any field of type `File` as any other field and it's considered as an `UPDATE` operation so `@onWrite` hooks will be called.
+# GraphQL APi Schema Generation Rules
 
-# Validation Rules
+- `T` types are mapped to `T!` GraphQL types
 
-- ✔️ `T` types are mapped to `T!` GraphQL types
-- ✔️ `[T]` types are mapped to `[T]!` GraphQL types
-- ✔️ `T?` types are mapped to `T` GraphQL types
-- ✔️ `[T]?` types are mapped to `[T]` GraphQL types
-- The following is list of reserved type names:
+- `[T]` types are mapped to `[T]!` GraphQL types
+
+- `T?` types are mapped to `T` GraphQL types
+
+- `[T]?` types are mapped to `[T]` GraphQL types
+
+- The following is a list of reserved type names:
   - `Subscription`
   - `Query`
   - `Mutation`
@@ -20,20 +21,34 @@
   - `ComparisonInput`
   - `MatchesInput`
   - `EVENT_ENUM`
+
 - The following is a list of reserved field names:
   - `_id`
-- If there exist `CREATE SomeType.someField` an error must be thrown since you can only update a field but you can't create one
-- If a type has a recursive field (field of the same type), this field must be optional
-- If there's a circular dependency between two types `A` and `B`, one of the dependant fields must be optional. (Not sure about this rule, check Prisma)
-- Fields with `@publicCredential` must ALWAYS be of type `String` or `String?`
-- Fields with `@secretCredential` must ALWAYS be of type `String`
-- The client should be able to perform mutations with full objects or ID strings (DB references) as input values. This can be solved with a scalar input type
+
+- Rules of the form: `CREATE SomeModel.someField` are not allowed since one can update a field's value, but create it
+
+- If a model has a recursive field (field of the same type), this field must be optional
+
+- If there's a circular dependency between two models `A` and `B`, one of the dependant fields must be optional
+
+- Fields with `@publicCredential` must either be of type `String` or `String?`
+
+- Fields with `@secretCredential` must be of type `String`
+
+- The client should be able to perform mutations with full objects or ID strings (DB references) as input values. This can be done with a GraphQL scalar input type
+
 - Fields annotated with `@primary` must only be of type `Int` or `String`
-- Every model must have one and only one field annotated with `@primary`, if not a field called `_id: String @primary @id` is created
-- Every user is prohibited from accessing any resource by default unless their exist an access rule that allows them to access it
+
+- Every model must have one and only one field annotated with `@primary`. If no such field is defined, the field `_id: String @primary` will be added to the model
+
+- A user is prohibited from accessing any resource unless there exists an access rule that allows them to access it
+
 - A user model must have one or more fields annotated with `@publicCredential`
+
 - A user model must have one or zero fields annotated with `@secretCredential`
+
 - A field of type `Int` annotated with `@id` is the same as a field of type `Int` annotated with `@unique` and `@autoIncrement`
+
 - A field of type `String` annotated with `@id` is the same as a field of type `String` annotated with `@unique` and `@uuid`
 
 # GraphQL API Generation Recipe
@@ -110,9 +125,9 @@ directive @skip(skip: Int!) on FIELD
 directive @listen(to: EVENT_ENUM!) on FIELD # on field selections inside a subscription
 ```
 
-- For each model there exist:
+- For each model, there exists:
 
-  1. ✔️ `{model.id}` output type where each field on this input type respects the requirements of the model. Meaning, required fields will stay required and optional fields will stay optional. Fields with Non-primitive types will be substituted with `{type.id}` with `!` appended if the field is not optional. Fields with list type will take one optional argument `where: WhereInput` for filtering and selecting values. With an optional field 
+  1. `{model.id}` output type where each field on this input type respects the requirements of the model. Meaning that required fields will stay required and optional fields will stay optional. Fields with Non-primitive types will be substituted with `{type.id}` with `!` appended if the field is not optional. Fields with list types will take one optional argument `where: WhereInput` for filtering and selecting values. With an optional field 
   ```
   type {model.id} {
     {for field in model.fields.filter(!isList)}
@@ -123,7 +138,8 @@ directive @listen(to: EVENT_ENUM!) on FIELD # on field selections inside a subsc
     {endfor}
   }
   ```
-  2. ✔️ `{model.id}Input` input type where all fields are optional and field of non-primitive types take the type `{field.type.id}Input`.
+
+  2. `{model.id}Input` input type where all fields are optional, and a field of non-primitive type takes the type `{field.type.id}Input`.
   ```
   input {model.id}Input {
     {for field in model.fields}
@@ -131,14 +147,16 @@ directive @listen(to: EVENT_ENUM!) on FIELD # on field selections inside a subsc
     {endfor}
   }
   ```
-  7. `{model.id}Queries` output type which it's shape is generated using the folowing template:
+
+  3. `{model.id}Queries` output type of the form:
   ```
   type {model.id}Queries {
     read({model.primaryKey}: {model.primaryKey.type.id}!): {model.id}
     list(where: WhereInput): [{model.id}]! # directives: @filter, @order, @range, @first, @last, @skip
   }
   ```
-  8. `{model.id}Mutations` output type which it's shape is generated using the folowing template:
+
+  4. `{model.id}Mutations` output type of the form:
   ```
   type {model.id}Mutations {
     {if model.isUserModel}
@@ -162,17 +180,17 @@ directive @listen(to: EVENT_ENUM!) on FIELD # on field selections inside a subsc
     {endfor}
   }
   ```
-  9. `{model.id}Subscriptions` output type which it's shape is generated using the folowing template:
+
+  5. `{model.id}Subscriptions` output type of the form:
   ```
   type {model.id}Subscriptions {
     read({model.primaryKey}: {model.primaryKey.type}!): {model.id}
     list(where: WhereInput): {model.id} # directives: @filter, @order, @range, @first, @last, @skip
   }
   ```
-  10. `{model.id}` query that returns `{model.id}Queries`
-  11. `{model.id}` mutation that returns `{model.id}Mutations`
-  12. `{model.id}` subscription that returns `{model.id}Subscriptions`
 
-  ## TODO:
+  6. `{model.id}` query that returns `{model.id}Queries`
 
-  - ✔️ Think about having nested filtering mechanism for fields with list type. Maybe like each list field can take one optional argument `where: WhereInput`
+  7. `{model.id}` mutation that returns `{model.id}Mutations`
+  
+  8. `{model.id}` subscription that returns `{model.id}Subscriptions`

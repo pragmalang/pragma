@@ -25,3 +25,5 @@ ISO8061-formatted date.
 
 ## File
 A type that abstracts away the need to set up object storage.
+
+Uploading images will not be using the GraphQL API, instead, an endpoint for each field of type file will be genrated following the pattern: `/upload/{model.id}/{field.id}/<recordId>` where `recordId` is an actual URL paramater provided by the client when uploading a file. Authorization rules apply to any field of type `File` fields as any other field. All operations performed on `File`s are considered `UPDATE` operations, so `@onWrite` functions will be called.
