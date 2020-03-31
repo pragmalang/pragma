@@ -43,18 +43,29 @@ class PragmaParser(val input: ParserInput) extends Parser {
   import parsing.PragmaParser._
 
   def syntaxTree: Rule1[List[PConstruct]] = rule {
-    whitespace() ~
+    wsWithEndline() ~
       zeroOrMore(
         importDef | modelDef | enumDef | configDef | accessRuleDef | roleDef
-      ).separatedBy(whitespace()) ~ whitespace() ~>
+      ).separatedBy(wsWithEndline()) ~ wsWithEndline() ~>
       ((cs: Seq[PConstruct]) => cs.toList) ~ EOI
   }
 
-  implicit def whitespace(terminal: String = ""): Rule0 = rule {
-    zeroOrMore(anyOf(" \n\r\t")) ~
-      str(terminal) ~
-      zeroOrMore(anyOf(" \n\r\t"))
+  def comment = rule {
+    '#' ~ zeroOrMore(noneOf("\n"))
   }
+
+  // Parses a single whitespace character
+  def wsChar(includeEndline: Boolean) = rule {
+    anyOf(" \r\t" + (if (includeEndline) "\n" else ""))
+  }
+
+  implicit def wsWithEndline(terminal: String = ""): Rule0 = rule {
+    zeroOrMore(wsChar(true) | comment) ~
+      str(terminal) ~
+      zeroOrMore(wsChar(true) | comment)
+  }
+
+  def wsWithoutEndline = rule { zeroOrMore(wsChar(false) | comment) }
 
   implicit def intToPos(i: Int) = Position(i, input)
 
@@ -174,8 +185,8 @@ class PragmaParser(val input: ParserInput) extends Parser {
   }
 
   def modelDef: Rule1[PModel] = rule {
-    whitespace() ~ zeroOrMore(directive(ModelDirective))
-      .separatedBy(whitespace()) ~
+    wsWithEndline() ~ zeroOrMore(directive(ModelDirective))
+      .separatedBy(wsWithEndline()) ~
       ("model" ~ push(cursor) ~ identifier ~ push(cursor) ~
         "{" ~ zeroOrMore(fieldDef) ~ "}") ~> {
       (
@@ -197,14 +208,14 @@ class PragmaParser(val input: ParserInput) extends Parser {
   def defaultValue = rule { "=" ~ literal }
 
   def fieldDef: Rule1[PModelField] = rule {
-    whitespace() ~ zeroOrMore(directive(FieldDirective))
-      .separatedBy(whitespace()) ~
-      whitespace() ~ push(cursor) ~ identifier ~ push(cursor) ~ ":" ~
+    wsWithEndline() ~ zeroOrMore(directive(FieldDirective))
+      .separatedBy(wsWithEndline()) ~
+      wsWithEndline() ~ push(cursor) ~ identifier ~ push(cursor) ~ ":" ~
       ptype ~ optional(defaultValue) ~
       optional(
-        oneOrMore(anyOf(" \r\t")) ~
+        wsWithoutEndline ~
           zeroOrMore(directive(FieldDirective))
-            .separatedBy(oneOrMore(anyOf(" \r\t")))
+            .separatedBy(wsWithoutEndline)
       ) ~ optional(",") ~> {
       (
           ds: Seq[Directive],
@@ -237,7 +248,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
 
   def enumDef: Rule1[PEnum] = rule {
     "enum" ~ push(cursor) ~ identifier ~ push(cursor) ~ "{" ~
-      zeroOrMore(whitespace() ~ (identifier | stringVal) ~ whitespace())
+      zeroOrMore(wsWithEndline() ~ (identifier | stringVal) ~ wsWithEndline())
         .separatedBy(optional(",")) ~ "}" ~> {
       (
           start: Int,
@@ -276,7 +287,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
 
   def configEntry: Rule1[ConfigEntry] = rule {
     push(cursor) ~ identifier ~ push(cursor) ~ "=" ~
-      literal ~ optional(",") ~ whitespace() ~> {
+      literal ~ optional(",") ~ wsWithEndline() ~> {
       (
           start: Int,
           key: String,
@@ -331,9 +342,9 @@ class PragmaParser(val input: ParserInput) extends Parser {
   def accessRuleDef: Rule1[AccessRule] = rule {
     push(cursor) ~
       valueMap(Map("allow" -> Allow, "deny" -> Deny)) ~
-      whitespace() ~ (singletonEvent | eventsList | allEvents) ~
-      whitespace() ~ ref ~
-      optional(whitespace() ~ ref) ~
+      wsWithEndline() ~ (singletonEvent | eventsList | allEvents) ~
+      wsWithEndline() ~ ref ~
+      optional(wsWithEndline() ~ ref) ~
       push(cursor) ~> {
       (
           start: Int,
