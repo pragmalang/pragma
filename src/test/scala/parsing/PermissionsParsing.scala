@@ -6,8 +6,8 @@ import org.parboiled2.Position
 class PermissionsParsing extends FlatSpec {
   "Permissions" should "be parsed correctly" in {
     val code = """
-        allow ALL Book authorizors.f
-        deny [CREATE, DELETE] Todo authorizors.g
+        allow ALL Book if authorizors.f
+        deny [CREATE, DELETE] Todo if authorizors.g
       """
     val parsedPermissions = new PragmaParser(code).syntaxTree.run().get
     val expected = List(
@@ -18,10 +18,10 @@ class PermissionsParsing extends FlatSpec {
         Some(
           Reference(
             List("authorizors", "f"),
-            Some(PositionRange(Position(24, 2, 24), Position(37, 2, 37)))
+            Some(PositionRange(Position(27, 2, 27), Position(40, 2, 40)))
           )
         ),
-        Some(PositionRange(Position(9, 2, 9), Position(37, 2, 37)))
+        Some(PositionRange(Position(9, 2, 9), Position(40, 2, 40)))
       ),
       AccessRule(
         Deny,
@@ -30,10 +30,10 @@ class PermissionsParsing extends FlatSpec {
         Some(
           Reference(
             List("authorizors", "g"),
-            Some(PositionRange(Position(73, 3, 36), Position(86, 3, 49)))
+            Some(PositionRange(Position(79, 3, 39), Position(92, 3, 52)))
           )
         ),
-        Some(PositionRange(Position(46, 3, 9), Position(86, 3, 49)))
+        Some(PositionRange(Position(49, 3, 9), Position(92, 3, 52)))
       )
     )
     assert(parsedPermissions == expected)

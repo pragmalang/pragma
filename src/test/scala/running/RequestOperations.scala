@@ -7,28 +7,29 @@ import domain._
 import running.pipeline._
 import spray.json._
 import scala.collection.immutable._
+import scala.util._
 
 class RequestOperations extends FlatSpec {
   "Request `operations` attribute" should "be computed from user GraphQL query" in {
-    val syntaxTree =
-      SyntaxTree.from("""
-        import "./src/test/scala/parsing/test-functions.js" as fns
+    val code = """
+    import "./src/test/scala/parsing/test-functions.js" as fns
 
-        @user model User {
-            username: String @publicCredential
-            todos: Todo
-            friend: User?
-        }
+    @user model User {
+        username: String @publicCredential
+        todos: Todo
+        friend: User?
+    }
 
-        role User {
-            allow READ User fns.isSelf
-        }
+    role User {
+        allow READ User if fns.isSelf
+    }
 
-        model Todo {
-            title: String
-            content: String
-        }
-    """).get
+    model Todo {
+        title: String
+        content: String
+    }
+    """
+    val syntaxTree = SyntaxTree.from(code).get
 
     val query = gql"""
         query user {
