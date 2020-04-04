@@ -13,4 +13,3 @@
     - [Enums](./features/enum-types.md)
     - [Primitive Types](./features/primitive-types.md)
 - [The Generated GraphQL API](./api/index.md)
-    - [GraphQL APi Schema Generation](./api/schema-generation.md)

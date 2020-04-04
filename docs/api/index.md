@@ -1,6 +1,6 @@
 # The Generated GraphQL API
 
-Pragma autogenerates a powerful GraphQL API based on model/enum definitions. For more details on how this is done, check out the [GraphQL APi Schema Generation](.//schema-generation.md) section.
+Pragma generates a powerful GraphQL API based on model/enum definitions.
 
 ## Example
 
