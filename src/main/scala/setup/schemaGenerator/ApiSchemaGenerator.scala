@@ -155,7 +155,8 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           args = Map(
             "items" -> listFieldType(
               model.primaryField.ptype,
-              isEmptiable = false
+              isEmptiable = false,
+              isOptional = true
             )
           ),
           fieldType = listFieldType(model)
@@ -168,7 +169,8 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           args = Map(
             "items" -> listFieldType(
               model.primaryField.ptype,
-              isEmptiable = false
+              isEmptiable = false,
+              isOptional = true
             )
           ),
           fieldType = listFieldType(model)
@@ -186,7 +188,9 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         .flatMap(f => {
           val listFieldInnerType = f.ptype.asInstanceOf[PArray].ptype
           val transformedFieldId =
-            if(modelListFields.filter(_.id.toLowerCase == f.id.toLowerCase).length > 1)
+            if (modelListFields
+                  .filter(_.id.toLowerCase == f.id.toLowerCase)
+                  .length > 1)
               f.id
             else
               f.id.capitalize

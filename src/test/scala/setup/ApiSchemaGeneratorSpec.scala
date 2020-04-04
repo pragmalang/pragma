@@ -139,8 +139,8 @@ class ApiSchemaGeneratorSpec extends FunSuite {
         recover(email: String!): Business!
         createMany(items: [BusinessInput!]!): [Business]!
         updateMany(items: [BusinessInput!]!): [Business]!
-        deleteMany(items: [String!]!): [Business]!
-        recoverMany(items: [String!]!): [Business]!
+        deleteMany(items: [String!]): [Business]!
+        recoverMany(items: [String!]): [Business]!
         pushToBranches(item: BranchInput!): Branch!
         pushManyToBranches(item: [BranchInput!]!): [Branch]!
         removeFromBranches(item: BranchInput!): Branch!
@@ -154,8 +154,8 @@ class ApiSchemaGeneratorSpec extends FunSuite {
         recover(address: String!): Branch!
         createMany(items: [BranchInput!]!): [Branch]!
         updateMany(items: [BranchInput!]!): [Branch]!
-        deleteMany(items: [String!]!): [Branch]!
-        recoverMany(items: [String!]!): [Branch]!
+        deleteMany(items: [String!]): [Branch]!
+        recoverMany(items: [String!]): [Branch]!
       }
       
       type BusinessQueries {
