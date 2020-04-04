@@ -344,7 +344,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
       valueMap(Map("allow" -> Allow, "deny" -> Deny)) ~
       wsWithEndline() ~ (singletonEvent | eventsList | allEvents) ~
       wsWithEndline() ~ ref ~
-      optional(wsWithEndline() ~ ref) ~
+      optional(wsWithoutEndline ~ "if" ~ ref) ~
       push(cursor) ~> {
       (
           start: Int,
