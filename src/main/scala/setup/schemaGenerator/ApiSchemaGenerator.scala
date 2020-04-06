@@ -206,7 +206,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
             graphQlField(
               nameTransformer = fieldId => s"pushManyTo${transformedFieldId}",
               Map(
-                "item" -> listFieldType(
+                "items" -> listFieldType(
                   listFieldInnerType,
                   nameTransformer =
                     fieldTypeName => s"${fieldTypeName.capitalize}Input",
@@ -222,15 +222,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
               nameTransformer =
                 fieldId => s"removeManyFrom${transformedFieldId}",
               Map(
-                "item" -> listFieldType(
-                  listFieldInnerType match {
-                    case m: PModel => m.primaryField.ptype
-                    case t         => t
-                  },
-                  nameTransformer =
-                    fieldTypeName => s"${fieldTypeName.capitalize}Input",
-                  isEmptiable = false
-                )
+                "filter" -> builtinType(FilterInput, isOptional = true)
               ),
               fieldType(f.ptype)
             )(f.id)
@@ -791,7 +783,7 @@ object ApiSchemaGenerator {
     input MatchesInput {
       # could be a single field like "friend" or a path "friend.name"
       # works only when the field is of type String
-      field: String! 
+      field: String
       regex: String!
     }
 
@@ -800,7 +792,7 @@ object ApiSchemaGenerator {
       # If the type of the field or the path is object,
       # then all fields that exist on value of `value: Any!` must be
       # compared with fields with the same name in the model recursively  
-      field: String! 
+      field: String
       value: Any!
     }
 

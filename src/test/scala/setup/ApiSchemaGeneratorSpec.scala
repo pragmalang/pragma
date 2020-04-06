@@ -63,7 +63,7 @@ class ApiSchemaGeneratorSpec extends FunSuite {
       input MatchesInput {
         # could be a single field like "friend" or a path "friend.name"
         # works only when the field is of type String
-        field: String!
+        field: String
         regex: String!
       }
       
@@ -72,7 +72,7 @@ class ApiSchemaGeneratorSpec extends FunSuite {
         # If the type of the field or the path is object,
         # then all fields that exist on value of `value: Any!` must be
         # compared with fields with the same name in the model recursively  
-        field: String!
+        field: String
         value: Any!
       }
       
@@ -140,9 +140,9 @@ class ApiSchemaGeneratorSpec extends FunSuite {
         updateMany(items: [BusinessInput!]!): [Business]!
         deleteMany(items: [String!]): [Business]!
         pushToBranches(item: BranchInput!): Branch!
-        pushManyToBranches(item: [BranchInput!]!): [Branch]!
+        pushManyToBranches(items: [BranchInput!]!): [Branch]!
         removeFromBranches(item: BranchInput!): Branch!
-        removeManyFromBranches(item: [BranchInput!]!): [Branch]!
+        removeManyFromBranches(filter: FilterInput): [Branch]!
       }
       
       type BranchMutations {
