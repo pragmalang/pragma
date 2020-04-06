@@ -109,9 +109,6 @@ type UserMutations {
   pushManyToLikes(items: [TweetInput!]!): [Tweet]
   removeFromLikes(id: String!): Tweet
   removeManyFromLikes(items: [String!]!): [Tweet]
-
-  recover(id: String!): User
-  recoverMany(id: [String]): [User]
 }
 
 input UserInput {
@@ -156,8 +153,6 @@ type TweetMutations {
   updateMany(tweet: [TweetInput]!): [Tweet]
   upsertMany(tweet: [TweetInput]!): [Tweet]
   deleteMany(items: [String!]!): [Tweet]
-  recover(id: String!): Tweet
-  recoverMany(id: [String]): [Tweet]
 
   pushToLikes(item: UserInput!): User
   pushManyToLikes(items: [UserInput!]!): [User]

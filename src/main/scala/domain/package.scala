@@ -243,8 +243,7 @@ object BuiltInDefs {
       "connect",
       List(PInterfaceField("to", PString, None)),
       None
-    ),
-    "recoverable" -> PInterface("recoverable", Nil, None)
+    )
   )
 
   // e.g. ifSelf & ifOwner
@@ -262,47 +261,54 @@ case class PEnum(
 
 sealed trait PEvent {
   override def toString(): String = this match {
-    case All               => "ALL"
     case Create            => "CREATE"
     case Delete            => "DELETE"
-    case Mutate            => "MUTATE"
     case PushTo(_)         => "PUSH_TO"
     case PushManyTo(_)     => "PUSH_MANY_TO"
     case Read              => "READ"
     case ReadMany          => "LIST"
-    case Recover           => "RECOVER"
     case RemoveFrom(_)     => "REMOVE_FROM"
     case RemoveManyFrom(_) => "REMOVE_MANY_FROM"
-    case SetOnCreate       => "SET_ON_CREATE"
     case Update            => "UPDATE"
     case CreateMany        => "CREATE_MANY"
     case DeleteMany        => "DELETE_MANY"
     case Login             => "LOGIN"
-    case RecoverMany       => "RECOVER_MANY"
     case UpdateMany        => "UPDATE_MANY"
   }
 }
-case object Read extends PEvent // Retrieve record by IDe
-case object ReadMany extends PEvent // Retrieve many records. Translates to LIST event
-case object Create extends PEvent
+
+sealed trait PPermission {
+  override def toString(): String = this match {
+    case All         => "ALL"
+    case SetOnCreate => "SET_ON_CREATE"
+    case Mutate      => "MUTATE"
+    case e: PEvent => e.toString
+  }
+}
+
+case object Read extends PPermission with PEvent // Retrieve record by IDe
+case object ReadMany extends PEvent // Translates to LIST event
+case object Create extends PPermission with PEvent
 case object CreateMany extends PEvent
-case object Update extends PEvent
+case object Update extends PPermission with PEvent
 case object UpdateMany extends PEvent
-case object Delete extends PEvent
+case object Delete extends PPermission with PEvent
 case object DeleteMany extends PEvent
-case object All extends PEvent // Includes all the above
-case object Mutate extends PEvent
-case class PushTo(listField: Option[PModelField] = None) extends PEvent // Add item to array field
+case object All extends PPermission
+case object Mutate extends PPermission
+case class PushTo(listField: Option[PModelField] = None)
+    extends PPermission
+    with PEvent
 case class PushManyTo(listField: Option[PModelField] = None) extends PEvent
-case class RemoveFrom(listField: Option[PModelField] = None) extends PEvent // Remove item from array field
+case class RemoveFrom(listField: Option[PModelField] = None)
+    extends PPermission
+    with PEvent
 case class RemoveManyFrom(listField: Option[PModelField] = None) extends PEvent
 // Permission to send attribute in create request
 // e.g. If aa `User` model has a `verified` attribute that you don't want the user to set
 // when they create their aaccount.
-case object SetOnCreate extends PEvent
-case object Login extends PEvent
-case object Recover extends PEvent // Undelete a record
-case object RecoverMany extends PEvent // Undelete a record
+case object SetOnCreate extends PPermission // allowed by default
+case object Login extends PPermission with PEvent // allowed by default
 
 case class Permissions(
     globalTenant: Tenant,
@@ -330,7 +336,7 @@ case object Deny extends RuleKind
 case class AccessRule(
     ruleKind: RuleKind,
     resourcePath: (PShape, Option[PShapeField]),
-    actions: List[PEvent],
+    actions: List[PPermission],
     predicate: Option[PFunctionValue[JsValue, Try[JsValue]]],
     position: Option[PositionRange]
 ) extends PConstruct

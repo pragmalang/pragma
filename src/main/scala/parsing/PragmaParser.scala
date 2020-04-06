@@ -298,33 +298,31 @@ class PragmaParser(val input: ParserInput) extends Parser {
     }
   }
 
-  def event: Rule1[PEvent] = rule {
+  def event: Rule1[PPermission] = rule {
     valueMap(
       Map(
         "CREATE" -> Create,
         "READ" -> Read,
         "UPDATE" -> Update,
         "DELETE" -> Delete,
-        "LIST" -> ReadMany,
         "MUTATE" -> Mutate,
         "PUSH_TO" -> PushTo(),
         "SET_ON_CREATE" -> SetOnCreate,
         "REMOVE_FROM" -> RemoveFrom(),
-        "LOGIN" -> Login,
-        "RECOVER" -> Recover
+        "LOGIN" -> Login
       )
     )
   }
 
-  def singletonEvent: Rule1[List[PEvent]] = rule {
-    event ~> ((event: PEvent) => event :: Nil)
+  def singletonPermission: Rule1[List[PPermission]] = rule {
+    event ~> ((event: PPermission) => event :: Nil)
   }
 
-  def allEvents: Rule1[List[PEvent]] = rule { "ALL" ~ push(All :: Nil) }
+  def allPermission: Rule1[List[PPermission]] = rule { "ALL" ~ push(All :: Nil) }
 
-  def eventsList: Rule1[List[PEvent]] = rule {
+  def permissionsList: Rule1[List[PPermission]] = rule {
     ("[" ~ oneOrMore(event).separatedBy(",") ~ "]") ~>
-      ((events: Seq[PEvent]) => events.toList)
+      ((events: Seq[PPermission]) => events.toList)
   }
 
   def ref: Rule1[Reference] = rule {
@@ -342,14 +340,14 @@ class PragmaParser(val input: ParserInput) extends Parser {
   def accessRuleDef: Rule1[AccessRule] = rule {
     push(cursor) ~
       valueMap(Map("allow" -> Allow, "deny" -> Deny)) ~
-      wsWithEndline() ~ (singletonEvent | eventsList | allEvents) ~
+      wsWithEndline() ~ (singletonPermission | permissionsList | allPermission) ~
       wsWithEndline() ~ ref ~
       optional(wsWithoutEndline ~ "if" ~ ref) ~
       push(cursor) ~> {
       (
           start: Int,
           ruleKind: RuleKind,
-          events: List[PEvent],
+          permissions: List[PPermission],
           resource: Reference,
           predicate: Option[Reference],
           end: Int
@@ -360,7 +358,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
             Reference(resource.path.head :: Nil),
             resource.path.lift(1).map(child => Reference(child :: Nil))
           ),
-          events,
+          permissions,
           predicate,
           Some(PositionRange(start, end))
         )

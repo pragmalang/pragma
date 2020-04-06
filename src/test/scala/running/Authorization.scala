@@ -63,12 +63,12 @@ class Authorization extends FlatSpec {
       ""
     )
 
-    implicit val system = ActorSystem("Fuck-me")
+    implicit val system = ActorSystem("some-system")
     Try {
-      Await.result(authorizer(req).runForeach(result => {}), Duration.Inf)
+      Await.result(authorizer(req).runForeach(result => ()), Duration.Inf)
     } match {
       case Success(_) => fail()
-      case Failure(_) => ()
+      case Failure(err) => println(err)
     }
   }
 }

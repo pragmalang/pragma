@@ -111,16 +111,6 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         )(model.id)
       )
 
-      val recover = Some(
-        graphQlField(
-          nameTransformer = _ => "recover",
-          args = Map(
-            model.primaryField.id -> fieldType(model.primaryField.ptype)
-          ),
-          fieldType = fieldType(model)
-        )(model.id)
-      )
-
       val createMany = Some(
         graphQlField(
           nameTransformer = _ => "createMany",
@@ -152,20 +142,6 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       val deleteMany = Some(
         graphQlField(
           nameTransformer = _ => "deleteMany",
-          args = Map(
-            "items" -> listFieldType(
-              model.primaryField.ptype,
-              isEmptiable = false,
-              isOptional = true
-            )
-          ),
-          fieldType = listFieldType(model)
-        )(model.id)
-      )
-
-      val recoverMany = Some(
-        graphQlField(
-          nameTransformer = _ => "recoverMany",
           args = Map(
             "items" -> listFieldType(
               model.primaryField.ptype,
@@ -269,11 +245,9 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         create,
         update,
         delete,
-        recover,
         createMany,
         updateMany,
-        deleteMany,
-        recoverMany
+        deleteMany
       ) :++ modelListFieldOperations).collect { case Some(value) => value }
 
       ObjectTypeDefinition(s"${model.id}Mutations", Vector.empty, fields)

@@ -353,16 +353,16 @@ object Substitutor {
   }
 
   def substituteAccessRuleEvents(rule: AccessRule): Try[AccessRule] = {
-    lazy val allowedArrayFieldEvents: List[PEvent] =
+    lazy val allowedArrayFieldEvents: List[PPermission] =
       List(Read, Update, SetOnCreate, PushTo(), RemoveFrom(), Mutate)
-    lazy val allowedPrimitiveFieldEvents =
+    lazy val allowedPrimitiveFieldEvents: List[PPermission] =
       List(Read, Update, SetOnCreate)
-    lazy val allowedModelEvents =
-      List(Read, Update, Create, Delete, ReadMany, Recover)
-    lazy val allowedModelFieldEvents =
+    lazy val allowedModelEvents: List[PPermission] =
+      List(Read, Update, Create, Delete)
+    lazy val allowedModelFieldEvents: List[PPermission] =
       List(Read, Update, Mutate, SetOnCreate)
 
-    val newEvents = rule match {
+    val newPermissions = rule match {
       case AccessRule(_, (_, Some(field)), All :: Nil, _, _)
           if field.ptype.isInstanceOf[PArray] =>
         Right(allowedArrayFieldEvents)
@@ -424,8 +424,8 @@ object Substitutor {
         }
     }
 
-    newEvents match {
-      case Right(events) => Success(rule.copy(actions = events))
+    newPermissions match {
+      case Right(permissions) => Success(rule.copy(actions = permissions))
       case Left(errMsg)  => Failure(UserError(errMsg :: Nil))
     }
   }

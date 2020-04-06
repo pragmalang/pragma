@@ -86,17 +86,15 @@ object Operation {
 
   def opSelectionEvent(opSelection: String, model: PModel): PEvent =
     opSelection match {
-      case "read"        => Read
-      case "list"        => ReadMany
-      case "create"      => Create
-      case "createMany"  => CreateMany
-      case "update"      => Update
-      case "updateMany"  => UpdateMany
-      case "delete"      => Delete
-      case "deleteMany"  => DeleteMany
-      case "recover"     => Recover
-      case "recoverMany" => RecoverMany
-      case "login"       => Login
+      case "read"       => Read
+      case "list"       => ReadMany
+      case "create"     => Create
+      case "createMany" => CreateMany
+      case "update"     => Update
+      case "updateMany" => UpdateMany
+      case "delete"     => Delete
+      case "deleteMany" => DeleteMany
+      case "login"      => Login
       case _ if opSelection startsWith "pushTo" =>
         PushTo(captureListField(model, opSelection.replace("pushTo", "")))
       case _ if opSelection startsWith "pushManyTo" =>
@@ -222,8 +220,8 @@ object Operation {
       )
       val (crudHooks, kind) = event match {
         case Read | ReadMany => (model.readHooks, ReadOperation)
-        case Create | Update | Mutate | PushTo(_) | PushManyTo(_) |
-            RemoveFrom(_) | RemoveManyFrom(_) =>
+        case Create | Update | PushTo(_) | PushManyTo(_) | RemoveFrom(_) |
+            RemoveManyFrom(_) =>
           (model.writeHooks, WriteOperation)
         case Delete => (model.deleteHooks, DeleteOperation)
         case _      => throw new InternalException(s"Invalid operation event $event")
