@@ -277,33 +277,38 @@ sealed trait PEvent {
   }
 }
 
+sealed trait WriteEvent extends PEvent
+sealed trait ReadEvent extends PEvent
+sealed trait DeleteEvent extends PEvent
+
 sealed trait PPermission {
   override def toString(): String = this match {
     case All         => "ALL"
     case SetOnCreate => "SET_ON_CREATE"
     case Mutate      => "MUTATE"
-    case e: PEvent => e.toString
+    case e: PEvent   => e.toString
   }
 }
 
-case object Read extends PPermission with PEvent // Retrieve record by IDe
+case object Read extends PPermission with ReadEvent // Retrieve record by IDe
 case object ReadMany extends PEvent // Translates to LIST event
-case object Create extends PPermission with PEvent
-case object CreateMany extends PEvent
-case object Update extends PPermission with PEvent
-case object UpdateMany extends PEvent
-case object Delete extends PPermission with PEvent
-case object DeleteMany extends PEvent
+case object Create extends PPermission with WriteEvent
+case object CreateMany extends WriteEvent
+case object Update extends PPermission with WriteEvent
+case object UpdateMany extends WriteEvent
+case object Delete extends PPermission with DeleteEvent
+case object DeleteMany extends DeleteEvent
 case object All extends PPermission
 case object Mutate extends PPermission
 case class PushTo(listField: Option[PModelField] = None)
     extends PPermission
-    with PEvent
-case class PushManyTo(listField: Option[PModelField] = None) extends PEvent
+    with WriteEvent
+case class PushManyTo(listField: Option[PModelField] = None) extends WriteEvent
 case class RemoveFrom(listField: Option[PModelField] = None)
     extends PPermission
-    with PEvent
-case class RemoveManyFrom(listField: Option[PModelField] = None) extends PEvent
+    with WriteEvent
+case class RemoveManyFrom(listField: Option[PModelField] = None)
+    extends WriteEvent
 // Permission to send attribute in create request
 // e.g. If aa `User` model has a `verified` attribute that you don't want the user to set
 // when they create their aaccount.
