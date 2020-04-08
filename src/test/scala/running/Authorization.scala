@@ -68,7 +68,7 @@ class Authorization extends FlatSpec {
       Await.result(authorizer(req).runForeach(result => ()), Duration.Inf)
     } match {
       case Success(_) => fail()
-      case Failure(err) => println(err)
+      case Failure(err) => ()
     }
   }
 }
