@@ -95,7 +95,7 @@ input FilterInput {
 input MatchesInput {
   # could be a single field like "friend" or a path "friend.name"
   # works only when the field is of type String
-  field: String! 
+  field: String
   regex: String!
 }
 
@@ -104,7 +104,7 @@ input ComparisonInput {
   # If the type of the field or the path is object,
   # then all fields that exist on value of `value: Any!` must be
   # compared with fields with the same name in the model recursively  
-  field: String! 
+  field: String
   value: Any!
 }
 
@@ -171,8 +171,8 @@ directive @listen(to: EVENT_ENUM!) on FIELD # on field selections inside a subsc
     {for field in model.field.filter(isList)}
       pushTo{field.id}(item: {field.type.id}Input!): {field.type.named}
       pushManyTo{field.id}(items: [{field.type.id}Input!]!): {field.type}
-      removeFrom{field.id}({field.type.primaryField.id}: {field.type.primaryField.type}!): {field.type.named}
-      removeManyFrom{field.id}(items: [{field.type.primaryField.type}!]!): {field.type} # directives: @filter
+      removeFrom{field.id}(item: {field.type.primaryField.type}!): {field.type.named}
+      removeManyFrom{field.id}(filter: FilterInput): {field.type} # directives: @filter
     {endfor}
   }
   ```
@@ -190,3 +190,7 @@ directive @listen(to: EVENT_ENUM!) on FIELD # on field selections inside a subsc
   7. `{model.id}` mutation that returns `{model.id}Mutations`
   
   8. `{model.id}` subscription that returns `{model.id}Subscriptions`
+
+# Notes
+
+- `@filter` and `@where` bevahe differently on queries, mutations, and subscriptions. On mutations they are to be used for the server to select records on the database based on the conditions defined by these directives before doing anything to them (delete, update, recover)
