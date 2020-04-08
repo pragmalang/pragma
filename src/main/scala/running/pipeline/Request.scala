@@ -48,7 +48,8 @@ case class Operation(
     user: Option[JwtPaylod],
     // Contains hooks used in @onRead, @onWrite, and @onDelete directives
     crudHooks: List[PFunctionValue[_, _]],
-    authRules: List[AccessRule]
+    authRules: List[AccessRule],
+    alias: Option[String] = None,
 )
 object Operation {
   sealed trait OperationKind
@@ -182,7 +183,8 @@ object Operation {
           model,
           role,
           user,
-          st
+          st,
+          alias = opSelection.alias
         )
       case s =>
         throw new InternalException(
@@ -202,6 +204,7 @@ object Operation {
       role: Option[PModel],
       user: Option[JwtPaylod],
       st: SyntaxTree,
+      alias: Option[String],
       fieldPath: AliasedResourcePath = Nil
   ): Vector[Operation] = {
     val selectedModelField =
@@ -247,7 +250,8 @@ object Operation {
           role = role,
           user = user,
           crudHooks = crudHooks,
-          authRules = authRules
+          authRules = authRules,
+          alias = alias
         )
       )
     } else {
@@ -285,6 +289,7 @@ object Operation {
             role,
             user,
             st,
+            alias,
             newPath
           )
         case _ =>
