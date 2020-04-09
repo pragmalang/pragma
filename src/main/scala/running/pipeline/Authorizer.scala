@@ -1,7 +1,7 @@
 package running.pipeline.functions
 
 import running.pipeline._
-import domain._
+import domain._, Implicits.StringMethods
 import domain.utils.InternalException
 import domain.utils.AuthorizationError
 import spray.json._
@@ -11,6 +11,7 @@ import akka.stream.scaladsl.Source
 import sangria.ast._
 import running.JwtPaylod
 import domain.utils.UserError
+import scala.util._
 
 case class Authorizer(
     syntaxTree: SyntaxTree,
@@ -74,9 +75,11 @@ object Authorizer {
   ): Either[Vector[AuthorizationError], Boolean] = {
     val results = for {
       op <- ops
+      opRule <- op.authRules
+      if ruleCanMatch(opRule, op)
       (allows, denies) = op.authRules.partition(_.ruleKind == Allow)
-      denyExists = denies.exists(!opPasses(_, op, user))
-      allowExists = allows.exists(opPasses(_, op, user))
+      denyExists = denies.exists(ruleMatchesOp(_, op, user))
+      allowExists = allows.exists(ruleMatchesOp(_, op, user))
     } yield (denyExists, allowExists, denies, allows)
 
     val allOpsAllowed = results.forall {
@@ -89,7 +92,7 @@ object Authorizer {
         case (false, true, _, _) => Nil
         case (true, _, denies, _) =>
           denies
-            .filter(deny => ops.exists(!opPasses(deny, _, user)))
+            .filter(deny => ops.exists(ruleMatchesOp(deny, _, user)))
             .map { deny =>
               AuthorizationError(
                 s"Request denied because of rule `$deny`",
@@ -102,7 +105,7 @@ object Authorizer {
             .toVector
         case (false, false, _, allows) =>
           ops
-            .filterNot(op => allows.exists(opPasses(_, op, user)))
+            .filterNot(op => allows.exists(ruleMatchesOp(_, op, user)))
             .map { op =>
               val resourcePath = Operation.displayOpResource(op)
               AuthorizationError(
@@ -122,29 +125,94 @@ object Authorizer {
 
   }
 
-  def opPasses(rule: AccessRule, op: Operation, user: JsValue): Boolean = {
-    val result = (op.targetModel == rule.resourcePath._1) &&
-      ((op.fieldPath.headOption, rule.resourcePath._2) match {
-        case (Some(opField), Some(ruleField)) =>
-          opField.field == ruleField
-        case _ => false
+  // A rule can match an operation if their resource and event  match
+  def ruleCanMatch(rule: AccessRule, op: Operation): Boolean =
+    (op.targetModel.id == rule.resourcePath._1.id) &&
+      (op.event match {
+        case _: CreateEvent =>
+          rule.actions.exists(p => p == Create || p == SetOnCreate)
+        case _: ReadEvent => rule.actions.contains(Read)
+        case _: UpdateEvent =>
+          rule.actions.exists {
+            case Update | PushTo(_) | RemoveFrom(_) | Mutate => true
+            case _                                           => false
+          }
+        case _: DeleteEvent => rule.actions.contains(Delete)
+        case event          => rule.actions.contains(event)
       }) &&
-      (rule.predicate match {
-        case None => true
-        case Some(predicate) =>
-          predicate
-            .execute(user)
-            .map {
-              case JsTrue => true
-              case _      => false
-            }
-            .getOrElse(false)
+      ((op.fieldPath.headOption, rule.resourcePath._2) match {
+        case (Some(_), None) | (None, None) => true
+        case (Some(opField), Some(ruleField)) =>
+          opField.field.id == ruleField.id
+        case _ => false
       })
 
-    rule.ruleKind match {
-      case Allow => result
-      case Deny  => !result
+  // Returns the boolean result of the user
+  // predicate or the error thrown by the user
+  def userPredicateResult(
+      rule: AccessRule,
+      argument: JsValue
+  ): Either[AuthorizationError, Boolean] =
+    rule.predicate match {
+      case None => Right(true)
+      case Some(predicate) => {
+        val predicateResult = predicate
+          .execute(argument)
+          .map {
+            case JsTrue => true
+            case _      => false
+          }
+        predicateResult match {
+          case Success(value) => Right(value)
+          case Failure(err)   => Left(AuthorizationError(err.getMessage()))
+        }
+      }
     }
+
+  def ruleMatchesOp(
+      rule: AccessRule,
+      op: Operation,
+      predicateArg: JsValue
+  ): Boolean = {
+    val isMatch = (rule.resourcePath._2, op.event) match {
+      case (Some(ruleField), Read) =>
+        ??? // Make operations recursive first
+      case (Some(ruleField), ReadMany) =>
+        ??? // Make operations recursive first
+      case (Some(ruleField), Update) =>
+        op.opArguments.exists(_.name == ruleField.id)
+      case (Some(ruleField), UpdateMany) =>
+        op.opArguments
+          .find(_.name == "items")
+          .map(_.value)
+          .map {
+            case ListValue(values, _, _) =>
+              values.exists { value =>
+                value.isInstanceOf[ObjectValue] &&
+                value
+                  .asInstanceOf[ObjectValue]
+                  .fields
+                  .exists(_.name == ruleField.id)
+              }
+            case _ => true
+          }
+          .getOrElse(true)
+      case (Some(ruleField), Create) if rule.actions.contains(SetOnCreate) =>
+        op.opArguments
+          .find(_.name == op.targetModel.id.small)
+          .map(_.value)
+          .map {
+            case ObjectValue(fields, _, _) =>
+              fields.exists(_.name == ruleField.id)
+            case _ => true
+          }
+          .getOrElse(true)
+      case (None, Delete | DeleteMany) => rule.actions.contains(Delete)
+      case (None, Login)               => rule.actions.contains(Login)
+      case _                           => false
+    }
+    // TODO: Add errors
+    isMatch
   }
 
   def userReadOperation(role: PModel, jwt: JwtPaylod) =

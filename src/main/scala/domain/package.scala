@@ -277,8 +277,9 @@ sealed trait PEvent {
   }
 }
 
-sealed trait WriteEvent extends PEvent
 sealed trait ReadEvent extends PEvent
+sealed trait CreateEvent extends PEvent
+sealed trait UpdateEvent extends PEvent
 sealed trait DeleteEvent extends PEvent
 
 sealed trait PPermission {
@@ -291,24 +292,24 @@ sealed trait PPermission {
 }
 
 case object Read extends PPermission with ReadEvent // Retrieve record by IDe
-case object ReadMany extends PEvent // Translates to LIST event
-case object Create extends PPermission with WriteEvent
-case object CreateMany extends WriteEvent
-case object Update extends PPermission with WriteEvent
-case object UpdateMany extends WriteEvent
+case object ReadMany extends ReadEvent // Translates to LIST event
+case object Create extends PPermission with CreateEvent
+case object CreateMany extends CreateEvent
+case object Update extends PPermission with UpdateEvent
+case object UpdateMany extends UpdateEvent
 case object Delete extends PPermission with DeleteEvent
 case object DeleteMany extends DeleteEvent
 case object All extends PPermission
 case object Mutate extends PPermission
 case class PushTo(listField: Option[PModelField] = None)
     extends PPermission
-    with WriteEvent
-case class PushManyTo(listField: Option[PModelField] = None) extends WriteEvent
+    with UpdateEvent
+case class PushManyTo(listField: Option[PModelField] = None) extends UpdateEvent
 case class RemoveFrom(listField: Option[PModelField] = None)
     extends PPermission
-    with WriteEvent
+    with UpdateEvent
 case class RemoveManyFrom(listField: Option[PModelField] = None)
-    extends WriteEvent
+    extends UpdateEvent
 // Permission to send attribute in create request
 // e.g. If aa `User` model has a `verified` attribute that you don't want the user to set
 // when they create their aaccount.
