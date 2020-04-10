@@ -2,7 +2,7 @@ package running
 
 import org.scalatest._
 import sangria.macros._
-import running.pipeline.Operation
+import running.pipeline.Operations
 import domain._
 import running.pipeline._
 import spray.json._
@@ -10,7 +10,7 @@ import scala.collection.immutable._
 import scala.util._
 
 class RequestOperations extends FlatSpec {
-  "Request `operations` attribute" should "be computed from user GraphQL query" in {
+  "Request operations" should "be computed from user GraphQL query" in {
     val code = """
     import "./src/test/scala/parsing/test-functions.js" as fns
 
@@ -33,9 +33,9 @@ class RequestOperations extends FlatSpec {
 
     val query = gql"""
         query user {
-            User @modelLevelDir(arg1: 1) {
-                myself: read(_id: "123") @opLevel(arg2: 2) {
-                    username @fieldLevel(arg3: 3)
+            User {
+                myself: read(_id: "123") @opLevel(arg1: 1) {
+                    username @fieldLevel(arg2: 2)
                     friend {
                         friend {
                             username
@@ -65,15 +65,18 @@ class RequestOperations extends FlatSpec {
       "http://localhost:8080/gql",
       "localhost"
     )
-    val ops = Operation.operationsFrom(request)(syntaxTree)
-    assert(ops.values.flatten.size == 4)
+    val ops = Operations.operationsFrom(request)(syntaxTree)
+
+    assert(ops.values.flatten.size == 2)
+
+    assert(ops.flatMap(_._2.map(_.event)) == List(Read, Update))
+
     assert(ops(Some("user")).head.opArguments.head.name == "_id")
+
+    assert(ops(Some("user"))(0).directives.head.arguments.head.name == "arg1")
+
     assert(
-      ops(Some("user"))(2).modelLevelDirectives.head.arguments.head.name == "arg1"
-    )
-    assert(ops(Some("user"))(1).directives.head.arguments.head.name == "arg2")
-    assert(
-      ops(Some("user"))(0).fieldPath.head.directives.head.arguments.head.name == "arg3"
+      ops(Some("user"))(0).innerReadOps.head.operation.directives.head.arguments.head.name == "arg2"
     )
   }
 }

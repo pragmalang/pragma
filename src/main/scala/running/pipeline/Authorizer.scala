@@ -6,7 +6,7 @@ import domain.utils.InternalException
 import domain.utils.AuthorizationError
 import spray.json._
 import setup.storage.Storage
-import running.pipeline.Operation.ReadOperation
+import running.pipeline.Operations.ReadOperation
 import akka.stream.scaladsl.Source
 import sangria.ast._
 import running.JwtPaylod
@@ -27,8 +27,8 @@ case class Authorizer(
           UserError.fromAuthErrors(AuthorizationError("Access Denied") :: Nil)
         )
       case (Some(permissions), None) => {
-        val reqOps = Operation.operationsFrom(request)(syntaxTree)
-        opsPass(reqOps.values.flatten.toVector, JsNull, devModeOn) match {
+        val reqOps = Operations.operationsFrom(request)(syntaxTree)
+        opsPass(reqOps.values.flatten.toVector, JsNull) match {
           case Right(true) =>
             Source.fromIterator(() => Iterator((Nil, request)))
           case Right(false) =>
@@ -55,8 +55,8 @@ case class Authorizer(
         )
 
         user.map { userJson =>
-          val reqOps = Operation.operationsFrom(request)(syntaxTree)
-          opsPass(reqOps.values.flatten.toVector, userJson, devModeOn) match {
+          val reqOps = Operations.operationsFrom(request)(syntaxTree)
+          opsPass(reqOps.values.flatten.toVector, userJson) match {
             case Right(true) => (Nil, request)
             case Right(false) =>
               throw AuthorizationError("Unauthorized request")
@@ -66,18 +66,14 @@ case class Authorizer(
       }
     }
 
-}
-object Authorizer {
   def opsPass(
       ops: Vector[Operation],
-      user: JsValue,
-      devModeOn: Boolean = false // For error generation
+      user: JsValue
   ): Either[Vector[AuthorizationError], Boolean] = {
     val results = for {
       op <- ops
-      opRule <- op.authRules
-      if ruleCanMatch(opRule, op)
-      (allows, denies) = op.authRules.partition(_.ruleKind == Allow)
+      opRules = releventRules(op)
+      (allows, denies) = opRules.partition(_.ruleKind == Allow)
       denyExists = denies.exists(ruleMatchesOp(_, op, user))
       allowExists = allows.exists(ruleMatchesOp(_, op, user))
     } yield (denyExists, allowExists, denies, allows)
@@ -107,25 +103,48 @@ object Authorizer {
           ops
             .filterNot(op => allows.exists(ruleMatchesOp(_, op, user)))
             .map { op =>
-              val resourcePath = Operation.displayOpResource(op)
               AuthorizationError(
                 "Access Denied",
                 cause = Some(
-                  s"No `allow` rule exists to authorize ${op.opKind} on $resourcePath"
+                  s"No `allow` rule exists to authorize `${op.event}` on `${op.targetModel.id}`"
                 ),
                 suggestion = Some(
-                  s"Try adding `allow ${op.event} $resourcePath` to your access rules for this request to be authorized"
+                  s"Try adding `allow ${op.event} ${op.targetModel.id}` to your access rules for this request to be authorized"
                 )
               )
             }
       }.flatten
+
       if (errors.isEmpty) Right(true)
       else Left(errors)
     }
-
   }
 
-  // A rule can match an operation if their resource and event  match
+  // Returns all the rules that can match
+  def releventRules(op: Operation): List[AccessRule] = {
+    val globalRules = syntaxTree.permissions match {
+      case None              => Nil
+      case Some(permissions) => permissions.globalTenant.rules
+    }
+    val roleSpecificRules = op.role match {
+      case None => Nil
+      case Some(role) =>
+        syntaxTree.permissions
+          .flatMap {
+            _.globalTenant.roles
+              .find(_.user.id == op.targetModel.id)
+              .map(_.rules)
+          }
+          .getOrElse(Nil)
+    }
+
+    globalRules.filter(ruleCanMatch(_, op)) :::
+      roleSpecificRules.filter(ruleCanMatch(_, op))
+  }
+
+}
+object Authorizer {
+
   def ruleCanMatch(rule: AccessRule, op: Operation): Boolean =
     (op.targetModel.id == rule.resourcePath._1.id) &&
       (op.event match {
@@ -140,11 +159,10 @@ object Authorizer {
         case _: DeleteEvent => rule.actions.contains(Delete)
         case event          => rule.actions.contains(event)
       }) &&
-      ((op.fieldPath.headOption, rule.resourcePath._2) match {
-        case (Some(_), None) | (None, None) => true
-        case (Some(opField), Some(ruleField)) =>
-          opField.field.id == ruleField.id
-        case _ => false
+      (rule.resourcePath._2 match {
+        case None => true
+        case Some(ruleField) =>
+          op.innerReadOps.exists(_.targetField.field.id == ruleField.id)
       })
 
   // Returns the boolean result of the user
@@ -217,18 +235,18 @@ object Authorizer {
 
   def userReadOperation(role: PModel, jwt: JwtPaylod) =
     Operation(
-      ReadOperation,
-      sangria.ast.OperationType.Query,
-      Vector(Argument(role.primaryField.id, StringValue(jwt.userId))),
-      Vector.empty,
-      Vector.empty,
-      Read,
-      role,
-      Nil,
-      Some(role),
-      Some(jwt),
-      Nil,
-      Nil
+      opKind = ReadOperation,
+      gqlOpKind = sangria.ast.OperationType.Query,
+      opArguments =
+        Vector(Argument(role.primaryField.id, StringValue(jwt.userId))),
+      directives = Vector.empty,
+      event = Read,
+      targetModel = role,
+      role = Some(role),
+      user = Some(jwt),
+      crudHooks = Nil,
+      alias = None,
+      innerReadOps = Vector.empty
     )
 
   // Construct the query to get the user to be authorized from storage

@@ -36,22 +36,45 @@ object Request {
 }
 
 case class Operation(
-    opKind: Operation.OperationKind,
-    gqlOpKind: Operation.GqlOperationType,
+    opKind: Operations.OperationKind,
+    gqlOpKind: Operations.GqlOperationType,
     opArguments: Vector[Argument],
-    modelLevelDirectives: Vector[sangria.ast.Directive], // Not useful now, might be later.
     directives: Vector[sangria.ast.Directive],
     event: PEvent,
     targetModel: PModel,
-    fieldPath: Operation.AliasedResourcePath,
     role: Option[PModel],
     user: Option[JwtPaylod],
     // Contains hooks used in @onRead, @onWrite, and @onDelete directives
     crudHooks: List[PFunctionValue[_, _]],
-    authRules: List[AccessRule],
-    alias: Option[String] = None,
+    alias: Option[String],
+    innerReadOps: Vector[InnerOperation]
 )
-object Operation {
+
+case class InnerOperation(
+    targetField: Operations.AliasedField,
+    operation: Operation
+)
+
+/**
+  This GraphQL query example might help explain how operations are generated:
+  ```gql
+  mutation {
+    User { # This is a model-level directive
+      create(...) { # This is an operation selection
+        username # 1
+        name # 2
+        # 1, 2, and `todos` are model field selections
+        # Model field selections are converted to `InnerOperation`s
+        todos {
+          title
+          content
+        }
+      }
+    }
+  }
+  ```
+  */
+object Operations {
   sealed trait OperationKind
   case object ReadOperation extends OperationKind
   case object WriteOperation extends OperationKind
@@ -62,7 +85,6 @@ object Operation {
       alias: Option[String] = None,
       directives: Vector[sangria.ast.Directive]
   )
-  type AliasedResourcePath = List[AliasedField]
   type FieldSelection = Field
   type GqlOperationType = OperationType
 
@@ -112,6 +134,15 @@ object Operation {
         )
     }
 
+  def opKindFromEvent(event: PEvent): Operations.OperationKind = event match {
+    case Read | ReadMany => ReadOperation
+    case Create | Update | PushTo(_) | PushManyTo(_) | RemoveFrom(_) |
+        RemoveManyFrom(_) =>
+      WriteOperation
+    case Delete => DeleteOperation
+    case _      => throw new InternalException(s"Invalid operation event `$event`")
+  }
+
   def captureListField(
       model: PModel,
       capturedFieldName: String
@@ -133,7 +164,7 @@ object Operation {
       user: Option[JwtPaylod],
       st: SyntaxTree
   ): Vector[Operation] = {
-    val targettedModel = st.models.find(_.id == modelSelection.name) match {
+    val targetModel = st.models.find(_.id == modelSelection.name) match {
       case Some(model) => model
       case _ =>
         throw new InternalException(
@@ -143,10 +174,10 @@ object Operation {
     val userRole = user.flatMap { jwt =>
       st.models.find(_.id == jwt.role)
     }
-    modelSelection.selections.flatMap {
+    modelSelection.selections.map {
       case opSelection: FieldSelection =>
         fromOperationSelection(
-          targettedModel,
+          targetModel,
           gqlOpKind,
           opSelection,
           userRole,
@@ -169,138 +200,112 @@ object Operation {
       user: Option[JwtPaylod],
       modelLevelDirectives: Vector[sangria.ast.Directive],
       st: SyntaxTree
-  ): Vector[Operation] = {
+  ): Operation = {
     val event = opSelectionEvent(opSelection.name, model)
-    opSelection.selections.flatMap {
+    val innerOps = opSelection.selections.map {
       case modelFieldSelection: FieldSelection =>
-        fromModelFieldSelection(
+        innerOpFromModelFieldSelection(
           modelFieldSelection,
-          gqlOpKind,
-          opSelection.directives,
-          modelLevelDirectives,
-          opSelection.arguments,
-          event,
           model,
+          gqlOpKind,
           role,
           user,
-          st,
-          alias = opSelection.alias
+          st
         )
       case s =>
         throw new InternalException(
           s"Selection `${s.renderCompact}` is not a field selection. All selections inside a model selection must all be field selections. Something must've went wrong during query reduction"
         )
     }
+    Operation(
+      opKind = opKindFromEvent(event),
+      gqlOpKind = gqlOpKind,
+      opArguments = opSelection.arguments,
+      directives = opSelection.directives,
+      event = event,
+      targetModel = model,
+      role = role,
+      user = user,
+      crudHooks = model.readHooks,
+      alias = opSelection.alias,
+      innerReadOps = innerOps
+    )
   }
 
-  def fromModelFieldSelection(
+  def innerOpFromModelFieldSelection(
       modelFieldSelection: FieldSelection,
+      outerTargetModel: PModel,
       gqlOpKind: GqlOperationType,
-      opLevelDirectives: Vector[sangria.ast.Directive],
-      modelLevelDirectives: Vector[sangria.ast.Directive],
-      opArguments: Vector[Argument],
-      event: PEvent,
-      model: PModel,
       role: Option[PModel],
       user: Option[JwtPaylod],
-      st: SyntaxTree,
-      alias: Option[String],
-      fieldPath: AliasedResourcePath = Nil
-  ): Vector[Operation] = {
-    val selectedModelField =
-      model.fields.find(_.id == modelFieldSelection.name) match {
+      st: SyntaxTree
+  ): InnerOperation = {
+    val targetField =
+      outerTargetModel.fields.find(_.id == modelFieldSelection.name) match {
         case Some(field: PModelField) => field
         case _ =>
           throw new InternalException(
-            s"Requested field `${modelFieldSelection.name}` of model `${model.id}` is not defined. Something must've went wrong during query validation"
+            s"Requested field `${modelFieldSelection.name}` of model `${outerTargetModel.id}` is not defined. Something must've went wrong during query validation"
           )
       }
-    if (modelFieldSelection.selections.isEmpty) {
-      val newPath = fieldPath :+ AliasedField(
-        selectedModelField,
-        modelFieldSelection.alias,
-        modelFieldSelection.directives
-      )
-      val (crudHooks, kind) = event match {
-        case Read | ReadMany => (model.readHooks, ReadOperation)
-        case Create | Update | PushTo(_) | PushManyTo(_) | RemoveFrom(_) |
-            RemoveManyFrom(_) =>
-          (model.writeHooks, WriteOperation)
-        case Delete => (model.deleteHooks, DeleteOperation)
-        case _      => throw new InternalException(s"Invalid operation event $event")
-      }
-      val authRules = role.zip(st.permissions) match {
-        case None => Nil
-        case Some((role, permissions)) =>
-          permissions.globalTenant.roles
-            .find(_.user.id == role.id)
-            .map(_.rules)
-            .getOrElse(Nil)
-      }
-      Vector(
-        Operation(
-          opKind = kind,
-          gqlOpKind = gqlOpKind,
-          opArguments = opArguments,
-          modelLevelDirectives = modelLevelDirectives,
-          directives = opLevelDirectives,
-          event = event,
-          targetModel = model,
-          fieldPath = newPath,
-          role = role,
-          user = user,
-          crudHooks = crudHooks,
-          authRules = authRules,
-          alias = alias
-        )
-      )
-    } else {
-      val newPath = fieldPath :+ AliasedField(
-        selectedModelField,
-        modelFieldSelection.alias,
-        modelFieldSelection.directives
-      )
-      val fieldModelId = selectedModelField.ptype match {
-        case m: PReference          => m.id
-        case PArray(m: PReference)  => m.id
-        case POption(m: PReference) => m.id
-        case _ =>
-          throw new InternalException(
-            s"Field `${selectedModelField.id}` is not of a model type (it cannot have inner sellections in a GraphQL query). Something must've went wrong during query validation"
-          )
-      }
-      val fieldModel = st.models.find(_.id == fieldModelId) match {
-        case Some(model: PModel) => model
-        case None =>
-          throw new InternalException(
-            s"Requested model `${fieldModelId}` is not defined. Something must've went wrong during validation"
-          )
-      }
-      modelFieldSelection.selections.flatMap {
-        case f: FieldSelection =>
-          fromModelFieldSelection(
-            f,
-            gqlOpKind,
-            opLevelDirectives,
-            modelLevelDirectives,
-            opArguments,
-            event,
-            fieldModel,
-            role,
-            user,
-            st,
-            alias,
-            newPath
-          )
-        case _ =>
-          throw new InternalException(
-            s"Selection `${modelFieldSelection.name}` is not a field selection. All selections within operation selection must be field selections. Something must've went wrong during GraphQL query validation"
-          )
-      }
+    val targetFieldType = targetField.ptype match {
+      case m: PReference          => st.findTypeById(m.id)
+      case PArray(m: PReference)  => st.findTypeById(m.id)
+      case POption(m: PReference) => st.findTypeById(m.id)
+      case p: PrimitiveType       => Some(p)
     }
+    val innerOpTargetModel = targetFieldType match {
+      case Some(m: PModel) => m
+      case Some(_: PrimitiveType) | Some(_: PEnum)
+          if !modelFieldSelection.selections.isEmpty =>
+        throw new InternalException(
+          s"Field `${targetField.id}` is not of a model type (it cannot have inner sellections in a GraphQL query). Something must've went wrong during query validation"
+        )
+      case None =>
+        throw new InternalException(
+          s"Inner operation targets model `${targetField.ptype.toString}` that doesn't exist"
+        )
+      case _ => outerTargetModel
+    }
+    val innerSelections = modelFieldSelection.selections.map {
+      case f: FieldSelection =>
+        innerOpFromModelFieldSelection(
+          f,
+          innerOpTargetModel,
+          gqlOpKind,
+          role,
+          user,
+          st
+        )
+      case _ =>
+        throw new InternalException(
+          s"Selection `${modelFieldSelection.name}` is not a field selection. All selections within operation selection must be field selections. Something must've went wrong during GraphQL query validation"
+        )
+    }
+    val op = Operation(
+      opKind = Operations.ReadOperation,
+      gqlOpKind = OperationType.Query,
+      opArguments = Vector.empty,
+      directives = modelFieldSelection.directives,
+      event = Read,
+      targetModel = outerTargetModel,
+      role = role,
+      user = user,
+      crudHooks = outerTargetModel.readHooks,
+      alias = modelFieldSelection.alias,
+      innerReadOps = innerSelections
+    )
+    InnerOperation(
+      AliasedField(
+        targetField,
+        modelFieldSelection.alias,
+        modelFieldSelection.directives
+      ),
+      op
+    )
   }
 
-  def displayOpResource(op: Operation): String =
-    op.targetModel.id + op.fieldPath.foldLeft(".")(_ + _.field.id)
+  def displayOpResource(iop: InnerOperation): String =
+    iop.operation.targetModel.id + "." + iop.targetField.field.id
 
 }
