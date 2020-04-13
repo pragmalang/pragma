@@ -290,6 +290,15 @@ sealed trait PPermission {
     case e: PEvent   => e.toString
   }
 }
+object PPermission {
+  def from(event: PEvent): PPermission = event match {
+    case _: ReadEvent   => Read
+    case _: CreateEvent => Create
+    case _: UpdateEvent => Update
+    case _: DeleteEvent => Delete
+    case Login          => Login
+  }
+}
 
 case object Read extends PPermission with ReadEvent // Retrieve record by IDe
 case object ReadMany extends ReadEvent // Translates to LIST event
@@ -319,7 +328,73 @@ case object Login extends PPermission with PEvent // allowed by default
 case class Permissions(
     globalTenant: Tenant,
     tenants: List[Tenant]
-)
+) {
+  type TargetModelId = String
+  type RoleId = String
+  type PermissionTree =
+    Map[Option[RoleId], Map[TargetModelId, Map[PPermission, List[AccessRule]]]]
+
+  /**
+   * A queryable tree of permissions.
+   * Note: it's better to use the methods on `Permissions`
+   * for querying instead of directly accessing `tree`.
+   */
+  lazy val tree: PermissionTree = constructTree
+
+  private def rulePermissionTree(
+      rules: List[AccessRule]
+  ): Map[PPermission, List[AccessRule]] =
+    rules.foldLeft(Map.empty[PPermission, List[AccessRule]]) {
+      (permissionTrees, rule) =>
+        rule.actions.foldLeft(permissionTrees) { (ptrees, rulep) =>
+          if (!ptrees.contains(rulep))
+            ptrees + (rulep -> (rule :: Nil))
+          else
+            ptrees + (rulep -> (ptrees(rulep) :+ rule))
+        }
+    }
+
+  private def targetModelTree(
+      rules: List[AccessRule]
+  ): Map[TargetModelId, Map[PPermission, List[AccessRule]]] =
+    rules.groupBy(_.resourcePath._1.id).map {
+      case (targetModelId, rules) => (targetModelId, rulePermissionTree(rules))
+    }
+
+  private def constructTree: PermissionTree = {
+    val trees =
+      (None -> targetModelTree(globalTenant.rules)) ::
+        globalTenant.roles.map { role =>
+          Some(role.user.id) -> targetModelTree(
+            globalTenant.rules ::: role.rules
+          )
+        }
+    trees.toMap
+  }
+
+  def rulesOf(
+      role: Option[RoleId],
+      targetModel: TargetModelId,
+      event: PEvent
+  ): List[AccessRule] = {
+    val rules = for {
+      targetModelTree <- tree.get(role)
+      permissionTree <- targetModelTree.get(targetModel)
+      permission = PPermission.from(event)
+      rules <- permissionTree.get(permission)
+    } yield rules
+
+    rules.getOrElse(Nil)
+  }
+
+  def rulesOf(
+      role: Option[PModel],
+      targetModel: PModel,
+      event: PEvent
+  ): List[AccessRule] =
+    rulesOf(role.map(_.id), targetModel.id, event)
+
+}
 
 case class Tenant(
     id: String,

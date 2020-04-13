@@ -120,7 +120,7 @@ case class Authorizer(
     }
   }
 
-  // Returns all the rules that can match
+  /** Returns all the rules that can match */
   def releventRules(op: Operation): List[AccessRule] = {
     val globalRules = syntaxTree.permissions match {
       case None              => Nil
@@ -148,9 +148,9 @@ object Authorizer {
   def ruleCanMatch(rule: AccessRule, op: Operation): Boolean =
     (op.targetModel.id == rule.resourcePath._1.id) &&
       (op.event match {
+        case _: ReadEvent => rule.actions.contains(Read)
         case _: CreateEvent =>
           rule.actions.exists(p => p == Create || p == SetOnCreate)
-        case _: ReadEvent => rule.actions.contains(Read)
         case _: UpdateEvent =>
           rule.actions.exists {
             case Update | PushTo(_) | RemoveFrom(_) | Mutate => true
@@ -165,8 +165,10 @@ object Authorizer {
           op.innerReadOps.exists(_.targetField.field.id == ruleField.id)
       })
 
-  // Returns the boolean result of the user
-  // predicate or the error thrown by the user
+  /**
+    * Returns the boolean result of the user
+    * predicate or the error thrown by the user
+    */
   def userPredicateResult(
       rule: AccessRule,
       argument: JsValue
@@ -191,19 +193,33 @@ object Authorizer {
       rule: AccessRule,
       op: Operation,
       predicateArg: JsValue
-  ): Boolean = {
-    val isMatch = (rule.resourcePath._2, op.event) match {
-      case (Some(ruleField), Read) =>
-        ??? // Make operations recursive first
-      case (Some(ruleField), ReadMany) =>
-        ??? // Make operations recursive first
+  ): Boolean =
+    ((rule.resourcePath._2, op.event) match {
+      case (Some(ruleField), Read | ReadMany) =>
+        ruleMatchesOneInnerReadOp(rule, op.innerReadOps, predicateArg)
       case (Some(ruleField), Update) =>
-        op.opArguments.exists(_.name == ruleField.id)
+        op.opArguments
+          .find(_.name == op.targetModel.id.small)
+          .map(_.value)
+          .flatMap {
+            case ObjectValue(fields, _, _) =>
+              Some {
+                val opsToCheck = op.innerReadOps.filterNot { innerOp =>
+                  fields.exists(_.name == innerOp.targetField.field.id)
+                }
+                ruleMatchesOneInnerReadOp(rule, opsToCheck, predicateArg)
+              }
+            case _ => None
+          }
+          .getOrElse(
+            throw InternalException(
+              "Argument passed to `update` is not an object. Something must've went wrond duing query validation or schema generation"
+            )
+          )
       case (Some(ruleField), UpdateMany) =>
         op.opArguments
           .find(_.name == "items")
-          .map(_.value)
-          .map {
+          .map(_.value match {
             case ListValue(values, _, _) =>
               values.exists { value =>
                 value.isInstanceOf[ObjectValue] &&
@@ -213,25 +229,57 @@ object Authorizer {
                   .exists(_.name == ruleField.id)
               }
             case _ => true
-          }
+          })
           .getOrElse(true)
       case (Some(ruleField), Create) if rule.actions.contains(SetOnCreate) =>
         op.opArguments
           .find(_.name == op.targetModel.id.small)
-          .map(_.value)
-          .map {
+          .map(_.value match {
             case ObjectValue(fields, _, _) =>
               fields.exists(_.name == ruleField.id)
             case _ => true
-          }
+          })
           .getOrElse(true)
       case (None, Delete | DeleteMany) => rule.actions.contains(Delete)
       case (None, Login)               => rule.actions.contains(Login)
       case _                           => false
-    }
-    // TODO: Add errors
-    isMatch
-  }
+    }) && (userPredicateResult(rule, predicateArg) match {
+      case Right(value) => value
+      case _            => false
+    })
+
+  /** True if the rule matches one or more inner operations */
+  def ruleMatchesOneInnerReadOp(
+      rule: AccessRule,
+      innerOps: Vector[InnerOperation],
+      predicateArg: JsValue
+  ): Boolean =
+    rule.actions.contains(Read) &&
+      (rule.resourcePath._2 match {
+        case None =>
+          innerOps.exists { innerOp =>
+            innerOp.operation.targetModel.id == rule.resourcePath._1.id ||
+            ruleMatchesOneInnerReadOp(
+              rule,
+              innerOp.operation.innerReadOps,
+              predicateArg
+            )
+          }
+        case Some(ruleField) =>
+          innerOps.exists { innerOp =>
+            innerOp.operation.targetModel.id == rule.resourcePath._1.id &&
+            innerOp.targetField.field.id == ruleField.id ||
+            ruleMatchesOneInnerReadOp(
+              rule,
+              innerOp.operation.innerReadOps,
+              predicateArg
+            )
+          }
+      }) &&
+      (userPredicateResult(rule, predicateArg) match {
+        case Right(value) => value
+        case _            => false
+      })
 
   def userReadOperation(role: PModel, jwt: JwtPaylod) =
     Operation(
@@ -249,7 +297,7 @@ object Authorizer {
       innerReadOps = Vector.empty
     )
 
-  // Construct the query to get the user to be authorized from storage
+  /** Construct the query to get the user to be authorized from storage */
   def userQuery(role: PModel, userId: String) =
     Document(
       Vector(

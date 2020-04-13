@@ -17,19 +17,22 @@ import scala.util.{Try, Success, Failure}
 class Authorization extends FlatSpec {
   "Authorizer" should "authorize requests correctly" in {
     val code = """
-    deny UPDATE User.isVerified
     @user
     model User {
       username: String @primary @publicCredential
       password: String @secretCredential
       isVerified: Boolean = false
     }
+
     allow CREATE User
+    deny UPDATE User.isVerified
     """
 
     val syntaxTree = SyntaxTree.from(code).get
     val mockStorage = MockStorage(syntaxTree)
     val authorizer = Authorizer(syntaxTree, mockStorage, true)
+
+    pprint.pprintln(syntaxTree.permissions.get.tree)
 
     val req = Request(
       None,
