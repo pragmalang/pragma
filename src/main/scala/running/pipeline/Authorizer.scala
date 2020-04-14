@@ -7,11 +7,12 @@ import domain.utils.AuthorizationError
 import spray.json._
 import setup.storage.Storage
 import running.pipeline.Operations.ReadOperation
-import akka.stream.scaladsl.Source
 import sangria.ast._
 import running.JwtPaylod
 import domain.utils.UserError
 import scala.util._
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 
 case class Authorizer(
     syntaxTree: SyntaxTree,
@@ -20,48 +21,53 @@ case class Authorizer(
 ) {
   import Authorizer._
 
-  def apply(request: Request): Source[(List[AuthorizationError], Request), _] =
+  def apply(request: Request): Future[(List[AuthorizationError], Request)] =
     (syntaxTree.permissions, request.user) match {
       case (None, _) =>
-        Source.failed(
+        Future.failed(
           UserError.fromAuthErrors(AuthorizationError("Access Denied") :: Nil)
         )
       case (Some(permissions), None) => {
         val reqOps = Operations.operationsFrom(request)(syntaxTree)
         opsPass(reqOps.values.flatten.toVector, JsNull) match {
-          case Right(true) =>
-            Source.fromIterator(() => Iterator((Nil, request)))
+          case Right(true) => Future((Nil, request))
           case Right(false) =>
-            Source.failed(
+            Future.failed(
               UserError
                 .fromAuthErrors(AuthorizationError("Access Denied") :: Nil)
             )
           case Left(errors) =>
-            Source.failed(UserError.fromAuthErrors(errors.toList))
+            Future.failed(UserError.fromAuthErrors(errors.toList))
         }
       }
       case (Some(permissions), Some(jwt)) => {
         val userModel = syntaxTree.models.find(_.id == jwt.role)
 
         if (!userModel.isDefined)
-          return Source.failed(
+          return Future.failed(
             InternalException(
               s"Request has role `${jwt.role}` that doesn't exist"
             )
           )
         val user = storage.run(
           userQuery(userModel.get, jwt.userId),
-          Vector(userReadOperation(userModel.get, jwt))
+          Map(None -> Vector(userReadOperation(userModel.get, jwt)))
         )
 
-        user.map { userJson =>
-          val reqOps = Operations.operationsFrom(request)(syntaxTree)
-          opsPass(reqOps.values.flatten.toVector, userJson) match {
-            case Right(true) => (Nil, request)
-            case Right(false) =>
-              throw AuthorizationError("Unauthorized request")
-            case Left(errors) => throw UserError.fromAuthErrors(errors.toList)
+        user.map {
+          case Left(userJson) => {
+            val reqOps = Operations.operationsFrom(request)(syntaxTree)
+            opsPass(reqOps.values.flatten.toVector, userJson) match {
+              case Right(true) => (Nil, request)
+              case Right(false) =>
+                throw AuthorizationError("Unauthorized request")
+              case Left(errors) => throw UserError.fromAuthErrors(errors.toList)
+            }
           }
+          case Right(_) =>
+            throw InternalException(
+              "User object retrieved from storage must be an object"
+            )
         }
       }
     }

@@ -7,6 +7,12 @@ import running.pipeline._
 import sangria.ast._
 
 package object Implicits {
+
+  import scala.util.matching.Regex
+  import setup.storage.ASC
+  import setup.storage.DESC
+
+  import setup.storage._
   import sangria.ast.OperationType._
 
   implicit object GraphQlOperationTypeJsonFormater
@@ -79,6 +85,72 @@ package object Implicits {
         "value" -> GraphQlValueJsonFormater.write(obj.value),
         "kind" -> "ObjectField".toJson
       )
+  }
+
+  implicit object QueryWhereJsonFormater extends JsonFormat[QueryWhere] {
+    override def read(json: JsValue): QueryWhere = ???
+    override def write(obj: QueryWhere): JsValue = ???
+  }
+
+  implicit object ComparisonObjectJsonFormater
+      extends JsonFormat[(Option[String], JsValue)] {
+    override def read(json: JsValue): (Option[String], JsValue) =
+      (
+        json.asJsObject.fields.get("field").map(_.asInstanceOf[JsString].value),
+        json.asJsObject.fields("value")
+      )
+    override def write(obj: (Option[String], JsValue)): JsValue = JsObject(
+      "field" -> obj._1.toJson,
+      "value" -> obj._2
+    )
+  }
+  implicit object MatchesObjectJsonFormater
+      extends JsonFormat[(Option[String], Regex)] {
+    override def read(json: JsValue): (Option[String], Regex) = (json.asJsObject.fields.get("field").map(_.asInstanceOf[JsString].value), new Regex(json.asJsObject.fields("value").asInstanceOf[JsString].value))
+    override def write(obj: (Option[String], Regex)): JsValue = JsObject(
+      "field" -> obj._1.toJson,
+      "regex" -> obj._2.regex.toJson
+    )
+  }
+
+  implicit object QueryFilterJsonFormater extends JsonFormat[QueryFilter] {
+    override def read(json: JsValue): QueryFilter = QueryFilter(
+      not = json.asJsObject.fields.get("not").map(read),
+      and = json.asJsObject.fields.get("and").map(read),
+      or = json.asJsObject.fields.get("or").map(read),
+      eq = json.asJsObject.fields.get("eq").map(ComparisonObjectJsonFormater.read),
+      gt = json.asJsObject.fields.get("gt").map(ComparisonObjectJsonFormater.read),
+      gte = json.asJsObject.fields.get("gte").map(ComparisonObjectJsonFormater.read),
+      lt = json.asJsObject.fields.get("lt").map(ComparisonObjectJsonFormater.read),
+      lte = json.asJsObject.fields.get("lte").map(ComparisonObjectJsonFormater.read),
+      matches = json.asJsObject.fields.get("matches").map(MatchesObjectJsonFormater.read)
+    )
+    override def write(obj: QueryFilter): JsValue = JsObject(
+      "not" -> obj.not.map(write).toJson,
+      "and" -> obj.and.map(write).toJson,
+      "or" -> obj.or.map(write).toJson,
+      "eq" -> obj.eq.map(ComparisonObjectJsonFormater.write).toJson,
+      "gt" -> obj.gt.map(ComparisonObjectJsonFormater.write).toJson,
+      "lt" -> obj.lt.map(ComparisonObjectJsonFormater.write).toJson,
+      "lte" -> obj.lte.map(ComparisonObjectJsonFormater.write).toJson,
+      "gte" -> obj.gte.map(ComparisonObjectJsonFormater.write).toJson,
+      "matches" -> obj.matches.map(MatchesObjectJsonFormater.write).toJson
+    )
+  }
+
+  implicit object QueryOrderJsonFormater extends JsonFormat[QueryOrder] {
+    override def read(json: JsValue): QueryOrder = json match {
+      case JsString(value) if value == "ASC"  => ASC
+      case JsString(value) if value == "DESC" => DESC
+      case _ =>
+        throw DeserializationException(
+          "Failed to deserialize JSON value as a `QueryOrder` object"
+        )
+    }
+    override def write(obj: QueryOrder): JsValue = obj match {
+      case ASC  => JsString("ASC")
+      case DESC => JsString("DESC")
+    }
   }
 
   implicit object GraphQlValueJsonFormater extends JsonFormat[Value] {
@@ -680,4 +752,4 @@ package object Implicits {
     }
   }
 }
-*/
+ */

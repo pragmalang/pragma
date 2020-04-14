@@ -7,12 +7,11 @@ import sangria.macros._
 import spray.json._
 import domain.SyntaxTree
 import setup.storage.MockStorage
-import akka.actor._
 import scala.util.Failure
 import scala.util.Success
 import scala.concurrent._
 import scala.concurrent.duration.Duration
-import scala.util.{Try, Success, Failure}
+import scala.util._
 
 class Authorization extends FlatSpec {
   "Authorizer" should "authorize requests correctly" in {
@@ -64,11 +63,10 @@ class Authorization extends FlatSpec {
       ""
     )
 
-    implicit val system = ActorSystem("some-system")
     Try {
-      Await.result(authorizer(req).runForeach(result => ()), Duration.Inf)
+      Await.result(authorizer(req), Duration.Inf)
     } match {
-      case Success(_)   => () // Should be: fail()
+      case Success(_)   => fail()
       case Failure(err) => ()
     }
   }
