@@ -1,6 +1,7 @@
 package parsing.utils
 
 import domain.{SyntaxTree, PModelField, PReference}
+import domain.PModel
 
 case class DependencyGraph(st: SyntaxTree) {
 
@@ -10,9 +11,11 @@ case class DependencyGraph(st: SyntaxTree) {
     PModelField(_, PReference(refId), _, _, _) <- model.fields
   } yield (model.id, refId)
 
-  def depsOf(id: String) = pairs collect {
-    case (m, n) if m == id => n
+  def depsOf(modelId: String): List[String] = pairs collect {
+    case (m, n) if m == modelId => n
   }
+
+  def depsOf(model: PModel): List[String] = depsOf(model.id)
 
   val circularDeps = pairs filter {
     case (model1, model2) => depsOf(model2) contains model1

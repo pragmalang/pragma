@@ -275,6 +275,34 @@ sealed trait PEvent {
     case Login             => "LOGIN"
     case UpdateMany        => "UPDATE_MANY"
   }
+
+  def render(model: PModel): String = {
+    val transformedFieldId = (f: PModelField) =>
+      if (model.fields
+            .filter(_.id.toLowerCase == f.id.toLowerCase)
+            .length > 1)
+        f.id
+      else
+        f.id.capitalize
+    this match {
+      case Read              => "read"
+      case ReadMany          => "list"
+      case Create            => "create"
+      case CreateMany        => "createMany"
+      case Update            => "update"
+      case UpdateMany        => "updateMany"
+      case Delete            => "delete"
+      case DeleteMany        => "deleteMany"
+      case PushTo(listField) => s"pushTo${transformedFieldId(listField.get)}"
+      case PushManyTo(listField) =>
+        s"pushManyTo${transformedFieldId(listField.get)}"
+      case RemoveFrom(listField) =>
+        s"removeFrom${transformedFieldId(listField.get)}"
+      case RemoveManyFrom(listField) =>
+        s"removeManyFrom${transformedFieldId(listField.get)}"
+      case Login => "login"
+    }
+  }
 }
 
 sealed trait ReadEvent extends PEvent
