@@ -167,7 +167,7 @@ directive @listen(to: EVENT_ENUM!) on FIELD # on field selections inside a subsc
     delete({model.primaryField.id}: {model.primaryField.type}!): {model.id}
     createMany(items: [{model.id}Input]!): [{model.id}]!
     updateMany(items: [{model.id}Input]!): [{model.id}]!
-    deleteMany(items: [{model.primaryField.type}!]): [{model.id}]! # directives: @where
+    deleteMany(items: [{model.primaryField.type}!]): [{model.id}]! # directives: @filter
     {for field in model.field.filter(isList)}
       pushTo{field.id}(item: {field.type.id}Input!): {field.type.named}
       pushManyTo{field.id}(items: [{field.type.id}Input!]!): {field.type}
