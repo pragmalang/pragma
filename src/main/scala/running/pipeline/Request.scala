@@ -146,15 +146,15 @@ object Operations {
   def captureListField(
       model: PModel,
       capturedFieldName: String
-  ): Option[PModelField] = {
+  ): PModelField = {
     if (model.fields
           .filter(
             _.id.toLowerCase == capturedFieldName.toLowerCase
           )
           .length == 1) {
-      model.fields.find(_.id.toLowerCase == capturedFieldName.toLowerCase)
+      model.fields.find(_.id.toLowerCase == capturedFieldName.toLowerCase).get
     } else {
-      model.fields.find(_.id == capturedFieldName)
+      model.fields.find(_.id == capturedFieldName).get
     }
   }
 

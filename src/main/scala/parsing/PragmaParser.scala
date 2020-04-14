@@ -298,7 +298,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
     }
   }
 
-  def event: Rule1[PPermission] = rule {
+  def permission: Rule1[PPermission] = rule {
     valueMap(
       Map(
         "ALL" -> All,
@@ -307,20 +307,20 @@ class PragmaParser(val input: ParserInput) extends Parser {
         "UPDATE" -> Update,
         "DELETE" -> Delete,
         "MUTATE" -> Mutate,
-        "PUSH_TO" -> PushTo(),
+        "PUSH_TO" -> PushTo,
         "SET_ON_CREATE" -> SetOnCreate,
-        "REMOVE_FROM" -> RemoveFrom(),
+        "REMOVE_FROM" -> RemoveFrom,
         "LOGIN" -> Login
       )
     )
   }
 
   def singletonPermission: Rule1[List[PPermission]] = rule {
-    event ~> ((event: PPermission) => event :: Nil)
+    permission ~> ((event: PPermission) => event :: Nil)
   }
 
   def permissionsList: Rule1[List[PPermission]] = rule {
-    ("[" ~ oneOrMore(event).separatedBy(",") ~ "]") ~>
+    ("[" ~ oneOrMore(permission).separatedBy(",") ~ "]") ~>
       ((events: Seq[PPermission]) => events.toList)
   }
 

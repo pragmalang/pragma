@@ -20,7 +20,7 @@ case object PAny extends PType
 
 trait PReferenceType extends PType with Identifiable
 
-// Base case for recursive types
+/** Base case for recursive types */
 case class PSelf(id: String) extends PReferenceType
 
 case class PReference(id: String) extends PReferenceType
@@ -43,6 +43,7 @@ case class SyntaxTree(
 
   def getConfigEntry(key: String): Option[ConfigEntry] =
     config.flatMap(_.getConfigEntry(key))
+
 }
 object SyntaxTree {
   // The resulting syntax tree is validated and substituted
@@ -52,8 +53,10 @@ object SyntaxTree {
       .flatMap(new Validator(_).validSyntaxTree)
       .flatMap(Substitutor.substitute)
 
-  // The resulting syntax tree is not validated or substituted
-  // Meant for use only in the PragmaParser
+  /**
+    * The resulting syntax tree is not validated or substituted
+    * Meant for use only in the PragmaParser
+    */
   def fromConstructs(constructs: List[PConstruct]): SyntaxTree = {
     val imports = constructs.collect { case i: PImport         => i }
     val models = constructs.collect { case m: PModel           => m }
@@ -293,13 +296,13 @@ sealed trait PEvent {
       case UpdateMany        => "updateMany"
       case Delete            => "delete"
       case DeleteMany        => "deleteMany"
-      case PushTo(listField) => s"pushTo${transformedFieldId(listField.get)}"
+      case PushTo(listField) => s"pushTo${transformedFieldId(listField)}"
       case PushManyTo(listField) =>
-        s"pushManyTo${transformedFieldId(listField.get)}"
+        s"pushManyTo${transformedFieldId(listField)}"
       case RemoveFrom(listField) =>
-        s"removeFrom${transformedFieldId(listField.get)}"
+        s"removeFrom${transformedFieldId(listField)}"
       case RemoveManyFrom(listField) =>
-        s"removeManyFrom${transformedFieldId(listField.get)}"
+        s"removeManyFrom${transformedFieldId(listField)}"
       case Login => "login"
     }
   }
@@ -312,10 +315,11 @@ sealed trait DeleteEvent extends PEvent
 
 sealed trait PPermission {
   override def toString(): String = this match {
-    case All         => "ALL"
-    case SetOnCreate => "SET_ON_CREATE"
-    case Mutate      => "MUTATE"
-    case e: PEvent   => e.toString
+    case All            => "ALL"
+    case SetOnCreate    => "SET_ON_CREATE"
+    case Mutate         => "MUTATE"
+    case PushTo         => "PUSH_TO"
+    case p: PPermission => p.toString
   }
 }
 object PPermission {
@@ -328,8 +332,11 @@ object PPermission {
   }
 }
 
-case object Read extends PPermission with ReadEvent // Retrieve record by IDe
-case object ReadMany extends ReadEvent // Translates to LIST event
+/** Retrieve record by ID */
+case object Read extends PPermission with ReadEvent
+
+/** Translates to LIST event */
+case object ReadMany extends ReadEvent
 case object Create extends PPermission with CreateEvent
 case object CreateMany extends CreateEvent
 case object Update extends PPermission with UpdateEvent
@@ -338,18 +345,22 @@ case object Delete extends PPermission with DeleteEvent
 case object DeleteMany extends DeleteEvent
 case object All extends PPermission
 case object Mutate extends PPermission
-case class PushTo(listField: Option[PModelField] = None)
-    extends PPermission
-    with UpdateEvent
-case class PushManyTo(listField: Option[PModelField] = None) extends UpdateEvent
-case class RemoveFrom(listField: Option[PModelField] = None)
-    extends PPermission
-    with UpdateEvent
-case class RemoveManyFrom(listField: Option[PModelField] = None)
-    extends UpdateEvent
-// Permission to send attribute in create request
-// e.g. If aa `User` model has a `verified` attribute that you don't want the user to set
-// when they create their aaccount.
+
+case class PushTo(listField: PModelField) extends UpdateEvent
+case object PushTo extends PPermission
+
+case class RemoveFrom(listField: PModelField) extends UpdateEvent
+case object RemoveFrom extends PPermission
+
+case class PushManyTo(listField: PModelField) extends UpdateEvent
+
+case class RemoveManyFrom(listField: PModelField) extends UpdateEvent
+
+/**
+  * Permission to send attribute in create request
+  * e.g. If aa `User` model has a `verified` attribute that you don't want the user to set
+  * when they create their aaccount.
+  */
 case object SetOnCreate extends PPermission // allowed by default
 case object Login extends PPermission with PEvent // allowed by default
 
@@ -363,10 +374,10 @@ case class Permissions(
     Map[Option[RoleId], Map[TargetModelId, Map[PPermission, List[AccessRule]]]]
 
   /**
-   * A queryable tree of permissions.
-   * Note: it's better to use the methods on `Permissions`
-   * for querying instead of directly accessing `tree`.
-   */
+    * A queryable tree of permissions.
+    * Note: it's better to use the methods on `Permissions`
+    * for querying instead of directly accessing `tree`.
+    */
   lazy val tree: PermissionTree = constructTree
 
   private def rulePermissionTree(

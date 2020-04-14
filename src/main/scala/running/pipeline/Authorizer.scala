@@ -159,7 +159,7 @@ object Authorizer {
           rule.actions.exists(p => p == Create || p == SetOnCreate)
         case _: UpdateEvent =>
           rule.actions.exists {
-            case Update | PushTo(_) | RemoveFrom(_) | Mutate => true
+            case Update | PushTo | RemoveFrom | Mutate => true
             case _                                           => false
           }
         case _: DeleteEvent => rule.actions.contains(Delete)

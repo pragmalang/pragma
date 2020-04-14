@@ -354,7 +354,7 @@ object Substitutor {
 
   def substituteAccessRulePermissions(rule: AccessRule): Try[AccessRule] = {
     lazy val allowedArrayFieldPermissions: List[PPermission] =
-      List(Read, Update, SetOnCreate, PushTo(), RemoveFrom(), Mutate)
+      List(Read, Update, SetOnCreate, PushTo, RemoveFrom, Mutate)
     lazy val allowedPrimitiveFieldPermissions: List[PPermission] =
       List(Read, Update, SetOnCreate)
     lazy val allowedModelPermissions: List[PPermission] =

@@ -15,7 +15,6 @@ import domain._
 import org.mongodb.scala.model.Filters
 import org.mongodb.scala.bson.BsonInt32
 import org.bson.BsonString
-import domain._
 import sangria.ast._
 import sangria.ast.{Document => GqlDocument}
 import org.mongodb.scala.bson._
@@ -221,7 +220,7 @@ trait Storage {
                   case PushTo(listField) =>
                     pushOneTo(
                       op.targetModel,
-                      listField.get,
+                      listField,
                       op.opArguments.find(_.name == "item").get.value.toJson,
                       op.innerReadOps
                     ).map(
@@ -232,7 +231,7 @@ trait Storage {
                   case PushManyTo(listField) =>
                     pushManyTo(
                       op.targetModel,
-                      listField.get,
+                      listField,
                       op.opArguments
                         .find(_.name == "items")
                         .get
@@ -249,7 +248,7 @@ trait Storage {
                   case RemoveFrom(listField) =>
                     removeOneFrom(
                       op.targetModel,
-                      listField.get,
+                      listField,
                       op.opArguments.find(_.name == "item").get.value.toJson,
                       op.innerReadOps
                     ).map(
@@ -260,7 +259,7 @@ trait Storage {
                   case RemoveManyFrom(listField) =>
                     removeManyFrom(
                       op.targetModel,
-                      listField.get,
+                      listField,
                       op.opArguments
                         .find(_.name == "filter")
                         .get
