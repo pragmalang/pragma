@@ -301,6 +301,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
   def event: Rule1[PPermission] = rule {
     valueMap(
       Map(
+        "ALL" -> All,
         "CREATE" -> Create,
         "READ" -> Read,
         "UPDATE" -> Update,
@@ -317,8 +318,6 @@ class PragmaParser(val input: ParserInput) extends Parser {
   def singletonPermission: Rule1[List[PPermission]] = rule {
     event ~> ((event: PPermission) => event :: Nil)
   }
-
-  def allPermission: Rule1[List[PPermission]] = rule { "ALL" ~ push(All :: Nil) }
 
   def permissionsList: Rule1[List[PPermission]] = rule {
     ("[" ~ oneOrMore(event).separatedBy(",") ~ "]") ~>
@@ -340,7 +339,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
   def accessRuleDef: Rule1[AccessRule] = rule {
     push(cursor) ~
       valueMap(Map("allow" -> Allow, "deny" -> Deny)) ~
-      wsWithEndline() ~ (singletonPermission | permissionsList | allPermission) ~
+      wsWithEndline() ~ (singletonPermission | permissionsList) ~
       wsWithEndline() ~ ref ~
       optional(wsWithoutEndline ~ "if" ~ ref) ~
       push(cursor) ~> {
@@ -367,7 +366,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
 
   def roleDef: Rule1[Role] = rule {
     "role" ~ push(cursor) ~ identifier ~ push(cursor) ~ "{" ~
-      zeroOrMore(accessRuleDef) ~ "}" ~> {
+      zeroOrMore(accessRuleDef).separatedBy(wsWithEndline()) ~ "}" ~> {
       (start: Int, roleName: String, end: Int, rules: Seq[AccessRule]) =>
         Role(PReference(roleName), rules.toList)
     }

@@ -352,33 +352,43 @@ object Substitutor {
     else Failure(UserError(errors))
   }
 
-  def substituteAccessRuleEvents(rule: AccessRule): Try[AccessRule] = {
-    lazy val allowedArrayFieldEvents: List[PPermission] =
+  def substituteAccessRulePermissions(rule: AccessRule): Try[AccessRule] = {
+    lazy val allowedArrayFieldPermissions: List[PPermission] =
       List(Read, Update, SetOnCreate, PushTo(), RemoveFrom(), Mutate)
-    lazy val allowedPrimitiveFieldEvents: List[PPermission] =
+    lazy val allowedPrimitiveFieldPermissions: List[PPermission] =
       List(Read, Update, SetOnCreate)
-    lazy val allowedModelEvents: List[PPermission] =
+    lazy val allowedModelPermissions: List[PPermission] =
       List(Read, Update, Create, Delete)
-    lazy val allowedModelFieldEvents: List[PPermission] =
+    lazy val allowedModelFieldPermissions: List[PPermission] =
       List(Read, Update, Mutate, SetOnCreate)
 
     val newPermissions = rule match {
+      case AccessRule(_, _, permissions, _, _)
+          if permissions.length > 1 && permissions.contains(All) =>
+        Left(
+          (
+            s"`${All}` permission cannot be combined with other permissions",
+            rule.position
+          )
+        )
+      case AccessRule(_, (_, None), All :: Nil, _, _) =>
+        Right(allowedModelPermissions)
       case AccessRule(_, (_, Some(field)), All :: Nil, _, _)
           if field.ptype.isInstanceOf[PArray] =>
-        Right(allowedArrayFieldEvents)
+        Right(allowedArrayFieldPermissions)
       case AccessRule(_, (_, Some(field)), All :: Nil, _, _)
           if field.ptype.isInstanceOf[PArray] =>
-        Right(allowedArrayFieldEvents)
+        Right(allowedArrayFieldPermissions)
       case AccessRule(_, (_, Some(field)), All :: Nil, _, _)
           if field.ptype.isInstanceOf[PrimitiveType] ||
             field.ptype.isInstanceOf[PEnum] =>
-        Right(allowedPrimitiveFieldEvents)
+        Right(allowedPrimitiveFieldPermissions)
       case AccessRule(_, (_, Some(field)), All :: Nil, _, _) =>
-        Right(allowedModelEvents)
-      case AccessRule(_, (_, Some(field)), events, _, _)
+        Right(allowedModelPermissions)
+      case AccessRule(_, (_, Some(field)), permissions, _, _)
           if field.ptype.isInstanceOf[PArray] =>
-        events.find(!allowedArrayFieldEvents.contains(_)) match {
-          case None => Right(events)
+        permissions.find(!allowedArrayFieldPermissions.contains(_)) match {
+          case None => Right(permissions)
           case Some(event) =>
             Left(
               (
@@ -387,11 +397,11 @@ object Substitutor {
               )
             )
         }
-      case AccessRule(_, (_, Some(field)), events, _, _)
+      case AccessRule(_, (_, Some(field)), permissions, _, _)
           if field.ptype.isInstanceOf[PrimitiveType] ||
             field.ptype.isInstanceOf[PEnum] =>
-        events.find(!allowedPrimitiveFieldEvents.contains(_)) match {
-          case None => Right(events)
+        permissions.find(!allowedPrimitiveFieldPermissions.contains(_)) match {
+          case None => Right(permissions)
           case Some(event) =>
             Left(
               (
@@ -400,9 +410,9 @@ object Substitutor {
               )
             )
         }
-      case AccessRule(_, (_, Some(field)), events, _, _) =>
-        events.find(!allowedModelFieldEvents.contains(_)) match {
-          case None => Right(events)
+      case AccessRule(_, (_, Some(field)), permissions, _, _) =>
+        permissions.find(!allowedModelFieldPermissions.contains(_)) match {
+          case None => Right(permissions)
           case Some(event) =>
             Left(
               (
@@ -411,9 +421,9 @@ object Substitutor {
               )
             )
         }
-      case AccessRule(_, (model, None), events, _, _) =>
-        events.find(!allowedModelEvents.contains(_)) match {
-          case None => Right(events)
+      case AccessRule(_, (model, None), permissions, _, _) =>
+        permissions.find(!allowedModelPermissions.contains(_)) match {
+          case None => Right(permissions)
           case Some(event) =>
             Left(
               (
@@ -426,14 +436,15 @@ object Substitutor {
 
     newPermissions match {
       case Right(permissions) => Success(rule.copy(actions = permissions))
-      case Left(errMsg)  => Failure(UserError(errMsg :: Nil))
+      case Left(errMsg)       => Failure(UserError(errMsg :: Nil))
     }
   }
 
   def substitutePermissionsEvents(p: Permissions): Try[Permissions] = {
-    val newGlobalRules = p.globalTenant.rules.map(substituteAccessRuleEvents)
+    val newGlobalRules =
+      p.globalTenant.rules.map(substituteAccessRulePermissions)
     val newRoles = p.globalTenant.roles.map { role =>
-      (role, role.rules.map(substituteAccessRuleEvents))
+      (role, role.rules.map(substituteAccessRulePermissions))
     }
 
     val errors = (newGlobalRules ::: newRoles.flatMap(_._2)).collect {
