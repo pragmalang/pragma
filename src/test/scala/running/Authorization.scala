@@ -32,8 +32,6 @@ class Authorization extends FlatSpec {
     val mockStorage = MockStorage(syntaxTree)
     val authorizer = Authorizer(syntaxTree, mockStorage, true)
 
-    pprint.pprintln(syntaxTree.permissions.get.tree)
-
     val req = Request(
       None,
       None,
