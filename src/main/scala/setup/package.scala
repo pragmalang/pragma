@@ -12,7 +12,7 @@ case class Setup(
 ) {
 
   def setup(): Try[Unit] = Try {
-    writeDockerComposeYaml(storage.dockerComposeYaml).get
+    writeDockerComposeYaml(storage.dockerComposeYaml.get).get
     dockerComposeUp().get
     storage.migrate()
   }
