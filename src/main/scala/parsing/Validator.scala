@@ -291,12 +291,9 @@ class Validator(constructs: List[PConstruct]) {
   }
 
   def checkCreateAccessRules: Try[Unit] = {
-    val rules = st.permissions match {
-      case None => Nil
-      case Some(permissions) =>
-        permissions.globalTenant.rules :::
-          permissions.globalTenant.roles.flatMap(_.rules)
-    }
+    val rules =
+      st.permissions.globalTenant.rules :::
+        st.permissions.globalTenant.roles.flatMap(_.rules)
     val errors = for {
       rule <- rules
       if rule.actions.contains(Create)
@@ -310,22 +307,18 @@ class Validator(constructs: List[PConstruct]) {
     else Failure(UserError(errors))
   }
 
-  def checkRolesBelongToUserModels: Try[Unit] =
-    st.permissions match {
-      case None => Success(())
-      case Some(permissions) => {
-        val errors = permissions.globalTenant.roles.filter { role =>
-          !st.models.filter(_.isUser).exists(_.id == role.user.id)
-        } map { userlessRole =>
-          (
-            s"Roles can only be defined for user models, but `${userlessRole.user.id}` is not a defined user model",
-            userlessRole.position
-          )
-        }
-        if (errors.isEmpty) Success(())
-        else Failure(UserError(errors))
-      }
+  def checkRolesBelongToUserModels: Try[Unit] = {
+    val errors = st.permissions.globalTenant.roles.filter { role =>
+      !st.models.filter(_.isUser).exists(_.id == role.user.id)
+    } map { userlessRole =>
+      (
+        s"Roles can only be defined for user models, but `${userlessRole.user.id}` is not a defined user model",
+        userlessRole.position
+      )
     }
+    if (errors.isEmpty) Success(())
+    else Failure(UserError(errors))
+  }
 
 }
 object Validator {

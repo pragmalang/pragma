@@ -19,20 +19,18 @@ object Substitutor {
     val modelErrors = substitutedModels.collect {
       case Failure(err: UserError) => err.errors
     }.flatten
-    val substitutedPermissions = st.permissions.map { permissions =>
-      for {
-        withEvents <- substitutePermissionsEvents(
-          substituteSelfRules(permissions, st.models)
-        )
-        withResources <- substituteAccessRuleResourceRefs(withEvents, st)
-        withPredicates <- substitutePredicateRefs(withResources, ctx.value)
-      } yield withPredicates
-    }
+    val substitutedPermissions = for {
+      withEvents <- substitutePermissionsEvents(
+        substituteSelfRules(st.permissions, st.models)
+      )
+      withResources <- substituteAccessRuleResourceRefs(withEvents, st)
+      withPredicates <- substitutePredicateRefs(withResources, ctx.value)
+    } yield withPredicates
+
     val permissionsErrors = substitutedPermissions match {
-      case Some(Success(_))              => Nil
-      case None                          => Nil
-      case Some(Failure(err: UserError)) => err.errors
-      case Some(Failure(err))            => (err.getMessage, None) :: Nil
+      case Success(_)              => Nil
+      case Failure(err: UserError) => err.errors
+      case Failure(err)            => (err.getMessage, None) :: Nil
     }
     val allErrors = modelErrors ::: permissionsErrors
     if (allErrors.isEmpty)
@@ -40,7 +38,7 @@ object Substitutor {
         addDefaultPrimaryFields(
           st.copy(
             models = substitutedModels.map(_.get),
-            permissions = substitutedPermissions.map(_.get)
+            permissions = substitutedPermissions.get
           )
         )
       )

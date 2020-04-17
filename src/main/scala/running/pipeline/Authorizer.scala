@@ -9,7 +9,6 @@ import setup.storage.Storage
 import running.pipeline.Operations.ReadOperation
 import sangria.ast._
 import running.JwtPaylod
-import domain.utils.UserError
 import scala.util._
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -22,16 +21,12 @@ case class Authorizer(
   import Authorizer._
 
   def apply(request: Request): Future[AuthorizationResult] =
-    (syntaxTree.permissions, request.user) match {
-      case (None, _) =>
-        Future.failed(
-          UserError.fromAuthErrors(AuthorizationError("Access Denied") :: Nil)
-        )
-      case (Some(permissions), None) => {
+    request.user match {
+      case None => {
         val reqOps = Operations.operationsFrom(request)(syntaxTree)
         Future(results(reqOps.values.flatten.toVector, JsNull))
       }
-      case (Some(permissions), Some(jwt)) => {
+      case Some(jwt) => {
         val userModel = syntaxTree.models.find(_.id == jwt.role) match {
           case Some(model) => model
           case _ =>
@@ -110,11 +105,7 @@ case class Authorizer(
 
   /** Returns all the rules that can match */
   def relevantRules(op: Operation): List[AccessRule] =
-    syntaxTree.permissions match {
-      case None => Nil
-      case Some(permissions) =>
-        permissions.rulesOf(op.role, op.targetModel, op.event)
-    }
+    syntaxTree.permissions.rulesOf(op.role, op.targetModel, op.event)
 
   /** Note: should only recieve a relevant rule (use `relevantRules`) */
   def opArgumentsMatch(

@@ -38,7 +38,7 @@ class PermissionTree extends FlatSpec {
     """
 
     val syntaxTree = SyntaxTree.from(code).get
-    val permissions = syntaxTree.permissions.get
+    val permissions = syntaxTree.permissions
 
     assert(permissions.tree(None)("User")(Create).length == 1)
 

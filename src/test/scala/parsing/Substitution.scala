@@ -86,7 +86,7 @@ class Substitution extends FlatSpec {
     }
     """
     val syntaxTree = SyntaxTree.from(code).get
-    val newGlobalTenant = syntaxTree.permissions.get.globalTenant
+    val newGlobalTenant = syntaxTree.permissions.globalTenant
     val todoOwnershipPredicate =
       newGlobalTenant.roles.head.rules.head.predicate.get
         .asInstanceOf[GraalFunction]
@@ -106,7 +106,7 @@ class Substitution extends FlatSpec {
       }
     """
     val st = SyntaxTree.from(code).get
-    val permissions = st.permissions.get
+    val permissions = st.permissions
     val selfRule = permissions.globalTenant.roles.head.rules.head
     val expectedSelfRule = AccessRule(
       Allow,

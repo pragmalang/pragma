@@ -31,7 +31,7 @@ case class SyntaxTree(
     imports: List[PImport],
     models: List[PModel],
     enums: List[PEnum],
-    permissions: Option[Permissions] = None,
+    permissions: Permissions,
     config: Option[PConfig] = None
 ) {
   def findTypeById(id: String): Option[PType] =
@@ -72,7 +72,7 @@ object SyntaxTree {
       imports,
       models,
       enums,
-      if (accessRules.isEmpty && roles.isEmpty) None else Some(permissions),
+      permissions,
       if (config.isEmpty) None else Some(config.head)
     )
   }
@@ -433,6 +433,12 @@ case class Permissions(
   ): List[AccessRule] =
     rulesOf(role.map(_.id), targetModel.id, event)
 
+}
+object Permissions {
+  val empty = Permissions(
+    Tenant("root", Nil, Nil, None),
+    Nil // TODO: Add support for user-defined tenants
+  )
 }
 
 case class Tenant(

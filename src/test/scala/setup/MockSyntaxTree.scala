@@ -138,7 +138,7 @@ object MockSyntaxTree {
 
   val businessTypeEnum =
     PEnum("BusinessType", List("FOOD", "CLOTHING", "OTHER"), None)
-  val permissions = None
+  val permissions = Permissions.empty
 
   val syntaxTree =
     SyntaxTree(
