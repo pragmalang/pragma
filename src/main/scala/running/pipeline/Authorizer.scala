@@ -75,32 +75,19 @@ case class Authorizer(
   }
 
   def opResults(op: Operation, predicateArg: JsValue): AuthorizationResult = {
-    val innerOpResults = innerReadResults(op, predicateArg)
     val rules = relevantRules(op)
-    val rulesWhereArgsMatch = rules.filter(opArgumentsMatch(_, op))
-    type Acc = (Option[AuthorizationResult], Option[AuthorizationResult])
-    val predicateResult =
-      rulesWhereArgsMatch.foldLeft[Acc]((None, None)) { (acc, rule) =>
-        lazy val predicateResult = userPredicateResult(rule, predicateArg)
-        (acc, predicateResult, rule.ruleKind) match {
-          case ((None, None), Left(_), _) => (None, Some(predicateResult))
-          case ((None, None), Right(true), Allow) =>
-            (Some(predicateResult), None)
-          case ((None, None), Right(true), Deny) =>
-            (None, Some(predicateResult))
-          case ((Some(allow), None), Right(true), Deny) =>
-            (Some(allow), Some(predicateResult))
-          case _ => acc
-        }
-      }
-    (innerOpResults, predicateResult) match {
-      case (Right(iopBool), (Some(Right(true)), None)) => Right(iopBool)
-      case (Right(iopBool), (None, Some(Right(deny)))) =>
-        Right(iopBool && !deny)
-      case (Left(iopErrors), (None, Some(Left(denyErrors)))) =>
-        Left(denyErrors ++ iopErrors)
-      case _ => Right(false)
-    }
+
+    val acc =
+      if (devModeOn) Left(Vector.empty[AuthorizationError])
+      else Right(true)
+    val argsResult =
+      rules
+        .map(opArgumentsResult(_, op, predicateArg))
+        .foldLeft(acc)(combineResults)
+
+    val innerOpResults = innerReadResults(op, predicateArg)
+
+    combineResults(argsResult, innerOpResults)
   }
 
   /** Returns all the rules that can match */
@@ -108,13 +95,44 @@ case class Authorizer(
     syntaxTree.permissions.rulesOf(op.role, op.targetModel, op.event)
 
   /** Note: should only recieve a relevant rule (use `relevantRules`) */
-  def opArgumentsMatch(
+  def opArgumentsResult(
       rule: AccessRule,
-      op: Operation
-  ): Boolean =
-    ((rule.resourcePath._2, op.event) match {
-      case (_, _: ReadEvent) => true
+      op: Operation,
+      predicateArg: JsValue
+  ): AuthorizationResult = {
+    lazy val argsMatchRule = ((rule.resourcePath._2, op.event) match {
+      case (None, _) => true
       case (Some(ruleField), Update) =>
+        op.opArguments
+          .find(_.name == op.targetModel.id.small)
+          .map(_.value) match {
+          case Some(ObjectValue(fields, _, _)) => {
+            fields.exists(_.name == ruleField.id)
+          }
+          case _ =>
+            throw InternalException(
+              "Argument passed to `update` is not an object. Something must've went wrond duing query validation or schema generation"
+            )
+        }
+      case (Some(ruleField), UpdateMany) => {
+        op.opArguments
+          .find(_.name == "items")
+          .map(_.value) match {
+          case Some(ListValue(values, _, _)) =>
+            values.exists { value =>
+              value.isInstanceOf[ObjectValue] &&
+              value
+                .asInstanceOf[ObjectValue]
+                .fields
+                .exists(_.name == ruleField.id)
+            }
+          case _ =>
+            throw InternalException(
+              "`items` argument must be passed to `updateMany` and it must be a list of values"
+            )
+        }
+      }
+      case (Some(ruleField), Create) if rule.actions.contains(SetOnCreate) => {
         op.opArguments
           .find(_.name == op.targetModel.id.small)
           .map(_.value) match {
@@ -122,35 +140,34 @@ case class Authorizer(
             fields.exists(_.name == ruleField.id)
           case _ =>
             throw InternalException(
-              "Argument passed to `update` is not an object. Something must've went wrond duing query validation or schema generation"
+              s"Argument `${op.targetModel.id.small}` must be passed to `CREATE` and it must be an object"
             )
         }
-      case (Some(ruleField), UpdateMany) =>
-        op.opArguments
-          .find(_.name == "items")
-          .map(_.value match {
-            case ListValue(values, _, _) =>
-              values.exists { value =>
-                value.isInstanceOf[ObjectValue] &&
-                value
-                  .asInstanceOf[ObjectValue]
-                  .fields
-                  .exists(_.name == ruleField.id)
-              }
-            case _ => true
-          })
-          .getOrElse(true)
-      case (Some(ruleField), Create) if rule.actions.contains(SetOnCreate) =>
-        op.opArguments
-          .find(_.name == op.targetModel.id.small)
-          .map(_.value match {
-            case ObjectValue(fields, _, _) =>
-              fields.exists(_.name == ruleField.id)
-            case _ => true
-          })
-          .getOrElse(true)
-      case _ => true
+      }
+      case _ => false
     })
+
+    rule.ruleKind match {
+      case Allow if argsMatchRule => userPredicateResult(rule, predicateArg)
+      case Deny if !devModeOn && argsMatchRule =>
+        userPredicateResult(rule, predicateArg, negate = true)
+      case Deny if devModeOn && argsMatchRule => {
+        val error = op.event match {
+          case Create if rule.actions.contains(SetOnCreate) =>
+            AuthorizationError("Denied setting attribute in `CREATE` operation")
+          case Update | UpdateMany =>
+            AuthorizationError(
+              "Denied updating attribute in `UPDATE` operation"
+            )
+          case _ => AuthorizationError("Denied operation arguments")
+        }
+        combineResults(
+          userPredicateResult(rule, predicateArg, negate = true),
+          Left(Vector(error))
+        )
+      }
+    }
+  }
 
   /** Left: vector of errors when `devModeOn` (empty if all is OK).
     * Right: all is OK in production mode
@@ -244,7 +261,8 @@ object Authorizer {
     */
   def userPredicateResult(
       rule: AccessRule,
-      argument: JsValue
+      argument: JsValue,
+      negate: Boolean = false
   ): AuthorizationResult =
     rule.predicate match {
       case None => Right(true)
@@ -252,8 +270,10 @@ object Authorizer {
         val predicateResult = predicate
           .execute(argument)
           .map {
-            case JsTrue => true
-            case _      => false
+            case JsTrue if negate  => false
+            case JsTrue            => true
+            case JsFalse if negate => true
+            case JsFalse           => false
           }
         predicateResult match {
           case Success(value) => Right(value)
@@ -261,6 +281,13 @@ object Authorizer {
             Left(Vector(AuthorizationError(err.getMessage())))
         }
       }
+    }
+
+  def combineResults(r1: AuthorizationResult, r2: AuthorizationResult) =
+    (r1, r2) match {
+      case (Right(b1), Right(b2)) => Right(b1 && b2)
+      case (Left(e1), Left(e2))   => Left(e1 ++ e2)
+      case _                      => Right(false)
     }
 
   def userReadOperation(role: PModel, jwt: JwtPaylod) =

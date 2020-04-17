@@ -21,13 +21,18 @@ class Authorization extends FlatSpec {
       isVerified: Boolean = false
     }
 
+    role User {
+      allow READ self
+      deny UPDATE self.isVerified
+    }
+
     allow CREATE User
-    deny UPDATE User.isVerified
+    deny SET_ON_CREATE User.isVerified
     """
 
     val syntaxTree = SyntaxTree.from(code).get
     val mockStorage = MockStorage(syntaxTree)
-    val authorizer = Authorizer(syntaxTree, mockStorage, false)
+    val authorizer = Authorizer(syntaxTree, mockStorage, devModeOn = true)
 
     val req = Request(
       None,
@@ -61,7 +66,7 @@ class Authorization extends FlatSpec {
       ""
     )
 
-    val result = Await.result(authorizer(req), Duration.Inf) 
-    assert(result == Right(false))
+    val result = Await.result(authorizer(req), Duration.Inf)
+    pprint.pprintln(result)
   }
 }
