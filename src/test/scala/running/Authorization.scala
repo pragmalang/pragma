@@ -7,8 +7,6 @@ import sangria.macros._
 import spray.json._
 import domain.SyntaxTree
 import setup.storage.MockStorage
-import scala.util.Failure
-import scala.util.Success
 import scala.concurrent._
 import scala.concurrent.duration.Duration
 import scala.util._
@@ -29,7 +27,7 @@ class Authorization extends FlatSpec {
 
     val syntaxTree = SyntaxTree.from(code).get
     val mockStorage = MockStorage(syntaxTree)
-    val authorizer = Authorizer(syntaxTree, mockStorage, true)
+    val authorizer = Authorizer(syntaxTree, mockStorage, false)
 
     val req = Request(
       None,
@@ -63,11 +61,7 @@ class Authorization extends FlatSpec {
       ""
     )
 
-    Try {
-      Await.result(authorizer(req), Duration.Inf)
-    } match {
-      case Success(_)   => fail()
-      case Failure(err) => ()
-    }
+    val result = Await.result(authorizer(req), Duration.Inf) 
+    assert(result == Right(false))
   }
 }

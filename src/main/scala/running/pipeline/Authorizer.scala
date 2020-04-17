@@ -21,7 +21,7 @@ case class Authorizer(
 ) {
   import Authorizer._
 
-  def apply(request: Request): Future[(List[AuthorizationError], Request)] =
+  def apply(request: Request): Future[AuthorizationResult] =
     (syntaxTree.permissions, request.user) match {
       case (None, _) =>
         Future.failed(
@@ -29,40 +29,28 @@ case class Authorizer(
         )
       case (Some(permissions), None) => {
         val reqOps = Operations.operationsFrom(request)(syntaxTree)
-        opsPass(reqOps.values.flatten.toVector, JsNull) match {
-          case Right(true) => Future((Nil, request))
-          case Right(false) =>
-            Future.failed(
-              UserError
-                .fromAuthErrors(AuthorizationError("Access Denied") :: Nil)
-            )
-          case Left(errors) =>
-            Future.failed(UserError.fromAuthErrors(errors.toList))
-        }
+        Future(results(reqOps.values.flatten.toVector, JsNull))
       }
       case (Some(permissions), Some(jwt)) => {
-        val userModel = syntaxTree.models.find(_.id == jwt.role)
-
-        if (!userModel.isDefined)
-          return Future.failed(
-            InternalException(
-              s"Request has role `${jwt.role}` that doesn't exist"
+        val userModel = syntaxTree.models.find(_.id == jwt.role) match {
+          case Some(model) => model
+          case _ =>
+            return Future.failed(
+              InternalException(
+                s"Request has role `${jwt.role}` that doesn't exist"
+              )
             )
-          )
+        }
+
         val user = storage.run(
-          userQuery(userModel.get, jwt.userId),
-          Map(None -> Vector(userReadOperation(userModel.get, jwt)))
+          userQuery(userModel, jwt.userId),
+          Map(None -> Vector(userReadOperation(userModel, jwt)))
         )
 
         user.map {
           case Left(userJson) => {
             val reqOps = Operations.operationsFrom(request)(syntaxTree)
-            opsPass(reqOps.values.flatten.toVector, userJson) match {
-              case Right(true) => (Nil, request)
-              case Right(false) =>
-                throw AuthorizationError("Unauthorized request")
-              case Left(errors) => throw UserError.fromAuthErrors(errors.toList)
-            }
+            results(reqOps.values.flatten.toVector, userJson)
           }
           case Right(_) =>
             throw InternalException(
@@ -72,156 +60,80 @@ case class Authorizer(
       }
     }
 
-  def opsPass(
+  def results(
       ops: Vector[Operation],
-      user: JsValue
-  ): Either[Vector[AuthorizationError], Boolean] = {
-    val results = for {
-      op <- ops
-      opRules = releventRules(op)
-      (allows, denies) = opRules.partition(_.ruleKind == Allow)
-      denyExists = denies.exists(ruleMatchesOp(_, op, user))
-      allowExists = allows.exists(ruleMatchesOp(_, op, user))
-    } yield (denyExists, allowExists, denies, allows)
+      predicateArg: JsValue
+  ): AuthorizationResult = {
+    val opsResult = ops.map(opResults(_, predicateArg))
+    if (!devModeOn) Right {
+      opsResult
+        .collect {
+          case Right(bool) => bool
+        }
+        .reduce(_ && _)
+    } else
+      Left {
+        opsResult.collect {
+          case Left(errors) => errors
+        }.flatten
+      }
+  }
 
-    val allOpsAllowed = results.forall {
-      case (denyExists, allowExists, _, _) => !denyExists && allowExists
-    }
-
-    if (!devModeOn) Right(allOpsAllowed)
-    else {
-      val errors = results.collect {
-        case (false, true, _, _) => Nil
-        case (true, _, denies, _) =>
-          denies
-            .filter(deny => ops.exists(ruleMatchesOp(deny, _, user)))
-            .map { deny =>
-              AuthorizationError(
-                s"Request denied because of rule `$deny`",
-                suggestion = Some(
-                  "If you think that this request should be authorized, try removing the `deny` rule"
-                ),
-                position = deny.position
-              )
-            }
-            .toVector
-        case (false, false, _, allows) =>
-          ops
-            .filterNot(op => allows.exists(ruleMatchesOp(_, op, user)))
-            .map { op =>
-              AuthorizationError(
-                "Access Denied",
-                cause = Some(
-                  s"No `allow` rule exists to authorize `${op.event}` on `${op.targetModel.id}`"
-                ),
-                suggestion = Some(
-                  s"Try adding `allow ${op.event} ${op.targetModel.id}` to your access rules for this request to be authorized"
-                )
-              )
-            }
-      }.flatten
-
-      if (errors.isEmpty) Right(true)
-      else Left(errors)
+  def opResults(op: Operation, predicateArg: JsValue): AuthorizationResult = {
+    val innerOpResults = innerReadResults(op, predicateArg)
+    val rules = relevantRules(op)
+    val rulesWhereArgsMatch = rules.filter(opArgumentsMatch(_, op))
+    type Acc = (Option[AuthorizationResult], Option[AuthorizationResult])
+    val predicateResult =
+      rulesWhereArgsMatch.foldLeft[Acc]((None, None)) { (acc, rule) =>
+        lazy val predicateResult = userPredicateResult(rule, predicateArg)
+        (acc, predicateResult, rule.ruleKind) match {
+          case ((None, None), Left(_), _) => (None, Some(predicateResult))
+          case ((None, None), Right(true), Allow) =>
+            (Some(predicateResult), None)
+          case ((None, None), Right(true), Deny) =>
+            (None, Some(predicateResult))
+          case ((Some(allow), None), Right(true), Deny) =>
+            (Some(allow), Some(predicateResult))
+          case _ => acc
+        }
+      }
+    (innerOpResults, predicateResult) match {
+      case (Right(iopBool), (Some(Right(true)), None)) => Right(iopBool)
+      case (Right(iopBool), (None, Some(Right(deny)))) =>
+        Right(iopBool && !deny)
+      case (Left(iopErrors), (None, Some(Left(denyErrors)))) =>
+        Left(denyErrors ++ iopErrors)
+      case _ => Right(false)
     }
   }
 
   /** Returns all the rules that can match */
-  def releventRules(op: Operation): List[AccessRule] = {
-    val globalRules = syntaxTree.permissions match {
-      case None              => Nil
-      case Some(permissions) => permissions.globalTenant.rules
-    }
-    val roleSpecificRules = op.role match {
+  def relevantRules(op: Operation): List[AccessRule] =
+    syntaxTree.permissions match {
       case None => Nil
-      case Some(role) =>
-        syntaxTree.permissions
-          .flatMap {
-            _.globalTenant.roles
-              .find(_.user.id == op.targetModel.id)
-              .map(_.rules)
-          }
-          .getOrElse(Nil)
+      case Some(permissions) =>
+        permissions.rulesOf(op.role, op.targetModel, op.event)
     }
 
-    globalRules.filter(ruleCanMatch(_, op)) :::
-      roleSpecificRules.filter(ruleCanMatch(_, op))
-  }
-
-}
-object Authorizer {
-
-  def ruleCanMatch(rule: AccessRule, op: Operation): Boolean =
-    (op.targetModel.id == rule.resourcePath._1.id) &&
-      (op.event match {
-        case _: ReadEvent => rule.actions.contains(Read)
-        case _: CreateEvent =>
-          rule.actions.exists(p => p == Create || p == SetOnCreate)
-        case _: UpdateEvent =>
-          rule.actions.exists {
-            case Update | PushTo | RemoveFrom | Mutate => true
-            case _                                           => false
-          }
-        case _: DeleteEvent => rule.actions.contains(Delete)
-        case event          => rule.actions.contains(event)
-      }) &&
-      (rule.resourcePath._2 match {
-        case None => true
-        case Some(ruleField) =>
-          op.innerReadOps.exists(_.targetField.field.id == ruleField.id)
-      })
-
-  /**
-    * Returns the boolean result of the user
-    * predicate or the error thrown by the user
-    */
-  def userPredicateResult(
+  /** Note: should only recieve a relevant rule (use `relevantRules`) */
+  def opArgumentsMatch(
       rule: AccessRule,
-      argument: JsValue
-  ): Either[AuthorizationError, Boolean] =
-    rule.predicate match {
-      case None => Right(true)
-      case Some(predicate) => {
-        val predicateResult = predicate
-          .execute(argument)
-          .map {
-            case JsTrue => true
-            case _      => false
-          }
-        predicateResult match {
-          case Success(value) => Right(value)
-          case Failure(err)   => Left(AuthorizationError(err.getMessage()))
-        }
-      }
-    }
-
-  def ruleMatchesOp(
-      rule: AccessRule,
-      op: Operation,
-      predicateArg: JsValue
+      op: Operation
   ): Boolean =
     ((rule.resourcePath._2, op.event) match {
-      case (Some(ruleField), Read | ReadMany) =>
-        ruleMatchesOneInnerReadOp(rule, op.innerReadOps, predicateArg)
+      case (_, _: ReadEvent) => true
       case (Some(ruleField), Update) =>
         op.opArguments
           .find(_.name == op.targetModel.id.small)
-          .map(_.value)
-          .flatMap {
-            case ObjectValue(fields, _, _) =>
-              Some {
-                val opsToCheck = op.innerReadOps.filterNot { innerOp =>
-                  fields.exists(_.name == innerOp.targetField.field.id)
-                }
-                ruleMatchesOneInnerReadOp(rule, opsToCheck, predicateArg)
-              }
-            case _ => None
-          }
-          .getOrElse(
+          .map(_.value) match {
+          case Some(ObjectValue(fields, _, _)) =>
+            fields.exists(_.name == ruleField.id)
+          case _ =>
             throw InternalException(
               "Argument passed to `update` is not an object. Something must've went wrond duing query validation or schema generation"
             )
-          )
+        }
       case (Some(ruleField), UpdateMany) =>
         op.opArguments
           .find(_.name == "items")
@@ -246,46 +158,119 @@ object Authorizer {
             case _ => true
           })
           .getOrElse(true)
-      case (None, Delete | DeleteMany) => rule.actions.contains(Delete)
-      case (None, Login)               => rule.actions.contains(Login)
-      case _                           => false
-    }) && (userPredicateResult(rule, predicateArg) match {
-      case Right(value) => value
-      case _            => false
+      case _ => true
     })
 
-  /** True if the rule matches one or more inner operations */
-  def ruleMatchesOneInnerReadOp(
-      rule: AccessRule,
-      innerOps: Vector[InnerOperation],
+  /** Left: vector of errors when `devModeOn` (empty if all is OK).
+    * Right: all is OK in production mode
+    */
+  def innerReadResults(
+      op: Operation,
       predicateArg: JsValue
+  ): AuthorizationResult =
+    if (op.innerReadOps.isEmpty && !devModeOn) Right(true)
+    else if (op.innerReadOps.isEmpty && devModeOn) Left(Vector.empty)
+    else {
+      val results = for {
+        innerOp <- op.innerReadOps
+        rules = relevantRules(innerOp.operation)
+        (allows, denies) = rules.partition(_.ruleKind == Allow)
+        allowExists = allows.exists { allow =>
+          relevantRuleMatchesInnerReadOp(allow, innerOp) &&
+          (userPredicateResult(allow, predicateArg) match {
+            case Right(value) => value
+            case _            => false
+          })
+        }
+        denyExists = denies.exists { deny =>
+          relevantRuleMatchesInnerReadOp(deny, innerOp) &&
+          (userPredicateResult(deny, predicateArg) match {
+            case Right(value) => value
+            case _            => false
+          })
+        }
+      } yield (innerOp, allowExists, denyExists)
+
+      lazy val opIsAllowed = results.forall {
+        case (_, allowExists, denyExists) => allowExists && !denyExists
+      }
+
+      lazy val errors = results.collect {
+        case (innerOp, true, true) =>
+          AuthorizationError(
+            s"`deny` rule exists that prohibits `${innerOp.operation.event}` operations on `${innerOp.displayTargetResource}`",
+            Some(
+              "Try removing this rule if you would like this operation to be allowed"
+            )
+          )
+        case (innerOp, false, false) =>
+          AuthorizationError(
+            s"No `allow` rule exists to allow `${innerOp.operation.event}` operations on `${innerOp.displayTargetResource}`",
+            Some(
+              s"Try adding the rule `allow ${PPermission
+                .from(innerOp.operation.event)} ${innerOp.operation.targetModel.id}` to your permissions"
+            )
+          )
+      }
+
+      val innerResults = op.innerReadOps.map { innerOp =>
+        innerReadResults(innerOp.operation, predicateArg)
+      }
+
+      if (!devModeOn) Right {
+        opIsAllowed && innerResults
+          .collect {
+            case Right(value) => value
+            case _            => false
+          }
+          .forall(value => value)
+      } else
+        Left {
+          errors ++ innerResults.collect {
+            case Left(innerErrors) => innerErrors
+          }.flatten
+        }
+    }
+
+  def relevantRuleMatchesInnerReadOp(
+      rule: AccessRule,
+      innerOp: InnerOperation
   ): Boolean =
-    rule.actions.contains(Read) &&
+    rule.resourcePath._1.id == innerOp.operation.targetModel.id &&
       (rule.resourcePath._2 match {
-        case None =>
-          innerOps.exists { innerOp =>
-            innerOp.operation.targetModel.id == rule.resourcePath._1.id ||
-            ruleMatchesOneInnerReadOp(
-              rule,
-              innerOp.operation.innerReadOps,
-              predicateArg
-            )
-          }
-        case Some(ruleField) =>
-          innerOps.exists { innerOp =>
-            innerOp.operation.targetModel.id == rule.resourcePath._1.id &&
-            innerOp.targetField.field.id == ruleField.id ||
-            ruleMatchesOneInnerReadOp(
-              rule,
-              innerOp.operation.innerReadOps,
-              predicateArg
-            )
-          }
-      }) &&
-      (userPredicateResult(rule, predicateArg) match {
-        case Right(value) => value
-        case _            => false
+        case None            => true
+        case Some(ruleField) => ruleField.id == innerOp.targetField.field.id
       })
+
+}
+object Authorizer {
+
+  type AuthorizationResult = Either[Vector[AuthorizationError], Boolean]
+
+  /**
+    * Returns the boolean result of the user
+    * predicate or the error thrown by the user
+    */
+  def userPredicateResult(
+      rule: AccessRule,
+      argument: JsValue
+  ): AuthorizationResult =
+    rule.predicate match {
+      case None => Right(true)
+      case Some(predicate) => {
+        val predicateResult = predicate
+          .execute(argument)
+          .map {
+            case JsTrue => true
+            case _      => false
+          }
+        predicateResult match {
+          case Success(value) => Right(value)
+          case Failure(err) =>
+            Left(Vector(AuthorizationError(err.getMessage())))
+        }
+      }
+    }
 
   def userReadOperation(role: PModel, jwt: JwtPaylod) =
     Operation(

@@ -53,7 +53,10 @@ case class Operation(
 case class InnerOperation(
     targetField: Operations.AliasedField,
     operation: Operation
-)
+) {
+  def displayTargetResource =
+    operation.targetModel.id + "." + targetField.field.id
+}
 
 /**
   This GraphQL query example might help explain how operations are generated:
@@ -304,8 +307,5 @@ object Operations {
       op
     )
   }
-
-  def displayOpResource(iop: InnerOperation): String =
-    iop.operation.targetModel.id + "." + iop.targetField.field.id
 
 }
