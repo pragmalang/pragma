@@ -340,28 +340,28 @@ trait Storage {
 
   def pushManyTo(
       model: PModel,
-      field: PModelField,
+      field: PShapeField,
       items: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
   ): Future[JsArray]
 
   def pushOneTo(
       model: PModel,
-      field: PModelField,
+      field: PShapeField,
       item: JsValue,
       innerReadOps: Vector[InnerOperation]
   ): Future[JsValue]
 
   def removeManyFrom(
       model: PModel,
-      field: PModelField,
+      field: PShapeField,
       filter: QueryFilter,
       innerReadOps: Vector[InnerOperation]
   ): Future[JsArray]
 
   def removeOneFrom(
       model: PModel,
-      field: PModelField,
+      field: PShapeField,
       item: JsValue,
       innerReadOps: Vector[InnerOperation]
   ): Future[JsValue]
@@ -441,14 +441,14 @@ case class MockStorage(syntaxTree: SyntaxTree) extends Storage {
   val dockerComposeYaml: Try[DockerCompose] = null
   override def removeManyFrom(
       model: PModel,
-      field: PModelField,
+      field: PShapeField,
       filter: QueryFilter,
       innerReadOps: Vector[InnerOperation]
   ): Future[JsArray] = ???
 
   override def removeOneFrom(
       model: PModel,
-      field: PModelField,
+      field: PShapeField,
       item: JsValue,
       innerReadOps: Vector[InnerOperation]
   ): Future[JsObject] = ???
@@ -478,14 +478,14 @@ case class MockStorage(syntaxTree: SyntaxTree) extends Storage {
 
   override def pushManyTo(
       model: PModel,
-      field: PModelField,
+      field: PShapeField,
       items: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
   ): Future[JsArray] = ???
 
   override def pushOneTo(
       model: PModel,
-      field: PModelField,
+      field: PShapeField,
       item: JsValue,
       innerReadOps: Vector[InnerOperation]
   ): Future[JsObject] = ???
