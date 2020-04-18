@@ -134,9 +134,6 @@ case class Authorizer(
       case _ => false
     })
 
-    println(
-      s"${op.event} argument " + op.opArguments + " match: " + argsMatchRule + '\n'
-    )
     rule.ruleKind match {
       case Allow if argsMatchRule => userPredicateResult(rule, predicateArg)
       case Deny if !devModeOn && argsMatchRule =>
@@ -151,7 +148,6 @@ case class Authorizer(
             )
           case _ => AuthorizationError("Denied operation arguments")
         }
-        println("Errors: " + error + '\n')
         combineResults(
           userPredicateResult(rule, predicateArg, negate = true),
           Left(Vector(error))

@@ -10,6 +10,7 @@ import setup.storage.MockStorage
 import scala.concurrent._
 import scala.concurrent.duration.Duration
 import scala.util._
+import domain.utils.AuthorizationError
 
 class Authorization extends FlatSpec {
   "Authorizer" should "authorize requests correctly" in {
@@ -67,6 +68,20 @@ class Authorization extends FlatSpec {
     )
 
     val result = Await.result(authorizer(req), Duration.Inf)
-    pprint.pprintln(result)
+    assert(
+      result == Left(
+        Vector(
+          AuthorizationError(
+            "Denied setting attribute in `CREATE` operation"
+          ),
+          AuthorizationError(
+            "No `allow` rule exists to allow `READ` operations on `User.username`"
+          ),
+          AuthorizationError(
+            "No `allow` rule exists to allow `READ` operations on `User.isVerified`"
+          )
+        )
+      )
+    )
   }
 }

@@ -381,7 +381,7 @@ case class Permissions(
     */
   lazy val tree: PermissionTree = constructTree
 
-  private def rulePermissionTree(
+  private def ruleEventTree(
       rules: List[AccessRule]
   ): Map[PEvent, List[AccessRule]] = {
     val eventRulePairs =
@@ -393,7 +393,7 @@ case class Permissions(
       rules: List[AccessRule]
   ): Map[TargetModelId, Map[PEvent, List[AccessRule]]] =
     rules.groupBy(_.resourcePath._1.id).map {
-      case (targetModelId, rules) => (targetModelId, rulePermissionTree(rules))
+      case (targetModelId, rules) => (targetModelId, ruleEventTree(rules))
     }
 
   private def constructTree: PermissionTree = {
@@ -469,7 +469,7 @@ case class AccessRule(
       (resourcePath, permission) match {
         case ((_, None), Create)             => List(Create, CreateMany)
         case ((_, Some(field)), SetOnCreate) => List(Create, CreateMany)
-        case ((_, None), Read)               => List(Read, ReadMany)
+        case (_, Read)                       => List(Read, ReadMany)
         case ((_, None), Update)             => List(Update, UpdateMany)
         case ((_, Some(field)), Mutate)
             if field.ptype.isInstanceOf[PReference] =>
