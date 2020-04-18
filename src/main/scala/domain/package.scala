@@ -280,7 +280,7 @@ sealed trait PEvent {
   }
 
   def render(model: PModel): String = {
-    val transformedFieldId = (f: PModelField) =>
+    val transformedFieldId = (f: PShapeField) =>
       if (model.fields
             .filter(_.id.toLowerCase == f.id.toLowerCase)
             .length > 1)
@@ -323,13 +323,14 @@ sealed trait PPermission {
   }
 }
 object PPermission {
-  def from(event: PEvent): PPermission = event match {
-    case _: ReadEvent   => Read
-    case _: CreateEvent => Create
-    case _: UpdateEvent => Update
-    case _: DeleteEvent => Delete
-    case Login          => Login
-  }
+  lazy val allowedArrayFieldPermissions: List[PPermission] =
+    List(Read, Update, SetOnCreate, PushTo, RemoveFrom, Mutate)
+  lazy val allowedPrimitiveFieldPermissions: List[PPermission] =
+    List(Read, Update, SetOnCreate)
+  lazy val allowedModelPermissions: List[PPermission] =
+    List(Read, Update, Create, Delete)
+  lazy val allowedModelFieldPermissions: List[PPermission] =
+    List(Read, Update, Mutate, SetOnCreate)
 }
 
 /** Retrieve record by ID */
@@ -346,15 +347,15 @@ case object DeleteMany extends DeleteEvent
 case object All extends PPermission
 case object Mutate extends PPermission
 
-case class PushTo(listField: PModelField) extends UpdateEvent
+case class PushTo(listField: PShapeField) extends UpdateEvent
 case object PushTo extends PPermission
 
-case class RemoveFrom(listField: PModelField) extends UpdateEvent
+case class RemoveFrom(listField: PShapeField) extends UpdateEvent
 case object RemoveFrom extends PPermission
 
-case class PushManyTo(listField: PModelField) extends UpdateEvent
+case class PushManyTo(listField: PShapeField) extends UpdateEvent
 
-case class RemoveManyFrom(listField: PModelField) extends UpdateEvent
+case class RemoveManyFrom(listField: PShapeField) extends UpdateEvent
 
 /**
   * Permission to send attribute in create request
@@ -371,7 +372,7 @@ case class Permissions(
   type TargetModelId = String
   type RoleId = String
   type PermissionTree =
-    Map[Option[RoleId], Map[TargetModelId, Map[PPermission, List[AccessRule]]]]
+    Map[Option[RoleId], Map[TargetModelId, Map[PEvent, List[AccessRule]]]]
 
   /**
     * A queryable tree of permissions.
@@ -382,20 +383,15 @@ case class Permissions(
 
   private def rulePermissionTree(
       rules: List[AccessRule]
-  ): Map[PPermission, List[AccessRule]] =
-    rules.foldLeft(Map.empty[PPermission, List[AccessRule]]) {
-      (permissionTrees, rule) =>
-        rule.actions.foldLeft(permissionTrees) { (ptrees, rulep) =>
-          if (!ptrees.contains(rulep))
-            ptrees + (rulep -> (rule :: Nil))
-          else
-            ptrees + (rulep -> (ptrees(rulep) :+ rule))
-        }
-    }
+  ): Map[PEvent, List[AccessRule]] = {
+    val eventRulePairs =
+      rules.flatMap(rule => rule.eventsThatMatch.map((_, rule)))
+    eventRulePairs.groupMap(_._1)(_._2)
+  }
 
   private def targetModelTree(
       rules: List[AccessRule]
-  ): Map[TargetModelId, Map[PPermission, List[AccessRule]]] =
+  ): Map[TargetModelId, Map[PEvent, List[AccessRule]]] =
     rules.groupBy(_.resourcePath._1.id).map {
       case (targetModelId, rules) => (targetModelId, rulePermissionTree(rules))
     }
@@ -418,9 +414,8 @@ case class Permissions(
   ): List[AccessRule] = {
     val rules = for {
       targetModelTree <- tree.get(role)
-      permissionTree <- targetModelTree.get(targetModel)
-      permission = PPermission.from(event)
-      rules <- permissionTree.get(permission)
+      eventTree <- targetModelTree.get(targetModel)
+      rules <- eventTree.get(event)
     } yield rules
 
     rules.getOrElse(Nil)
@@ -465,13 +460,60 @@ case class AccessRule(
     actions: List[PPermission],
     predicate: Option[PFunctionValue[JsValue, Try[JsValue]]],
     position: Option[PositionRange]
-) extends PConstruct
+) extends PConstruct {
+  def eventsThatMatch: List[PEvent] = actions.flatMap(eventsOf).distinct
+
+  def eventsOf(permission: PPermission): List[PEvent] =
+    if (!actions.contains(permission)) Nil
+    else
+      (resourcePath, permission) match {
+        case ((_, None), Create)             => List(Create, CreateMany)
+        case ((_, Some(field)), SetOnCreate) => List(Create, CreateMany)
+        case ((_, None), Read)               => List(Read, ReadMany)
+        case ((_, None), Update)             => List(Update, UpdateMany)
+        case ((_, Some(field)), Mutate)
+            if field.ptype.isInstanceOf[PReference] =>
+          List(Update, UpdateMany)
+        case ((_, Some(field)), PushTo) =>
+          List(PushTo(field), PushManyTo(field))
+        case ((_, Some(field)), RemoveFrom) =>
+          List(RemoveFrom(field), RemoveManyFrom(field))
+        case ((_, None), Delete) => List(Delete, DeleteMany)
+        case ((_, None), Login)  => List(Login)
+        case ((_, Some(field)), All) if field.ptype.isInstanceOf[PArray] =>
+          List(
+            PushTo(field),
+            PushManyTo(field),
+            RemoveFrom(field),
+            RemoveManyFrom(field),
+            Update
+          )
+        case ((_, Some(field)), All)
+            if field.ptype.isInstanceOf[PrimitiveType] ||
+              field.ptype.isInstanceOf[PEnum] =>
+          List(Read, ReadMany, Update, UpdateMany)
+        case ((_, Some(field)), All) if field.ptype.isInstanceOf[PReference] =>
+          List(Read, ReadMany, Update, UpdateMany)
+        case ((_, None), All) =>
+          List(
+            Read,
+            ReadMany,
+            Update,
+            UpdateMany,
+            Create,
+            CreateMany,
+            Delete,
+            DeleteMany,
+            Login
+          )
+        case _ => Nil
+      }
+}
 
 case class PConfig(values: List[ConfigEntry], position: Option[PositionRange])
     extends PConstruct {
   def getConfigEntry(key: String): Option[ConfigEntry] =
-    values
-      .find(configEntry => configEntry.key == key)
+    values.find(configEntry => configEntry.key == key)
 }
 
 case class ConfigEntry(

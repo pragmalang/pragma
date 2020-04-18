@@ -58,21 +58,8 @@ case class Authorizer(
   def results(
       ops: Vector[Operation],
       predicateArg: JsValue
-  ): AuthorizationResult = {
-    val opsResult = ops.map(opResults(_, predicateArg))
-    if (!devModeOn) Right {
-      opsResult
-        .collect {
-          case Right(bool) => bool
-        }
-        .reduce(_ && _)
-    } else
-      Left {
-        opsResult.collect {
-          case Left(errors) => errors
-        }.flatten
-      }
-  }
+  ): AuthorizationResult =
+    ops.map(opResults(_, predicateArg)).reduce(combineResults)
 
   def opResults(op: Operation, predicateArg: JsValue): AuthorizationResult = {
     val rules = relevantRules(op)
@@ -147,6 +134,9 @@ case class Authorizer(
       case _ => false
     })
 
+    println(
+      s"${op.event} argument " + op.opArguments + " match: " + argsMatchRule + '\n'
+    )
     rule.ruleKind match {
       case Allow if argsMatchRule => userPredicateResult(rule, predicateArg)
       case Deny if !devModeOn && argsMatchRule =>
@@ -161,6 +151,7 @@ case class Authorizer(
             )
           case _ => AuthorizationError("Denied operation arguments")
         }
+        println("Errors: " + error + '\n')
         combineResults(
           userPredicateResult(rule, predicateArg, negate = true),
           Left(Vector(error))
@@ -213,11 +204,7 @@ case class Authorizer(
           )
         case (innerOp, false, false) =>
           AuthorizationError(
-            s"No `allow` rule exists to allow `${innerOp.operation.event}` operations on `${innerOp.displayTargetResource}`",
-            Some(
-              s"Try adding the rule `allow ${PPermission
-                .from(innerOp.operation.event)} ${innerOp.operation.targetModel.id}` to your permissions"
-            )
+            s"No `allow` rule exists to allow `${innerOp.operation.event}` operations on `${innerOp.displayTargetResource}`"
           )
       }
 
@@ -250,11 +237,6 @@ case class Authorizer(
         case Some(ruleField) => ruleField.id == innerOp.targetField.field.id
       })
 
-}
-object Authorizer {
-
-  type AuthorizationResult = Either[Vector[AuthorizationError], Boolean]
-
   /**
     * Returns the boolean result of the user
     * predicate or the error thrown by the user
@@ -265,7 +247,8 @@ object Authorizer {
       negate: Boolean = false
   ): AuthorizationResult =
     rule.predicate match {
-      case None => Right(true)
+      case None if !devModeOn => Right(true)
+      case None               => Left(Vector.empty)
       case Some(predicate) => {
         val predicateResult = predicate
           .execute(argument)
@@ -276,17 +259,27 @@ object Authorizer {
             case JsFalse           => false
           }
         predicateResult match {
-          case Success(value) => Right(value)
+          case Success(value) if !devModeOn => Right(value)
+          case Failure(_) if !devModeOn     => Right(false)
+          case Success(false) if negate =>
+            Left(Vector(AuthorizationError("Predicate denies access")))
+          case Success(true) if negate && devModeOn => Left(Vector.empty)
+          case Success(_)                           => Left(Vector.empty)
           case Failure(err) =>
             Left(Vector(AuthorizationError(err.getMessage())))
         }
       }
     }
 
+}
+object Authorizer {
+
+  type AuthorizationResult = Either[Vector[AuthorizationError], Boolean]
+
   def combineResults(r1: AuthorizationResult, r2: AuthorizationResult) =
     (r1, r2) match {
       case (Right(b1), Right(b2)) => Right(b1 && b2)
-      case (Left(e1), Left(e2))   => Left(e1 ++ e2)
+      case (Left(e1), Left(e2))   => Left(e1.concat(e2).distinctBy(_.message))
       case _                      => Right(false)
     }
 

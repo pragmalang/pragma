@@ -52,7 +52,7 @@ class Authorization extends FlatSpec {
         }
       }
       
-      query getUser {
+      query getUser { # should be denied because user isn't logged in
         User {
           read(username: "John Doe") {
             username

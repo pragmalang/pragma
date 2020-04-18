@@ -351,15 +351,7 @@ object Substitutor {
   }
 
   def substituteAccessRulePermissions(rule: AccessRule): Try[AccessRule] = {
-    lazy val allowedArrayFieldPermissions: List[PPermission] =
-      List(Read, Update, SetOnCreate, PushTo, RemoveFrom, Mutate)
-    lazy val allowedPrimitiveFieldPermissions: List[PPermission] =
-      List(Read, Update, SetOnCreate)
-    lazy val allowedModelPermissions: List[PPermission] =
-      List(Read, Update, Create, Delete)
-    lazy val allowedModelFieldPermissions: List[PPermission] =
-      List(Read, Update, Mutate, SetOnCreate)
-
+    import PPermission._
     val newPermissions = rule match {
       case AccessRule(_, _, permissions, _, _)
           if permissions.length > 1 && permissions.contains(All) =>
@@ -371,9 +363,6 @@ object Substitutor {
         )
       case AccessRule(_, (_, None), All :: Nil, _, _) =>
         Right(allowedModelPermissions)
-      case AccessRule(_, (_, Some(field)), All :: Nil, _, _)
-          if field.ptype.isInstanceOf[PArray] =>
-        Right(allowedArrayFieldPermissions)
       case AccessRule(_, (_, Some(field)), All :: Nil, _, _)
           if field.ptype.isInstanceOf[PArray] =>
         Right(allowedArrayFieldPermissions)
