@@ -84,4 +84,29 @@ class Authorization extends FlatSpec {
       )
     )
   }
+
+  "Authorizer" should "handle user predicates correctly" in {
+    val code = """
+    model Tweet {
+      content: String
+    }
+
+    @user model User {
+      handle: String @primary @publicCredential
+      password: String @secretCredential
+      tweets: [Tweet]
+    }
+
+    allow CREATE user
+
+    role User {
+      allow ALL self
+      deny UPDATE self.handle
+      allow [REMOVE_FROM, PUSH_TO] self.tweets
+    }
+    """
+
+    val syntaxTree = SyntaxTree.from(code)
+    // pprint.pprintln(syntaxTree)
+  }
 }

@@ -92,7 +92,7 @@ case class PImport(
     with Identifiable
     with Positioned
 
-trait PShape extends Identifiable {
+trait PShape extends PType with Identifiable {
   override val id: String
   val fields: List[PShapeField]
 }
@@ -315,11 +315,12 @@ sealed trait DeleteEvent extends PEvent
 
 sealed trait PPermission {
   override def toString(): String = this match {
-    case All            => "ALL"
-    case SetOnCreate    => "SET_ON_CREATE"
-    case Mutate         => "MUTATE"
-    case PushTo         => "PUSH_TO"
-    case p: PPermission => p.toString
+    case All         => "ALL"
+    case SetOnCreate => "SET_ON_CREATE"
+    case Mutate      => "MUTATE"
+    case PushTo      => "PUSH_TO"
+    case RemoveFrom  => "REMOVE_FROM"
+    case e: PEvent   => e.toString
   }
 }
 object PPermission {
