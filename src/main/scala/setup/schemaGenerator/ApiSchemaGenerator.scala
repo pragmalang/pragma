@@ -704,9 +704,6 @@ object ApiSchemaGenerator {
       case PReference(id) =>
         if (isOptional) NamedType(nameTransformer(id))
         else NotNullType(NamedType(nameTransformer(id)))
-      case PSelf(id) =>
-        if (isOptional) NamedType(nameTransformer(id))
-        else NotNullType(NamedType(nameTransformer(id)))
       case PFunction(args, returnType) =>
         throw new Exception("Function can't be used as a field type")
     }

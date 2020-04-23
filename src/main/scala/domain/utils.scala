@@ -58,14 +58,28 @@ package object utils {
       case Success(value) => Success(value)
     }
 
+  /** Takes a list of `Try`s that may have `UserError`s inside
+    * them, and combines them into a single `Try` that might contain a `UserError`
+    */
+  def combineUserErrorTries[T](ts: List[Try[T]]): Try[List[T]] =
+    ts.foldLeft(Try(List.empty[T])) {
+      case (Success(values), Success(value))     => Success(values :+ value)
+      case (Success(_), Failure(err: UserError)) => Failure(err)
+      case (Failure(err: UserError), Success(_)) => Failure(err)
+      case (Failure(err: UserError), Failure(err2: UserError)) =>
+        Failure(UserError(err.errors ::: err2.errors))
+      case (Failure(otherError), _) => Failure(otherError)
+      case (_, Failure(otherError)) => Failure(otherError)
+    }
+
   def displayPType(ptype: PType, isVerbose: Boolean = false): String =
     ptype match {
-      case PAny     => "Any"
-      case PString  => "String"
-      case PInt => "Int"
-      case PFloat   => "Float"
-      case PBool    => "Boolean"
-      case PDate    => "Date"
+      case PAny    => "Any"
+      case PString => "String"
+      case PInt    => "Int"
+      case PFloat  => "Float"
+      case PBool   => "Boolean"
+      case PDate   => "Date"
       case PFile(size, exts) =>
         if (isVerbose) s"File { size = $size, extensions = $exts }" else "File"
       case PArray(t)  => s"[${displayPType(t, isVerbose = false)}]"
@@ -114,8 +128,8 @@ package object utils {
   }
 
   def displayHValue(value: PValue): String = value match {
-    case PIntValue(value) => value.toString
-    case PFloatValue(value)   => value.toString
+    case PIntValue(value)   => value.toString
+    case PFloatValue(value) => value.toString
     case PFileValue(value, ptype) => {
       val name = value.getName()
       name match {
@@ -178,16 +192,14 @@ package object utils {
               } =>
           json
         case (PInt, JsNumber(v)) if v.isWhole => json
-        case (PBool, JsBoolean(v))                => json
-        case (POption(ptype), JsNull)             => json
-        case (POption(ptype), _)                  => typeCheckJson(ptype, syntaxTree)(json).get
-        case (PString, JsString(v))               => json
-        case (PFloat, JsNumber(value))            => json
+        case (PBool, JsBoolean(v))            => json
+        case (POption(ptype), JsNull)         => json
+        case (POption(ptype), _)              => typeCheckJson(ptype, syntaxTree)(json).get
+        case (PString, JsString(v))           => json
+        case (PFloat, JsNumber(value))        => json
         case (shape: PShape, JsObject(fields))
             if fieldsRespectsShape(fields, shape.fields) =>
           json
-        case (PSelf(id), _: JsValue) =>
-          typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
         case (PReference(id), _: JsValue) =>
           typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
         case (henum: PEnum, JsString(value)) if henum.values.contains(value) =>

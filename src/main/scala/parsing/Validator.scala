@@ -147,7 +147,10 @@ class Validator(constructs: List[PConstruct]) {
   def checkSelfRefOptionality: Try[Unit] = Try {
     val errors = st.models.flatMap { m =>
       m.fields.collect {
-        case f if f.ptype == PSelf(m.id) && !f.isOptional =>
+        case f
+            if f.ptype.isInstanceOf[PReference] &&
+              f.ptype.asInstanceOf[PReference].id == m.id &&
+              !f.isOptional =>
           s"Recursive field `${f.id}` of `${m.id}` must be optional" ->
             f.position
       }

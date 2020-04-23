@@ -74,8 +74,9 @@ package object primitives {
     def execute(input: I): Try[O]
   }
 
-  // Takes two predicates of the same input type and
-  // returns a predicate that 'ANDs' the result of both input predicates.
+  /** Takes two predicates of the same input type and
+    *  returns a predicate that 'ANDs' the result of both input predicates.
+    */
   case class PredicateAnd(
       predicateInputType: PType,
       p1: PFunctionValue[JsValue, Try[JsValue]],
@@ -88,10 +89,11 @@ package object primitives {
       for {
         p1Result <- p1.execute(input)
         p2Result <- p2.execute(input)
-      } yield (p1Result, p2Result) match {
-        case (JsBoolean(p), JsBoolean(q)) => JsBoolean(p && q)
-        case _ => JsFalse
-      }
+      } yield
+        (p1Result, p2Result) match {
+          case (JsBoolean(p), JsBoolean(q)) => JsBoolean(p && q)
+          case _                            => JsFalse
+        }
   }
 
   case class IfInAuthFunction(id: String, ptype: PFunction)
