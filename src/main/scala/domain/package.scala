@@ -20,9 +20,6 @@ case object PAny extends PType
 
 trait PReferenceType extends PType with Identifiable
 
-/** Base case for recursive types */
-case class PSelf(id: String) extends PReferenceType
-
 case class PReference(id: String) extends PReferenceType
 
 sealed trait PConstruct extends Positioned

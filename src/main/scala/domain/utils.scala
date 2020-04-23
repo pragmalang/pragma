@@ -200,8 +200,6 @@ package object utils {
         case (shape: PShape, JsObject(fields))
             if fieldsRespectsShape(fields, shape.fields) =>
           json
-        case (PSelf(id), _: JsValue) =>
-          typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
         case (PReference(id), _: JsValue) =>
           typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
         case (henum: PEnum, JsString(value)) if henum.values.contains(value) =>

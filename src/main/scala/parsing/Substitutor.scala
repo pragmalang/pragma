@@ -20,7 +20,7 @@ object Substitutor {
       case Failure(err: UserError) => err.errors
     }.flatten
 
-    val substitutedPermissions = substitutePermissions(st)
+    val substitutedPermissions = PermissionsSubstitutor(st, ctx.value)
 
     val permissionsErrors = substitutedPermissions match {
       case Success(_)              => Nil
@@ -41,7 +41,7 @@ object Substitutor {
       Failure(UserError(allErrors))
   }
 
-  /** Gets all  imported functions as a single object */
+  /** Gets all imported functions as a single object */
   def getContext(
       imports: List[PImport],
       graalCtx: Context
@@ -174,71 +174,88 @@ object Substitutor {
       )
   }
 
-  def substitutePermissions(st: SyntaxTree): Try[Permissions] = ???
+  /** NOTE: Should be moved to `PModelField` itself.
+    * Adds an _id: String @primary field to the model
+    */
+  def withDefaultId(model: PModel) = model.copy(
+    fields = PModelField(
+      "_id",
+      PString,
+      None,
+      Directive(
+        "primary",
+        PInterfaceValue(ListMap.empty, PInterface("primary", Nil, None)),
+        FieldDirective,
+        None
+      ) :: Nil,
+      None
+    ) :: model.fields
+  )
 
-  def substituteAccessRulePredicate(
-      rule: AccessRule,
-      ctx: PObject
-  ): Try[AccessRule] =
-    rule.predicate match {
-      case None => Success(rule)
-      case Some(ref: Reference) =>
-        getReferencedFunction(ref, ctx) match {
-          case Some(value) => Success(rule.copy(predicate = Some(value)))
-          case None        => Failure(UserError(s"Predicate `$ref` is not defined"))
+  def addDefaultPrimaryFields(st: SyntaxTree): SyntaxTree =
+    st.copy(models = st.models.map { model =>
+      val foundPrimaryField = Validator.findPrimaryField(model)
+      if (foundPrimaryField.isDefined) model
+      else withDefaultId(model)
+    })
+
+}
+
+object PermissionsSubstitutor {
+
+  /** Combines all other `PermissionsSubstitutor` methods */
+  def apply(st: SyntaxTree, ctx: PObject): Try[Permissions] = {
+    val newGlobalRules = combineUserErrorTries {
+      st.permissions.globalTenant.rules
+        .map(substituteAccessRule(_, None, st, ctx))
+    }
+    val substitutedRoles = st.permissions.globalTenant.roles.map { role =>
+      val roleModel =
+        st.models.find(model => model.id == role.user.id && model.isUser)
+      roleModel match {
+        case None =>
+          Failure(
+            UserError(
+              s"User model `${role.user.id}` is not defined",
+              role.position
+            )
+          )
+        case Some(userModel) =>
+          combineUserErrorTries {
+            role.rules.map(substituteAccessRule(_, Some(userModel), st, ctx))
+          } map { newRules =>
+            role.copy(rules = newRules)
+          }
+      }
+    }
+    val newRoles = combineUserErrorTries(substitutedRoles)
+
+    (newGlobalRules, newRoles) match {
+      case (Success(rules), Success(roles)) =>
+        Success {
+          st.permissions.copy(
+            globalTenant =
+              st.permissions.globalTenant.copy(rules = rules, roles = roles)
+          )
         }
-      case Some(f: PFunctionValue[_, _]) =>
-        Success(rule)
+      case (Failure(e1: UserError), Failure(e2: UserError)) =>
+        Failure(UserError(e1.errors ::: e2.errors))
+      case (_, Failure(err)) => Failure(err)
+      case (Failure(err), _) => Failure(err)
     }
-
-  def substituteTenant(t: Tenant, ctx: PObject): Try[Tenant] = {
-    val newGlobalRules = t.rules.map(substituteAccessRulePredicate(_, ctx))
-    val newRoles = t.roles.map { role =>
-      (role, role.rules.map(substituteAccessRulePredicate(_, ctx)))
-    }
-    val errors = (newGlobalRules ::: newRoles.map(_._2).flatten).collect {
-      case Failure(err: UserError) => err.errors
-    }.flatten
-    if (errors.isEmpty)
-      Success(
-        t.copy(
-          rules = newGlobalRules.map(_.get),
-          roles = newRoles.map(pair => pair._1.copy(rules = pair._2.map(_.get)))
-        )
-      )
-    else Failure(new UserError(errors))
   }
 
-  def substitutePredicateRefs(
-      acl: Permissions,
-      ctx: PObject
-  ): Try[Permissions] = {
-    val newGlobalTenant = substituteTenant(acl.globalTenant, ctx)
-    val newTenants = acl.tenants.map(substituteTenant(_, ctx))
-    val errors = (newGlobalTenant :: newTenants).collect {
-      case Failure(err: UserError) => err.errors
-    }.flatten
-    if (errors.isEmpty)
-      Success(
-        acl.copy(
-          globalTenant = newGlobalTenant.get,
-          tenants = newTenants.map(_.get)
-        )
-      )
-    else Failure(new UserError(errors))
-  }
-
-  // 1
-  def substituteAccessRuleResource(
+  def substituteAccessRule(
       rule: AccessRule,
-      selfRole: Option[PSelf],
-      st: SyntaxTree
+      selfRole: Option[PModel],
+      st: SyntaxTree,
+      ctx: PObject
   ): Try[AccessRule] = {
-    val parentRef = rule.resourcePath._1.asInstanceOf[Reference]
+    val parentName = rule.resourcePath._1.asInstanceOf[Reference].path.head
     val childRef = rule.resourcePath._2.asInstanceOf[Option[Reference]]
-    val parent =
-      if (selfRole.isDefined && parentRef.path.head == "self") selfRole.get
-      else if (!selfRole.isDefined && parentRef.path.head == "self")
+    val (parent, isSelfRule) =
+      if (selfRole.isDefined && parentName == "self") (selfRole.get, true)
+      else if (!selfRole.isDefined && parentName == "self")
         return Failure(
           UserError(
             s"`self` is not defined for rules outside a role",
@@ -246,16 +263,16 @@ object Substitutor {
           )
         )
       else
-        st.models.find(_.id == parentRef.path.head) match {
+        (st.models.find(_.id == parentName) match {
           case Some(model) => model
           case None =>
             return Failure(
               UserError(
-                s"Model `${parentRef.path.head}` is not defined",
+                s"Model `${parentName}` is not defined",
                 rule.position
               )
             )
-        }
+        }, false)
     val child =
       if (childRef.isDefined) {
         val foundChild = childRef flatMap { ref =>
@@ -273,33 +290,49 @@ object Substitutor {
         }
       } else None
 
-    Success(rule.copy(resourcePath = (parent, child)))
+    val newRule = rule.copy(resourcePath = (parent, child))
+
+    substituteRulePredicate(newRule, isSelfRule, st.models, ctx)
+      .flatMap(substituteAccessRulePermissions)
   }
 
-  // 2
-  def substituteSelfRulePredicate(
+  /** Used as a part of access rule substitution */
+  def substituteRulePredicate(
       rule: AccessRule,
-      modelDefs: List[PModel]
-  ): AccessRule = {
-    val newPredicate = (rule.resourcePath._1, rule.predicate) match {
-      case (PSelf(id), None) =>
-        Some(IfSelfAuthPredicate(modelDefs.find(_.id == id).get))
-      case (PSelf(id), Some(userPredicate)) => {
-        val selfModel = modelDefs.find(_.id == id).get
+      isSelfRule: Boolean,
+      modelDefs: List[PModel],
+      ctx: PObject
+  ): Try[AccessRule] = {
+    val userPredicate = rule.predicate match {
+      case None => None
+      case Some(ref: Reference) =>
+        Substitutor.getReferencedFunction(ref, ctx) match {
+          case None =>
+            return Failure(UserError(s"Predicate `$ref` is not defined"))
+          case somePredicate => somePredicate
+        }
+      case someFunction => someFunction
+    }
+    val withSelfAdditions = (rule.resourcePath._1, userPredicate) match {
+      case (model, None) if isSelfRule =>
+        Some(IfSelfAuthPredicate(modelDefs.find(_.id == model.id).get))
+      case (model, Some(predicate)) if isSelfRule => {
+        val selfModel = modelDefs.find(_.id == model.id).get
         Some(
           PredicateAnd(
             selfModel,
             IfSelfAuthPredicate(selfModel),
-            userPredicate
+            predicate
           )
         )
       }
-      case _ => rule.predicate
+      case _ => userPredicate
     }
 
-    rule.copy(predicate = newPredicate)
+    Success(rule.copy(predicate = withSelfAdditions))
   }
 
+  /** Used as a part of access rule substitution */
   def substituteAccessRulePermissions(rule: AccessRule): Try[AccessRule] = {
     import PPermission._
     val newPermissions = rule match {
@@ -339,19 +372,13 @@ object Substitutor {
             field.ptype.isInstanceOf[PEnum] =>
         permissions.find(!allowedPrimitiveFieldPermissions.contains(_)) match {
           case None => Right(permissions)
-          case Some(event) => {
-            println(
-              "Rule parent ref ptype: " + rule.resourcePath._1
-                .getClass()
-                .getCanonicalName()
-            )
+          case Some(event) =>
             Left(
               (
                 s"Permission `$event` cannot be specified for primitive field `${field.id}`",
                 rule.position
               )
             )
-          }
         }
       case AccessRule(_, (_, Some(field)), permissions, _, _) =>
         permissions.find(!allowedModelFieldPermissions.contains(_)) match {
@@ -382,50 +409,4 @@ object Substitutor {
       case Left(errMsg)       => Failure(UserError(errMsg :: Nil))
     }
   }
-
-  // 3
-  def substitutePermissionsEvents(p: Permissions): Try[Permissions] = {
-    val newGlobalRules =
-      p.globalTenant.rules.map(substituteAccessRulePermissions)
-    val newRoles = p.globalTenant.roles.map { role =>
-      (role, role.rules.map(substituteAccessRulePermissions))
-    }
-
-    val errors = (newGlobalRules ::: newRoles.flatMap(_._2)).collect {
-      case Failure(err: UserError) => err.errors
-    }.flatten
-
-    if (errors.isEmpty) Success {
-      p.copy(
-        globalTenant = p.globalTenant.copy(
-          rules = newGlobalRules.map(_.get),
-          roles = newRoles.map(role => role._1.copy(rules = role._2.map(_.get)))
-        )
-      )
-    } else Failure(UserError(errors))
-  }
-
-  // Adds an _id: String @primary field to the model
-  def withDefaultId(model: PModel) = model.copy(
-    fields = PModelField(
-      "_id",
-      PString,
-      None,
-      Directive(
-        "primary",
-        PInterfaceValue(ListMap.empty, PInterface("primary", Nil, None)),
-        FieldDirective,
-        None
-      ) :: Nil,
-      None
-    ) :: model.fields
-  )
-
-  def addDefaultPrimaryFields(st: SyntaxTree): SyntaxTree =
-    st.copy(models = st.models.map { model =>
-      val foundPrimaryField = Validator.findPrimaryField(model)
-      if (foundPrimaryField.isDefined) model
-      else withDefaultId(model)
-    })
-
 }

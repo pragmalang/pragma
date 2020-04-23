@@ -97,7 +97,7 @@ class Authorization extends FlatSpec {
       tweets: [Tweet]
     }
 
-    allow CREATE user
+    allow CREATE User
 
     role User {
       allow ALL self
@@ -107,6 +107,6 @@ class Authorization extends FlatSpec {
     """
 
     val syntaxTree = SyntaxTree.from(code)
-    // pprint.pprintln(syntaxTree)
+    syntaxTree // TODO: Complete test
   }
 }
