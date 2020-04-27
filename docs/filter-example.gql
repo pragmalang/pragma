@@ -1,0 +1,101 @@
+type UserWhereInput {
+  filter: UserPredicate
+  orderBy: OrderByInput
+  range: RangeInput
+  cats: StringPredicate
+}
+
+type UserFilter {
+  predicate: UserPredicate!
+  and: UserFilter
+  or: UserFilter
+  negate: Boolean
+}
+
+{
+    predicate: {
+        age: { lte: 80 }
+    },
+    and: {
+        predicate: { gender: MALE }
+    }
+}
+
+type UserPredicate {
+  username: StringPredicate
+  age: IntPredicate
+  gender: GenderEnum # Call me, I have no credit
+  cats: ArrayPredicate
+}
+
+type ArrayPredicate {
+  length: Int
+}
+
+type IntPredicate {
+  lt: Int
+  gt: Int
+  eq: Int
+  gte: Int
+  lte: Int
+}
+
+type StringPredicate {
+  length: Int
+  startsWith: String
+  endsWith: String
+  matches: String
+}
+
+{
+  User {
+    removeManyFromNs(..., {
+      eq: {
+        value: 5
+      }
+    }) 
+  }
+}
+
+
+
+
+
+
+
+
+
+# Pragmafile
+@user
+model User {
+  username: String
+  password: String
+  cats: [Cat] @queryFilter(filters.userCatsFilter, "CatAgeGreaterThanTwo")
+}
+
+model Cat {
+  name: String
+  age: Int
+}
+
+# functions.js
+export const userCatsFilter = cat => cat.age > 10
+
+export const userCatsFilter2 = cat => {
+  return cat.age < 20
+}
+
+export const sfkmsldf = cat => userCatsFilter2(cat) && userCatsFilter(cat)
+
+# query
+{
+  User {
+    list {
+      username
+      cats(where: { filtersPipe: ["CatAgeGreaterThanTwo"] }) {
+        name
+        age
+      }
+    }
+  }
+}
