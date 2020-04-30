@@ -396,13 +396,12 @@ case class Permissions(
 
   private def constructTree: PermissionTree = {
     val trees =
-      (None -> targetModelTree(globalTenant.rules)) ::
-        globalTenant.roles.map { role =>
-          Some(role.user.id) -> targetModelTree(
-            globalTenant.rules ::: role.rules
-          )
-        }
-    trees.toMap
+      globalTenant.roles.map { role =>
+        Option(role.user.id) -> targetModelTree(
+          globalTenant.rules ::: role.rules
+        )
+      }
+    trees.toMap.withDefaultValue(targetModelTree(globalTenant.rules))
   }
 
   def rulesOf(
@@ -410,8 +409,8 @@ case class Permissions(
       targetModel: TargetModelId,
       event: PEvent
   ): List[AccessRule] = {
+    val targetModelTree = tree(role)
     val rules = for {
-      targetModelTree <- tree.get(role)
       eventTree <- targetModelTree.get(targetModel)
       rules <- eventTree.get(event)
     } yield rules

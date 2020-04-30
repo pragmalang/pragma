@@ -8,6 +8,7 @@ import spray.json._
 import domain.SyntaxTree
 import setup.storage.MockStorage
 import scala.concurrent._
+import ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.util._
 import domain.utils.AuthorizationError
@@ -22,23 +23,22 @@ class Authorization extends FlatSpec {
       isVerified: Boolean = false
     }
 
+    deny SET_ON_CREATE User.isVerified
+    allow CREATE User
+
     role User {
       allow READ self
-      deny UPDATE self.isVerified
     }
-
-    allow CREATE User
-    deny SET_ON_CREATE User.isVerified
     """
 
     val syntaxTree = SyntaxTree.from(code).get
     val mockStorage = MockStorage(syntaxTree)
-    val authorizer = Authorizer(syntaxTree, mockStorage, devModeOn = true)
+    val authorizer = new Authorizer(syntaxTree, mockStorage, devModeOn = true)
 
     val req = Request(
       None,
       None,
-      Some(JwtPaylod("123", "User")),
+      Some(JwtPaylod("John Doe", "User")),
       gql"""
       mutation createUser {
         User {
@@ -46,17 +46,15 @@ class Authorization extends FlatSpec {
             username: "John Dow",
             password: "password",
             isVerified: true
-          }) {
-            username
-            isVerified
-          }
+          })
         }
       }
       
-      query getUser { # should be denied because user isn't logged in
+      query getUser { # should succeed because user is logged in
         User {
           read(username: "John Doe") {
             username
+            isVerified
           }
         }
       }
@@ -73,40 +71,84 @@ class Authorization extends FlatSpec {
         Vector(
           AuthorizationError(
             "Denied setting attribute in `CREATE` operation"
-          ),
-          AuthorizationError(
-            "No `allow` rule exists to allow `READ` operations on `User.username`"
-          ),
-          AuthorizationError(
-            "No `allow` rule exists to allow `READ` operations on `User.isVerified`"
           )
         )
-      )
+      ),
+      "Request should be denied because SET_ON_CREATE is denied for `isVerified`"
     )
   }
 
   "Authorizer" should "handle user predicates correctly" in {
     val code = """
-    model Tweet {
+    model Todo {
       content: String
     }
 
     @user model User {
-      handle: String @primary @publicCredential
+      username: String @primary @publicCredential
       password: String @secretCredential
-      tweets: [Tweet]
+      todos: [Todo]
     }
 
     allow CREATE User
+    allow READ User.todos
 
     role User {
-      allow ALL self
-      deny UPDATE self.handle
-      allow [REMOVE_FROM, PUSH_TO] self.tweets
+      allow READ self
+      deny UPDATE self.username # Like Twitter
+      allow [REMOVE_FROM, PUSH_TO] self.todos
     }
     """
 
-    val syntaxTree = SyntaxTree.from(code)
-    syntaxTree // TODO: Complete test
+    val syntaxTree = SyntaxTree.from(code).get
+    val reqWithoutRole = Request(
+      hookData = None,
+      body = None,
+      user = None,
+      query = gql"""
+      mutation createUser {
+        User {
+          create(user: {
+            username: "John Doe",
+            password: "password",
+            todos: []
+          })
+        }
+      }
+      """,
+      queryVariables = Left(JsObject.empty),
+      cookies = Map.empty,
+      url = "",
+      hostname = ""
+    )
+    val reqWithRole = Request(
+      hookData = None,
+      body = None,
+      user = Some(JwtPaylod("John Doe", "User")),
+      query = gql"""
+      mutation updateUsername {
+        User {
+          update(username: "John Doe", user: {username: "Jane Doe"}) {
+            username
+          }
+        }
+      }
+      """,
+      queryVariables = Left(JsObject.empty),
+      cookies = Map.empty,
+      url = "",
+      hostname = ""
+    )
+
+    val mockStorage = MockStorage(syntaxTree)
+    val authorizer = new Authorizer(syntaxTree, mockStorage, devModeOn = true)
+    val results = Await.result(
+      Future.sequence(
+        authorizer(reqWithoutRole) ::
+          authorizer(reqWithRole) :: Nil
+      ),
+      Duration.Inf
+    )
+    pprint.pprintln(results)
   }
 }

@@ -13,7 +13,7 @@ import scala.util._
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
-case class Authorizer(
+class Authorizer(
     syntaxTree: SyntaxTree,
     storage: Storage,
     devModeOn: Boolean = true
@@ -43,13 +43,15 @@ case class Authorizer(
         )
 
         user.map {
-          case Left(userJson) => {
+          case Left(userJson: JsObject)
+              if userJson.fields.get(userModel.primaryField.id)
+                == Some(JsString(jwt.userId)) => {
             val reqOps = Operations.operationsFrom(request)(syntaxTree)
             results(reqOps.values.flatten.toVector, userJson)
           }
-          case Right(_) =>
+          case _ =>
             throw InternalException(
-              "User object retrieved from storage must be an object"
+              "User retrieved from storage must be an object with the same ID as the request's JWT"
             )
         }
       }
@@ -64,8 +66,8 @@ case class Authorizer(
   def opResults(op: Operation, predicateArg: JsValue): AuthorizationResult = {
     val rules = relevantRules(op)
 
-    val acc =
-      if (devModeOn) Left(Vector.empty[AuthorizationError])
+    val acc: AuthorizationResult =
+      if (devModeOn) Left(Vector.empty)
       else Right(true)
     val argsResult =
       rules
@@ -73,6 +75,10 @@ case class Authorizer(
         .foldLeft(acc)(combineResults)
 
     val innerOpResults = innerReadResults(op, predicateArg)
+
+    println(
+      s"Operation ${op.event} on ${op.targetModel.id} by ${op.user}: \n- Arg results: ${argsResult}\n- Inner read results: ${innerOpResults}"
+    )
 
     combineResults(argsResult, innerOpResults)
   }
@@ -87,7 +93,7 @@ case class Authorizer(
       op: Operation,
       predicateArg: JsValue
   ): AuthorizationResult = {
-    lazy val argsMatchRule = ((rule.resourcePath._2, op.event) match {
+    lazy val argsMatchRule = (rule.resourcePath._2, op.event) match {
       case (None, _) => true
       case (Some(ruleField), Update) =>
         op.opArguments
@@ -132,10 +138,15 @@ case class Authorizer(
         }
       }
       case _ => false
-    })
+    }
+    println(
+      "Args of " + op.event + " on " + op.targetModel.id + " match: " + argsMatchRule
+    )
 
     rule.ruleKind match {
       case Allow if argsMatchRule => userPredicateResult(rule, predicateArg)
+      case Allow if devModeOn     => Left(Vector.empty)
+      case Allow                  => Right(true)
       case Deny if !devModeOn && argsMatchRule =>
         userPredicateResult(rule, predicateArg, negate = true)
       case Deny if devModeOn && argsMatchRule => {
@@ -173,15 +184,17 @@ case class Authorizer(
         allowExists = allows.exists { allow =>
           relevantRuleMatchesInnerReadOp(allow, innerOp) &&
           (userPredicateResult(allow, predicateArg) match {
-            case Right(value) => value
-            case _            => false
+            case Right(value)                   => value
+            case Left(errors) if errors.isEmpty => true
+            case _                              => false
           })
         }
         denyExists = denies.exists { deny =>
           relevantRuleMatchesInnerReadOp(deny, innerOp) &&
           (userPredicateResult(deny, predicateArg) match {
-            case Right(value) => value
-            case _            => false
+            case Right(value)                   => value
+            case Left(errors) if errors.isEmpty => true
+            case _                              => false
           })
         }
       } yield (innerOp, allowExists, denyExists)
@@ -191,16 +204,16 @@ case class Authorizer(
       }
 
       lazy val errors = results.collect {
-        case (innerOp, true, true) =>
+        case (innerOp, false, false) =>
+          AuthorizationError(
+            s"No `allow` rule exists to allow `${innerOp.operation.event}` operations on `${innerOp.displayTargetResource}`"
+          )
+        case (innerOp, _, true) =>
           AuthorizationError(
             s"`deny` rule exists that prohibits `${innerOp.operation.event}` operations on `${innerOp.displayTargetResource}`",
             Some(
               "Try removing this rule if you would like this operation to be allowed"
             )
-          )
-        case (innerOp, false, false) =>
-          AuthorizationError(
-            s"No `allow` rule exists to allow `${innerOp.operation.event}` operations on `${innerOp.displayTargetResource}`"
           )
       }
 
