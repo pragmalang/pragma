@@ -17,8 +17,8 @@ package object Implicits {
     def write(value: PValue): JsValue = value match {
       case f: ExternalFunction =>
         JsObject("id" -> JsString(f.id), "filePath" -> JsString(f.filePath))
-      case PIntValue(value) => value.toJson
-      case PFloatValue(value)   => value.toJson
+      case PIntValue(value)   => value.toJson
+      case PFloatValue(value) => value.toJson
       case _: PFunctionValue[_, _] =>
         throw new Error("Functions are not serializable")
       case PDateValue(value) => value.toString.toJson
@@ -95,7 +95,7 @@ package object Implicits {
 
   implicit class StringMethods(s: String) {
     import sys.process._
-    def small = s.updated(0, s.head.toString.toLowerCase.head)
+    def small = if (s.isEmpty) s else s.updated(0, s.head.toLower)
     def decodeJwt = JwtPaylod.decode(s)
     def $(msg: String, logsHandler: String => Unit = _ => ()) =
       s ! ProcessLogger(logsHandler) match {
