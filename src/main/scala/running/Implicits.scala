@@ -7,10 +7,11 @@ import running.pipeline._
 import sangria.ast._
 
 package object Implicits {
-
-  import scala.util.matching.Regex
-  import setup.storage.ASC
-  import setup.storage.DESC
+  import setup.storage.ModelQueryPredicate
+  import setup.storage.ArrayQueryPredicate
+  import setup.storage.NumberQueryPredicate
+  import setup.storage.StringQueryPredicate
+  import domain.primitives._
 
   import setup.storage._
   import sangria.ast.OperationType._
@@ -72,168 +73,112 @@ package object Implicits {
       )
   }
 
-  implicit object GraphQlObjectFieldJsonFormater
-      extends JsonFormat[ObjectField] {
-    override def read(json: JsValue): ObjectField =
-      ObjectField(
-        name = json.asJsObject.fields("name").convertTo[String],
-        value = GraphQlValueJsonFormater.read(json.asJsObject.fields("value"))
-      )
-    override def write(obj: ObjectField): JsValue =
-      JsObject(
-        "name" -> obj.name.toJson,
-        "value" -> GraphQlValueJsonFormater.write(obj.value),
-        "kind" -> "ObjectField".toJson
-      )
-  }
-
   implicit object QueryWhereJsonFormater extends JsonFormat[QueryWhere] {
     override def read(json: JsValue): QueryWhere = ???
     override def write(obj: QueryWhere): JsValue = ???
   }
 
-  implicit object ComparisonObjectJsonFormater
-      extends JsonFormat[(Option[String], JsValue)] {
-    override def read(json: JsValue): (Option[String], JsValue) =
-      (
-        json.asJsObject.fields.get("field").map(_.asInstanceOf[JsString].value),
-        json.asJsObject.fields("value")
-      )
-    override def write(obj: (Option[String], JsValue)): JsValue = JsObject(
-      "field" -> obj._1.toJson,
-      "value" -> obj._2
-    )
-  }
-  implicit object MatchesObjectJsonFormater
-      extends JsonFormat[(Option[String], Regex)] {
-    override def read(json: JsValue): (Option[String], Regex) = (json.asJsObject.fields.get("field").map(_.asInstanceOf[JsString].value), new Regex(json.asJsObject.fields("value").asInstanceOf[JsString].value))
-    override def write(obj: (Option[String], Regex)): JsValue = JsObject(
-      "field" -> obj._1.toJson,
-      "regex" -> obj._2.regex.toJson
-    )
-  }
-
   implicit object QueryFilterJsonFormater extends JsonFormat[QueryFilter] {
-    override def read(json: JsValue): QueryFilter = QueryFilter(
-      not = json.asJsObject.fields.get("not").map(read),
-      and = json.asJsObject.fields.get("and").map(read),
-      or = json.asJsObject.fields.get("or").map(read),
-      eq = json.asJsObject.fields.get("eq").map(ComparisonObjectJsonFormater.read),
-      gt = json.asJsObject.fields.get("gt").map(ComparisonObjectJsonFormater.read),
-      gte = json.asJsObject.fields.get("gte").map(ComparisonObjectJsonFormater.read),
-      lt = json.asJsObject.fields.get("lt").map(ComparisonObjectJsonFormater.read),
-      lte = json.asJsObject.fields.get("lte").map(ComparisonObjectJsonFormater.read),
-      matches = json.asJsObject.fields.get("matches").map(MatchesObjectJsonFormater.read)
-    )
-    override def write(obj: QueryFilter): JsValue = JsObject(
-      "not" -> obj.not.map(write).toJson,
-      "and" -> obj.and.map(write).toJson,
-      "or" -> obj.or.map(write).toJson,
-      "eq" -> obj.eq.map(ComparisonObjectJsonFormater.write).toJson,
-      "gt" -> obj.gt.map(ComparisonObjectJsonFormater.write).toJson,
-      "lt" -> obj.lt.map(ComparisonObjectJsonFormater.write).toJson,
-      "lte" -> obj.lte.map(ComparisonObjectJsonFormater.write).toJson,
-      "gte" -> obj.gte.map(ComparisonObjectJsonFormater.write).toJson,
-      "matches" -> obj.matches.map(MatchesObjectJsonFormater.write).toJson
-    )
+    override def read(json: JsValue): QueryFilter = ???
+    override def write(obj: QueryFilter): JsValue = ???
   }
 
-  implicit object QueryOrderJsonFormater extends JsonFormat[QueryOrder] {
-    override def read(json: JsValue): QueryOrder = json match {
-      case JsString(value) if value == "ASC"  => ASC
-      case JsString(value) if value == "DESC" => DESC
-      case _ =>
-        throw DeserializationException(
-          "Failed to deserialize JSON value as a `QueryOrder` object"
+  implicit object QueryPredicateJsonFormater
+      extends JsonFormat[QueryPredicate[_]] {
+    override def read(json: JsValue): QueryPredicate[_] = ???
+    override def write(obj: QueryPredicate[_]): JsValue = obj match {
+      case ModelQueryPredicate(_, fieldPredicates) =>
+        JsObject(
+          fieldPredicates
+            .map(f => f._1 -> QueryPredicateJsonFormater.write(f._2))
         )
+      case ArrayQueryPredicate(length) => JsObject("length" -> QueryPredicateJsonFormater.write(length))
+      case NumberQueryPredicate(lt, lte, eq, gt, gte) =>
+        JsObject(
+          "lt" -> lt.toJson,
+          "lte" -> lte.toJson,
+          "eq" -> eq.toJson,
+          "gt" -> gt.toJson,
+          "gte" -> gte.toJson
+        )
+      case StringQueryPredicate(length, startsWith, endsWith, matches) => 
+        JsObject(
+          "length" -> length.toJson,
+          "startsWith" -> startsWith.toJson,
+          "endsWith" -> endsWith.toJson,
+          "matches" -> matches.toJson
+        )
+      case EnumQueryPredicate(value) => value.toJson
+      case QueryFilter(predicate, and, or, negate) => JsObject(
+        "predicate" -> QueryPredicateJsonFormater.write(predicate),
+        "and" -> and.map(_.toJson).toJson,
+        "or" -> or.map(_.toJson).toJson,
+        "not" -> negate.toJson
+      )
     }
-    override def write(obj: QueryOrder): JsValue = obj match {
-      case ASC  => JsString("ASC")
-      case DESC => JsString("DESC")
+  }
+
+  implicit object PValueJsonWriter extends JsonWriter[PValue] {
+    override def write(obj: PValue): JsValue = obj match {
+      case PStringValue(value) => JsString(value)
+      case PIntValue(value)    => JsNumber(value)
+      case PFloatValue(value)  => JsNumber(value)
+      case PBoolValue(value)   => JsBoolean(value)
+      case PDateValue(value)   => JsString(value.toString())
+      case PArrayValue(values, elementType) =>
+        JsArray(values.map(PValueJsonWriter.write(_)).toVector)
+      case PFileValue(value, ptype) => JsString(value.toString())
+      case PModelValue(value, ptype) =>
+        JsObject(value.map {
+          case (key, value) => (key, PValueJsonWriter.write(value))
+        })
+      case PInterfaceValue(value, ptype) =>
+        JsObject(value.map {
+          case (key, value) => (key, PValueJsonWriter.write(value))
+        })
+      case _: PFunctionValue[_, _] =>
+        throw new SerializationException(
+          "Pragma functions are not serializable"
+        )
+      case POptionValue(value, valueType) =>
+        value.map(PValueJsonWriter.write(_)).getOrElse(JsNull)
     }
   }
 
   implicit object GraphQlValueJsonFormater extends JsonFormat[Value] {
-    override def read(json: JsValue): Value = {
-      val fields = json.asJsObject.fields
-      val kind = fields("kind").convertTo[String]
-      kind match {
-        case "ListValue" =>
-          ListValue(fields("values").convertTo[Vector[Value]])
-        case "ObjectValue" =>
-          ObjectValue(
-            fields("fields").convertTo[Vector[ObjectField]]
-          )
-        case "BigDecimalValue" =>
-          BigDecimalValue(fields("value").convertTo[BigDecimal])
-        case "BigIntValue"   => BigIntValue(fields("value").convertTo[BigInt])
-        case "IntValue"      => IntValue(fields("value").convertTo[Int])
-        case "BooleanValue"  => BooleanValue(fields("value").convertTo[Boolean])
-        case "FloatValue"    => FloatValue(fields("value").convertTo[Float])
-        case "StringValue"   => StringValue(fields("value").convertTo[String])
-        case "EnumValue"     => EnumValue(fields("value").convertTo[String])
-        case "VariableValue" => VariableValue(fields("name").convertTo[String])
-        case "NullValue"     => NullValue()
-        case _ =>
-          throw DeserializationException("Invalid GraphQl `Value` object")
-      }
+    override def read(json: JsValue): Value = json match {
+      case JsObject(fields) =>
+        ObjectValue(
+          fields
+            .map(field => ObjectField(field._1, field._2.convertTo[Value]))
+            .toVector
+        )
+      case JsArray(elements)                 => ListValue(elements.map(_.convertTo[Value]))
+      case JsString(value)                   => StringValue(value)
+      case JsNumber(value) if value.isWhole  => BigIntValue(value.toBigInt)
+      case JsNumber(value) if !value.isWhole => BigDecimalValue(value)
+      case JsTrue                            => BooleanValue(true)
+      case JsFalse                           => BooleanValue(false)
+      case JsNull                            => NullValue()
     }
     override def write(obj: Value): JsValue = obj match {
       case ListValue(values, comments, location) =>
-        JsObject(
-          "values" -> values.map(_.toJson).toJson,
-          "kind" -> "ListValue".toJson
-        )
+        JsArray(values.map(_.toJson).toJson)
       case ObjectValue(fields, comments, location) =>
-        JsObject(
-          "fields" -> fields.map(_.toJson).toJson,
-          "kind" -> "ObjectValue".toJson
-        )
-      case BigDecimalValue(value, comments, location) =>
-        JsObject(
-          "value" -> value.toJson,
-          "kind" -> "BigDecimalValue".toJson
-        )
-      case BigIntValue(value, comments, location) =>
-        JsObject(
-          "value" -> value.toJson,
-          "kind" -> "BigIntValue".toJson
-        )
-      case IntValue(value, comments, location) =>
-        JsObject(
-          "value" -> value.toJson,
-          "kind" -> "IntValue".toJson
-        )
-      case BooleanValue(value, comments, location) =>
-        JsObject(
-          "value" -> value.toJson,
-          "kind" -> "BooleanValue".toJson
-        )
-      case FloatValue(value, comments, location) =>
-        JsObject(
-          "value" -> value.toJson,
-          "kind" -> "FloatValue".toJson
-        )
+        JsObject(fields.map(field => field.name -> field.value.toJson).toMap)
+      case BigDecimalValue(value, comments, location) => value.toJson
+      case BigIntValue(value, comments, location)     => value.toJson
+      case IntValue(value, comments, location)        => value.toJson
+      case FloatValue(value, comments, location)      => value.toJson
+      case BooleanValue(value, comments, location)    => value.toJson
       case StringValue(value, block, blockRawValue, comments, location) =>
-        JsObject(
-          "value" -> value.toJson,
-          "kind" -> "StringValue".toJson
-        )
-      case EnumValue(value, comments, location) =>
-        JsObject(
-          "value" -> value.toJson,
-          "kind" -> "EnumValue".toJson
-        )
+        value.toJson
+      case EnumValue(value, comments, location) => value.toJson
       case VariableValue(name, comments, location) =>
-        JsObject(
-          "value" -> name.toJson,
-          "kind" -> "VariableValue".toJson
+        throw new InternalError(
+          "GraphQL variable values cannot be serialized. They must be substituted first."
         )
-      case NullValue(comments, location) =>
-        JsObject(
-          "value" -> JsNull,
-          "kind" -> "NullValue".toJson
-        )
+      case NullValue(comments, location) => JsNull
     }
   }
 
