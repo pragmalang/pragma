@@ -9,7 +9,7 @@ lazy val root = (project in file("."))
     maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
     packageSummary := "A language for building GraphQL APIs",
     packageDescription := "See https://docs.pragmalang.com for details.",
-      libraryDependencies ++= Seq (
+    libraryDependencies ++= Seq(
       "org.scalatest" %% "scalatest" % "3.0.8" % Test,
       "com.lihaoyi" %% "pprint" % "0.5.6" % Test
     )
@@ -22,7 +22,10 @@ libraryDependencies ++= Seq(
   "io.spray" %% "spray-json" % "1.3.5",
   "com.pauldijou" %% "jwt-core" % "4.1.0",
   "com.typesafe.akka" %% "akka-stream" % "2.6.1",
-  "org.mongodb.scala" %% "mongo-scala-driver" % "4.0.1"
+  "org.mongodb.scala" %% "mongo-scala-driver" % "4.0.1",
+  "org.typelevel" %% "cats-effect" % "2.1.3",
+  "org.typelevel" %% "cats-core" % "2.1.1",
+  "org.typelevel" %% "kittens" % "2.1.0"
 )
 
 // Requires `native-image` utility from Graal
@@ -36,6 +39,5 @@ graalVMNativeImageOptions := Seq(
   "--language:python",
   "--initialize-at-build-time=scala.runtime.Statics$VM"
 )
-
 
 scalacOptions ++= Seq("-feature", "-deprecation", "-Xlint:unused")
