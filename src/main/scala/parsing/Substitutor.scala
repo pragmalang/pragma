@@ -174,7 +174,7 @@ object Substitutor {
       )
   }
 
-  /** NOTE: Should be moved to `PModelField` itself.
+  /** NOTE: Should be moved to `PModel` itself.
     * Adds an _id: String @primary field to the model
     */
   def withDefaultId(model: PModel) = model.copy(
