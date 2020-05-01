@@ -48,6 +48,11 @@ package object utils {
     ): UserError =
       UserError(List(errorMessage -> position))
 
+    def apply(
+        errorMessages: String*
+    ): UserError =
+      UserError(errorMessages.map(_ -> None).toList)
+
     def fromAuthErrors(authErrors: List[AuthorizationError]): UserError =
       UserError(authErrors.map(_.message -> None))
   }
@@ -204,6 +209,7 @@ package object utils {
           typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
         case (henum: PEnum, JsString(value)) if henum.values.contains(value) =>
           json
+        case (PAny, _) => json 
         case (ptype: PType, json: JsValue) =>
           throw new Exception(
             s"The provided JSON value:\n${json.prettyPrint}\ndoesn't pass type validation against type ${displayPType(ptype, isVerbose = false)}"
