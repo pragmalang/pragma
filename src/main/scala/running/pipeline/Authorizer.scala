@@ -40,7 +40,7 @@ class Authorizer(
         val user = storage.run(
           userQuery(userModel, jwt.userId),
           Map(None -> Vector(userReadOperation(userModel, jwt)))
-        )
+        ).map(_.get)
 
         user.map {
           case Left(userJson: JsObject)
