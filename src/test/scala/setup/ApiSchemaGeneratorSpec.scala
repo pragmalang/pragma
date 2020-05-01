@@ -83,19 +83,7 @@ class ApiSchemaGeneratorSpec extends FunSuite {
       }
       
       scalar Any
-      
-      directive @filter(filter: FilterInput!) on FIELD
-      
-      directive @order(order: OrderEnum!) on FIELD
-      
-      directive @range(range: RangeInput!) on FIELD
-      
-      directive @first(first: Int!) on FIELD
-      
-      directive @last(last: Int!) on FIELD
-      
-      directive @skip(skip: Int!) on FIELD
-      
+
       directive @listen(to: EVENT_ENUM!) on FIELD
       
       type Business {
@@ -139,10 +127,10 @@ class ApiSchemaGeneratorSpec extends FunSuite {
         createMany(items: [BusinessInput!]!): [Business]!
         updateMany(items: [BusinessInput!]!): [Business]!
         deleteMany(items: [String!]): [Business]!
-        pushToBranches(item: BranchInput!): Branch!
-        pushManyToBranches(items: [BranchInput!]!): [Branch]!
-        removeFromBranches(item: BranchInput!): Branch!
-        removeManyFromBranches(filter: FilterInput): [Branch]!
+        pushToBranches(email: String!, item: BranchInput!): Branch!
+        pushManyToBranches(email: String!, items: [BranchInput!]!): [Branch]!
+        removeFromBranches(email: String!, item: BranchInput!): Branch!
+        removeManyFromBranches(email: String!, filter: FilterInput): [Branch]!
       }
       
       type BranchMutations {

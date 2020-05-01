@@ -175,6 +175,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
             graphQlField(
               nameTransformer = _ => s"pushTo${transformedFieldId}",
               Map(
+                model.primaryField.id -> fieldType(model.primaryField.ptype),
                 "item" -> fieldType(
                   listFieldInnerType,
                   nameTransformer =
@@ -189,6 +190,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
             graphQlField(
               nameTransformer = fieldId => s"removeFrom${transformedFieldId}",
               Map(
+                model.primaryField.id -> fieldType(model.primaryField.ptype),
                 "item" -> fieldType(
                   listFieldInnerType match {
                     case m: PModel => m.primaryField.ptype
@@ -206,6 +208,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
             graphQlField(
               nameTransformer = fieldId => s"pushManyTo${transformedFieldId}",
               Map(
+                model.primaryField.id -> fieldType(model.primaryField.ptype),
                 "items" -> listFieldType(
                   listFieldInnerType,
                   nameTransformer =
@@ -222,6 +225,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
               nameTransformer =
                 fieldId => s"removeManyFrom${transformedFieldId}",
               Map(
+                model.primaryField.id -> fieldType(model.primaryField.ptype),
                 "filter" -> builtinType(FilterInput, isOptional = true)
               ),
               fieldType(f.ptype)
@@ -801,12 +805,6 @@ object ApiSchemaGenerator {
 
     scalar Any
 
-    directive @filter(filter: FilterInput!) on FIELD
-    directive @order(order: OrderEnum!) on FIELD
-    directive @range(range: RangeInput!) on FIELD
-    directive @first(first: Int!) on FIELD
-    directive @last(last: Int!) on FIELD
-    directive @skip(skip: Int!) on FIELD
     directive @listen(to: EVENT_ENUM!) on FIELD # on field selections inside a subscription
       """.definitions.toList
 }
