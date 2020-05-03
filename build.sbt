@@ -25,7 +25,8 @@ libraryDependencies ++= Seq(
   "org.mongodb.scala" %% "mongo-scala-driver" % "4.0.1",
   "org.typelevel" %% "cats-effect" % "2.1.3",
   "org.typelevel" %% "cats-core" % "2.1.1",
-  "org.typelevel" %% "kittens" % "2.1.0"
+  "org.typelevel" %% "kittens" % "2.1.0",
+  "org.jooq" % "jooq" % "3.13.1"
 )
 
 // Requires `native-image` utility from Graal
