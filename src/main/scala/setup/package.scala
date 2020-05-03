@@ -17,7 +17,7 @@ case class Setup(syntaxTree: SyntaxTree) {
 
   def setup(migrationSteps: Vector[MigrationStep]): Try[Unit] = Try {
 
-    def supportedDbTypes(dbType: String, dbUrl: String): Storage =
+    def supportedDbTypes[T[_]](dbType: String, dbUrl: String): Storage =
       dbType match {
         // case "mongo" => {
         //   val url = new ConnectionString(dbUrl)
