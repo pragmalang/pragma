@@ -177,7 +177,7 @@ object Relationship {
         case model: PModel  => model
       }
 
-    // TODO: Revise this
+    // TODO: Review this
     otherFieldPathOption match {
       case Some((otherModel, otherField)) =>
         relationshipKind(ptype, otherField.ptype)(model, otherModel, relName)
