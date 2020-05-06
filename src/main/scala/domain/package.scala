@@ -239,9 +239,9 @@ object BuiltInDefs {
     "id" -> PInterface("id", Nil, None), // auto-increment/UUID & unique
     "publicCredential" -> PInterface("publicCredential", Nil, None),
     "secretCredential" -> PInterface("secretCredential", Nil, None),
-    "connect" -> PInterface(
-      "connect",
-      List(PInterfaceField("to", PString, None)),
+    "connection" -> PInterface(
+      "connection",
+      List(PInterfaceField("name", PString, None)),
       None
     )
   )

@@ -6,6 +6,11 @@ import scala.util.{Try, Success, Failure}
 import java.time.ZonedDateTime
 
 package object utils {
+
+  type ModelId = String
+  type FieldId = String
+
+  type FieldPath = (ModelId, FieldId)
   trait Identifiable {
     val id: String
   }
