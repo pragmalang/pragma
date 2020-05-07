@@ -8,21 +8,21 @@ class RelationshipSpec extends FlatSpec {
         @user model User {
             username: String @publicCredential
             password: String @secretCredential
-            todos: [Todo] @connection(name: "edits")
+            todos: [Todo] @relation(name: "edits")
             doneTodos: [Todo]
-            adminOf: Todo? @connection(name: "adminOf")
+            adminOf: Todo? @relation(name: "adminOf")
             favoriteTodo: Todo?
         }
 
 
         model Todo {
-            editors: [User] @connection(name: "edits")
-            admin: User @connection(name: "adminOf")
+            editors: [User] @relation(name: "edits")
+            admin: User @relation(name: "adminOf")
         }
         """
     val st = SyntaxTree.from(code).get
 
-    val relationships = Relationship.from(st).map(_.toString)
+    val relationships = Relation.from(st).map(_.toString)
 
     val expected = Vector(
       "ManyToMany(edits): User/todos => Todo/editors)",

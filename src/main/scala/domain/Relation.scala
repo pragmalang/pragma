@@ -2,13 +2,13 @@ package domain
 
 import domain.primitives._
 
-case class Relationship(
+case class Relation(
     from: (PModel, PModelField),
     to: (PModel, Option[PModelField]),
     name: Option[String],
-    kind: RelationshipKind
+    kind: RelationKind
 ) {
-  import RelationshipKind._
+  import RelationKind._
 
   override def toString(): String = (name, to._2) match {
     case (Some(name), Some(toField)) =>
@@ -22,7 +22,7 @@ case class Relationship(
   }
 
   override def equals(that: Any): Boolean = that match {
-    case that: Relationship => {
+    case that: Relation => {
       val unidirectional =
         this.from._1.id == that.from._1.id &&
           this.from._2.id == that.from._2.id &&
@@ -47,19 +47,19 @@ case class Relationship(
   }
 }
 
-sealed trait RelationshipKind
-object RelationshipKind {
-  final case object ManyToMany extends RelationshipKind {
+sealed trait RelationKind
+object RelationKind {
+  final case object ManyToMany extends RelationKind {
     override def toString() = "ManyToMany"
   }
-  final case object OneToMany extends RelationshipKind {
+  final case object OneToMany extends RelationKind {
     override def toString() = "OneToMany"
   }
-  final case object OneToOne extends RelationshipKind {
+  final case object OneToOne extends RelationKind {
     override def toString() = "OneToOne"
   }
 }
-object Relationship {
+object Relation {
 
   private def notPrimitiveNorEnum(t: PType): Boolean = t match {
     case PArray(ptype)  => notPrimitiveNorEnum(ptype)
@@ -70,15 +70,15 @@ object Relationship {
     case _              => false
   }
 
-  private def relationshipKind(
+  private def relationKind(
       from: PType,
       to: PType
-  ): RelationshipKind = (from, to) match {
+  ): RelationKind = (from, to) match {
     case (PArray(_) | POption(PArray(_)), PArray(_) | POption(PArray(_))) =>
-      RelationshipKind.ManyToMany
-    case (PArray(_) | POption(PArray(_)), _) => RelationshipKind.OneToMany
-    case (_, PArray(_) | POption(PArray(_))) => RelationshipKind.OneToMany
-    case (_, _)                              => RelationshipKind.OneToOne
+      RelationKind.ManyToMany
+    case (PArray(_) | POption(PArray(_)), _) => RelationKind.OneToMany
+    case (_, PArray(_) | POption(PArray(_))) => RelationKind.OneToMany
+    case (_, _)                              => RelationKind.OneToOne
   }
 
   private def connectedFieldPath(
@@ -88,14 +88,14 @@ object Relationship {
     val modelOption = syntaxTree.models
       .filterNot(_.id == exclude.id)
       .find { model =>
-        model.fields.exists(_.directives.find(_.id == "connection").isDefined)
+        model.fields.exists(_.directives.find(_.id == "relation").isDefined)
       }
 
     val fieldOption = modelOption.flatMap { model =>
       model.fields.find(
         field =>
           field.directives
-            .find(_.id == "connection")
+            .find(_.id == "relation")
             .map(_.args.value("name")) match {
             case Some(value) =>
               value.asInstanceOf[PStringValue].value == relName
@@ -119,42 +119,42 @@ object Relationship {
       case _              => None
     }
 
-  private def relationship(
+  private def relation(
       relName: Option[String],
       ptype: PType,
       field: PModelField,
       model: PModel,
       syntaxTree: SyntaxTree
-  ): Relationship = {
+  ): Relation = {
     val otherFieldPathOption =
       relName.flatMap(connectedFieldPath(_, model)(syntaxTree))
 
     (otherFieldPathOption, relName) match {
       case (Some((otherModel, otherField)), Some(relName)) =>
-        Relationship(
+        Relation(
           (model, field),
           (otherModel, Some(otherField)),
           Some(relName),
-          relationshipKind(ptype, otherField.ptype)
+          relationKind(ptype, otherField.ptype)
         ) // either `OneToOne` or `ManyToMany`.
       case _ =>
-        Relationship(
+        Relation(
           (model, field),
           (innerModel(ptype, syntaxTree).get, None),
           None,
-          relationshipKind(model, ptype)
+          relationKind(model, ptype)
         ) // either `OneToOne` or `OneToMany`.
     }
   }
 
-  private def relationships(
+  private def relations(
       model: PModel,
       syntaxTree: SyntaxTree
-  ): Vector[Relationship] =
+  ): Vector[Relation] =
     model.fields
       .map(field => {
-        val relationshipName = field.directives
-          .find(_.id == "connection")
+        val relationName = field.directives
+          .find(_.id == "relation")
           .flatMap(
             _.args
               .value("name") match {
@@ -162,16 +162,16 @@ object Relationship {
               case _                   => None
             }
           )
-        (relationshipName, field, field.ptype)
+        (relationName, field, field.ptype)
       })
       .filter(pair => notPrimitiveNorEnum(pair._3))
-      .map(pair => relationship(pair._1, pair._3, pair._2, model, syntaxTree))
+      .map(pair => relation(pair._1, pair._3, pair._2, model, syntaxTree))
       .toVector
 
-  def from(syntaxTree: SyntaxTree): Vector[Relationship] =
+  def from(syntaxTree: SyntaxTree): Vector[Relation] =
     syntaxTree.models
-      .flatMap(relationships(_, syntaxTree))
-      .foldLeft(Vector.empty[Relationship]) { // Remove equivalent `Relationship`s
+      .flatMap(relations(_, syntaxTree))
+      .foldLeft(Vector.empty[Relation]) { // Remove equivalent `Relation`s
         case (acc, rel) if !acc.contains(rel) => acc :+ rel
         case (acc, _)                         => acc
       }
