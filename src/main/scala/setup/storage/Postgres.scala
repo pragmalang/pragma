@@ -23,9 +23,6 @@ import domain.PType
 // import org.jooq.util.postgres.PostgresDataType
 // import org.jooq.util.postgres.PostgresDSL
 // import org.jooq.util.postgres.PostgresUtils
-import domain.PReference
-import domain.utils._
-import domain.PEnum
 
 case class Postgres(syntaxTree: SyntaxTree) extends Storage {
 
@@ -98,128 +95,6 @@ case class Postgres(syntaxTree: SyntaxTree) extends Storage {
   ): Future[Try[Either[JsObject, Vector[JsObject]]]] = ???
 }
 
-case class Relationship(
-    from: (PModel, PModelField),
-    to: (PModel, Option[PModelField]),
-    name: Option[String],
-    kind: RelationshipKind
-)
-
-sealed trait RelationshipKind
-object RelationshipKind {
-  final case object ManyToMany extends RelationshipKind
-  final case object OneToMany extends RelationshipKind
-  final case object OneToOne extends RelationshipKind
-}
-object Relationship {
-
-  private def notPrimitiveNorEnum(t: PType): Boolean = t match {
-    case PArray(ptype)  => notPrimitiveNorEnum(t)
-    case POption(ptype) => notPrimitiveNorEnum(t)
-    case _: PModel      => true
-    case _: PReference  => true
-    case _: PEnum       => false
-  }
-
-  private def relationshipKind(
-      from: PType,
-      to: PType
-  ): RelationshipKind = (from, to) match {
-    case (PArray(_) | POption(PArray(_)), PArray(_) | POption(PArray(_))) =>
-      RelationshipKind.ManyToMany
-    case (PArray(_) | POption(PArray(_)), _) => RelationshipKind.OneToMany
-    case (_, PArray(_) | POption(PArray(_))) => RelationshipKind.OneToMany
-    case (_, _)                              => RelationshipKind.OneToOne
-  }
-
-  private def connectedFieldPath(
-      relName: String
-  )(syntaxTree: SyntaxTree): Option[(PModel, PModelField)] = {
-    val modelOption = syntaxTree.models.find(
-      model =>
-        model.fields.exists(_.directives.find(_.id == "connection").isDefined)
-    )
-
-    val fieldOption = modelOption.flatMap(
-      model =>
-        model.fields.find(_.directives.find(_.id == "connection").isDefined)
-    )
-
-    (modelOption, fieldOption) match {
-      case (Some(model), Some(field)) => Some(model -> field)
-      case _                          => None
-    }
-  }
-
-  private def innerModel(ptype: PType, syntaxTree: SyntaxTree): Option[PModel] =
-    ptype match {
-      case PArray(t)      => innerModel(t, syntaxTree)
-      case POption(t)     => innerModel(t, syntaxTree)
-      case PReference(id) => Some(syntaxTree.models.find(_.id == id).get)
-      case model: PModel  => Some(model)
-      case _              => None
-    }
-
-  private def relationship(
-      relName: Option[String],
-      ptype: PType,
-      field: PModelField,
-      model: PModel,
-      syntaxTree: SyntaxTree
-  ): Relationship = {
-    val otherFieldPathOption =
-      relName.flatMap(connectedFieldPath(_)(syntaxTree))
-
-    (otherFieldPathOption, relName) match {
-      case (Some((otherModel, otherField)), Some(relName)) =>
-        Relationship(
-          (otherModel, otherField),
-          (model, Some(field)),
-          Some(relName),
-          relationshipKind(ptype, otherField.ptype)
-        ) // either `OneToOne` or `ManyToMany`.
-      case _ =>
-        Relationship(
-          (model, field),
-          (innerModel(ptype, syntaxTree).get, None),
-          None,
-          relationshipKind(model, ptype)
-        ) // either `OneToOne` or `OneToMany`.
-    }
-  }
-
-  private def relationships(
-      model: PModel,
-      syntaxTree: SyntaxTree
-  ): Vector[Relationship] =
-    model.fields
-      .map(field => {
-        val relationshipName = field.directives
-          .find(_.id == "connection")
-          .flatMap(
-            _.args
-              .value("connection") match {
-              case PStringValue(value) => Some(value)
-              case _                   => None
-            }
-          )
-        (relationshipName, field, field.ptype)
-      })
-      .filter(pair => notPrimitiveNorEnum(pair._3))
-      .map(pair => relationship(pair._1, pair._3, pair._2, model, syntaxTree))
-      .toVector
-
-  def from(syntaxTree: SyntaxTree): Vector[Relationship] =
-    syntaxTree.models
-      .flatMap(relationships(_, syntaxTree))
-      .distinctBy(_.kind)
-      .toVector
-      // .foldLeft(Vector.empty[Relationship]) { // Only non-equivalent `Relationship`s
-      //   case (acc, rel) if !acc.contains(rel) => acc :+ rel
-      //   case (acc, _)                         => acc
-      // }
-}
-
 sealed trait SQLMigrationStep
 object SQLMigrationStep {
   final case class CreateTable(
@@ -271,36 +146,5 @@ object Constraint {
     case object NotNull extends ColumnConstraint
     case object Unique extends ColumnConstraint
     case object PrimaryKey extends ColumnConstraint
-    // case class ForeignKey(tableName: String, column: PModelField)
-    //     extends ColumnConstraint
   }
 }
-
-/*
-# Invalid examples on using `@connection`
-
-model A {
-  f1: String
-  f2: Int
-  b: [B] @connection("Bs")
-}
-
-model B {
-  ...
-}
-
-model C {
-  b: [B] @connection("Bs")
-}
-
-# or
-
-model C {
-  a: [A] @connection("Bs")
-}
-
-
-# if `@connection` is used on a field `b` of type `B` on model `A`,
-# then there must be a field of type `A` on model `B` that has the `@connection` name.
-
- */
