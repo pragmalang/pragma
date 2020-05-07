@@ -18,11 +18,9 @@ lazy val root = (project in file("."))
 libraryDependencies ++= Seq(
   "org.parboiled" %% "parboiled" % "2.1.8",
   "org.sangria-graphql" %% "sangria" % "2.0.0-M1",
-  "com.github.nscala-time" %% "nscala-time" % "2.22.0",
   "io.spray" %% "spray-json" % "1.3.5",
   "com.pauldijou" %% "jwt-core" % "4.1.0",
   "com.typesafe.akka" %% "akka-stream" % "2.6.1",
-  "org.mongodb.scala" %% "mongo-scala-driver" % "4.0.1",
   "org.typelevel" %% "cats-effect" % "2.1.3",
   "org.typelevel" %% "cats-core" % "2.1.1",
   "org.typelevel" %% "kittens" % "2.1.0",

@@ -41,6 +41,8 @@ case class SyntaxTree(
   def getConfigEntry(key: String): Option[ConfigEntry] =
     config.flatMap(_.getConfigEntry(key))
 
+  lazy val relations = Relation.from(this)
+
 }
 object SyntaxTree {
   // The resulting syntax tree is validated and substituted
@@ -239,9 +241,9 @@ object BuiltInDefs {
     "id" -> PInterface("id", Nil, None), // auto-increment/UUID & unique
     "publicCredential" -> PInterface("publicCredential", Nil, None),
     "secretCredential" -> PInterface("secretCredential", Nil, None),
-    "connect" -> PInterface(
-      "connect",
-      List(PInterfaceField("to", PString, None)),
+    "relation" -> PInterface(
+      "relation",
+      List(PInterfaceField("name", PString, None)),
       None
     )
   )

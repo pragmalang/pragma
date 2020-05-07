@@ -6,6 +6,11 @@ import scala.util.{Try, Success, Failure}
 import java.time.ZonedDateTime
 
 package object utils {
+
+  type ModelId = String
+  type FieldId = String
+
+  type FieldPath = (ModelId, FieldId)
   trait Identifiable {
     val id: String
   }
@@ -209,11 +214,18 @@ package object utils {
           typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
         case (henum: PEnum, JsString(value)) if henum.values.contains(value) =>
           json
-        case (PAny, _) => json 
+        case (PAny, _) => json
         case (ptype: PType, json: JsValue) =>
           throw new Exception(
             s"The provided JSON value:\n${json.prettyPrint}\ndoesn't pass type validation against type ${displayPType(ptype, isVerbose = false)}"
           )
       }
+    }
+
+  def displayInnerType(ptype: PType, isVerbose: Boolean = false): String =
+    ptype match {
+      case PArray(t)  => displayPType(t, isVerbose)
+      case POption(t) => displayPType(t, isVerbose)
+      case _          => displayPType(ptype, isVerbose)
     }
 }
