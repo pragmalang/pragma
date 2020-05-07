@@ -124,7 +124,7 @@ object Relationship {
   final case class OneToOne(from: PModel, to: PModel, name: Option[String])
       extends Relationship
 
-  def notPrimitiveNorEnum(t: PType): Boolean = t match {
+  private def notPrimitiveNorEnum(t: PType): Boolean = t match {
     case PArray(ptype)  => notPrimitiveNorEnum(t)
     case POption(ptype) => notPrimitiveNorEnum(t)
     case _: PModel      => true
@@ -132,7 +132,7 @@ object Relationship {
     case _: PEnum       => false
   }
 
-  def relationshipKind(
+  private def relationshipKind(
       from: PType,
       to: PType
   ): (PModel, PModel, Option[String]) => Relationship = (from, to) match {
@@ -143,7 +143,7 @@ object Relationship {
     case (_, _)                              => OneToOne.apply
   }
 
-  def connectedFieldPath(
+  private def connectedFieldPath(
       relName: String
   )(syntaxTree: SyntaxTree): Option[(PModel, PModelField)] = {
     val modelOption = syntaxTree.models.find(
@@ -162,7 +162,7 @@ object Relationship {
     }
   }
 
-  def relationship(
+  private def relationship(
       relName: Option[String],
       ptype: PType
   )(model: PModel, syntaxTree: SyntaxTree): Relationship = {
@@ -190,7 +190,7 @@ object Relationship {
     }
   }
 
-  def relationships(
+  private def relationships(
       model: PModel,
       syntaxTree: SyntaxTree
   ): Vector[Relationship] =
