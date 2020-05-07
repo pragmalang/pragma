@@ -177,13 +177,16 @@ object Relationship {
         case model: PModel  => model
       }
 
-    // TODO: Review this
-    otherFieldPathOption match {
-      case Some((otherModel, otherField)) =>
-        relationshipKind(ptype, otherField.ptype)(model, otherModel, relName)
-      //                  ^                   ^     ^        ^
-      case _ => relationshipKind(model, ptype)(model, innerType(ptype), relName)
-      //                           ^      ^      ^            ^
+    (otherFieldPathOption, relName) match {
+      case (Some((otherModel, otherField)), Some(relName)) =>
+        relationshipKind(ptype, otherField.ptype)(
+          model,
+          otherModel,
+          Some(relName)
+        )
+      case _ =>
+        // either `OneToOne` or `OneToMany`.
+        relationshipKind(model, ptype)(model, innerType(ptype), None)
     }
   }
 
@@ -248,8 +251,11 @@ object AlterTableAction {
       extends AlterTableAction
   case class RenameColumn(name: String, newName: String)
       extends AlterTableAction
-  case class AddForeignKey(tableName: String, column: PModelField)
-      extends AlterTableAction
+  case class AddForeignKey(
+      tableName: String,
+      column: PModelField,
+      thisColumnName: String
+  ) extends AlterTableAction
 }
 
 sealed trait Constraint
@@ -269,46 +275,32 @@ object Constraint {
     //     extends ColumnConstraint
   }
 }
+
 /*
-model User {
-  username: String @primary
-  password: String
-  todo: Todo
+# Invalid examples on using `@connection`
+
+model A {
+  f1: String
+  f2: Int
+  b: [B] @connection("Bs")
 }
 
-model Todo {
-  title: String
-  description: String
+model B {
+  ...
 }
 
-CREATE TABLE "User" (
-  username VARCHAR PRIMARY KEY,
-  password VARCHAR
-);
+model C {
+  b: [B] @connection("Bs")
+}
 
-CREATE TABLE "Todo" (
-  id SERIAL PRIMARY KEY,
-  title VARCHAR,
-  description VARCHAR,
-  user_username VARCHAR REFERENCES "User"(username) ON DELETE CASCADE
-);
+# or
 
-INSERT INTO "User" VALUES ('anas', '123456');
-INSERT INTO "Todo" VALUES (DEFAULT, 'todo #1', 'My first todo', 'anas');
-INSERT INTO "Todo" VALUES (DEFAULT, 'todo #2', 'My second todo', 'anas');
-INSERT INTO "Todo" VALUES (DEFAULT, 'todo #3', 'My third todo', 'anas');
-
-SELECT
-  "User".username,
-  "User".password,
-  "Todo".title,
-  "Todo".description
-FROM "User", "Todo"
-WHERE
-  "User".username = 'anas'
-  AND
-  "Todo".user_username = "User".username;
+model C {
+  a: [A] @connection("Bs")
+}
 
 
+# if `@connection` is used on a field `b` of type `B` on model `A`,
+# then there must be a field of type `A` on model `B` that has the `@connection` name.
 
  */
