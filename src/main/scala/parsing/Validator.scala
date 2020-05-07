@@ -23,7 +23,8 @@ class Validator(constructs: List[PConstruct]) {
       checkDirectiveArgs,
       checkCircularDeps,
       checkRolesBelongToUserModels,
-      checkCreateAccessRules
+      checkCreateAccessRules,
+      checkRelations
     )
     val errors = results.flatMap {
       case Failure(err: UserError) => err.errors
@@ -319,6 +320,138 @@ class Validator(constructs: List[PConstruct]) {
         userlessRole.position
       )
     }
+    if (errors.isEmpty) Success(())
+    else Failure(UserError(errors))
+  }
+
+  def checkRelations: Try[Unit] = {
+    val errors =
+      for {
+        model <- st.models
+        field <- model.fields
+        relationDirectives = field.directives.filter(_.id == "relation")
+        error <- if (relationDirectives.isEmpty) None
+        else if (relationDirectives.length > 1)
+          Some(
+            (
+              s"Fields can only have one or zero `@relation` directives",
+              field.position
+            )
+          )
+        else {
+          val relationName =
+            relationDirectives.head.args.value.get("name") match {
+              case Some(PStringValue(name)) => name
+              case _ =>
+                return Failure(
+                  UserError(
+                    "Argument `name` must be provided for `@relation` directive and it must be a `String`"
+                  )
+                )
+            }
+
+          val targetModel = field.ptype match {
+            case PReference(id)                  => st.models.find(_.id == id)
+            case PArray(PReference(id))          => st.models.find(_.id == id)
+            case POption(PReference(id))         => st.models.find(_.id == id)
+            case POption(PArray(PReference(id))) => st.models.find(_.id == id)
+            case _ =>
+              return Failure(
+                UserError(
+                  s"Model `${field.id}` must have a model type since it has an `@relation` directive",
+                  field.position
+                )
+              )
+          }
+
+          val targetField = targetModel match {
+            case Some(model) =>
+              model.fields.find { field =>
+                field.directives
+                  .find(_.id == "relation")
+                  .map(_.args.value("name")) match {
+                  case Some(value) =>
+                    value.asInstanceOf[PStringValue].value == relationName
+                  case None => false
+                }
+              }
+            case None =>
+              return Failure(
+                UserError(
+                  s"Model `${displayPType(field.ptype)}` is not defined",
+                  field.position
+                )
+              )
+          }
+
+          def errMsg(f1: String, f2: String, position: Option[PositionRange]) =
+            (
+              s"""The fields `${f1}` and `${f2}` must have opposite types because they are related by `@relation("$relationName")`.""",
+              position
+            )
+
+          targetField match {
+            case Some(targetField) =>
+              (field.ptype, targetField.ptype) match {
+                case (PReference(_), PReference(id)) if id == model.id => None
+                case (PReference(_), PReference(id)) if id != model.id =>
+                  Some(errMsg(field.id, targetField.id, field.position))
+                case (POption(PArray(_)), POption(PArray(PReference(id))))
+                    if model.id == id =>
+                  None
+                case (POption(PArray(_)), POption(PArray(PReference(id))))
+                    if model.id != id =>
+                  Some(errMsg(field.id, targetField.id, field.position))
+                case (PArray(_), POption(PArray(PReference(id))))
+                    if model.id == id =>
+                  None
+                case (PArray(_), POption(PArray(PReference(id))))
+                    if model.id != id =>
+                  Some(errMsg(field.id, targetField.id, field.position))
+                case (POption(PArray(_)), PArray(PReference(id)))
+                    if model.id == id =>
+                  None
+                case (POption(PArray(_)), PArray(PReference(id)))
+                    if model.id != id =>
+                  Some(errMsg(field.id, targetField.id, field.position))
+                case (PArray(_), PArray(PReference(id))) if id == model.id =>
+                  None
+                case (PArray(_), PArray(PReference(id))) if id != model.id =>
+                  Some(errMsg(field.id, targetField.id, field.position))
+                case (POption(_), POption(PReference(id))) if model.id == id =>
+                  None
+                case (POption(_), POption(PReference(id))) if model.id != id =>
+                  Some(errMsg(field.id, targetField.id, field.position))
+                case (PReference(_), POption(PReference(id)))
+                    if model.id == id =>
+                  None
+                case (PReference(_), POption(PReference(id)))
+                    if model.id != id =>
+                  Some(errMsg(field.id, targetField.id, field.position))
+                case (POption(_), PReference(id)) if model.id == id =>
+                  None
+                case (POption(_), PReference(id)) if model.id != id =>
+                  Some(errMsg(field.id, targetField.id, field.position))
+                case _ =>
+                  Some(
+                    (
+                      s"The fields `${field.id}` and `${targetField.id}` must both be arrays in case of many-to-many relations, or both non-arrays in case of one-to-one relations",
+                      field.position
+                    )
+                  )
+              }
+            case None =>
+              Some(
+                (
+                  s"""A field of type `${model.id}` must exist with `@relation("${relationName}")` on ${displayInnerType(
+                    field.ptype
+                  )}""",
+                  field.position
+                )
+              )
+          }
+        }
+      } yield error
     if (errors.isEmpty) Success(())
     else Failure(UserError(errors))
   }

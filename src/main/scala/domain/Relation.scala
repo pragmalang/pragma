@@ -114,7 +114,7 @@ object Relation {
     ptype match {
       case PArray(t)      => innerModel(t, syntaxTree)
       case POption(t)     => innerModel(t, syntaxTree)
-      case PReference(id) => Some(syntaxTree.models.find(_.id == id).get)
+      case PReference(id) => syntaxTree.models.find(_.id == id)
       case model: PModel  => Some(model)
       case _              => None
     }
