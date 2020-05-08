@@ -157,21 +157,8 @@ class PragmaParser(val input: ParserInput) extends Parser {
     }
   }
 
-  def positionalArgs: Rule1[PInterfaceValue] = rule {
-    zeroOrMore(literal | ref).separatedBy(",") ~> { (args: Seq[PValue]) =>
-      PInterfaceValue(
-        args.zipWithIndex
-          .map(pair => pair._2.toString -> pair._1)
-          .foldLeft(ListMap.empty[String, PValue])(_ + _),
-        PInterface("", Nil, None)
-      )
-    }
-  }
-
-  def arguments: Rule1[PInterfaceValue] = rule { namedArgs | positionalArgs }
-
   def directive = rule {
-    '@' ~ identifier ~ optional("(" ~ arguments ~ ")")
+    '@' ~ identifier ~ optional("(" ~ namedArgs ~ ")")
   }
 
   def directive(dirKind: DirectiveKind): Rule1[Directive] = rule {

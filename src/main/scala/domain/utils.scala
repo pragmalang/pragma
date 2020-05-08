@@ -16,8 +16,6 @@ package object utils {
   }
 
   type NamedArgs = ListMap[String, PType]
-  type PositionalArgs = List[PType]
-  type Args = Either[PositionalArgs, NamedArgs]
   type Date = java.time.ZonedDateTime
 
   case class InternalException(message: String)
