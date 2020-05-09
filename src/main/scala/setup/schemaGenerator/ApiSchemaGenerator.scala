@@ -11,7 +11,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
   def buildGraphQLAst() = Document(typeDefinitions.toVector)
 
   def typeDefinitions(): List[Definition] =
-    syntaxTree.models.map(hShape(_)) ++ syntaxTree.enums.map(hEnum(_))
+    syntaxTree.models.map(pshape(_)) ++ syntaxTree.enums.map(penum(_))
 
   def graphQlFieldArgs(args: Map[String, Type]) =
     args.map(arg => InputValueDefinition(arg._1, arg._2, None)).toVector
@@ -51,28 +51,25 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
   def modelMutationsTypes: List[Definition] =
     syntaxTree.models.map(model => {
 
-      val login = model.isUser match {
-        case true => {
-          val secretCredentialField = model.fields
-            .find(
-              f => f.directives.exists(d => d.id == "secretCredential")
-            )
-            .get
-          Some(
-            graphQlField(
-              nameTransformer = _ => "login",
-              args = Map(
-                "publicCredential" -> builtinType(StringScalar),
-                secretCredentialField.id -> fieldType(
-                  secretCredentialField.ptype
-                )
-              ),
-              fieldType = builtinType(StringScalar)
-            )(model.id)
+      val login = if (model.isUser) {
+        val secretCredentialField = model.fields
+          .find(
+            f => f.directives.exists(d => d.id == "secretCredential")
           )
-        }
-        case false => None
-      }
+          .get
+        Some(
+          graphQlField(
+            nameTransformer = _ => "login",
+            args = Map(
+              "publicCredential" -> builtinType(StringScalar),
+              secretCredentialField.id -> fieldType(
+                secretCredentialField.ptype
+              )
+            ),
+            fieldType = builtinType(StringScalar)
+          )(model.id)
+        )
+      } else None
 
       val create = Some(
         graphQlField(
@@ -153,12 +150,9 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         )(model.id)
       )
 
-      val modelListFields = model.fields.collect(
-        f =>
-          f.ptype match {
-            case _: PArray => f
-          }
-      )
+      val modelListFields = model.fields.collect {
+        case f @ PModelField(_, ptype: PArray, _, _, _) => f
+      }
 
       val modelListFieldOperations = modelListFields
         .flatMap(f => {
@@ -712,30 +706,28 @@ object ApiSchemaGenerator {
         throw new Exception("Function can't be used as a field type")
     }
 
-  def hEnum(e: PEnum): EnumTypeDefinition =
+  def penum(e: PEnum): EnumTypeDefinition =
     EnumTypeDefinition(
       name = e.id,
       values = e.values.map(v => EnumValueDefinition(name = v)).toVector
     )
 
-  def hShape(
+  def pshape(
       s: PShape,
       directives: Vector[GraphQlDirective] = Vector.empty
   ): ObjectTypeDefinition = ObjectTypeDefinition(
     s.id,
     Vector.empty,
-    s.fields
-      .filter({
-        case field: PInterfaceField => true
-        case field: PModelField =>
-          !field.directives.exists(_.id == "secretCredential")
-      })
-      .map(hShapeField)
-      .toVector,
+    s.fields.collect {
+      case field: PInterfaceField => pshapeField(field)
+      case field: PModelField
+          if !field.directives.exists(_.id == "secretCredential") =>
+        pshapeField(field)
+    }.toVector,
     directives
   )
 
-  def hShapeField(
+  def pshapeField(
       f: PShapeField
   ): FieldDefinition = FieldDefinition(
     name = f.id,
