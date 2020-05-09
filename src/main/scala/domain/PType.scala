@@ -16,66 +16,79 @@ trait PShape extends Identifiable {
   val fields: Seq[PShapeField]
 }
 
-case class PModel(
-    id: String,
-    fields: Seq[PModelField],
-    directives: Seq[Directive],
-    position: Option[PositionRange]
+class PModel(
+    val id: String,
+    modelFields: Seq[PModelField],
+    val directives: Seq[Directive],
+    val position: Option[PositionRange]
 ) extends PType
     with PConstruct
     with PShape {
+  import PModel._
+
+  override val fields: Seq[PModelField] = {
+    val foundPrimaryField =
+      modelFields.find(_.directives.exists(_.id == "primary"))
+
+    if (foundPrimaryField.isDefined) modelFields
+    else PModel.defaultPrimaryField +: modelFields
+  }
+
   lazy val isUser = directives.exists(_.id == "user")
 
   lazy val primaryField =
-    fields.find(_.directives.exists(_.id == "primary")).get
+    modelFields.find(_.directives.exists(_.id == "primary")).get
 
-  lazy val readHooks = directives
-    .filter(_.id == "onRead")
-    .map { dir =>
-      dir.args.value.get("function") match {
-        case Some(fn: PFunctionValue[_, _]) => fn
-        case None =>
-          throw new InternalException(
-            s"`onRead` directive of model `$id` must have one function argument. Something must've went wrong during validation"
-          )
-        case _ =>
-          throw new InternalException(
-            s"Function provided to `onRead` of model `$id` should be a function. Something must've went wrong during substitution"
-          )
-      }
-    }
+  lazy val readHooks = getHooksByName(this, "onRead")
 
-  lazy val writeHooks = directives
-    .filter(_.id == "onWrite")
-    .map { dir =>
-      dir.args.value.get("function") match {
-        case Some(fn: PFunctionValue[_, _]) => fn
-        case None =>
-          throw new InternalException(
-            s"`onWrite` directive of model `$id` must have one function argument. Something must've went wrong during validation"
-          )
-        case _ =>
-          throw new InternalException(
-            s"Value provided to `onWrite` of model `$id` should be a function. Something must've went wrong during substitution"
-          )
-      }
-    }
+  lazy val writeHooks = getHooksByName(this, "onWrite")
 
-  lazy val deleteHooks = directives
-    .filter(_.id == "onDelete")
-    .map { dir =>
-      dir.args.value.get("function") match {
-        case Some(fn: PFunctionValue[_, _]) => fn
-        case None =>
-          throw new InternalException(
-            s"`onDelete` directive of model `$id` must have one function argument. Something must've went wrong during validation"
-          )
-        case _ =>
-          throw new InternalException(
-            s"Value provided to `onDelete` of model `$id` should be a function. Something must've went wrong during substitution"
-          )
+  lazy val deleteHooks = getHooksByName(this, "onDelete")
+
+  override def equals(that: Any): Boolean = that match {
+    case model: PModel =>
+      model.id == id && model.fields == fields && model.directives == directives
+    case _ => false
+  }
+}
+
+object PModel {
+  def getHooksByName(model: PModel, directiveName: String) =
+    model.directives
+      .filter(_.id == directiveName)
+      .map { dir =>
+        dir.args.value.get("function") match {
+          case Some(fn: PFunctionValue[_, _]) => fn
+          case None =>
+            throw new InternalException(
+              s"`$directiveName` directive of model `${model.id}` must have one function argument. Something must've went wrong during validation"
+            )
+          case _ =>
+            throw new InternalException(
+              s"Value provided to `$directiveName` of model `${model.id}` should be a function. Something must've went wrong during substitution"
+            )
+        }
       }
-    }
+
+  val defaultPrimaryField = PModelField(
+    "_id",
+    PString,
+    None,
+    Directive(
+      "primary",
+      PInterfaceValue(Map.empty, PInterface("primary", Nil, None)),
+      FieldDirective,
+      None
+    ) :: Nil,
+    None
+  )
+
+  def apply(
+      id: String,
+      fields: Seq[PModelField],
+      directives: Seq[Directive],
+      position: Option[PositionRange]
+  ): PModel = new PModel(id, fields, directives, position)
 }
 
 case class PInterface(

@@ -72,7 +72,7 @@ case class Postgres(syntaxTree: SyntaxTree) extends Storage {
     case POption(ptype)                           => ???
     case PInterface(id, fields, position)         => ???
     case PEnum(id, values, position)              => ???
-    case PModel(id, fields, directives, position) => ???
+    case _: PModel => ???
     case PReference(id)                           => ???
     case PAny                                     => ???
     case PArray(ptype) => {

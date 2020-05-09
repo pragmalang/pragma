@@ -91,16 +91,16 @@ package object utils {
         if (isVerbose) s"File { size = $size, extensions = $exts }" else "File"
       case PArray(t)  => s"[${displayPType(t, isVerbose = false)}]"
       case POption(t) => s"${displayPType(t, isVerbose = false)}?"
-      case PModel(id, fields, directives, _) =>
+      case model: PModel =>
         if (isVerbose) {
           val renderedModel =
-            s"model $id {\n${fields.map(displayField).map("  " + _).mkString("\n")}\n}"
-          if (directives.isEmpty) {
+            s"model $model.id {\n${model.fields.map(displayField).map("  " + _).mkString("\n")}\n}"
+          if (model.directives.isEmpty) {
             renderedModel
           } else {
-            s"${directives.map(displayDirective).mkString("\n")}\n$renderedModel"
+            s"${model.directives.map(displayDirective).mkString("\n")}\n$renderedModel"
           }
-        } else id
+        } else model.id
       case PInterface(id, fields, position) =>
         if (isVerbose)
           s"interface $id {\n${fields.map(displayField).mkString("\n")}\n}"

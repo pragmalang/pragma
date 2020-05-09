@@ -30,14 +30,12 @@ object Substitutor {
     val allErrors = modelErrors.toList ++ permissionsErrors
     if (allErrors.isEmpty)
       Success(
-        addDefaultPrimaryFields(
-          st.copy(
-            models = substitutedModels
-              .map(_.get)
-              .map(model => model.id -> model)
-              .toMap,
-            permissions = substitutedPermissions.get
-          )
+        st.copy(
+          models = substitutedModels
+            .map(_.get)
+            .map(model => model.id -> model)
+            .toMap,
+          permissions = substitutedPermissions.get
         )
       )
     else
@@ -176,32 +174,6 @@ object Substitutor {
         )
       )
   }
-
-  /** NOTE: Should be moved to `PModel` itself.
-    * Adds an _id: String @primary field to the model
-    */
-  def withDefaultId(model: PModel) = model.copy(
-    fields = PModelField(
-      "_id",
-      PString,
-      None,
-      Directive(
-        "primary",
-        PInterfaceValue(ListMap.empty, PInterface("primary", Nil, None)),
-        FieldDirective,
-        None
-      ) :: Nil,
-      None
-    ) +: model.fields
-  )
-
-  def addDefaultPrimaryFields(st: SyntaxTree): SyntaxTree =
-    st.copy(models = st.models.map {
-      case (modelId, model) =>
-        val foundPrimaryField = Validator.findPrimaryField(model)
-        if (foundPrimaryField.isDefined) (modelId, model)
-        else (modelId, withDefaultId(model))
-    })
 
 }
 
