@@ -28,7 +28,7 @@ object RequestReducer {
   def reduceQuery(
       syntaxTree: SyntaxTree,
       queryAst: Document,
-      variables: Option[Either[JsObject, List[JsObject]]]
+      variables: Option[Either[JsObject, Seq[JsObject]]]
   ): Document =
     Document(queryAst.definitions.collect {
       case operationDefinition: OperationDefinition =>

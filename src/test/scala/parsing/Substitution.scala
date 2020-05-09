@@ -36,7 +36,7 @@ class Substitution extends FlatSpec {
     """
     val syntaxTree = SyntaxTree.from(code).get
     val substituted = Substitutor.substitute(syntaxTree).get
-    val directive = substituted.models.head.directives.head
+    val directive = substituted.models.values.head.directives.head
     directive.args.value("function") match {
       case GraalFunction(id, _, filePath, graalCtx, languageId) => {
         assert(id == "validateCat")
@@ -52,7 +52,8 @@ class Substitution extends FlatSpec {
     """
     val syntaxTree = SyntaxTree.from(code).get
     val graalCtx = Context.create()
-    val ctx = Substitutor.getContext(syntaxTree.imports, graalCtx).get
+    val ctx =
+      Substitutor.getContext(syntaxTree.imports.values.toSeq, graalCtx).get
     val ref = PragmaParser
       .Reference(
         List("fns", "validateCat"),

@@ -10,7 +10,7 @@ case class Request(
     body: Option[JsObject],
     user: Option[JwtPaylod],
     query: Document,
-    queryVariables: Either[JsObject, List[JsObject]],
+    queryVariables: Either[JsObject, Seq[JsObject]],
     cookies: Map[String, String],
     url: String,
     hostname: String
@@ -43,7 +43,7 @@ case class Operation(
     role: Option[PModel],
     user: Option[JwtPaylod],
     // Contains hooks used in @onRead, @onWrite, and @onDelete directives
-    crudHooks: List[PFunctionValue[_, _]],
+    crudHooks: Seq[PFunctionValue[_, _]],
     alias: Option[String],
     innerReadOps: Vector[InnerOperation]
 )
@@ -165,7 +165,7 @@ object Operations {
       user: Option[JwtPaylod],
       st: SyntaxTree
   ): Vector[Operation] = {
-    val targetModel = st.models.find(_.id == modelSelection.name) match {
+    val targetModel = st.models.get(modelSelection.name) match {
       case Some(model) => model
       case _ =>
         throw new InternalException(
@@ -173,7 +173,7 @@ object Operations {
         )
     }
     val userRole = user.flatMap { jwt =>
-      st.models.find(_.id == jwt.role)
+      st.models.get(jwt.role)
     }
     modelSelection.selections.map {
       case opSelection: FieldSelection =>
@@ -250,11 +250,11 @@ object Operations {
           )
       }
     val targetFieldType = targetField.ptype match {
-      case m: PReference          => st.findTypeById(m.id)
-      case PArray(m: PReference)  => st.findTypeById(m.id)
-      case POption(m: PReference) => st.findTypeById(m.id)
+      case m: PReference                  => st.findTypeById(m.id)
+      case PArray(m: PReference)          => st.findTypeById(m.id)
+      case POption(m: PReference)         => st.findTypeById(m.id)
       case POption(PArray(m: PReference)) => st.findTypeById(m.id)
-      case p       => Some(p)
+      case p                              => Some(p)
     }
     val innerOpTargetModel = targetFieldType match {
       case Some(m: PModel) => m

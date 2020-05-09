@@ -10,8 +10,9 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
 
   def buildGraphQLAst() = Document(typeDefinitions.toVector)
 
-  def typeDefinitions(): List[Definition] =
-    syntaxTree.models.map(pshape(_)) ++ syntaxTree.enums.map(penum(_))
+  def typeDefinitions(): Iterable[Definition] =
+    syntaxTree.models.values.map(pshape(_)) ++
+      syntaxTree.enums.values.map(penum(_))
 
   def graphQlFieldArgs(args: Map[String, Type]) =
     args.map(arg => InputValueDefinition(arg._1, arg._2, None)).toVector
@@ -26,7 +27,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     arguments = graphQlFieldArgs(args)
   )
 
-  def outputTypes: List[Definition] = typeDefinitions map {
+  def outputTypes: Iterable[Definition] = typeDefinitions map {
     case objDef: ObjectTypeDefinition =>
       objDef.copy(fields = objDef.fields map { field =>
         field.fieldType match {
@@ -48,8 +49,8 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     case td => td
   }
 
-  def modelMutationsTypes: List[Definition] =
-    syntaxTree.models.map(model => {
+  def modelMutationsTypes: Iterable[Definition] =
+    syntaxTree.models.values.map(model => {
 
       val login = if (model.isUser) {
         val secretCredentialField = model.fields
@@ -243,8 +244,8 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       ObjectTypeDefinition(s"${model.id}Mutations", Vector.empty, fields)
     })
 
-  def modelQueriesTypes: List[Definition] =
-    syntaxTree.models.map(model => {
+  def modelQueriesTypes: Iterable[Definition] =
+    syntaxTree.models.values.map(model => {
 
       val read = Some(
         graphQlField(
@@ -273,8 +274,8 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       ObjectTypeDefinition(s"${model.id}Queries", Vector.empty, fields)
     })
 
-  def modelSubscriptionsTypes: List[Definition] =
-    syntaxTree.models.map(model => {
+  def modelSubscriptionsTypes: Iterable[Definition] =
+    syntaxTree.models.values.map(model => {
 
       val read = Some(
         graphQlField(
@@ -311,7 +312,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     )
 
     val isReferenceToModel = (t: PReference) =>
-      syntaxTree.models.exists(_.id == t.id)
+      syntaxTree.models.get(t.id).isDefined
 
     field.ptype match {
       case t: PReference if isReferenceToModel(t) =>
@@ -328,8 +329,8 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     }
   }
 
-  def inputTypes: List[Definition] =
-    syntaxTree.models.map { model =>
+  def inputTypes: Iterable[Definition] =
+    syntaxTree.models.values.map { model =>
       InputObjectTypeDefinition(
         name = inputTypeName(model)(OptionalInput),
         fields = model.fields.toVector.map(
@@ -351,7 +352,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     interfaces = Vector.empty,
     fields = rules
       .foldLeft(List.empty[Option[FieldDefinition]])(
-        (acc, rule) => acc ::: syntaxTree.models.map(rule)
+        (acc, rule) => acc ++ syntaxTree.models.values.map(rule)
       )
       .filter({
         case Some(field) => true
@@ -510,11 +511,11 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       :: mutationType
       :: subscriptionType
       :: buitlinGraphQlDefinitions
-      ::: outputTypes
-      ::: inputTypes
-      ::: modelMutationsTypes
-      ::: modelQueriesTypes
-      ::: modelSubscriptionsTypes).toVector
+      ++ outputTypes
+      ++ inputTypes
+      ++ modelMutationsTypes
+      ++ modelQueriesTypes
+      ++ modelSubscriptionsTypes).toVector
   }
 
   def getTypeFromSchema(tpe: Type): Option[TypeFromSchema] = Option {

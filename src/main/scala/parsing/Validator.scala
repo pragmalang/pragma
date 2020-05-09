@@ -38,10 +38,9 @@ class Validator(constructs: List[PConstruct]) {
 
   // Check that types don't have one of the `Validator.invalidTypeIdentifiers`
   def checkReservedTypeIdentifiers: Try[Unit] = {
-    val errors = (st.models :: st.enums) collect {
-      case c: Identifiable with Positioned
-          if invalidTypeIdentifiers.contains(c.id) =>
-        (s"Identifier `${c.id}` is reserved", c.position)
+    val errors = (st.models ++ st.enums) collect {
+      case (id, c: Positioned) if invalidTypeIdentifiers.contains(c.id) =>
+        (s"Identifier `$id` is reserved", c.position)
     }
     if (errors.isEmpty) Success(())
     else Failure(UserError(errors))
@@ -49,7 +48,7 @@ class Validator(constructs: List[PConstruct]) {
 
   // Type-check the default value ot model fields.
   def checkFieldValueType: Try[Unit] = Try {
-    val errors: List[ErrorMessage] = st.models.flatMap { m =>
+    val errors: List[ErrorMessage] = st.models.values.toList.flatMap { m =>
       m.fields.foldLeft(List.empty[ErrorMessage]) { (errors, field) =>
         field.defaultValue match {
           case Some(v: PValue) if field.isOptional => {
@@ -74,7 +73,7 @@ class Validator(constructs: List[PConstruct]) {
           case Some(PStringValue(value))
               if field.ptype.isInstanceOf[PReference] => {
             val found = st.enums
-              .find(_.id == field.ptype.asInstanceOf[Identifiable].id)
+              .get(field.ptype.asInstanceOf[Identifiable].id)
               .flatMap(foundEnum => foundEnum.values.find(_ == value))
               .isDefined
             if (found) errors
@@ -98,7 +97,7 @@ class Validator(constructs: List[PConstruct]) {
 
   // Check that no two constructs have the same id.
   def checkIdentity(
-      identifiables: List[Identifiable with Positioned]
+      identifiables: Seq[Identifiable with Positioned]
   ): List[ErrorMessage] =
     identifiables
       .foldLeft((Set.empty[String], List.empty[ErrorMessage]))(
@@ -115,21 +114,22 @@ class Validator(constructs: List[PConstruct]) {
       )
       ._2
 
-  def checkTopLevelIdentity: Try[Unit] = Try {
-    val errors = checkIdentity(st.models ::: st.enums)
-    if (!errors.isEmpty) throw new UserError(errors)
+  def checkTopLevelIdentity: Try[Unit] = {
+    val errors = checkIdentity(st.models.values.toSeq ++ st.enums.values.toSeq)
+    if (!errors.isEmpty) Failure(UserError(errors))
+    else Success(())
   }
 
   // Check that no two fields of a model have the same id.
   def checkModelFieldIdentity: Try[Unit] = Try {
-    val errors = st.models.map(m => checkIdentity(m.fields))
+    val errors = st.models.values.map(m => checkIdentity(m.fields))
     if (!errors.isEmpty) throw new UserError(errors.flatten)
   }
 
   // Check if field types are defined
   def checkTypeExistance: Try[Unit] = {
     val errors = for {
-      model <- st.models
+      model <- st.models.values
       field <- model.fields
       referenceedId <- field.ptype match {
         case PReference(id)          => Some(id)
@@ -145,8 +145,8 @@ class Validator(constructs: List[PConstruct]) {
 
   // Check that a recursive type's self references are optional
   // (they must be in order to end the recursion)
-  def checkSelfRefOptionality: Try[Unit] = Try {
-    val errors = st.models.flatMap { m =>
+  def checkSelfRefOptionality: Try[Unit] = {
+    val errors = st.models.values.flatMap { m =>
       m.fields.collect {
         case f
             if f.ptype.isInstanceOf[PReference] &&
@@ -156,7 +156,8 @@ class Validator(constructs: List[PConstruct]) {
             f.position
       }
     }
-    if (!errors.isEmpty) throw new UserError(errors)
+    if (!errors.isEmpty) Failure(UserError(errors))
+    else Success(())
   }
 
   // A user model's public credential can only be String or Integer.
@@ -218,14 +219,14 @@ class Validator(constructs: List[PConstruct]) {
     }
 
   def checkUserModelCredentials: Try[Unit] = Try {
-    val credentialCountErrors = st.models.flatMap(checkCredentialCount)
-    val credentialTypeErrors = st.models.flatMap(checkCredentialTypes)
-    val allErrors = credentialCountErrors ::: credentialTypeErrors
+    val credentialCountErrors = st.models.values.flatMap(checkCredentialCount)
+    val credentialTypeErrors = st.models.values.flatMap(checkCredentialTypes)
+    val allErrors = credentialCountErrors ++ credentialTypeErrors
     if (!allErrors.isEmpty) throw new UserError(allErrors)
   }
 
   def checkModelPrimaryFields: Try[Unit] = Try {
-    val errors = st.models.collect {
+    val errors = st.models.values.collect {
       case m if Validator.primaryFieldCount(m) > 1 =>
         (s"Multiple primary fields defined for `${m.id}`", m.position) :: Nil
       case m => {
@@ -267,18 +268,18 @@ class Validator(constructs: List[PConstruct]) {
 
   def checkDirectiveArgs: Try[Unit] = {
     val modelLevelErrors = for {
-      model <- st.models
+      model <- st.models.values
       dir <- model.directives
     } yield checkDirectiveAgainst(BuiltInDefs.modelDirectives(model), dir)
 
     val fieldLevelErrors = for {
-      model <- st.models
+      model <- st.models.values
       field <- model.fields
       dir <- field.directives
     } yield
       checkDirectiveAgainst(BuiltInDefs.fieldDirectives(model, field), dir)
 
-    val allErrors = (modelLevelErrors ::: fieldLevelErrors).flatten
+    val allErrors = (modelLevelErrors ++ fieldLevelErrors).flatten
     if (allErrors.isEmpty) Success(())
     else Failure(new UserError(allErrors))
   }
@@ -296,7 +297,7 @@ class Validator(constructs: List[PConstruct]) {
 
   def checkCreateAccessRules: Try[Unit] = {
     val rules =
-      st.permissions.globalTenant.rules :::
+      st.permissions.globalTenant.rules ++:
         st.permissions.globalTenant.roles.flatMap(_.rules)
     val errors = for {
       rule <- rules
@@ -313,7 +314,7 @@ class Validator(constructs: List[PConstruct]) {
 
   def checkRolesBelongToUserModels: Try[Unit] = {
     val errors = st.permissions.globalTenant.roles.filter { role =>
-      !st.models.filter(_.isUser).exists(_.id == role.user.id)
+      !st.models.values.filter(_.isUser).exists(_.id == role.user.id)
     } map { userlessRole =>
       (
         s"Roles can only be defined for user models, but `${userlessRole.user.id}` is not a defined user model",
@@ -327,7 +328,7 @@ class Validator(constructs: List[PConstruct]) {
   def checkRelations: Try[Unit] = {
     val errors =
       for {
-        model <- st.models
+        model <- st.models.values
         field <- model.fields
         relationDirectives = field.directives.filter(_.id == "relation")
         error <- if (relationDirectives.isEmpty) None
@@ -351,10 +352,10 @@ class Validator(constructs: List[PConstruct]) {
             }
 
           val targetModel = field.ptype match {
-            case PReference(id)                  => st.models.find(_.id == id)
-            case PArray(PReference(id))          => st.models.find(_.id == id)
-            case POption(PReference(id))         => st.models.find(_.id == id)
-            case POption(PArray(PReference(id))) => st.models.find(_.id == id)
+            case PReference(id)                  => st.models.get(id)
+            case PArray(PReference(id))          => st.models.get(id)
+            case POption(PReference(id))         => st.models.get(id)
+            case POption(PArray(PReference(id))) => st.models.get(id)
             case _ =>
               return Failure(
                 UserError(

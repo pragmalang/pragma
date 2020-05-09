@@ -10,12 +10,12 @@ object Substitutor {
 
   def substitute(st: SyntaxTree): Try[SyntaxTree] = {
     val graalCtx = Context.create()
-    val ctx = getContext(st.imports, graalCtx) match {
+    val ctx = getContext(st.imports.values.toList, graalCtx) match {
       case Success(ctx) => ctx
       case Failure(err) => return Failure(err)
     }
     val substitutedModels =
-      st.models.map(substituteDirectiveFunctionRefs(_, ctx))
+      st.models.map(model => substituteDirectiveFunctionRefs(model._2, ctx))
     val modelErrors = substitutedModels.collect {
       case Failure(err: UserError) => err.errors
     }.flatten
@@ -27,12 +27,15 @@ object Substitutor {
       case Failure(err: UserError) => err.errors
       case Failure(err)            => (err.getMessage, None) :: Nil
     }
-    val allErrors = modelErrors ::: permissionsErrors
+    val allErrors = modelErrors.toList ++ permissionsErrors
     if (allErrors.isEmpty)
       Success(
         addDefaultPrimaryFields(
           st.copy(
-            models = substitutedModels.map(_.get),
+            models = substitutedModels
+              .map(_.get)
+              .map(model => model.id -> model)
+              .toMap,
             permissions = substitutedPermissions.get
           )
         )
@@ -43,7 +46,7 @@ object Substitutor {
 
   /** Gets all imported functions as a single object */
   def getContext(
-      imports: List[PImport],
+      imports: Seq[PImport],
       graalCtx: Context
   ): Try[PInterfaceValue] = {
     val importedObjects = imports zip imports.map(
@@ -122,7 +125,7 @@ object Substitutor {
     val newFieldLevel = model.fields.map { field =>
       field.directives.map(substituteDirectiveRefArgs(ctx))
     }
-    val errors = newModelLevel ::: newFieldLevel.flatten collect {
+    val errors = newModelLevel ++ newFieldLevel.flatten collect {
       case Failure(e: UserError) => e
     }
     if (errors.length > 0) Failure(new UserError(errors.flatMap(_.errors)))
@@ -189,14 +192,15 @@ object Substitutor {
         None
       ) :: Nil,
       None
-    ) :: model.fields
+    ) +: model.fields
   )
 
   def addDefaultPrimaryFields(st: SyntaxTree): SyntaxTree =
-    st.copy(models = st.models.map { model =>
-      val foundPrimaryField = Validator.findPrimaryField(model)
-      if (foundPrimaryField.isDefined) model
-      else withDefaultId(model)
+    st.copy(models = st.models.map {
+      case (modelId, model) =>
+        val foundPrimaryField = Validator.findPrimaryField(model)
+        if (foundPrimaryField.isDefined) (modelId, model)
+        else (modelId, withDefaultId(model))
     })
 
 }
@@ -211,7 +215,7 @@ object PermissionsSubstitutor {
     }
     val substitutedRoles = st.permissions.globalTenant.roles.map { role =>
       val roleModel =
-        st.models.find(model => model.id == role.user.id && model.isUser)
+        st.models.values.find(model => model.id == role.user.id && model.isUser)
       roleModel match {
         case None =>
           Failure(
@@ -224,7 +228,7 @@ object PermissionsSubstitutor {
           combineUserErrorTries {
             role.rules.map(substituteAccessRule(_, Some(userModel), st, ctx))
           } map { newRules =>
-            role.copy(rules = newRules)
+            role.copy(rules = newRules.toSeq)
           }
       }
     }
@@ -234,12 +238,12 @@ object PermissionsSubstitutor {
       case (Success(rules), Success(roles)) =>
         Success {
           st.permissions.copy(
-            globalTenant =
-              st.permissions.globalTenant.copy(rules = rules, roles = roles)
+            globalTenant = st.permissions.globalTenant
+              .copy(rules = rules.toSeq, roles = roles.toSeq)
           )
         }
       case (Failure(e1: UserError), Failure(e2: UserError)) =>
-        Failure(UserError(e1.errors ::: e2.errors))
+        Failure(UserError(e1.errors ++ e2.errors))
       case (_, Failure(err)) => Failure(err)
       case (Failure(err), _) => Failure(err)
     }
@@ -263,7 +267,7 @@ object PermissionsSubstitutor {
           )
         )
       else
-        (st.models.find(_.id == parentName) match {
+        (st.models.get(parentName) match {
           case Some(model) => model
           case None =>
             return Failure(
@@ -292,8 +296,8 @@ object PermissionsSubstitutor {
 
     val newRule = rule.copy(resourcePath = (parent, child))
 
-    substituteRulePredicate(newRule, isSelfRule, st.models, ctx)
-      .flatMap(substituteAccessRulePermissions)
+    substituteRulePredicate(newRule, isSelfRule, st.models.values.toList, ctx)
+      .flatMap(substituteAccessRulePermissions(_))
   }
 
   /** Used as a part of access rule substitution */

@@ -66,13 +66,13 @@ sealed trait PPermission {
   }
 }
 object PPermission {
-  lazy val allowedArrayFieldPermissions: List[PPermission] =
+  lazy val allowedArrayFieldPermissions: Seq[PPermission] =
     List(Read, Update, SetOnCreate, PushTo, RemoveFrom, Mutate)
-  lazy val allowedPrimitiveFieldPermissions: List[PPermission] =
+  lazy val allowedPrimitiveFieldPermissions: Seq[PPermission] =
     List(Read, Update, SetOnCreate)
-  lazy val allowedModelPermissions: List[PPermission] =
+  lazy val allowedModelPermissions: Seq[PPermission] =
     List(Read, Update, Create, Delete)
-  lazy val allowedModelFieldPermissions: List[PPermission] =
+  lazy val allowedModelFieldPermissions: Seq[PPermission] =
     List(Read, Update, Mutate, SetOnCreate)
 }
 
@@ -110,12 +110,12 @@ case object Login extends PPermission with PEvent // allowed by default
 
 case class Permissions(
     globalTenant: Tenant,
-    tenants: List[Tenant]
+    tenants: Seq[Tenant]
 ) {
   type TargetModelId = String
   type RoleId = String
   type PermissionTree =
-    Map[Option[RoleId], Map[TargetModelId, Map[PEvent, List[AccessRule]]]]
+    Map[Option[RoleId], Map[TargetModelId, Map[PEvent, Seq[AccessRule]]]]
 
   /**
     * A queryable tree of permissions.
@@ -125,16 +125,16 @@ case class Permissions(
   lazy val tree: PermissionTree = constructTree
 
   private def ruleEventTree(
-      rules: List[AccessRule]
-  ): Map[PEvent, List[AccessRule]] = {
+      rules: Seq[AccessRule]
+  ): Map[PEvent, Seq[AccessRule]] = {
     val eventRulePairs =
       rules.flatMap(rule => rule.eventsThatMatch.map((_, rule)))
     eventRulePairs.groupMap(_._1)(_._2)
   }
 
   private def targetModelTree(
-      rules: List[AccessRule]
-  ): Map[TargetModelId, Map[PEvent, List[AccessRule]]] =
+      rules: Seq[AccessRule]
+  ): Map[TargetModelId, Map[PEvent, Seq[AccessRule]]] =
     rules.groupBy(_.resourcePath._1.id).map {
       case (targetModelId, rules) => (targetModelId, ruleEventTree(rules))
     }
@@ -143,7 +143,7 @@ case class Permissions(
     val trees =
       globalTenant.roles.map { role =>
         Option(role.user.id) -> targetModelTree(
-          globalTenant.rules ::: role.rules
+          globalTenant.rules ++ role.rules
         )
       }
     trees.toMap.withDefaultValue(targetModelTree(globalTenant.rules))
@@ -153,7 +153,7 @@ case class Permissions(
       role: Option[RoleId],
       targetModel: TargetModelId,
       event: PEvent
-  ): List[AccessRule] = {
+  ): Seq[AccessRule] = {
     val targetModelTree = tree(role)
     val rules = for {
       eventTree <- targetModelTree.get(targetModel)
@@ -167,7 +167,7 @@ case class Permissions(
       role: Option[PModel],
       targetModel: PModel,
       event: PEvent
-  ): List[AccessRule] =
+  ): Seq[AccessRule] =
     rulesOf(role.map(_.id), targetModel.id, event)
 
 }
@@ -180,15 +180,15 @@ object Permissions {
 
 case class Tenant(
     id: String,
-    rules: List[AccessRule],
-    roles: List[Role],
+    rules: Seq[AccessRule],
+    roles: Seq[Role],
     position: Option[PositionRange]
 ) extends Identifiable
     with Positioned
 
 case class Role(
     user: PReference,
-    rules: List[AccessRule],
+    rules: Seq[AccessRule],
     position: Option[PositionRange] = None
 ) extends PConstruct
 
@@ -199,13 +199,13 @@ case object Deny extends RuleKind
 case class AccessRule(
     ruleKind: RuleKind,
     resourcePath: (PShape, Option[PShapeField]),
-    actions: List[PPermission],
+    actions: Seq[PPermission],
     predicate: Option[PFunctionValue[JsValue, Try[JsValue]]],
     position: Option[PositionRange]
 ) extends PConstruct {
-  def eventsThatMatch: List[PEvent] = actions.flatMap(eventsOf).distinct
+  def eventsThatMatch: Seq[PEvent] = actions.flatMap(eventsOf).distinct
 
-  def eventsOf(permission: PPermission): List[PEvent] =
+  def eventsOf(permission: PPermission): Seq[PEvent] =
     if (!actions.contains(permission)) Nil
     else
       (resourcePath, permission) match {

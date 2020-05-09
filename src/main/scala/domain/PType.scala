@@ -13,13 +13,13 @@ case class PReference(id: String) extends PType with Identifiable
 
 trait PShape extends Identifiable {
   override val id: String
-  val fields: List[PShapeField]
+  val fields: Seq[PShapeField]
 }
 
 case class PModel(
     id: String,
-    fields: List[PModelField],
-    directives: List[Directive],
+    fields: Seq[PModelField],
+    directives: Seq[Directive],
     position: Option[PositionRange]
 ) extends PType
     with PConstruct
@@ -80,14 +80,14 @@ case class PModel(
 
 case class PInterface(
     id: String,
-    fields: List[PInterfaceField],
+    fields: Seq[PInterfaceField],
     position: Option[PositionRange]
 ) extends PType
     with PShape //with HConstruct
 
 case class PEnum(
     id: String,
-    values: List[String],
+    values: Seq[String],
     position: Option[PositionRange]
 ) extends Identifiable
     with PType
@@ -105,7 +105,7 @@ case class PModelField(
     id: String,
     ptype: PType,
     defaultValue: Option[PValue],
-    directives: List[Directive],
+    directives: Seq[Directive],
     position: Option[PositionRange]
 ) extends PShapeField
 
@@ -122,7 +122,7 @@ case object PFloat extends PrimitiveType
 case object PBool extends PrimitiveType
 case object PDate extends PrimitiveType
 case class PArray(ptype: PType) extends PrimitiveType
-case class PFile(sizeInBytes: Int, extensions: List[String])
+case class PFile(sizeInBytes: Int, extensions: Seq[String])
     extends PrimitiveType
 case class PFunction(args: NamedArgs, returnType: PType) extends PrimitiveType
 case class POption(ptype: PType) extends PrimitiveType

@@ -5,18 +5,18 @@ import parsing.{PragmaParser, Validator, Substitutor}
 import scala.util.Try
 
 case class SyntaxTree(
-    imports: List[PImport],
-    models: List[PModel],
-    enums: List[PEnum],
+    imports: Map[ID, PImport],
+    models: Map[ID, PModel],
+    enums: Map[ID, PEnum],
     permissions: Permissions,
     config: Option[PConfig] = None
 ) {
+
   def findTypeById(id: String): Option[PType] =
-    models.find(model => model.id.toLowerCase == id.toLowerCase) orElse
-      enums.find(enum => enum.id == id)
+    models.get(id) orElse enums.get(id)
 
   def render: String =
-    (models ++ enums).map(displayPType(_, true)).mkString("\n\n")
+    (models.values ++ enums.values).map(displayPType(_, true)).mkString("\n\n")
 
   def getConfigEntry(key: String): Option[ConfigEntry] =
     config.flatMap(_.getConfigEntry(key))
@@ -48,9 +48,9 @@ object SyntaxTree {
       Nil // TODO: Add support for user-defined tenants
     )
     SyntaxTree(
-      imports,
-      models,
-      enums,
+      imports.map(i => i.id -> i).toMap,
+      models.map(m => m.id -> m).toMap,
+      enums.map(e => e.id -> e).toMap,
       permissions,
       if (config.isEmpty) None else Some(config.head)
     )

@@ -5,6 +5,7 @@ import java.time.ZonedDateTime
 
 package object utils {
 
+  type ID = String
   type ModelId = String
   type FieldId = String
 
@@ -31,15 +32,15 @@ package object utils {
         s"Authorization Error: $message${cause.map(". " + _).getOrElse("")}${suggestion.map(". " + _).getOrElse("")}"
       )
 
-  class TypeMismatchException(expected: List[PType], found: PType)
+  class TypeMismatchException(expected: Iterable[PType], found: PType)
       extends InternalException(
-        s"Type Mismatch. Expected ${if (expected.length == 1) displayPType(expected.head)
+        s"Type Mismatch. Expected ${if (expected.size == 1) displayPType(expected.head)
         else s"one of [${expected.map(displayPType(_)).mkString(", ")}]"}, but found ${displayPType(found)}"
       )
 
   type ErrorMessage = (String, Option[PositionRange])
 
-  case class UserError(val errors: List[ErrorMessage])
+  case class UserError(val errors: Iterable[ErrorMessage])
       extends Exception(errors.map(_._1).mkString("\n"))
 
   object UserError {
@@ -54,7 +55,7 @@ package object utils {
     ): UserError =
       UserError(errorMessages.map(_ -> None).toList)
 
-    def fromAuthErrors(authErrors: List[AuthorizationError]): UserError =
+    def fromAuthErrors(authErrors: Iterable[AuthorizationError]): UserError =
       UserError(authErrors.map(_.message -> None))
   }
 
@@ -67,13 +68,13 @@ package object utils {
   /** Takes a list of `Try`s that may have `UserError`s inside
     * them, and combines them into a single `Try` that might contain a `UserError`
     */
-  def combineUserErrorTries[T](ts: List[Try[T]]): Try[List[T]] =
+  def combineUserErrorTries[T](ts: Iterable[Try[T]]): Try[Iterable[T]] =
     ts.foldLeft(Try(List.empty[T])) {
       case (Success(values), Success(value))     => Success(values :+ value)
       case (Success(_), Failure(err: UserError)) => Failure(err)
       case (Failure(err: UserError), Success(_)) => Failure(err)
       case (Failure(err: UserError), Failure(err2: UserError)) =>
-        Failure(UserError(err.errors ::: err2.errors))
+        Failure(UserError(err.errors ++ err2.errors))
       case (Failure(otherError), _) => Failure(otherError)
       case (_, Failure(otherError)) => Failure(otherError)
     }
@@ -108,7 +109,7 @@ package object utils {
         if (isVerbose)
           s"enum $id {\n${values.map("  " + _).mkString("\n")}\n}"
         else id
-      case PReference(id)  => id
+      case PReference(id) => id
       case PFunction(namedArgs, returnType) => {
         val args = namedArgs
           .map(arg => displayPType(arg._2))
@@ -164,7 +165,7 @@ package object utils {
     Try {
       def fieldsRespectsShape(
           objectFields: Map[String, JsValue],
-          shapeFields: List[PShapeField]
+          shapeFields: Iterable[PShapeField]
       ) =
         objectFields.forall(
           of =>

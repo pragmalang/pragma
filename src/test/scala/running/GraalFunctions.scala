@@ -81,7 +81,7 @@ class GraalFunctions extends FlatSpec {
     """
     val st = SyntaxTree.from(code).get
     val graalCtx = Context.create()
-    val ctx = Substitutor.getContext(st.imports, graalCtx).get
+    val ctx = Substitutor.getContext(st.imports.values.toSeq, graalCtx).get
     (
       ctx.value("jsFns").asInstanceOf[PInterfaceValue].value("f"),
       ctx.value("pyFns").asInstanceOf[PInterfaceValue].value("increment")

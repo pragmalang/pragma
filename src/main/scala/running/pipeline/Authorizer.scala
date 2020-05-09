@@ -27,7 +27,7 @@ class Authorizer(
         Future(results(reqOps.values.flatten.toVector, JsNull))
       }
       case Some(jwt) => {
-        val userModel = syntaxTree.models.find(_.id == jwt.role) match {
+        val userModel = syntaxTree.models.get(jwt.role) match {
           case Some(model) => model
           case _ =>
             return Future.failed(
@@ -37,10 +37,12 @@ class Authorizer(
             )
         }
 
-        val user = storage.run(
-          userQuery(userModel, jwt.userId),
-          Map(None -> Vector(userReadOperation(userModel, jwt)))
-        ).map(_.get)
+        val user = storage
+          .run(
+            userQuery(userModel, jwt.userId),
+            Map(None -> Vector(userReadOperation(userModel, jwt)))
+          )
+          .map(_.get)
 
         user.map {
           case Left(userJson: JsObject)
@@ -84,7 +86,7 @@ class Authorizer(
   }
 
   /** Returns all the rules that can match */
-  def relevantRules(op: Operation): List[AccessRule] =
+  def relevantRules(op: Operation): Seq[AccessRule] =
     syntaxTree.permissions.rulesOf(op.role, op.targetModel, op.event)
 
   /** Note: should only recieve a relevant rule (use `relevantRules`) */

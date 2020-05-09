@@ -141,9 +141,9 @@ object MockSyntaxTree {
 
   val syntaxTree =
     SyntaxTree(
-      Nil,
-      List(businessModel, brancPModel),
-      List(businessTypeEnum),
+      Map.empty,
+      Map(businessModel.id -> businessModel, brancPModel.id -> brancPModel),
+      Map(businessTypeEnum.id -> businessTypeEnum),
       permissions,
       None
     )
