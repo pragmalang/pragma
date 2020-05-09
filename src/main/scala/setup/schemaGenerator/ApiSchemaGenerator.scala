@@ -1,6 +1,6 @@
 package setup.schemaGenerator
 
-import domain._, primitives._, Implicits._
+import domain._, Implicits._
 import sangria.ast._
 import sangria.ast.{Directive => GraphQlDirective}
 import sangria.macros._
@@ -304,22 +304,22 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     })
 
   def inputFieldType(field: PModelField) = {
-    val PReferenceType = fieldType(
+    val pReferenceType = fieldType(
       ht = field.ptype,
       nameTransformer = inputTypeName(_)(OptionalInput),
       isOptional = true
     )
 
-    val isReferenceToModel = (t: PReferenceType) =>
+    val isReferenceToModel = (t: PReference) =>
       syntaxTree.models.exists(_.id == t.id)
 
     field.ptype match {
-      case t: PReferenceType if isReferenceToModel(t) =>
-        PReferenceType
-      case PArray(t: PReferenceType) if isReferenceToModel(t) =>
-        PReferenceType
-      case POption(t: PReferenceType) if isReferenceToModel(t) =>
-        PReferenceType
+      case t: PReference if isReferenceToModel(t) =>
+        pReferenceType
+      case PArray(t: PReference) if isReferenceToModel(t) =>
+        pReferenceType
+      case POption(t: PReference) if isReferenceToModel(t) =>
+        pReferenceType
       case _ =>
         fieldType(
           ht = field.ptype,
@@ -690,6 +690,9 @@ object ApiSchemaGenerator {
       case PString =>
         if (isOptional) NamedType("String")
         else NotNullType(NamedType("String"))
+      case PAny =>
+        if (isOptional) NamedType("Any")
+        else NotNullType(NamedType("Any"))
       case POption(ht) => fieldType(ht, isOptional = true, nameTransformer)
       case PFile(_, _) =>
         if (isOptional) NamedType("String")

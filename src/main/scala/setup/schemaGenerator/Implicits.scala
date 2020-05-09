@@ -1,7 +1,7 @@
 package setup.schemaGenerator
 
 import scala.language.implicitConversions
-import domain._, primitives._
+import domain._
 import sangria.ast.NamedType
 
 package object Implicits {

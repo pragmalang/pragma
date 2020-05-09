@@ -2,8 +2,6 @@ package parsing
 
 import org.parboiled2._
 import domain._
-import primitives._
-import scala.collection.immutable.ListMap
 import scala.language.implicitConversions
 import domain.utils.`package`.Identifiable
 import spray.json.JsValue
@@ -29,7 +27,7 @@ object PragmaParser {
       )
 
     override val ptype: PFunction =
-      PFunction(ListMap.empty, PAny)
+      PFunction(Map.empty, PAny)
 
     override def toString: String =
       path.head + path.tail.foldLeft("")(_ + "." + _)
@@ -153,7 +151,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
 
   def namedArgs: Rule1[PInterfaceValue] = rule {
     zeroOrMore(namedArg).separatedBy(",") ~> { (pairs: Seq[(String, PValue)]) =>
-      PInterfaceValue(ListMap.from(pairs), PInterface("", Nil, None))
+      PInterfaceValue(pairs.toMap, PInterface("", Nil, None))
     }
   }
 
@@ -166,7 +164,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
       (start: Int, did: String, args: Option[PInterfaceValue], end: Int) =>
         Directive(did, args match {
           case Some(args) => args
-          case None       => PInterfaceValue(ListMap.empty, PInterface("", Nil, None))
+          case None       => PInterfaceValue(Map.empty, PInterface("", Nil, None))
         }, dirKind, Some(PositionRange(start, end)))
     }
   }

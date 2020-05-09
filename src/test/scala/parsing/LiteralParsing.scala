@@ -1,6 +1,5 @@
 import org.scalatest._
 import domain._
-import domain.primitives._
 import parsing._
 import scala.util._
 

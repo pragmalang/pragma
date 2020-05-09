@@ -7,7 +7,7 @@ import spray.json._
 import domain.SyntaxTree
 import parsing.Substitutor
 import domain._
-import domain.primitives.`package`.PInterfaceValue
+import domain.PInterfaceValue
 
 class GraalFunctions extends FlatSpec {
   "GraalValueJsonFormater" should "read and write Graal values correctly" in {

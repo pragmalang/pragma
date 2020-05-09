@@ -1,7 +1,6 @@
 package setup
 
 import domain._
-import domain.primitives._
 import scala.collection.immutable.ListMap
 
 object MockSyntaxTree {

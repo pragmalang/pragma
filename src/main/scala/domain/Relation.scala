@@ -1,7 +1,5 @@
 package domain
 
-import domain.primitives._
-
 case class Relation(
     from: (PModel, PModelField),
     to: (PModel, Option[PModelField]),

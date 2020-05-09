@@ -1,5 +1,5 @@
 import org.scalatest._
-import domain._, primitives._
+import domain._
 import parsing._
 import scala.util._
 import org.parboiled2.Position

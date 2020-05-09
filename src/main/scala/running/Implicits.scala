@@ -1,11 +1,11 @@
 package running
 
+import domain._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 import running.pipeline._
 import sangria.ast._
 import sangria.parser.QueryParser
-import domain.primitives._
 
 package object Implicits {
 

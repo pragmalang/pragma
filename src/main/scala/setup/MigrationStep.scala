@@ -1,7 +1,6 @@
 package setup
 
 import domain._
-import domain.primitives.PFunctionValue
 import spray.json.JsValue
 
 trait MigrationStep {

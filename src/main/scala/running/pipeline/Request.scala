@@ -4,8 +4,6 @@ import spray.json._
 import running.JwtPaylod
 import domain._, utils.InternalException
 import sangria.ast._
-import domain.primitives.PFunctionValue
-import domain.primitives._
 
 case class Request(
     hookData: Option[JsValue],
@@ -255,7 +253,8 @@ object Operations {
       case m: PReference          => st.findTypeById(m.id)
       case PArray(m: PReference)  => st.findTypeById(m.id)
       case POption(m: PReference) => st.findTypeById(m.id)
-      case p: PrimitiveType       => Some(p)
+      case POption(PArray(m: PReference)) => st.findTypeById(m.id)
+      case p       => Some(p)
     }
     val innerOpTargetModel = targetFieldType match {
       case Some(m: PModel) => m

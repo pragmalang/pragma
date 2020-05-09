@@ -6,7 +6,7 @@ import domain.{PImport, GraalFunction, SyntaxTree}
 import spray.json._
 import scala.util.Success
 import org.graalvm.polyglot.Context
-import domain._, primitives._
+import domain._
 import collection.immutable.ListMap
 import org.parboiled2.Position
 

@@ -1,6 +1,4 @@
 package domain
-import scala.collection.immutable.ListMap
-import domain.primitives._
 import spray.json._
 import scala.util.{Try, Success, Failure}
 import java.time.ZonedDateTime
@@ -15,7 +13,7 @@ package object utils {
     val id: String
   }
 
-  type NamedArgs = ListMap[String, PType]
+  type NamedArgs = Map[String, PType]
   type Date = java.time.ZonedDateTime
 
   case class InternalException(message: String)
@@ -110,14 +108,13 @@ package object utils {
         if (isVerbose)
           s"enum $id {\n${values.map("  " + _).mkString("\n")}\n}"
         else id
-      case PReference(id) => id
+      case PReference(id)  => id
       case PFunction(namedArgs, returnType) => {
         val args = namedArgs
           .map(arg => displayPType(arg._2))
           .mkString(", ")
         s"($args) => ${displayPType(returnType)}"
       }
-      case i: Identifiable => i.id
     }
 
   def displayField(field: PShapeField): String = field match {

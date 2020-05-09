@@ -1,6 +1,6 @@
 package parsing
 
-import domain._, primitives._, utils._
+import domain._, utils._
 import parsing.utils.DependencyGraph
 import scala.util._
 
@@ -135,7 +135,7 @@ class Validator(constructs: List[PConstruct]) {
         case PReference(id)          => Some(id)
         case PArray(PReference(id))  => Some(id)
         case POption(PReference(id)) => Some(id)
-        case _: PrimitiveType        => None
+        case _                       => None
       }
       if !st.findTypeById(referenceedId).isDefined
     } yield (s"Type `$referenceedId` is not defined", field.position)

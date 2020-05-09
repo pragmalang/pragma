@@ -1,6 +1,6 @@
 package parsing
 
-import domain._, primitives._, utils._, PragmaParser.Reference
+import domain._, utils._, PragmaParser.Reference
 import scala.util.{Try, Success, Failure}
 import scala.jdk.CollectionConverters._
 import scala.collection.immutable.ListMap
@@ -105,7 +105,7 @@ object Substitutor {
 
   def getReferencedFunction(
       ref: Reference,
-      ctx: PObject
+      ctx: Map[String, PValue]
   ): Option[GraalFunction] =
     ctx.get(ref.path.head) match {
       case Some(f: GraalFunction) if ref.path.length == 1 => Some(f)
@@ -204,7 +204,7 @@ object Substitutor {
 object PermissionsSubstitutor {
 
   /** Combines all other `PermissionsSubstitutor` methods */
-  def apply(st: SyntaxTree, ctx: PObject): Try[Permissions] = {
+  def apply(st: SyntaxTree, ctx: Map[String, PValue]): Try[Permissions] = {
     val newGlobalRules = combineUserErrorTries {
       st.permissions.globalTenant.rules
         .map(substituteAccessRule(_, None, st, ctx))
@@ -249,7 +249,7 @@ object PermissionsSubstitutor {
       rule: AccessRule,
       selfRole: Option[PModel],
       st: SyntaxTree,
-      ctx: PObject
+      ctx: Map[String, PValue]
   ): Try[AccessRule] = {
     val parentName = rule.resourcePath._1.asInstanceOf[Reference].path.head
     val childRef = rule.resourcePath._2.asInstanceOf[Option[Reference]]
@@ -301,7 +301,7 @@ object PermissionsSubstitutor {
       rule: AccessRule,
       isSelfRule: Boolean,
       modelDefs: List[PModel],
-      ctx: PObject
+      ctx: Map[String, PValue]
   ): Try[AccessRule] = {
     val userPredicate = rule.predicate match {
       case None => None

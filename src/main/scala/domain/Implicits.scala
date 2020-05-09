@@ -2,7 +2,6 @@ package domain
 
 import spray.json._
 import spray.json.DefaultJsonProtocol._
-import primitives._
 import org.graalvm.polyglot
 import scala.util.{Try, Success, Failure}
 
@@ -36,6 +35,20 @@ package object Implicits {
       case PStringValue(value)              => value.toJson
       case PArrayValue(values, elementType) => values.map(write).toJson
     }
+  }
+
+  implicit class StringMethods(s: String) {
+    import sys.process._
+    def small = if (s.isEmpty) s else s.updated(0, s.head.toLower)
+    def decodeJwt = JwtPaylod.decode(s)
+    def $(msg: String, logsHandler: String => Unit = _ => ()) =
+      s ! ProcessLogger(logsHandler) match {
+        case 1 => Failure(new Exception(msg))
+        case 0 => Success(())
+      }
+
+    def indent(by: Int, indentationChar: String = "  ") =
+      s.prependedAll(indentationChar * by)
   }
 
   implicit object GraalValueJsonFormater
@@ -91,19 +104,5 @@ package object Implicits {
         Value.asValue(entries)
       }
     }
-  }
-
-  implicit class StringMethods(s: String) {
-    import sys.process._
-    def small = if (s.isEmpty) s else s.updated(0, s.head.toLower)
-    def decodeJwt = JwtPaylod.decode(s)
-    def $(msg: String, logsHandler: String => Unit = _ => ()) =
-      s ! ProcessLogger(logsHandler) match {
-        case 1 => Failure(new Exception(msg))
-        case 0 => Success(())
-      }
-
-    def indent(by: Int, indentationChar: String = "  ") =
-      s.prependedAll(indentationChar * by)
   }
 }

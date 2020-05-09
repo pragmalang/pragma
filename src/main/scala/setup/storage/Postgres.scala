@@ -15,10 +15,9 @@ import java.sql._
 import org.jooq.{SQLDialect, DataType}
 import domain.PModelField
 // import org.jooq.CreateTableColumnStep
-import domain.primitives._
 // import scala.language.implicitConversions
 // import org.jooq.Constraint
-import domain.PType
+import domain._
 // import org.jooq.util.xml.jaxb.TableConstraint
 // import org.jooq.util.postgres.PostgresDataType
 // import org.jooq.util.postgres.PostgresDSL
@@ -69,14 +68,19 @@ case class Postgres(syntaxTree: SyntaxTree) extends Storage {
     case PDate   => (SQLDataType.DATE, Vector.empty)
     case PFile(sizeInBytes, extensions) =>
       (SQLDataType.VARCHAR(1000), Vector.empty)
+    case PFunction(args, returnType)              => ???
+    case POption(ptype)                           => ???
+    case PInterface(id, fields, position)         => ???
+    case PEnum(id, values, position)              => ???
+    case PModel(id, fields, directives, position) => ???
+    case PReference(id)                           => ???
+    case PAny                                     => ???
     case PArray(ptype) => {
       // val tableName = arrayFieldTableName(model, field)
       // val _type = fieldType(model, field, ptype)
       val constraint = ???
       (constraint, Vector.empty)
     }
-    case PFunction(args, returnType) => ???
-    case POption(ptype)              => ???
   }
 
   def arrayFieldTableName(model: PModel, field: PModelField): String =
