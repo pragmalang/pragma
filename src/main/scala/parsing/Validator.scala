@@ -301,7 +301,7 @@ class Validator(constructs: List[PConstruct]) {
         st.permissions.globalTenant.roles.flatMap(_.rules)
     val errors = for {
       rule <- rules
-      if rule.actions.contains(Create)
+      if rule.permissions.contains(Create)
       resourceField <- rule.resourcePath._2
     } yield
       (

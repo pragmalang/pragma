@@ -171,7 +171,7 @@ class Substitution extends FlatSpec {
           )
         )
       ),
-      List(Update),
+      Set(Update),
       Some(
         IfSelfAuthPredicate(
           PModel(

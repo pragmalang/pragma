@@ -313,23 +313,24 @@ object PermissionsSubstitutor {
     import PPermission._
     val newPermissions = rule match {
       case AccessRule(_, _, permissions, _, _)
-          if permissions.length > 1 && permissions.contains(All) =>
+          if permissions.size > 1 && permissions.contains(All) =>
         Left(
           (
             s"`${All}` permission cannot be combined with other permissions",
             rule.position
           )
         )
-      case AccessRule(_, (_, None), All :: Nil, _, _) =>
+      case AccessRule(_, (_, None), permissions, _, _)
+          if permissions == Set(All) =>
         Right(allowedModelPermissions)
-      case AccessRule(_, (_, Some(field)), All :: Nil, _, _)
-          if field.ptype.isInstanceOf[PArray] =>
+      case AccessRule(_, (_, Some(field)), permissions, _, _)
+          if field.ptype.isInstanceOf[PArray] && permissions == Set(All) =>
         Right(allowedArrayFieldPermissions)
-      case AccessRule(_, (_, Some(field)), All :: Nil, _, _)
-          if field.ptype.isInstanceOf[PrimitiveType] ||
-            field.ptype.isInstanceOf[PEnum] =>
+      case AccessRule(_, (_, Some(field)), permissions, _, _)
+          if (field.ptype.isInstanceOf[PrimitiveType] ||
+            field.ptype.isInstanceOf[PEnum]) && permissions == Set(All) =>
         Right(allowedPrimitiveFieldPermissions)
-      case AccessRule(_, (_, Some(field)), All :: Nil, _, _) =>
+      case AccessRule(_, (_, Some(field)), permissions, _, _) if permissions == Set(All) =>
         Right(allowedModelPermissions)
       case AccessRule(_, (_, Some(field)), permissions, _, _)
           if field.ptype.isInstanceOf[PArray] =>
@@ -381,7 +382,7 @@ object PermissionsSubstitutor {
     }
 
     newPermissions match {
-      case Right(permissions) => Success(rule.copy(actions = permissions))
+      case Right(permissions) => Success(rule.copy(permissions = permissions.toSet))
       case Left(errMsg)       => Failure(UserError(errMsg :: Nil))
     }
   }

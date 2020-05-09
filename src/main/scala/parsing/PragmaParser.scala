@@ -342,7 +342,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
             Reference(resource.path.head :: Nil),
             resource.path.lift(1).map(child => Reference(child :: Nil))
           ),
-          permissions,
+          permissions.toSet,
           predicate,
           Some(PositionRange(start, end))
         )

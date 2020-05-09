@@ -127,7 +127,7 @@ class Authorizer(
             )
         }
       }
-      case (Some(ruleField), Create) if rule.actions.contains(SetOnCreate) => {
+      case (Some(ruleField), Create) if rule.permissions.contains(SetOnCreate) => {
         op.opArguments
           .find(_.name == op.targetModel.id.small)
           .map(_.value) match {
@@ -153,7 +153,7 @@ class Authorizer(
         userPredicateResult(rule, predicateArg, negate = true)
       case Deny if devModeOn && argsMatchRule => {
         val error = op.event match {
-          case Create if rule.actions.contains(SetOnCreate) =>
+          case Create if rule.permissions.contains(SetOnCreate) =>
             AuthorizationError("Denied setting attribute in `CREATE` operation")
           case Update | UpdateMany =>
             AuthorizationError(

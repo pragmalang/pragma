@@ -199,14 +199,14 @@ case object Deny extends RuleKind
 case class AccessRule(
     ruleKind: RuleKind,
     resourcePath: (PShape, Option[PShapeField]),
-    actions: Seq[PPermission],
+    permissions: Set[PPermission],
     predicate: Option[PFunctionValue[JsValue, Try[JsValue]]],
     position: Option[PositionRange]
 ) extends PConstruct {
-  def eventsThatMatch: Seq[PEvent] = actions.flatMap(eventsOf).distinct
+  def eventsThatMatch: Set[PEvent] = permissions.flatMap(eventsOf)
 
   def eventsOf(permission: PPermission): Seq[PEvent] =
-    if (!actions.contains(permission)) Nil
+    if (!permissions.contains(permission)) Nil
     else
       (resourcePath, permission) match {
         case ((_, None), Create)             => List(Create, CreateMany)
