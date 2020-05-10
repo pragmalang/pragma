@@ -165,7 +165,7 @@ object Operations {
       user: Option[JwtPaylod],
       st: SyntaxTree
   ): Vector[Operation] = {
-    val targetModel = st.models.get(modelSelection.name) match {
+    val targetModel = st.modelsById.get(modelSelection.name) match {
       case Some(model) => model
       case _ =>
         throw new InternalException(
@@ -173,7 +173,7 @@ object Operations {
         )
     }
     val userRole = user.flatMap { jwt =>
-      st.models.get(jwt.role)
+      st.modelsById.get(jwt.role)
     }
     modelSelection.selections.map {
       case opSelection: FieldSelection =>

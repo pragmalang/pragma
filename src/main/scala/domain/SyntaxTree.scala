@@ -5,24 +5,30 @@ import parsing.{PragmaParser, Validator, Substitutor}
 import scala.util.Try
 
 case class SyntaxTree(
-    imports: Map[ID, PImport],
-    models: Map[ID, PModel],
-    enums: Map[ID, PEnum],
+    imports: Seq[PImport],
+    models: Seq[PModel],
+    enums: Seq[PEnum],
     permissions: Permissions,
     config: Option[PConfig] = None
 ) {
+  lazy val modelsById: Map[ID, PModel] = models.map(_.id).zip(models).toMap
+
+  lazy val enumsById: Map[ID, PEnum] = enums.map(_.id).zip(enums).toMap
+
+  lazy val importsById: Map[ID, PImport] = imports.map(_.id).zip(imports).toMap
 
   def findTypeById(id: String): Option[PType] =
-    models.get(id) orElse enums.get(id)
+    modelsById.get(id) orElse enumsById.get(id)
 
   def render: String =
-    (models.values ++ enums.values).map(displayPType(_, true)).mkString("\n\n")
+    (models ++ enums)
+      .map(displayPType(_, true))
+      .mkString("\n\n")
 
   def getConfigEntry(key: String): Option[ConfigEntry] =
     config.flatMap(_.getConfigEntry(key))
 
   lazy val relations = Relation.from(this)
-
 }
 object SyntaxTree {
   // The resulting syntax tree is validated and substituted
@@ -48,9 +54,9 @@ object SyntaxTree {
       Nil // TODO: Add support for user-defined tenants
     )
     SyntaxTree(
-      imports.map(i => i.id -> i).toMap,
-      models.map(m => m.id -> m).toMap,
-      enums.map(e => e.id -> e).toMap,
+      imports,
+      models,
+      enums,
       permissions,
       if (config.isEmpty) None else Some(config.head)
     )

@@ -6,7 +6,7 @@ import domain.PModel
 case class DependencyGraph(st: SyntaxTree) {
 
   val pairs = for {
-    model <- st.models.values.toList
+    model <- st.models.toList
     // Only matches HReference, not HOption[HReference]
     PModelField(_, PReference(refId), _, _, _) <- model.fields
   } yield (model.id, refId)

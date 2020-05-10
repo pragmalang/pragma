@@ -11,8 +11,8 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
   def buildGraphQLAst() = Document(typeDefinitions.toVector)
 
   def typeDefinitions(): Iterable[Definition] =
-    syntaxTree.models.values.map(pshape(_)) ++
-      syntaxTree.enums.values.map(penum(_))
+    syntaxTree.models.map(pshape(_)) ++
+      syntaxTree.enums.map(penum(_))
 
   def graphQlFieldArgs(args: Map[String, Type]) =
     args.map(arg => InputValueDefinition(arg._1, arg._2, None)).toVector
@@ -50,7 +50,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
   }
 
   def modelMutationsTypes: Iterable[Definition] =
-    syntaxTree.models.values.map(model => {
+    syntaxTree.models.map(model => {
 
       val login = if (model.isUser) {
         val secretCredentialField = model.fields
@@ -245,7 +245,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     })
 
   def modelQueriesTypes: Iterable[Definition] =
-    syntaxTree.models.values.map(model => {
+    syntaxTree.models.map(model => {
 
       val read = Some(
         graphQlField(
@@ -275,7 +275,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     })
 
   def modelSubscriptionsTypes: Iterable[Definition] =
-    syntaxTree.models.values.map(model => {
+    syntaxTree.models.map(model => {
 
       val read = Some(
         graphQlField(
@@ -312,7 +312,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     )
 
     val isReferenceToModel = (t: PReference) =>
-      syntaxTree.models.get(t.id).isDefined
+      syntaxTree.modelsById.get(t.id).isDefined
 
     field.ptype match {
       case t: PReference if isReferenceToModel(t) =>
@@ -330,7 +330,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
   }
 
   def inputTypes: Iterable[Definition] =
-    syntaxTree.models.values.map { model =>
+    syntaxTree.models.map { model =>
       InputObjectTypeDefinition(
         name = inputTypeName(model)(OptionalInput),
         fields = model.fields.toVector.map(
@@ -352,7 +352,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     interfaces = Vector.empty,
     fields = rules
       .foldLeft(List.empty[Option[FieldDefinition]])(
-        (acc, rule) => acc ++ syntaxTree.models.values.map(rule)
+        (acc, rule) => acc ++ syntaxTree.models.map(rule)
       )
       .filter({
         case Some(field) => true

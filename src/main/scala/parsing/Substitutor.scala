@@ -9,12 +9,12 @@ object Substitutor {
 
   def substitute(st: SyntaxTree): Try[SyntaxTree] = {
     val graalCtx = Context.create()
-    val ctx = getContext(st.imports.values.toList, graalCtx) match {
+    val ctx = getContext(st.imports, graalCtx) match {
       case Success(ctx) => ctx
       case Failure(err) => return Failure(err)
     }
     val substitutedModels =
-      st.models.map(model => substituteDirectiveFunctionRefs(model._2, ctx))
+      st.modelsById.map(model => substituteDirectiveFunctionRefs(model._2, ctx))
     val modelErrors = substitutedModels.collect {
       case Failure(err: UserError) => err.errors
     }.flatten
@@ -30,10 +30,7 @@ object Substitutor {
     if (allErrors.isEmpty)
       Success(
         st.copy(
-          models = substitutedModels
-            .map(_.get)
-            .map(model => model.id -> model)
-            .toMap,
+          models = substitutedModels.map(_.get).toSeq,
           permissions = substitutedPermissions.get
         )
       )
@@ -185,7 +182,7 @@ object PermissionsSubstitutor {
     }
     val substitutedRoles = st.permissions.globalTenant.roles.map { role =>
       val roleModel =
-        st.models.values.find(model => model.id == role.user.id && model.isUser)
+        st.models.find(model => model.id == role.user.id && model.isUser)
       roleModel match {
         case None =>
           Failure(
@@ -237,7 +234,7 @@ object PermissionsSubstitutor {
           )
         )
       else
-        (st.models.get(parentName) match {
+        (st.modelsById.get(parentName) match {
           case Some(model) => model
           case None =>
             return Failure(
@@ -266,8 +263,12 @@ object PermissionsSubstitutor {
 
     val newRule = rule.copy(resourcePath = (parent, child))
 
-    substituteRulePredicate(newRule, isSelfRule, st.models.values.toList, ctx)
-      .flatMap(substituteAccessRulePermissions(_))
+    substituteRulePredicate(
+      newRule,
+      isSelfRule,
+      st.models.toList,
+      ctx
+    ).flatMap(substituteAccessRulePermissions(_))
   }
 
   /** Used as a part of access rule substitution */

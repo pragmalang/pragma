@@ -27,7 +27,7 @@ class Authorizer(
         Future(results(reqOps.values.flatten.toVector, JsNull))
       }
       case Some(jwt) => {
-        val userModel = syntaxTree.models.get(jwt.role) match {
+        val userModel = syntaxTree.modelsById.get(jwt.role) match {
           case Some(model) => model
           case _ =>
             return Future.failed(

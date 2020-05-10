@@ -83,7 +83,7 @@ object Relation {
       relName: String,
       exclude: PModel
   )(syntaxTree: SyntaxTree): Option[(PModel, PModelField)] = {
-    val modelOption = syntaxTree.models.values
+    val modelOption = syntaxTree.models
       .filterNot(_.id == exclude.id)
       .find { model =>
         model.fields.exists(_.directives.find(_.id == "relation").isDefined)
@@ -112,7 +112,7 @@ object Relation {
     ptype match {
       case PArray(t)      => innerModel(t, syntaxTree)
       case POption(t)     => innerModel(t, syntaxTree)
-      case PReference(id) => syntaxTree.models.get(id)
+      case PReference(id) => syntaxTree.modelsById.get(id)
       case model: PModel  => Some(model)
       case _              => None
     }
@@ -167,7 +167,7 @@ object Relation {
       .toVector
 
   def from(syntaxTree: SyntaxTree): Vector[Relation] =
-    syntaxTree.models.values
+    syntaxTree.models
       .flatMap(relations(_, syntaxTree))
       .foldLeft(Vector.empty[Relation]) { // Remove equivalent `Relation`s
         case (acc, rel) if !acc.contains(rel) => acc :+ rel

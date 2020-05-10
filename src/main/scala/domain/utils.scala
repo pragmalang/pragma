@@ -208,7 +208,7 @@ package object utils {
           json
         case (PReference(id), _: JsValue) =>
           typeCheckJson(syntaxTree.findTypeById(id).get, syntaxTree)(json).get
-        case (henum: PEnum, JsString(value)) if henum.values.contains(value) =>
+        case (penum: PEnum, JsString(value)) if penum.values.contains(value) =>
           json
         case (PAny, _) => json
         case (ptype: PType, json: JsValue) =>
