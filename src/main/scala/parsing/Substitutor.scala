@@ -3,7 +3,6 @@ package parsing
 import domain._, utils._, PragmaParser.Reference
 import scala.util.{Try, Success, Failure}
 import scala.jdk.CollectionConverters._
-import scala.collection.immutable.ListMap
 import org.graalvm.polyglot._
 
 object Substitutor {
@@ -57,7 +56,7 @@ object Substitutor {
     else
       Success {
         PInterfaceValue(
-          ListMap.from(importedObjects.map(imp => (imp._1.id, imp._2.get))),
+          importedObjects.map(imp => (imp._1.id, imp._2.get)).toMap,
           PInterface(
             "context",
             importedObjects.map(
@@ -83,21 +82,20 @@ object Substitutor {
     val throwawayCtx = Context.create(languageId)
     throwawayCtx.eval(source)
     val defKeys = throwawayCtx.getBindings(languageId).getMemberKeys()
-    val hobj = ListMap.from(
+    val hobj =
       defKeys.asScala.map { defId =>
         defId -> GraalFunction(
           id = defId,
-          ptype = PFunction(ListMap.empty, PAny),
+          ptype = PFunction(Map.empty, PAny),
           filePath = himport.filePath,
           graalCtx,
           languageId
         )
-      }
-    )
+      }.toMap
     val ctxPtype = PInterface(
       himport.id,
       hobj.keys
-        .map(k => PInterfaceField(k, PFunction(ListMap.empty, PAny), None))
+        .map(k => PInterfaceField(k, PFunction(Map.empty, PAny), None))
         .toList,
       None
     )
@@ -330,7 +328,8 @@ object PermissionsSubstitutor {
           if (field.ptype.isInstanceOf[PrimitiveType] ||
             field.ptype.isInstanceOf[PEnum]) && permissions == Set(All) =>
         Right(allowedPrimitiveFieldPermissions)
-      case AccessRule(_, (_, Some(field)), permissions, _, _) if permissions == Set(All) =>
+      case AccessRule(_, (_, Some(field)), permissions, _, _)
+          if permissions == Set(All) =>
         Right(allowedModelPermissions)
       case AccessRule(_, (_, Some(field)), permissions, _, _)
           if field.ptype.isInstanceOf[PArray] =>
@@ -382,8 +381,9 @@ object PermissionsSubstitutor {
     }
 
     newPermissions match {
-      case Right(permissions) => Success(rule.copy(permissions = permissions.toSet))
-      case Left(errMsg)       => Failure(UserError(errMsg :: Nil))
+      case Right(permissions) =>
+        Success(rule.copy(permissions = permissions.toSet))
+      case Left(errMsg) => Failure(UserError(errMsg :: Nil))
     }
   }
 }

@@ -2,7 +2,6 @@ import org.scalatest._
 import domain._
 import parsing._
 import scala.util._
-import scala.collection.immutable.ListMap
 import org.parboiled2.Position
 
 class ModelParsing extends FlatSpec {
@@ -71,7 +70,7 @@ class ModelParsing extends FlatSpec {
             List(
               Directive(
                 "publicCredential",
-                PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                PInterfaceValue(Map(), PInterface("", List(), None)),
                 FieldDirective,
                 Some(PositionRange(Position(84, 5, 9), Position(101, 5, 26)))
               )
@@ -89,14 +88,14 @@ class ModelParsing extends FlatSpec {
         List(
           Directive(
             "user",
-            PInterfaceValue(ListMap(), PInterface("", List(), None)),
+            PInterfaceValue(Map(), PInterface("", List(), None)),
             ModelDirective,
             Some(PositionRange(Position(7, 2, 7), Position(12, 2, 12)))
           ),
           Directive(
             "validate",
             PInterfaceValue(
-              ListMap("validator" -> PStringValue("Some Function")),
+              Map("validator" -> PStringValue("Some Function")),
               PInterface("", List(), None)
             ),
             ModelDirective,
@@ -129,7 +128,7 @@ class ModelParsing extends FlatSpec {
               List(
                 Directive(
                   "publicCredenticl",
-                  PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                  PInterfaceValue(Map(), PInterface("", List(), None)),
                   FieldDirective,
                   Some(PositionRange(Position(41, 3, 24), Position(58, 3, 41)))
                 )
@@ -143,7 +142,7 @@ class ModelParsing extends FlatSpec {
               List(
                 Directive(
                   "secretCredential",
-                  PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                  PInterfaceValue(Map(), PInterface("", List(), None)),
                   FieldDirective,
                   Some(PositionRange(Position(82, 4, 24), Position(99, 4, 41)))
                 )
@@ -179,13 +178,13 @@ class ModelParsing extends FlatSpec {
             List(
               Directive(
                 "id",
-                PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                PInterfaceValue(Map(), PInterface("", List(), None)),
                 FieldDirective,
                 Some(PositionRange(Position(45, 4, 18), Position(48, 4, 21)))
               ),
               Directive(
                 "primary",
-                PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                PInterfaceValue(Map(), PInterface("", List(), None)),
                 FieldDirective,
                 Some(PositionRange(Position(49, 4, 22), Position(57, 4, 30)))
               )
@@ -203,7 +202,7 @@ class ModelParsing extends FlatSpec {
         List(
           Directive(
             "user",
-            PInterfaceValue(ListMap(), PInterface("", List(), None)),
+            PInterfaceValue(Map(), PInterface("", List(), None)),
             ModelDirective,
             Some(PositionRange(Position(5, 2, 5), Position(10, 2, 10)))
           )

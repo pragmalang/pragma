@@ -7,7 +7,6 @@ import spray.json._
 import scala.util.Success
 import org.graalvm.polyglot.Context
 import domain._
-import collection.immutable.ListMap
 import org.parboiled2.Position
 
 class Substitution extends FlatSpec {
@@ -122,7 +121,7 @@ class Substitution extends FlatSpec {
               List(
                 Directive(
                   "publicCredential",
-                  PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                  PInterfaceValue(Map(), PInterface("", List(), None)),
                   FieldDirective,
                   Some(PositionRange(Position(51, 3, 26), Position(68, 3, 43)))
                 )
@@ -136,7 +135,7 @@ class Substitution extends FlatSpec {
               List(
                 Directive(
                   "secretCredential",
-                  PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                  PInterfaceValue(Map(), PInterface("", List(), None)),
                   FieldDirective,
                   Some(PositionRange(Position(94, 4, 26), Position(111, 4, 43)))
                 )
@@ -154,7 +153,7 @@ class Substitution extends FlatSpec {
           List(
             Directive(
               "user",
-              PInterfaceValue(ListMap(), PInterface("", List(), None)),
+              PInterfaceValue(Map(), PInterface("", List(), None)),
               ModelDirective,
               Some(PositionRange(Position(7, 2, 7), Position(12, 2, 12)))
             )
@@ -184,7 +183,7 @@ class Substitution extends FlatSpec {
                 List(
                   Directive(
                     "publicCredential",
-                    PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                    PInterfaceValue(Map(), PInterface("", List(), None)),
                     FieldDirective,
                     Some(
                       PositionRange(Position(51, 3, 26), Position(68, 3, 43))
@@ -200,7 +199,7 @@ class Substitution extends FlatSpec {
                 List(
                   Directive(
                     "secretCredential",
-                    PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                    PInterfaceValue(Map(), PInterface("", List(), None)),
                     FieldDirective,
                     Some(
                       PositionRange(Position(94, 4, 26), Position(111, 4, 43))
@@ -220,7 +219,7 @@ class Substitution extends FlatSpec {
             List(
               Directive(
                 "user",
-                PInterfaceValue(ListMap(), PInterface("", List(), None)),
+                PInterfaceValue(Map(), PInterface("", List(), None)),
                 ModelDirective,
                 Some(PositionRange(Position(7, 2, 7), Position(12, 2, 12)))
               )

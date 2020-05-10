@@ -1,10 +1,9 @@
 package setup.utils
-import setup._
 
+import setup._
 import Implicits._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
-import scala.collection.immutable.ListMap
 
 case class DockerCompose(
     services: JsObject,
@@ -15,12 +14,12 @@ case class DockerCompose(
     JsObject(
       volumes match {
         case None =>
-          ListMap(
+          Map(
             "version" -> version.toJson,
             "services" -> services
           )
         case Some(volumes) =>
-          ListMap(
+          Map(
             "version" -> version.toJson,
             "services" -> services,
             "volumes" -> volumes

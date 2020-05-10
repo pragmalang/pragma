@@ -1,7 +1,6 @@
 package setup
 
 import domain._
-import scala.collection.immutable.ListMap
 
 object MockSyntaxTree {
 
@@ -45,13 +44,13 @@ object MockSyntaxTree {
         List(
           Directive(
             "publicCredential",
-            PInterfaceValue(ListMap(), PInterface("", List(), None)),
+            PInterfaceValue(Map(), PInterface("", List(), None)),
             FieldDirective,
             None
           ),
           Directive(
             "primary",
-            PInterfaceValue(ListMap(), PInterface("", List(), None)),
+            PInterfaceValue(Map(), PInterface("", List(), None)),
             FieldDirective,
             None
           )
@@ -65,7 +64,7 @@ object MockSyntaxTree {
         List(
           Directive(
             "secretCredential",
-            PInterfaceValue(ListMap(), PInterface("", List(), None)),
+            PInterfaceValue(Map(), PInterface("", List(), None)),
             FieldDirective,
             None
           )
@@ -97,7 +96,7 @@ object MockSyntaxTree {
     List(
       Directive(
         "user",
-        PInterfaceValue(ListMap(), PInterface("", List(), None)),
+        PInterfaceValue(Map(), PInterface("", List(), None)),
         ModelDirective,
         None
       )
@@ -116,7 +115,7 @@ object MockSyntaxTree {
           List(
             Directive(
               "primary",
-              PInterfaceValue(ListMap(), PInterface("", List(), None)),
+              PInterfaceValue(Map(), PInterface("", List(), None)),
               FieldDirective,
               None
             )
