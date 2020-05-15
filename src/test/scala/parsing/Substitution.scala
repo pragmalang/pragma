@@ -1,7 +1,7 @@
 package parsing
 
 import org.scalatest.FlatSpec
-import parsing.Substitutor
+import parsing.substitution.Substitutor
 import domain.{PImport, GraalFunction, SyntaxTree}
 import spray.json._
 import scala.util.Success

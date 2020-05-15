@@ -1,7 +1,8 @@
 package domain
 
 import utils._
-import parsing.{PragmaParser, Validator, Substitutor}
+import parsing.{PragmaParser, Validator, substitution}
+import substitution._
 import scala.util.Try
 
 case class SyntaxTree(

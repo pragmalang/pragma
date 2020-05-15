@@ -5,7 +5,7 @@ import domain.Implicits.GraalValueJsonFormater
 import org.scalatest.FlatSpec
 import spray.json._
 import domain.SyntaxTree
-import parsing.Substitutor
+import parsing.substitution.Substitutor
 import domain._
 import domain.PInterfaceValue
 

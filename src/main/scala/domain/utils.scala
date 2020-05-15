@@ -68,7 +68,7 @@ package object utils {
   /** Takes a list of `Try`s that may have `UserError`s inside
     * them, and combines them into a single `Try` that might contain a `UserError`
     */
-  def combineUserErrorTries[T](ts: Iterable[Try[T]]): Try[Iterable[T]] =
+  def combineUserErrorTries[T](ts: Seq[Try[T]]): Try[Seq[T]] =
     ts.foldLeft(Try(List.empty[T])) {
       case (Success(values), Success(value))     => Success(values :+ value)
       case (Success(_), Failure(err: UserError)) => Failure(err)
