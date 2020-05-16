@@ -14,13 +14,13 @@ object Substitutor {
       case Failure(err) => return Failure(err)
     }
 
-    val substitutedModels = ModelSubstitutor.substitute(st, ctx)
+    val substitutedModels = ModelSubstitutor(st, ctx)
     val modelErrors = substitutedModels match {
       case Failure(err: UserError) => err.errors.toList
       case _                       => Nil
     }
 
-    val substitutedPermissions = PermissionsSubstitutor(st, ctx.value)
+    val substitutedPermissions = PermissionsSubstitutor(st, ctx)
 
     val permissionsErrors = substitutedPermissions match {
       case Success(_)              => Nil

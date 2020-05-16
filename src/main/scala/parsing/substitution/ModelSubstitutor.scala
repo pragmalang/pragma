@@ -6,7 +6,7 @@ import scala.util.{Try, Success, Failure}
 
 object ModelSubstitutor {
 
-  def substitute(st: SyntaxTree, ctx: PInterfaceValue): Try[Seq[PModel]] = {
+  def apply(st: SyntaxTree, ctx: PInterfaceValue): Try[Seq[PModel]] = {
     combineUserErrorTries(st.models.map { model =>
       substituteDirectiveFunctionRefs(
         substituteOptionalArrayFieldDefaultValue(model),

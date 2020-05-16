@@ -7,10 +7,10 @@ import scala.util.{Try, Success, Failure}
 object PermissionsSubstitutor {
 
   /** Combines all other `PermissionsSubstitutor` methods */
-  def apply(st: SyntaxTree, ctx: Map[String, PValue]): Try[Permissions] = {
+  def apply(st: SyntaxTree, ctx: PInterfaceValue): Try[Permissions] = {
     val newGlobalRules = combineUserErrorTries {
       st.permissions.globalTenant.rules
-        .map(substituteAccessRule(_, None, st, ctx))
+        .map(substituteAccessRule(_, None, st, ctx.value))
     }
     val substitutedRoles = st.permissions.globalTenant.roles.map { role =>
       val roleModel =
@@ -25,7 +25,9 @@ object PermissionsSubstitutor {
           )
         case Some(userModel) =>
           combineUserErrorTries {
-            role.rules.map(substituteAccessRule(_, Some(userModel), st, ctx))
+            role.rules.map(
+              substituteAccessRule(_, Some(userModel), st, ctx.value)
+            )
           } map { newRules =>
             role.copy(rules = newRules.toSeq)
           }
@@ -48,7 +50,7 @@ object PermissionsSubstitutor {
     }
   }
 
-  def substituteAccessRule(
+  private def substituteAccessRule(
       rule: AccessRule,
       selfRole: Option[PModel],
       st: SyntaxTree,
@@ -104,7 +106,7 @@ object PermissionsSubstitutor {
   }
 
   /** Used as a part of access rule substitution */
-  def substituteRulePredicate(
+  private def substituteRulePredicate(
       rule: AccessRule,
       isSelfRule: Boolean,
       modelDefs: List[PModel],
@@ -140,7 +142,9 @@ object PermissionsSubstitutor {
   }
 
   /** Used as a part of access rule substitution */
-  def substituteAccessRulePermissions(rule: AccessRule): Try[AccessRule] = {
+  private def substituteAccessRulePermissions(
+      rule: AccessRule
+  ): Try[AccessRule] = {
     import PPermission._
     val newPermissions = rule match {
       case AccessRule(_, _, permissions, _, _)
