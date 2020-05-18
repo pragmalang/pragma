@@ -1,9 +1,7 @@
 package setup.storage.postgres
 
 import util._
-
 import setup._, storage._
-
 import domain.SyntaxTree
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -29,7 +27,7 @@ import domain.RelationKind.ManyToMany
 import domain.RelationKind.OneToMany
 import domain.RelationKind.OneToOne
 
-import scala.jdk.CollectionConverters._
+// import scala.jdk.CollectionConverters._
 
 import cats.implicits._
 import setup.storage.postgres.AlterTableAction.AddColumn
@@ -61,16 +59,6 @@ case class Postgres(syntaxTree: SyntaxTree) extends Storage {
         ???
       }
     })
-
-  // def createCollection(model: PModel) = {
-  //   val table = db.createTable(model.id)
-  //   def loop(
-  //       head: PModelField,
-  //       tail: Vector[PModelField],
-  //       acc: CreateTableColumnStep
-  //   ): CreateTableColumnStep = ???
-  //   ???
-  // }
 
   def arrayFieldTableName(model: PModel, field: PModelField): String =
     s"${model.id}_${field.id}_array"
@@ -151,7 +139,7 @@ sealed trait SQLMigrationStep {
       }
   }
 
-  def sql = toJooq(DSL.using(SQLDialect.POSTGRES)).getSQL()
+  def sql(implicit dsl: DSLContext) = toJooq(dsl).getSQL()
 }
 object SQLMigrationStep {
   final case class CreateTable(
@@ -173,71 +161,84 @@ object SQLMigrationStep {
       extends SQLMigrationStep
 
   object SQLMigrationStep {
-    def from(relations: Vector[Relation]): Vector[SQLMigrationStep] =
+    def from[K <: RelationKind](
+        relations: Vector[Relation[K]]
+    ): Vector[SQLMigrationStep] =
       relations.flatMap { relation =>
         relation.kind match {
           case ManyToMany =>
             Vector {
               val firstColumn = ColumnDefinition(
-                s"${relation.from._1.id}",
-                toPostgresType(relation.from._1.primaryField.ptype).get._1,
+                relation.originTableName,
+                toPostgresType(relation.origin._1.primaryField.ptype).get._1,
                 Vector.empty
               )
+
               val secondColumn = ColumnDefinition(
-                s"${relation.to._1.id}",
-                toPostgresType(relation.to._1.primaryField.ptype).get._1,
+                relation.targetTableName,
+                toPostgresType(relation.target._1.primaryField.ptype).get._1,
                 Vector.empty
               )
 
               CreateTable(
-                s"${relation.from._2.id}_${relation.to._2.map(_.id).unwrapSafe}_${relation.name.unwrapSafe}",
+                relation.manyToManyTableName,
                 Vector(firstColumn, secondColumn)
               )
             }
           case OneToMany =>
             Vector {
               val columnDef = ColumnDefinition(
-                s"${relation.from._1.id}_${relation.from._2.id}",
-                toPostgresType(relation.from._1.primaryField.ptype).get._1,
+                relation.oneToManyFkName,
+                toPostgresType(relation.origin._1.primaryField.ptype).get._1,
                 Vector(
                   Constraint.ColumnConstraint.ForeignKey(
-                    relation.from._1.id,
-                    relation.from._1.primaryField.id
+                    relation.originTableName,
+                    relation.origin._1.primaryField.id
                   )
                 )
               )
               AlterTable(
-                relation.to._1.id,
+                relation.targetTableName,
                 AlterTableAction.AddColumn(columnDef)
               )
             }
           case OneToOne => {
-            val fromFk = Constraint.ColumnConstraint
-              .ForeignKey(relation.from._1.id, relation.from._1.primaryField.id)
-            val toFk = Constraint.ColumnConstraint
-              .ForeignKey(relation.to._1.id, relation.to._1.primaryField.id)
+            val fromFk = Constraint.ColumnConstraint.ForeignKey(
+              relation.originTableName,
+              relation.origin._1.primaryField.id
+            )
+
             val fromColumn = ColumnDefinition(
-              relation.from._2.id,
-              toPostgresType(relation.from._1.primaryField.ptype).get._1,
+              relation.origin._2.id,
+              toPostgresType(relation.origin._1.primaryField.ptype).get._1,
               Vector(fromFk, Constraint.ColumnConstraint.Unique)
             )
-            val toColumn = relation.to._2.map { field =>
+
+            val toAlter = AlterTable(
+              relation.targetTableName,
+              AlterTableAction.AddColumn(fromColumn)
+            )
+
+            val toFk = Constraint.ColumnConstraint.ForeignKey(
+              relation.targetTableName,
+              relation.target._1.primaryField.id
+            )
+
+            val toColumn = relation.target._2.map { field =>
               ColumnDefinition(
                 field.id,
-                toPostgresType(relation.to._1.primaryField.ptype).get._1,
+                toPostgresType(relation.target._1.primaryField.ptype).get._1,
                 Vector(toFk, Constraint.ColumnConstraint.Unique)
               )
             }
+
             val fromAlter = toColumn.map { toColumn =>
               AlterTable(
-                relation.from._1.id,
+                relation.originTableName,
                 AlterTableAction.AddColumn(toColumn)
               )
             }
-            val toAlter = AlterTable(
-              relation.to._1.id,
-              AlterTableAction.AddColumn(fromColumn)
-            )
+
             fromAlter match {
               case Some(fromAlter) => Vector(toAlter, fromAlter)
               case None            => Vector(toAlter)
@@ -309,14 +310,3 @@ object Constraint {
     ) extends ColumnConstraint
   }
 }
-/*
- * create table "User" (
- *  ...
- * );
- *
- * create table "Todo" (
- *  ...
- *  todos_user        TEXT references "User"(username)
- *  privateTodos_user TEXT references "User"(username)
- * );
- */

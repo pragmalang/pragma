@@ -1,38 +1,38 @@
 package domain
 
-case class Relation(
-    from: (PModel, PModelField),
-    to: (PModel, Option[PModelField]),
+case class Relation[+K <: RelationKind](
+    origin: (PModel, PModelField),
+    target: (PModel, Option[PModelField]),
     name: Option[String],
     kind: RelationKind
 ) {
   import RelationKind._
 
-  override def toString(): String = (name, to._2) match {
+  override def toString(): String = (name, target._2) match {
     case (Some(name), Some(toField)) =>
-      s"${kind}(${name}): ${from._1.id}/${from._2.id} => ${to._1.id}/${toField.id})"
+      s"${kind}(${name}): ${origin._1.id}/${origin._2.id} => ${target._1.id}/${toField.id})"
     case (Some(name), None) =>
-      s"${kind}(${name}): ${from._1.id}/${from._2.id} => ${to._1.id})"
+      s"${kind}(${name}): ${origin._1.id}/${origin._2.id} => ${target._1.id})"
     case (None, Some(toField)) =>
-      s"${kind}: ${from._1.id}/${from._2.id} => ${to._1.id}/${toField.id}"
+      s"${kind}: ${origin._1.id}/${origin._2.id} => ${target._1.id}/${toField.id}"
     case (None, None) =>
-      s"${kind}: ${from._1.id}/${from._2.id} => ${to._1.id}"
+      s"${kind}: ${origin._1.id}/${origin._2.id} => ${target._1.id}"
   }
 
   override def equals(that: Any): Boolean = that match {
-    case that: Relation => {
+    case that: Relation[_] => {
       val unidirectional =
-        this.from._1.id == that.from._1.id &&
-          this.from._2.id == that.from._2.id &&
-          this.to._1.id == that.to._1.id &&
-          this.to._2.map(_.id) == that.to._2.map(_.id) &&
+        this.origin._1.id == that.origin._1.id &&
+          this.origin._2.id == that.origin._2.id &&
+          this.target._1.id == that.target._1.id &&
+          this.target._2.map(_.id) == that.target._2.map(_.id) &&
           this.name == that.name
 
       val bidirectional = unidirectional ||
-        this.from._1.id == that.to._1.id &&
-          Some(this.from._2.id) == that.to._2.map(_.id) &&
-          this.to._1.id == that.from._1.id &&
-          this.to._2.map(_.id) == Some(that.from._2.id) &&
+        this.origin._1.id == that.target._1.id &&
+          Some(this.origin._2.id) == that.target._2.map(_.id) &&
+          this.target._1.id == that.origin._1.id &&
+          this.target._2.map(_.id) == Some(that.origin._2.id) &&
           this.name == that.name
 
       (this.kind, that.kind) match {
@@ -43,6 +43,15 @@ case class Relation(
     }
     case _ => false
   }
+
+  lazy val manyToManyTableName: String =
+    s"${origin._2.id}_${target._2.map(_.id).get}_${name.get}"
+
+  lazy val oneToManyFkName: String = s"${origin._1.id}_${origin._2.id}"
+
+  lazy val originTableName = s"${'\"'}${origin._1.id}${'\"'}"
+
+  lazy val targetTableName = s"${'\"'}${target._1.id}${'\"'}"
 }
 
 sealed trait RelationKind
@@ -117,13 +126,13 @@ object Relation {
       case _              => None
     }
 
-  private def relation(
+  private def relation[K <: RelationKind](
       relName: Option[String],
       ptype: PType,
       field: PModelField,
       model: PModel,
       syntaxTree: SyntaxTree
-  ): Relation = {
+  ): Relation[K] = {
     val otherFieldPathOption =
       relName.flatMap(connectedFieldPath(_, model)(syntaxTree))
 
@@ -145,10 +154,10 @@ object Relation {
     }
   }
 
-  private def relations(
+  private def relations[K <: RelationKind](
       model: PModel,
       syntaxTree: SyntaxTree
-  ): Vector[Relation] =
+  ): Vector[Relation[K]] =
     model.fields
       .map(field => {
         val relationName = field.directives
@@ -163,13 +172,13 @@ object Relation {
         (relationName, field, field.ptype)
       })
       .filter(pair => notPrimitiveNorEnum(pair._3))
-      .map(pair => relation(pair._1, pair._3, pair._2, model, syntaxTree))
+      .map(pair => relation[K](pair._1, pair._3, pair._2, model, syntaxTree))
       .toVector
 
-  def from(syntaxTree: SyntaxTree): Vector[Relation] =
+  def from[K <: RelationKind](syntaxTree: SyntaxTree): Vector[Relation[K]] =
     syntaxTree.models
       .flatMap(relations(_, syntaxTree))
-      .foldLeft(Vector.empty[Relation]) { // Remove equivalent `Relation`s
+      .foldLeft(Vector.empty[Relation[K]]) { // Remove equivalent `Relation`s
         case (acc, rel) if !acc.contains(rel) => acc :+ rel
         case (acc, _)                         => acc
       }

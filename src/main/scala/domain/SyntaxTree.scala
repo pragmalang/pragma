@@ -29,7 +29,7 @@ case class SyntaxTree(
   def getConfigEntry(key: String): Option[ConfigEntry] =
     config.flatMap(_.getConfigEntry(key))
 
-  lazy val relations = Relation.from(this)
+  lazy val relations = Relation.from[RelationKind](this)
 }
 object SyntaxTree {
   // The resulting syntax tree is validated and substituted

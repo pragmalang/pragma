@@ -7,7 +7,7 @@ import scala.util.{Try, Success, Failure}
 
 package object Implicits {
 
-  import domain.utils.`package`.InternalException
+  import domain.utils.InternalException
 
   import running.JwtPaylod
   implicit object HvalueJsonFormater extends JsonWriter[PValue] {
