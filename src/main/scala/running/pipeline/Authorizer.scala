@@ -10,39 +10,41 @@ import running.pipeline.Operations.ReadOperation
 import sangria.ast._
 import running.JwtPaylod
 import scala.util._
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
+import cats.Monad
+import cats.implicits._
 
-class Authorizer(
+class Authorizer[S, M[_]: Monad](
     syntaxTree: SyntaxTree,
-    storage: Storage,
+    storage: Storage[S, M],
     devModeOn: Boolean = true
 ) {
   import Authorizer._
 
-  def apply(request: Request): Future[AuthorizationResult] =
+  def apply(request: Request): M[AuthorizationResult] =
     request.user match {
       case None => {
         val reqOps = Operations.operationsFrom(request)(syntaxTree)
-        Future(results(reqOps.values.flatten.toVector, JsNull))
+        Monad[M].pure(results(reqOps.values.flatten.toVector, JsNull))
       }
       case Some(jwt) => {
         val userModel = syntaxTree.modelsById.get(jwt.role) match {
           case Some(model) => model
           case _ =>
-            return Future.failed(
-              InternalException(
-                s"Request has role `${jwt.role}` that doesn't exist"
+            return Monad[M].pure(
+              Left(
+                Vector(
+                  AuthorizationError(
+                    s"Request has role `${jwt.role}` that doesn't exist"
+                  )
+                )
               )
             )
         }
 
         val user = storage
           .run(
-            userQuery(userModel, jwt.userId),
             Map(None -> Vector(userReadOperation(userModel, jwt)))
           )
-          .map(_.get)
 
         user.map {
           case Left(userJson: JsObject)
@@ -127,7 +129,8 @@ class Authorizer(
             )
         }
       }
-      case (Some(ruleField), Create) if rule.permissions.contains(SetOnCreate) => {
+      case (Some(ruleField), Create)
+          if rule.permissions.contains(SetOnCreate) => {
         op.opArguments
           .find(_.name == op.targetModel.id.small)
           .map(_.value) match {

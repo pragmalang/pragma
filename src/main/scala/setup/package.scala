@@ -3,29 +3,16 @@ package setup
 import storage.Storage, schemaGenerator.ApiSchemaGenerator
 import domain._
 import Implicits._
-import scala.util.Try
 import setup.utils.DockerCompose
 import domain.utils.UserError
-// import com.mongodb.ConnectionString
-// import setup.storage.MongoStorage
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-// import org.mongodb.scala.MongoClient
+import cats.Monad
 
-case class Setup(syntaxTree: SyntaxTree) {
+case class Setup[M[_] : Monad](syntaxTree: SyntaxTree) {
 
-  def setup(migrationSteps: Vector[MigrationStep]): Try[Unit] = Try {
+  def setup(migrationSteps: Vector[MigrationStep]): M[Vector[scala.util.Try[Unit]]] = {
 
-    def supportedDbTypes[T[_]](dbType: String, dbUrl: String): Storage =
+    def supportedDbTypes[T[_]](dbType: String, dbUrl: String): Storage[_, M] =
       dbType match {
-        // case "mongo" => {
-        //   val url = new ConnectionString(dbUrl)
-        //   MongoStorage(
-        //     syntaxTree,
-        //     url,
-        //     MongoClient(dbUrl).getDatabase(url.getDatabase())
-        //   )
-        // }
         case _         => throw UserError("Unsupported database type")
       }
 
@@ -57,7 +44,7 @@ case class Setup(syntaxTree: SyntaxTree) {
         supportedDbTypes(dbType, dbUrl)
     }
 
-    Await.result(storage.migrate(migrationSteps), Duration.Inf)
+    storage.migrate(migrationSteps)
   }
 
   def dockerComposeUp() =

@@ -5,11 +5,7 @@ import setup._, storage._
 import domain.SyntaxTree
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Try
 import domain.PModel
-import running.pipeline.Operation
-import sangria.ast.Document
-import spray.json.JsObject
 import org.jooq.impl._
 import java.sql._
 import org.jooq._
@@ -28,37 +24,17 @@ import domain.RelationKind.OneToMany
 import domain.RelationKind.OneToOne
 
 // import scala.jdk.CollectionConverters._
-
 import cats.implicits._
-import setup.storage.postgres.AlterTableAction.AddColumn
-import setup.storage.postgres.AlterTableAction.DropColumn
-import setup.storage.postgres.AlterTableAction.ChangeColumnType
-import setup.storage.postgres.AlterTableAction.RenameColumn
-import setup.storage.postgres.AlterTableAction.AddForeignKey
+import setup.storage.postgres.AlterTableAction._
 
-case class Postgres(syntaxTree: SyntaxTree) extends Storage {
+class Postgres(
+    syntaxTree: SyntaxTree,
+    migrationEngine: MigrationEngine[Postgres, Future],
+    queryEngine: QueryEngine[Postgres, Future]
+) extends Storage[Postgres, Future](queryEngine, migrationEngine) {
 
   val conn = DriverManager.getConnection(???, ???, ???)
   val db = DSL.using(conn, SQLDialect.POSTGRES);
-  override def migrate(
-      migrationSteps: Vector[MigrationStep]
-  ): Future[Vector[Try[Unit]]] =
-    Future.sequence(migrationSteps.map[Future[Try[Unit]]] {
-      case CreateModel(model) => {
-        ???
-      }
-      case RenameModel(modelId, newId)                   => ???
-      case DeleteModel(model)                            => ???
-      case UndeleteModel(model)                          => ???
-      case AddField(field, model)                        => ???
-      case ChangeFieldType(field, model, _, transformer) => ???
-      case DeleteField(field, model)                     => ???
-      case UndeleteField(field, model)                   => ???
-      case RenameField(fieldId, newId, model) => {
-        // val r = PostgresDSL
-        ???
-      }
-    })
 
   def arrayFieldTableName(model: PModel, field: PModelField): String =
     s"${model.id}_${field.id}_array"
@@ -68,12 +44,6 @@ case class Postgres(syntaxTree: SyntaxTree) extends Storage {
       case modelName :: fieldName :: tail => Some(modelName -> fieldName)
       case _                              => None
     }
-  override def modelEmpty(model: PModel): Future[Boolean] = ???
-  override def modelExists(model: PModel): Future[Boolean] = ???
-  override def run(
-      query: Document,
-      operations: Map[Option[String], Vector[Operation]]
-  ): Future[Try[Either[JsObject, Vector[JsObject]]]] = ???
 }
 
 sealed trait SQLMigrationStep {

@@ -12,6 +12,7 @@ import ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.util._
 import domain.utils.AuthorizationError
+import cats.implicits._
 
 class Authorization extends FlatSpec {
   "Authorizer" should "authorize requests correctly" in {
@@ -32,7 +33,7 @@ class Authorization extends FlatSpec {
     """
 
     val syntaxTree = SyntaxTree.from(code).get
-    val mockStorage = MockStorage(syntaxTree)
+    val mockStorage = MockStorage.storage
     val authorizer = new Authorizer(syntaxTree, mockStorage, devModeOn = true)
 
     val req = Request(
@@ -140,7 +141,7 @@ class Authorization extends FlatSpec {
       hostname = ""
     )
 
-    val mockStorage = MockStorage(syntaxTree)
+    val mockStorage = MockStorage.storage
     val authorizer = new Authorizer(syntaxTree, mockStorage, devModeOn = true)
     val results = Await.result(
       Future.sequence(

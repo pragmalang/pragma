@@ -6,61 +6,73 @@ import spray.json._
 import scala.util._
 import running.pipeline.Operation
 import domain._
-import sangria.ast.{Document => GqlDocument}
 import running.pipeline.InnerOperation
 import running.pipeline._
-import concurrent.Future
+import cats.Monad
 
-trait Storage {
+class Storage[S, M[_]: Monad](
+    queryEngine: QueryEngine[S, M],
+    migrationEngine: MigrationEngine[S, M]
+) {
+
   def run(
-      query: GqlDocument,
       operations: Map[Option[String], Vector[Operation]]
-  ): Future[Try[Either[JsObject, Vector[JsObject]]]]
+  ): M[Either[JsObject, Vector[JsObject]]] =
+    queryEngine.run(operations)
 
-  def migrate(migrationSteps: Vector[MigrationStep]): Future[Vector[Try[Unit]]]
-
-  def modelExists(model: PModel): Future[Boolean]
-  def modelEmpty(model: PModel): Future[Boolean]
+  def migrate(
+      migrationSteps: Vector[MigrationStep]
+  ): M[Vector[Try[Unit]]] = migrationEngine.migrate(migrationSteps)
 }
 
-trait NoSqlStorage extends Storage {
+trait MigrationEngine[S, M[_]] {
+  def migrate(
+      migrationSteps: Vector[MigrationStep]
+  ): M[Vector[Try[Unit]]]
+}
+
+trait QueryEngine[S, M[_]] {
+
+  def run(
+      operations: Map[Option[String], Vector[Operation]]
+  ): M[Either[JsObject, Vector[JsObject]]]
 
   def createManyRecords(
       model: PModel,
       records: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsArray]
+  ): M[JsArray]
 
   def createOneRecord(
       model: PModel,
       record: JsObject,
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsObject]
+  ): M[JsObject]
 
   def updateManyRecords(
       model: PModel,
       recordsWithIds: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsArray]
+  ): M[JsArray]
 
   def updateOneRecord(
       model: PModel,
       primaryKeyValue: Either[BigInt, String],
       newRecord: JsObject,
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsObject]
+  ): M[JsObject]
 
   def deleteManyRecords(
       model: PModel,
       filter: Either[QueryFilter, Vector[Either[String, BigInt]]],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsArray]
+  ): M[JsArray]
 
   def deleteOneRecord(
       model: PModel,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsObject]
+  ): M[JsObject]
 
   def pushManyTo(
       model: PModel,
@@ -68,7 +80,7 @@ trait NoSqlStorage extends Storage {
       items: Vector[JsValue],
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsArray]
+  ): M[JsArray]
 
   def pushOneTo(
       model: PModel,
@@ -76,7 +88,7 @@ trait NoSqlStorage extends Storage {
       item: JsValue,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsValue]
+  ): M[JsValue]
 
   def removeManyFrom(
       model: PModel,
@@ -84,7 +96,7 @@ trait NoSqlStorage extends Storage {
       filter: QueryFilter,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsArray]
+  ): M[JsArray]
 
   def removeOneFrom(
       model: PModel,
@@ -92,19 +104,19 @@ trait NoSqlStorage extends Storage {
       item: JsValue,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsValue]
+  ): M[JsValue]
 
   def readManyRecords(
       model: PModel,
       where: QueryWhere,
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsArray]
+  ): M[JsArray]
 
   def readOneRecord(
       model: PModel,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsObject]
+  ): M[JsObject]
 }
 
 object Storage {

@@ -76,6 +76,8 @@ case class InnerOperation(
   ```
   */
 object Operations {
+  type OperationsMap = Map[Option[String],Vector[Operation]]
+
   sealed trait OperationKind
   case object ReadOperation extends OperationKind
   case object WriteOperation extends OperationKind
