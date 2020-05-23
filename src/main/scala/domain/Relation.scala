@@ -1,6 +1,6 @@
 package domain
 
-case class Relation[+K <: RelationKind](
+case class Relation(
     origin: (PModel, PModelField),
     target: (PModel, Option[PModelField]),
     name: Option[String],
@@ -20,7 +20,7 @@ case class Relation[+K <: RelationKind](
   }
 
   override def equals(that: Any): Boolean = that match {
-    case that: Relation[_] => {
+    case that: Relation => {
       val unidirectional =
         this.origin._1.id == that.origin._1.id &&
           this.origin._2.id == that.origin._2.id &&
@@ -132,7 +132,7 @@ object Relation {
       field: PModelField,
       model: PModel,
       syntaxTree: SyntaxTree
-  ): Relation[K] = {
+  ): Relation = {
     val otherFieldPathOption =
       relName.flatMap(connectedFieldPath(_, model)(syntaxTree))
 
@@ -157,7 +157,7 @@ object Relation {
   private def relations[K <: RelationKind](
       model: PModel,
       syntaxTree: SyntaxTree
-  ): Vector[Relation[K]] =
+  ): Vector[Relation] =
     model.fields
       .map(field => {
         val relationName = field.directives
@@ -175,10 +175,10 @@ object Relation {
       .map(pair => relation[K](pair._1, pair._3, pair._2, model, syntaxTree))
       .toVector
 
-  def from[K <: RelationKind](syntaxTree: SyntaxTree): Vector[Relation[K]] =
+  def from[K <: RelationKind](syntaxTree: SyntaxTree): Vector[Relation] =
     syntaxTree.models
       .flatMap(relations(_, syntaxTree))
-      .foldLeft(Vector.empty[Relation[K]]) { // Remove equivalent `Relation`s
+      .foldLeft(Vector.empty[Relation]) { // Remove equivalent `Relation`s
         case (acc, rel) if !acc.contains(rel) => acc :+ rel
         case (acc, _)                         => acc
       }

@@ -132,7 +132,7 @@ object SQLMigrationStep {
 
   object SQLMigrationStep {
     def from[K <: RelationKind](
-        relations: Vector[Relation[K]]
+        relations: Vector[Relation]
     ): Vector[SQLMigrationStep] =
       relations.flatMap { relation =>
         relation.kind match {
