@@ -1,6 +1,6 @@
 package setup.storage.postgres
 
-import util._
+import utils._
 import setup._, storage._
 import domain.SyntaxTree
 import scala.concurrent.Future

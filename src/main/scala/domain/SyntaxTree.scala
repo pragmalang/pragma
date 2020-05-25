@@ -29,7 +29,12 @@ case class SyntaxTree(
   def getConfigEntry(key: String): Option[ConfigEntry] =
     config.flatMap(_.getConfigEntry(key))
 
-  lazy val relations = Relation.from[RelationKind](this)
+  /** Map from origin model to a vector of its relations */
+  lazy val relations: Map[ModelId, Vector[Relation]] =
+    Relation
+      .from(this)
+      .groupBy(_.origin._1.id)
+      .withDefaultValue(Vector.empty)
 }
 object SyntaxTree {
   // The resulting syntax tree is validated and substituted

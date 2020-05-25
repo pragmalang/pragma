@@ -31,13 +31,13 @@ class PModel(
       modelFields.find(_.directives.exists(_.id == "primary"))
 
     if (foundPrimaryField.isDefined) modelFields
-    else PModel.defaultPrimaryField +: modelFields
+    else defaultPrimaryField +: modelFields
   }
 
   lazy val isUser = directives.exists(_.id == "user")
 
   lazy val primaryField =
-    modelFields.find(_.directives.exists(_.id == "primary")).get
+    fields.find(_.directives.exists(_.id == "primary")).get
 
   lazy val readHooks = getHooksByName(this, "onRead")
 

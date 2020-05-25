@@ -24,7 +24,9 @@ libraryDependencies ++= Seq(
   "org.typelevel" %% "cats-effect" % "2.1.3",
   "org.typelevel" %% "cats-core" % "2.1.1",
   "org.typelevel" %% "kittens" % "2.1.0",
-  "org.jooq" % "jooq" % "3.13.1"
+  "org.jooq" % "jooq" % "3.13.1",
+  "org.tpolecat" %% "doobie-core" % "0.9.0",
+  "org.postgresql" % "postgresql" % "42.2.12"
 )
 
 // Requires `native-image` utility from Graal

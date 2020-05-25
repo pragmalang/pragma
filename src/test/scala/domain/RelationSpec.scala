@@ -3,8 +3,7 @@ package domain
 import org.scalatest.FlatSpec
 
 class RelationshipSpec extends FlatSpec {
-  "Relation equality comparison" should "be correct" in {
-    val code = """
+  val code = """
         @user model User {
             username: String @publicCredential
             password: String @secretCredential
@@ -20,7 +19,10 @@ class RelationshipSpec extends FlatSpec {
             admin: User @relation(name: "adminOf")
         }
         """
-    val st = SyntaxTree.from(code).get
+
+  val st = SyntaxTree.from(code).get
+
+  "Relation equality comparison" should "be correct" in {
 
     val relationships = Relation.from(st).map(_.toString)
 
@@ -32,5 +34,10 @@ class RelationshipSpec extends FlatSpec {
     )
 
     assert(expected == relationships)
+  }
+
+  "Relation tree" should "be constructed correctly" in {
+    assert(st.relations("User").length == 4)
+    assert(st.relations("Todo").isEmpty)
   }
 }
