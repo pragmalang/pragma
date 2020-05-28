@@ -41,7 +41,6 @@ object BuiltInDefs {
     "autoIncrement" -> PInterface("autoIncrement", Nil, None),
     "unique" -> PInterface("unique", Nil, None),
     "primary" -> PInterface("primary", Nil, None),
-    "id" -> PInterface("id", Nil, None), // auto-increment/UUID & unique
     "publicCredential" -> PInterface("publicCredential", Nil, None),
     "secretCredential" -> PInterface("secretCredential", Nil, None),
     "relation" -> PInterface(
