@@ -9,6 +9,7 @@ import domain._
 import running.pipeline.InnerOperation
 import running.pipeline._
 import cats.Monad
+import doobie.Put
 
 class Storage[S, M[_]: Monad](
     queryEngine: QueryEngine[S, M],
@@ -32,6 +33,7 @@ trait MigrationEngine[S, M[_]] {
 }
 
 trait QueryEngine[S, M[_]] {
+  type Query[_]
 
   def run(
       operations: Map[Option[String], Vector[Operation]]
@@ -41,38 +43,38 @@ trait QueryEngine[S, M[_]] {
       model: PModel,
       records: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
-  ): M[JsArray]
+  ): Query[JsArray]
 
   def createOneRecord(
       model: PModel,
       record: JsObject,
       innerReadOps: Vector[InnerOperation]
-  ): M[JsObject]
+  ): Query[JsObject]
 
   def updateManyRecords(
       model: PModel,
       recordsWithIds: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
-  ): M[JsArray]
+  ): Query[JsArray]
 
   def updateOneRecord(
       model: PModel,
       primaryKeyValue: Either[BigInt, String],
       newRecord: JsObject,
       innerReadOps: Vector[InnerOperation]
-  ): M[JsObject]
+  ): Query[JsObject]
 
   def deleteManyRecords(
       model: PModel,
       filter: Either[QueryFilter, Vector[Either[String, BigInt]]],
       innerReadOps: Vector[InnerOperation]
-  ): M[JsArray]
+  ): Query[JsArray]
 
   def deleteOneRecord(
       model: PModel,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): M[JsObject]
+  ): Query[JsObject]
 
   def pushManyTo(
       model: PModel,
@@ -80,7 +82,7 @@ trait QueryEngine[S, M[_]] {
       items: Vector[JsValue],
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): M[JsArray]
+  ): Query[JsArray]
 
   def pushOneTo(
       model: PModel,
@@ -88,7 +90,7 @@ trait QueryEngine[S, M[_]] {
       item: JsValue,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): M[JsValue]
+  ): Query[JsValue]
 
   def removeManyFrom(
       model: PModel,
@@ -96,7 +98,7 @@ trait QueryEngine[S, M[_]] {
       filter: QueryFilter,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): M[JsArray]
+  ): Query[JsArray]
 
   def removeOneFrom(
       model: PModel,
@@ -104,19 +106,19 @@ trait QueryEngine[S, M[_]] {
       item: JsValue,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): M[JsValue]
+  ): Query[JsValue]
 
   def readManyRecords(
       model: PModel,
       where: QueryWhere,
       innerReadOps: Vector[InnerOperation]
-  ): M[JsArray]
+  ): Query[JsArray]
 
-  def readOneRecord(
+  def readOneRecord[ID: Put](
       model: PModel,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: ID,
       innerReadOps: Vector[InnerOperation]
-  ): M[JsObject]
+  ): Query[JsObject]
 }
 
 object Storage {

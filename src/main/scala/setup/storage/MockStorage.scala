@@ -3,13 +3,15 @@ package setup.storage
 import running.pipeline.Operation
 import spray.json._
 import setup.MigrationStep
-import cats.instances.future._
+import cats._
+import cats.implicits._
 
 import concurrent.Future
 import concurrent.ExecutionContext.Implicits.global
 import domain.{PModel, PShapeField}
 import running.pipeline.InnerOperation
 import scala.util.Try
+import doobie.util.Put
 
 object MockMigrationEngine extends MigrationEngine[MockStorage.type, Future] {
   def migrate(
@@ -18,6 +20,8 @@ object MockMigrationEngine extends MigrationEngine[MockStorage.type, Future] {
 }
 
 object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
+  override type Query[A] = Id[A]
+
   def run(
       operations: Map[Option[String], Vector[Operation]]
   ): Future[Either[JsObject, Vector[JsObject]]] =
@@ -51,38 +55,38 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
       model: PModel,
       records: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsArray] = ???
+  ): JsArray = ???
 
   def createOneRecord(
       model: PModel,
       record: JsObject,
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsObject] = ???
+  ): JsObject = ???
 
   def updateManyRecords(
       model: PModel,
       recordsWithIds: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsArray] = ???
+  ): JsArray = ???
 
   def updateOneRecord(
       model: PModel,
       primaryKeyValue: Either[BigInt, String],
       newRecord: JsObject,
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsObject] = ???
+  ): JsObject = ???
 
   def deleteManyRecords(
       model: PModel,
       filter: Either[QueryFilter, Vector[Either[String, BigInt]]],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsArray] = ???
+  ): JsArray = ???
 
   def deleteOneRecord(
       model: PModel,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsObject] = ???
+  ): JsObject = ???
 
   def pushManyTo(
       model: PModel,
@@ -90,7 +94,7 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
       items: Vector[JsValue],
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsArray] = ???
+  ): JsArray = ???
 
   def pushOneTo(
       model: PModel,
@@ -98,7 +102,7 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
       item: JsValue,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsValue] = ???
+  ): JsValue = ???
 
   def removeManyFrom(
       model: PModel,
@@ -106,7 +110,7 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
       filter: QueryFilter,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsArray] = ???
+  ): JsArray = ???
 
   def removeOneFrom(
       model: PModel,
@@ -114,19 +118,19 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
       item: JsValue,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsValue] = ???
+  ): JsValue = ???
 
   def readManyRecords(
       model: PModel,
       where: QueryWhere,
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsArray] = ???
+  ): JsArray = ???
 
-  def readOneRecord(
+  def readOneRecord[ID: Put](
       model: PModel,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: ID,
       innerReadOps: Vector[InnerOperation]
-  ): Future[JsObject] = ???
+  ): JsObject = ???
 }
 
 object MockStorage {

@@ -8,6 +8,9 @@ import doobie.implicits._
 import cats.effect._
 import PostgresQueryEngine._
 import spray.json._
+import cats.effect._
+import sangria.macros._
+import running.pipeline._
 
 class PostgresQueryEngineSpec extends FlatSpec {
   implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
@@ -29,14 +32,14 @@ class PostgresQueryEngineSpec extends FlatSpec {
 
   val code = """
   model Country {
-    code: String
+    code: String @primary
     name: String
     population: Int
     gnp: Float?
   }
   """
 
-  val syntaxTree = SyntaxTree.from(code).get
+  implicit val syntaxTree = SyntaxTree.from(code).get
   val queryEngine = new PostgresQueryEngine(t, syntaxTree)
 
   "Query engine" should "connect to the database and run queries" in {
@@ -50,7 +53,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
     assert(!countries.isEmpty)
   }
 
-  "doobie.Read instances for models" should "read all non-relational fields of the model" in {
+  "doobie.Read instance for JsObject" should "read all fields of a table" in {
     val sql = sql"""
     select * from country
     """.query[JsObject]
@@ -64,6 +67,27 @@ class PostgresQueryEngineSpec extends FlatSpec {
       val gnp = country.fields("gnp")
       assert(gnp == JsNull || gnp.isInstanceOf[JsNumber])
     }
+  }
+
+  "PostgresQueryEngine#readOneRecord" should "read all selected fields recursively" in {
+    val gqlQuery = gql"""
+    {
+      Country {
+        read(code: "USA") {
+          code
+          name
+        }
+      }
+    }
+    """
+    val req = Request(None, None, None, gqlQuery, Right(Nil), Map.empty, "", "")
+    val iops = Operations.operationsFrom(req).apply(None).head.innerReadOps
+    val us = queryEngine.readOneRecord(
+      syntaxTree.modelsById("Country"),
+      "USA",
+      iops
+    )
+    assert(us.transact(t).unsafeRunSync.fields("code") == JsString("USA"))
   }
 
 }

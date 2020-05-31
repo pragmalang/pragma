@@ -8,6 +8,7 @@ package object utils {
   type ID = String
   type ModelId = String
   type FieldId = String
+  type RelationTree = Map[ModelId, Map[FieldId, Option[Relation]]]
 
   type FieldPath = (ModelId, FieldId)
   trait Identifiable {

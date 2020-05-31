@@ -1,15 +1,21 @@
 package setup.storage.postgres
 
 import domain._, domain.utils._
-import doobie._
 import setup.storage._
 import running.pipeline._
+import doobie._
+import doobie.implicits._
+import cats._
+import cats.effect._
 import spray.json._
 
-class PostgresQueryEngine[M[_]](
+class PostgresQueryEngine[M[_]: Monad](
     transactor: Transactor[M],
     st: SyntaxTree
 ) extends QueryEngine[Postgres, M] {
+  import PostgresQueryEngine._
+
+  override type Query[A] = ConnectionIO[A]
 
   def run(
       operations: Map[Option[String], Vector[Operation]]
@@ -19,38 +25,38 @@ class PostgresQueryEngine[M[_]](
       model: PModel,
       records: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
-  ): M[JsArray] = ???
+  ): ConnectionIO[JsArray] = ???
 
   def createOneRecord(
       model: PModel,
       record: JsObject,
       innerReadOps: Vector[InnerOperation]
-  ): M[JsObject] = ???
+  ): ConnectionIO[JsObject] = ???
 
   def updateManyRecords(
       model: PModel,
       recordsWithIds: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
-  ): M[JsArray] = ???
+  ): ConnectionIO[JsArray] = ???
 
   def updateOneRecord(
       model: PModel,
       primaryKeyValue: Either[BigInt, String],
       newRecord: JsObject,
       innerReadOps: Vector[InnerOperation]
-  ): M[JsObject] = ???
+  ): ConnectionIO[JsObject] = ???
 
   def deleteManyRecords(
       model: PModel,
       filter: Either[QueryFilter, Vector[Either[String, BigInt]]],
       innerReadOps: Vector[InnerOperation]
-  ): M[JsArray] = ???
+  ): ConnectionIO[JsArray] = ???
 
   def deleteOneRecord(
       model: PModel,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): M[JsObject] = ???
+  ): ConnectionIO[JsObject] = ???
 
   def pushManyTo(
       model: PModel,
@@ -58,7 +64,7 @@ class PostgresQueryEngine[M[_]](
       items: Vector[JsValue],
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): M[JsArray] = ???
+  ): ConnectionIO[JsArray] = ???
 
   def pushOneTo(
       model: PModel,
@@ -66,7 +72,7 @@ class PostgresQueryEngine[M[_]](
       item: JsValue,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): M[JsValue] = ???
+  ): ConnectionIO[JsValue] = ???
 
   def removeManyFrom(
       model: PModel,
@@ -74,7 +80,7 @@ class PostgresQueryEngine[M[_]](
       filter: QueryFilter,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): M[JsArray] = ???
+  ): ConnectionIO[JsArray] = ???
 
   def removeOneFrom(
       model: PModel,
@@ -82,22 +88,47 @@ class PostgresQueryEngine[M[_]](
       item: JsValue,
       primaryKeyValue: Either[BigInt, String],
       innerReadOps: Vector[InnerOperation]
-  ): M[JsValue] = ???
+  ): ConnectionIO[JsValue] = ???
 
   def readManyRecords(
       model: PModel,
       where: QueryWhere,
       innerReadOps: Vector[InnerOperation]
-  ): M[JsArray] = ???
+  ): ConnectionIO[JsArray] = ???
 
-  def readOneRecord(
+  override def readOneRecord[ID: Put](
       model: PModel,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: ID,
       innerReadOps: Vector[InnerOperation]
-  ): M[JsObject] = ???
+  ): ConnectionIO[JsObject] = {
+    val aliasedColumns = innerReadOps
+      .map { iop =>
+        val fieldId = iop.targetField.field.id
+        val alias = iop.targetField.alias
+        fieldId + alias.map(alias => s" AS $alias").getOrElse("")
+      }
+      .mkString(", ")
+
+    val sql =
+      s"SELECT $aliasedColumns FROM ${model.id} WHERE ${model.primaryField.id} = ?;"
+    val prep = HPS.set(primaryKeyValue)
+
+    HC.stream(sql, prep, 2222).compile.toList.map(_.head)
+  }
 
 }
 object PostgresQueryEngine {
+
+  protected implicit lazy val testContextShift =
+    IO.contextShift(ExecutionContexts.synchronous)
+
+  lazy val testTransactor = Transactor.fromDriverManager[IO](
+    "org.postgresql.Driver",
+    "jdbc:postgresql://test-postgres-do-user-6445746-0.a.db.ondigitalocean.com:25060/defaultdb",
+    "doadmin",
+    "j85b8frfhy1ja163",
+    Blocker.liftExecutionContext(ExecutionContexts.synchronous)
+  )
 
   implicit val jsObjectRead: doobie.Read[JsObject] =
     new doobie.Read[JsObject](Nil, (resultSet, _) => {

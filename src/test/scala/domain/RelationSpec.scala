@@ -37,7 +37,11 @@ class RelationshipSpec extends FlatSpec {
   }
 
   "Relation tree" should "be constructed correctly" in {
-    assert(st.relations("User").length == 4)
+    assert(st.relations("User")("todos").isDefined)
+    assert(st.relations("User")("doneTodos").isDefined)
+    assert(st.relations("User")("adminOf").isDefined)
+    assert(st.relations("User")("favoriteTodo").isDefined)
+    assert(!st.relations("User")("username").isDefined)
     assert(st.relations("Todo").isEmpty)
   }
 }
