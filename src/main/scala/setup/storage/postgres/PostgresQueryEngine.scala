@@ -8,6 +8,7 @@ import doobie.implicits._
 import cats._
 import cats.effect._
 import spray.json._
+import domain.Implicits._
 
 class PostgresQueryEngine[M[_]: Monad](
     transactor: Transactor[M],
@@ -103,9 +104,9 @@ class PostgresQueryEngine[M[_]: Monad](
   ): ConnectionIO[JsObject] = {
     val aliasedColumns = innerReadOps
       .map { iop =>
-        val fieldId = iop.targetField.field.id
+        val fieldId = iop.targetField.field.id.withQuotes
         val alias = iop.targetField.alias
-        fieldId + alias.map(alias => s" AS $alias").getOrElse("")
+        fieldId + alias.map(alias => s" AS ${alias.withQuotes}").getOrElse("")
       }
       .mkString(", ")
 
