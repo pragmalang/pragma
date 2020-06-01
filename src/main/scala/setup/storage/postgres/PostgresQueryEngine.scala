@@ -111,11 +111,11 @@ class PostgresQueryEngine[M[_]: Monad](
 
     val sql =
       s"SELECT $aliasedColumns FROM ${model.id} WHERE ${model.primaryField.id} = ?;"
+
     val prep = HPS.set(primaryKeyValue)
 
-    HC.stream(sql, prep, 2222).compile.toList.map(_.head)
+    HC.stream(sql, prep, 1).head.compile.toList.map(_.head)
   }
-
 }
 object PostgresQueryEngine {
 
