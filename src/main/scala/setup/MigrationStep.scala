@@ -3,7 +3,7 @@ package setup
 import domain._
 import spray.json.JsValue
 
-trait MigrationStep {
+sealed trait MigrationStep {
   def reverse: Option[MigrationStep]
 }
 
@@ -12,7 +12,8 @@ case class CreateModel(model: PModel) extends MigrationStep {
 }
 
 case class RenameModel(modelId: String, newId: String) extends MigrationStep {
-  override def reverse: Option[MigrationStep] = Some(RenameModel(newId, modelId))
+  override def reverse: Option[MigrationStep] =
+    Some(RenameModel(newId, modelId))
 }
 
 case class DeleteModel(model: PModel) extends MigrationStep {
@@ -35,14 +36,16 @@ case class RenameField(
     newId: String,
     model: PModel
 ) extends MigrationStep {
-  override def reverse: Option[MigrationStep] = Some(RenameField(newId, fieldId, model))
+  override def reverse: Option[MigrationStep] =
+    Some(RenameField(newId, fieldId, model))
 }
 
 case class DeleteField(
     field: PModelField,
     model: PModel
 ) extends MigrationStep {
-  override def reverse: Option[MigrationStep] = Some(UndeleteField(field, model))
+  override def reverse: Option[MigrationStep] =
+    Some(UndeleteField(field, model))
 }
 
 case class UndeleteField(
@@ -56,7 +59,20 @@ case class ChangeFieldType(
     field: PModelField,
     model: PModel,
     newType: PType,
-    transformer: PFunctionValue[JsValue, JsValue]
+    transformer: PFunctionValue[JsValue, JsValue],
+    reverseTransformer: Option[PFunctionValue[JsValue, JsValue]]
 ) extends MigrationStep {
-  override def reverse: Option[MigrationStep] = None
+  override def reverse: Option[MigrationStep] = reverseTransformer match {
+    case Some(value) =>
+      Some(
+        ChangeFieldType(
+          field,
+          model,
+          field.ptype,
+          value,
+          Some(transformer)
+        )
+      )
+    case None => None
+  }
 }
