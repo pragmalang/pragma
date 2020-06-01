@@ -28,24 +28,6 @@ case class SyntaxTree(
 
   def getConfigEntry(key: String): Option[ConfigEntry] =
     config.flatMap(_.getConfigEntry(key))
-
-  /** Map from origin model to a map of its relations by origin field id */
-  lazy val relations: RelationTree =
-    Relation
-      .from(this)
-      .groupBy(_.origin._1.id)
-      .view
-      .mapValues { modelRelations =>
-        modelRelations
-          .groupBy(_.origin._2.id)
-          .map {
-            case (field, relations) if relations.isEmpty => (field, None)
-            case (field, relations)                      => (field, Some(relations(0)))
-          }
-          .withDefaultValue(None)
-      }
-      .toMap
-      .withDefaultValue(Map.empty)
 }
 object SyntaxTree {
   // The resulting syntax tree is validated and substituted

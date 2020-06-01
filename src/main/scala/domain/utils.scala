@@ -8,7 +8,6 @@ package object utils {
   type ID = String
   type ModelId = String
   type FieldId = String
-  type RelationTree = Map[ModelId, Map[FieldId, Option[Relation]]]
 
   type FieldPath = (ModelId, FieldId)
   trait Identifiable {
@@ -127,14 +126,14 @@ package object utils {
 
   def displayDirective(directive: Directive) = {
     val args =
-      s"(${directive.args.value.map(arg => s"${arg._1}: ${displayHValue(arg._2)}").mkString(", ")})"
+      s"(${directive.args.value.map(arg => s"${arg._1}: ${displayPValue(arg._2)}").mkString(", ")})"
     directive.args.value.isEmpty match {
       case true  => s"@${directive.id}"
       case false => s"@${directive.id}${args}"
     }
   }
 
-  def displayHValue(value: PValue): String = value match {
+  def displayPValue(value: PValue): String = value match {
     case PIntValue(value)   => value.toString
     case PFloatValue(value) => value.toString
     case PFileValue(value, ptype) => {
@@ -145,11 +144,15 @@ package object utils {
       }
     }
     case PModelValue(value, ptype) =>
-      s"{\n${value.map(v => s" ${v._1}: ${displayHValue(v._2)}").mkString(",\n")}\n}"
-    case POptionValue(value, valueType) => value.map(displayHValue).mkString
-    case PStringValue(value)            => s""""$value""""
-    case PDateValue(value)              => value.toString
-    case PBoolValue(value)              => value.toString
+      s"{\n${value.map(v => s" ${v._1}: ${displayPValue(v._2)}").mkString(",\n")}\n}"
+    case POptionValue(value, valueType) =>
+      value.map(displayPValue) match {
+        case Some(value) => value
+        case None        => ""
+      }
+    case PStringValue(value) => s""""$value""""
+    case PDateValue(value)   => value.toString
+    case PBoolValue(value)   => value.toString
     case f: PFunctionValue[_, _] =>
       s"(${f.ptype.args.map(
         arg => s"${arg._1}: ${displayPType(arg._2, isVerbose = false)}"
@@ -157,7 +160,7 @@ package object utils {
     case PInterfaceValue(value, ptype) =>
       s"{\n${value.map(v => s" ${v._1}: ${v._2}").mkString(",\n")}\n}"
     case PArrayValue(values, elementType) =>
-      s"[${values.map(displayHValue).mkString(", ")}]"
+      s"[${values.map(displayPValue).mkString(", ")}]"
   }
 
   def typeCheckJson(ptype: PType, syntaxTree: SyntaxTree)(
