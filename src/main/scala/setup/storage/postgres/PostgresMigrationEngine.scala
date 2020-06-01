@@ -34,7 +34,8 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     }
     case RenameModel(modelId, newId) =>
       PostgresMigration(Vector(RenameTable(modelId, newId)), Vector.empty)
-    case DeleteModel(model)   => PostgresMigration(Vector(DropTable(model.id)), Vector.empty)
+    case DeleteModel(model) =>
+      PostgresMigration(Vector(DropTable(model.id)), Vector.empty)
     case UndeleteModel(model) => migration(CreateModel(model))
     case AddField(field, model) => {
       val g: Option[Either[CreateTable, ForeignKey]] =
@@ -145,15 +146,18 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
           )
         )
       )
-      PostgresMigration(g match {
-        case Some(value) =>
-          value match {
-            case Left(createArrayTableStatement) =>
-              Vector(alterTableStatement, createArrayTableStatement)
-            case Right(value) => Vector(alterTableStatement)
-          }
-        case None => Vector(alterTableStatement)
-      }, Vector.empty)
+      PostgresMigration(
+        g match {
+          case Some(value) =>
+            value match {
+              case Left(createArrayTableStatement) =>
+                Vector(alterTableStatement, createArrayTableStatement)
+              case Right(value) => Vector(alterTableStatement)
+            }
+          case None => Vector(alterTableStatement)
+        },
+        Vector.empty
+      )
     }
     case RenameField(fieldId, newId, model) =>
       PostgresMigration(
@@ -171,13 +175,14 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
       )
     case UndeleteField(field, model) =>
       migration(AddField(field, model))
-    case ChangeFieldType(
-        field,
-        model,
-        newType,
-        transformer,
-        reverseTransformer
-        ) =>
+    case ChangeManyFieldTypes(model, changes) => {
+      val tempTableName = "__migration__" + scala.util.Random.nextInt(99999)
+      val columns: Vector[ColumnDefinition] = ???
+      val createTempTable = s"""
+      CREATE TABLE $tempTableName (${columns.mkString(", \n")})
+      """
+      println(createTempTable)
       ???
+    }
   }
 }

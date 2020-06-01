@@ -2,6 +2,7 @@ package setup
 
 import domain._
 import spray.json.JsValue
+import cats.implicits._
 
 sealed trait MigrationStep {
   def reverse: Option[MigrationStep]
@@ -55,24 +56,26 @@ case class UndeleteField(
   override def reverse: Option[MigrationStep] = Some(DeleteField(field, model))
 }
 
+case class ChangeManyFieldTypes(model: PModel, changes: Vector[ChangeFieldType])
+    extends MigrationStep {
+  override def reverse: Option[MigrationStep] =
+    changes.traverse(_.reverse) map { changes =>
+      ChangeManyFieldTypes(model, changes)
+    }
+}
+
 case class ChangeFieldType(
     field: PModelField,
-    model: PModel,
     newType: PType,
     transformer: PFunctionValue[JsValue, JsValue],
     reverseTransformer: Option[PFunctionValue[JsValue, JsValue]]
-) extends MigrationStep {
-  override def reverse: Option[MigrationStep] = reverseTransformer match {
-    case Some(value) =>
-      Some(
-        ChangeFieldType(
-          field,
-          model,
-          field.ptype,
-          value,
-          Some(transformer)
-        )
-      )
-    case None => None
+) {
+  def reverse = reverseTransformer map { value =>
+    ChangeFieldType(
+      field,
+      field.ptype,
+      value,
+      Some(transformer)
+    )
   }
 }
