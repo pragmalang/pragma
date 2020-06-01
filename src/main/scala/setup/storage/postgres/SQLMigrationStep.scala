@@ -4,47 +4,32 @@ import SQLMigrationStep._
 import org.jooq._
 import setup.storage.postgres.AlterTableAction._
 import domain.PModelField
+import domain.Implicits._
 
 sealed trait SQLMigrationStep {
   def renderSQL: String = this match {
     case CreateTable(name, columns) => {
-      val prefix = s"""CREATE TABLE IF NOT EXISTS "${name}""""
+      val prefix = s"CREATE TABLE IF NOT EXISTS ${name.withQuotes}"
       val cols = "(\n" + columns.map(_.render).mkString(",\n") + ");\n"
       prefix + cols
     }
-    case RenameTable(name, newName) => s"""
-    ALTER TABLE "${name}"
-      RENAME TO "${newName}";
-    """
-    case DropTable(name)            => s"""
-    DROP TABLE IF EXISTS "${name}" CASCADE;
-    """
+    case RenameTable(name, newName) =>
+      s"ALTER TABLE ${name.withQuotes} RENAME TO ${newName.withQuotes};"
+    case DropTable(name) => s"DROP TABLE IF EXISTS ${name.withQuotes};"
     case AlterTable(tableName, action) =>
       action match {
         case AddColumn(definition) =>
-          s"""
-        ALTER TABLE "${tableName}" ADD COLUMN ${definition.render};
-        """
-        case DropColumn(name, ifExists) =>
-          s"""
-          ALTER TABLE "${tableName}" DROP COLUMN ${if (ifExists) "IF EXISTS"
-          else ""} ${name} CASCADE;
-        """
+          s"ALTER TABLE ${tableName.withQuotes} ADD COLUMN ${definition.render};"
+        case DropColumn(name, ifExists) => {
+          val ifExistsStr = if (ifExists) "IF EXISTS" else ""
+          s"ALTER TABLE ${tableName.withQuotes} DROP COLUMN $ifExistsStr ${name.withQuotes};"
+        }
         case ChangeColumnType(name, dataType) =>
-          s"""
-        ALTER TABLE "${tableName}" ALTER COLUMN ${name} TYPE ${dataType
-            .getTypeName()};
-        """
+          s"ALTER TABLE ${tableName.withQuotes} ALTER COLUMN ${name.withQuotes} TYPE ${dataType.getTypeName()};"
         case RenameColumn(name, newName) =>
-          s"""
-        ALTER TABLE "${tableName}" 
-        RENAME COLUMN ${name} TO ${newName};
-        """
+          s"ALTER TABLE ${tableName.withQuotes} RENAME COLUMN ${name.withQuotes} TO ${newName.withQuotes};"
         case AddForeignKey(otherTableName, otherColumnName, thisColumnName) =>
-          s"""
-        ALTER TABLE "${tableName}"
-          ADD FOREIGN KEY ${thisColumnName} REFERENCES "${otherTableName}"(${otherColumnName}) ON DELETE CASCADE;
-        """
+          s"ALTER TABLE ${tableName.withQuotes} ADD FOREIGN KEY ${thisColumnName.withQuotes} REFERENCES ${otherTableName.withQuotes}(${otherColumnName.withQuotes});"
       }
   }
 }
@@ -71,7 +56,7 @@ case class ColumnDefinition(
     foreignKey: Option[ForeignKey]
 ) {
   def render = {
-    val colPrefix = s"${name} ${dataType.getTypeName()}"
+    val colPrefix = s"${name.withQuotes} ${dataType.getTypeName()}"
     val notNull = if (isNotNull) "NOT NULL" else ""
     val unique = if (isUnique) "UNIQUE" else ""
     val uuid = if (isUUID) "DEFAULT uuid_generate_v4 ()" else ""
@@ -79,7 +64,7 @@ case class ColumnDefinition(
     val autoIncrement = ""
     val fk = foreignKey match {
       case Some(fk) =>
-        s"""REFERENCES "${fk.otherTableName}"(${fk.otherColumnName}) ON DELETE CASCADE"""
+        s"REFERENCES ${fk.otherTableName.withQuotes}(${fk.otherColumnName.withQuotes})"
       case None => ""
     }
 

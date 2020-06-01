@@ -49,6 +49,8 @@ package object Implicits {
 
     def indent(by: Int, indentationChar: String = "  ") =
       s.prependedAll(indentationChar * by)
+
+    def withQuotes: String = "\"" + s + "\""
   }
 
   implicit object GraalValueJsonFormater
