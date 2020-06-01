@@ -1,142 +1,87 @@
 package setup.storage.postgres
 
 import domain._
-import Constraint.ColumnConstraint.NotNull
 
 import org.jooq.DataType
 import org.jooq.util.postgres.PostgresDataType
+import cats.effect.IO
 
 package object utils {
-  type NotNull = NotNull.type
+  type IsNotNull = Boolean
+
+  def fieldPostgresType(
+      field: PModelField,
+      isOptional: Boolean = false
+  )(implicit syntaxTree: SyntaxTree): Option[DataType[_]] =
+    field.ptype match {
+      case PAny => Some(PostgresDataType.ANY)
+      case PString if field.directives.exists(_.id == "uuid") =>
+        Some(PostgresDataType.UUID)
+      case PInt if field.directives.exists(_.id == "autoIncrement") =>
+        Some(PostgresDataType.SERIAL8)
+      case PString =>
+        Some(PostgresDataType.TEXT)
+      case PInt =>
+        Some(PostgresDataType.INT8)
+      case PFloat =>
+        Some(PostgresDataType.FLOAT8)
+      case PBool =>
+        Some(PostgresDataType.BOOL)
+      case PDate =>
+        Some(PostgresDataType.DATE)
+      case PFile(_, _) =>
+        Some(PostgresDataType.TEXT)
+      case t: POption => fieldPostgresType(field, true)
+      case PReference(id) =>
+        fieldPostgresType(
+          syntaxTree.modelsById(id).primaryField,
+          isOptional
+        )
+      case model: PModel =>
+        fieldPostgresType(
+          model.primaryField,
+          isOptional
+        )
+      case PEnum(id, values, position) =>
+        Some(PostgresDataType.TEXT)
+      case PInterface(id, fields, position) => None
+      case PArray(ptype)                    => None
+      case PFunction(args, returnType)      => None
+    }
 
   def toPostgresType(
       t: PType,
-      isOptional: Boolean = false
-  ): Option[(DataType[_], Option[NotNull])] = {
-    val notNull = if (isOptional) None else Some(NotNull)
-    val isNotNull = notNull.isDefined
+      isOptional: Boolean
+  )(implicit syntaxTree: SyntaxTree): Option[DataType[_]] =
     t match {
-      case PString =>
-        Some(PostgresDataType.TEXT.nullable(!isNotNull) -> notNull)
-      case PInt => Some(PostgresDataType.INT8.nullable(!isNotNull) -> notNull)
-      case PFloat =>
-        Some(PostgresDataType.FLOAT8.nullable(!isNotNull) -> notNull)
-      case PBool => Some(PostgresDataType.BOOL.nullable(!isNotNull) -> notNull)
-      case PDate => Some(PostgresDataType.DATE.nullable(!isNotNull) -> notNull)
-      case PFile(_, _) =>
-        Some(PostgresDataType.TEXT.nullable(!isNotNull) -> notNull)
-      case t: POption => toPostgresType(t, true)
-      case _          => None
+      case PAny => Some(PostgresDataType.ANY)
+      case PEnum(id, values, position) =>
+        Some(PostgresDataType.TEXT)
+      case PString => Some(PostgresDataType.TEXT)
+      case PInt    => Some(PostgresDataType.INT8)
+      case PFloat  => Some(PostgresDataType.FLOAT8)
+      case PBool   => Some(PostgresDataType.BOOL)
+      case PDate   => Some(PostgresDataType.DATE)
+      case PFile(sizeInBytes, extensions) =>
+        Some(PostgresDataType.TEXT)
+      case POption(ptype)                   => toPostgresType(t, true)
+      case PReference(id)                   => None
+      case _: PModel                        => None
+      case PInterface(id, fields, position) => None
+      case PArray(ptype)                    => None
+      case PFunction(args, returnType)      => None
     }
+
+  class PostgresMigration(
+      val steps: Vector[SQLMigrationStep],
+      preMigrationScripts: Vector[IO[Unit]]
+  ) {
+    def run: IO[Unit] = ???
   }
-
-  implicit class StringOptionOps(option: Option[String]) {
-
-    /**
-      * Returns the wrapped string in case of `Some` or an empty string in case of `None`
-      */
-    def unwrapSafe: String = option.getOrElse("")
+  object PostgresMigration {
+    def apply(
+        steps: Vector[SQLMigrationStep],
+        preMigrationScripts: Vector[IO[Unit]]
+    ): PostgresMigration = new PostgresMigration(steps, preMigrationScripts)
   }
-
-  // {
-  //   import cats.effect.IO
-  //   import cats.implicits._
-  //   import doobie._
-  //   import doobie.implicits._
-  //   import fs2.Stream
-  //   import fs2.Stream.{eval, bracket}
-  //   import java.sql.{PreparedStatement, ResultSet}
-  //   import doobie.util.stream.repeatEvalChunks
-
-  //   type Row = Map[String, Any]
-
-  //   implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
-
-  //   // This escapes to raw JDBC for efficiency.
-  //   @SuppressWarnings(
-  //     Array(
-  //       "org.wartremover.warts.Var",
-  //       "org.wartremover.warts.While",
-  //       "org.wartremover.warts.NonUnitStatements"
-  //     )
-  //   )
-  //   def getNextChunkGeneric(chunkSize: Int): ResultSetIO[Seq[Row]] =
-  //     FRS.raw { rs =>
-  //       val md = rs.getMetaData
-  //       val ks = (1 to md.getColumnCount).map(md.getColumnLabel).toList
-  //       var n = chunkSize
-  //       val b = Vector.newBuilder[Row]
-  //       while (n > 0 && rs.next) {
-  //         val mb = Map.newBuilder[String, Any]
-  //         ks.foreach(k => mb += (k -> rs.getObject(k)))
-  //         b += mb.result()
-  //         n -= 1
-  //       }
-  //       b.result()
-  //     }
-
-  //   def liftProcessGeneric(
-  //       chunkSize: Int,
-  //       create: ConnectionIO[PreparedStatement],
-  //       prep: PreparedStatementIO[Unit],
-  //       exec: PreparedStatementIO[ResultSet]
-  //   ): Stream[ConnectionIO, Row] = {
-
-  //     def prepared(
-  //         ps: PreparedStatement
-  //     ): Stream[ConnectionIO, PreparedStatement] =
-  //       eval[ConnectionIO, PreparedStatement] {
-  //         val fs = FPS.setFetchSize(chunkSize)
-  //         FC.embed(ps, fs *> prep).map(_ => ps)
-  //       }
-
-  //     println(prepared _)
-
-  //     def unrolled(rs: ResultSet): Stream[ConnectionIO, Row] =
-  //       repeatEvalChunks(FC.embed(rs, getNextChunkGeneric(chunkSize)))
-
-  //     println(unrolled _)
-
-  //     val preparedStatement: Stream[ConnectionIO, PreparedStatement] =
-  //       bracket(create)(FC.embed(_, FPS.close))
-
-  //     def results(ps: PreparedStatement): Stream[ConnectionIO, Row] =
-  //       bracket(FC.embed(ps, exec))(unrolled, FC.embed(_, FRS.close))
-
-  //     preparedStatement.flatMap(results)
-
-  //   }
-
-  //   def processGeneric(
-  //       sql: String,
-  //       prep: PreparedStatementIO[Unit],
-  //       chunkSize: Int
-  //   ): Stream[ConnectionIO, Row] =
-  //     liftProcessGeneric(
-  //       chunkSize,
-  //       FC.prepareStatement(sql),
-  //       prep,
-  //       FPS.executeQuery
-  //     )
-
-  //   val xa = Transactor.fromDriverManager[IO](
-  //     "org.postgresql.Driver",
-  //     "jdbc:postgresql:world",
-  //     "postgres",
-  //     ""
-  //   )
-
-  //   def runl(args: List[String]): IO[Unit] =
-  //     args match {
-  //       case sql :: Nil =>
-  //         processGeneric(sql, ().pure[PreparedStatementIO], 100)
-  //           .transact(xa)
-  //           .evalMap(m => IO(Console.println(m)))
-  //           .compile
-  //           .drain
-  //       case _ => IO(Console.println("expected on arg, a query"))
-  //     }
-
-  //   runl("select * from country" :: Nil)
-  // }
 }
