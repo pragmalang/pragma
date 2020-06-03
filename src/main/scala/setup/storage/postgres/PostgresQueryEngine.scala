@@ -6,6 +6,7 @@ import running.pipeline._
 import doobie._
 import doobie.implicits._
 import cats._
+import cats.implicits._
 import cats.effect._
 import spray.json._
 import domain.Implicits._
@@ -16,7 +17,7 @@ class PostgresQueryEngine[M[_]: Monad](
 ) extends QueryEngine[Postgres, M] {
   import PostgresQueryEngine._
 
-  override type Query[A] = ConnectionIO[A]
+  override type Query[A] = PostgresQueryEngine.Query[A]
 
   def run(
       operations: Map[Option[String], Vector[Operation]]
@@ -53,9 +54,9 @@ class PostgresQueryEngine[M[_]: Monad](
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsArray] = ???
 
-  def deleteOneRecord(
+  def deleteOneRecord[ID: Put](
       model: PModel,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: ID,
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsObject] = ???
 
@@ -101,7 +102,7 @@ class PostgresQueryEngine[M[_]: Monad](
       model: PModel,
       primaryKeyValue: ID,
       innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[JsObject] = {
+  ): Query[JsObject] = {
     val aliasedColumns = innerReadOps
       .map { iop =>
         val fieldId = iop.targetField.field.id.withQuotes
@@ -115,10 +116,56 @@ class PostgresQueryEngine[M[_]: Monad](
 
     val prep = HPS.set(primaryKeyValue)
 
-    HC.stream(sql, prep, 1).head.compile.toList.map(_.head)
+    HC.stream(sql, prep, 1)
+      .head
+      .compile
+      .toList
+      .map(_.head)
+      .flatMap(populateObject(model, _, innerReadOps))
   }
+
+  def populateObject(
+      model: PModel,
+      unpopulated: JsObject,
+      innerOps: Vector[InnerOperation]
+  ): Query[JsObject] = {
+    val newObjFields = innerOps
+      .zip(innerOps.map(iop => model.fieldsById(iop.targetField.field.id)))
+      .collect {
+        case (iop, PModelField(id, PReference(refId), _, _, _)) => {
+          val fieldIdOrAlias =
+            iop.targetField.alias.getOrElse(iop.targetField.field.id)
+          populateId(
+            iop.operation.targetModel,
+            unpopulated.fields(fieldIdOrAlias),
+            iop.operation.innerReadOps
+          ).map(fieldIdOrAlias -> _)
+        }
+        case (objField, PModelField(id, PArray(PReference(refId)), _, _, _)) =>
+          ???
+        case (objField, PModelField(id, POption(PReference(refId)), _, _, _)) =>
+          ???
+      }
+
+    newObjFields.sequence.map { popFields =>
+      val allFields = popFields.foldLeft(unpopulated.fields)(_ + _)
+      JsObject(allFields)
+    }
+  }
+
+  private def populateId(
+      model: PModel,
+      key: JsValue,
+      iops: Vector[InnerOperation]
+  ): Query[JsValue] =
+    key match {
+      case JsString(v) => readOneRecord(model, v, iops).widen[JsValue]
+      case JsNumber(v) => readOneRecord(model, v.toLong, iops).widen[JsValue]
+      case _           => JsNull.pure[Query].widen[JsValue]
+    }
 }
 object PostgresQueryEngine {
+  type Query[A] = ConnectionIO[A]
 
   protected implicit lazy val testContextShift =
     IO.contextShift(ExecutionContexts.synchronous)
@@ -139,7 +186,7 @@ object PostgresQueryEngine {
       val mapBuilder = Map.newBuilder[String, JsValue]
       for (columnIndex <- 1 to columnCount) {
         val key = keys(columnIndex - 1)
-        val value = jsValueFrom(resultSet.getObject(columnIndex))
+        val value = columnValueToJson(resultSet.getObject(columnIndex))
         mapBuilder += (key -> value)
       }
       JsObject(mapBuilder.result)
@@ -149,7 +196,7 @@ object PostgresQueryEngine {
     * CAUTION: Returns JsNull if the input value's type
     * doesn't match any case.
     */
-  protected def jsValueFrom(value: Any): JsValue = value match {
+  private def columnValueToJson(value: Any): JsValue = value match {
     case null      => JsNull
     case i: Int    => JsNumber(i)
     case d: Double => JsNumber(d)

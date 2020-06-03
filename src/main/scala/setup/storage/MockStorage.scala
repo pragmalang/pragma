@@ -82,9 +82,9 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
       innerReadOps: Vector[InnerOperation]
   ): JsArray = ???
 
-  def deleteOneRecord(
+  def deleteOneRecord[ID: Put](
       model: PModel,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: ID,
       innerReadOps: Vector[InnerOperation]
   ): JsObject = ???
 

@@ -9,7 +9,7 @@ import domain._
 import running.pipeline.InnerOperation
 import running.pipeline._
 import cats.Monad
-import doobie.Put
+import doobie._
 
 class Storage[S, M[_]: Monad](
     queryEngine: QueryEngine[S, M],
@@ -70,9 +70,9 @@ trait QueryEngine[S, M[_]] {
       innerReadOps: Vector[InnerOperation]
   ): Query[JsArray]
 
-  def deleteOneRecord(
+  def deleteOneRecord[ID: Put](
       model: PModel,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: ID,
       innerReadOps: Vector[InnerOperation]
   ): Query[JsObject]
 
