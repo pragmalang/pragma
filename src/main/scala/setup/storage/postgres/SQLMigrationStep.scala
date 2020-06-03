@@ -3,7 +3,6 @@ package setup.storage.postgres
 import SQLMigrationStep._
 import org.jooq._
 import setup.storage.postgres.AlterTableAction._
-import domain.PModelField
 import domain.Implicits._
 
 sealed trait SQLMigrationStep {
@@ -29,7 +28,7 @@ sealed trait SQLMigrationStep {
         case RenameColumn(name, newName) =>
           s"ALTER TABLE ${tableName.withQuotes} RENAME COLUMN ${name.withQuotes} TO ${newName.withQuotes};"
         case AddForeignKey(otherTableName, otherColumnName, thisColumnName) =>
-          s"ALTER TABLE ${tableName.withQuotes} ADD FOREIGN KEY ${thisColumnName.withQuotes} REFERENCES ${otherTableName.withQuotes}(${otherColumnName.withQuotes});"
+          s"ALTER TABLE ${tableName.withQuotes} ADD FOREIGN KEY (${thisColumnName.withQuotes}) REFERENCES ${otherTableName.withQuotes}(${otherColumnName.withQuotes});"
       }
   }
 }
@@ -44,38 +43,6 @@ object SQLMigrationStep {
   case class RenameTable(name: String, newName: String) extends SQLMigrationStep
   case class DropTable(name: String) extends SQLMigrationStep
 }
-
-case class ColumnDefinition(
-    name: String,
-    dataType: DataType[_],
-    isNotNull: Boolean,
-    isUnique: Boolean,
-    isPrimaryKey: Boolean,
-    isAutoIncrement: Boolean,
-    isUUID: Boolean,
-    foreignKey: Option[ForeignKey]
-) {
-  def render = {
-    val colPrefix = s"${name.withQuotes} ${dataType.getTypeName()}"
-    val notNull = if (isNotNull) "NOT NULL" else ""
-    val unique = if (isUnique) "UNIQUE" else ""
-    val uuid = if (isUUID) "DEFAULT uuid_generate_v4 ()" else ""
-    val primaryKey = if (isPrimaryKey) "PRIMARY KEY" else ""
-    val autoIncrement = ""
-    val fk = foreignKey match {
-      case Some(fk) =>
-        s"REFERENCES ${fk.otherTableName.withQuotes}(${fk.otherColumnName.withQuotes})"
-      case None => ""
-    }
-
-    colPrefix + notNull + unique + uuid + primaryKey + autoIncrement + fk
-  }
-}
-
-case class ForeignKey(
-    otherTableName: String,
-    otherColumnName: String
-)
 
 sealed trait AlterTableAction
 object AlterTableAction {
@@ -93,10 +60,34 @@ object AlterTableAction {
   ) extends AlterTableAction
 }
 
-sealed trait Constraint
-object Constraint {
-  sealed trait TableConstraint extends Constraint
-  object TableConstraint {
-    case class PrimaryKey(columns: Vector[PModelField]) extends TableConstraint
+case class ColumnDefinition(
+    name: String,
+    dataType: DataType[_],
+    isNotNull: Boolean,
+    isUnique: Boolean,
+    isPrimaryKey: Boolean,
+    isAutoIncrement: Boolean,
+    isUUID: Boolean,
+    foreignKey: Option[ForeignKey]
+) {
+  def render = {
+    val colPrefix = s"${name.withQuotes} ${dataType.getTypeName()}"
+    val notNull = if (isNotNull) " NOT NULL" else ""
+    val unique = if (isUnique) " UNIQUE" else ""
+    val uuid = if (isUUID) " DEFAULT uuid_generate_v4 ()" else ""
+    val primaryKey = if (isPrimaryKey) " PRIMARY KEY" else ""
+    val autoIncrement = ""
+    val fk = foreignKey match {
+      case Some(fk) =>
+        s" REFERENCES ${fk.otherTableName.withQuotes}(${fk.otherColumnName.withQuotes})"
+      case None => ""
+    }
+
+    colPrefix + notNull + unique + uuid + primaryKey + autoIncrement + fk
   }
 }
+
+case class ForeignKey(
+    otherTableName: String,
+    otherColumnName: String
+)

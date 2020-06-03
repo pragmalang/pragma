@@ -176,6 +176,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     case UndeleteField(field, model) =>
       migration(AddField(field, model))
     case ChangeManyFieldTypes(model, changes) => {
+      // TODO: Implement this after finishing `PostgresQueryEngine` because it's eaiser to use it than plain SQL
       val tempTableName = "__migration__" + scala.util.Random.nextInt(99999)
       val columns: Vector[ColumnDefinition] = ???
       val createTempTable = s"""
