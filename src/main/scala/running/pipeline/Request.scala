@@ -76,7 +76,7 @@ case class InnerOperation(
   ```
   */
 object Operations {
-  type OperationsMap = Map[Option[String],Vector[Operation]]
+  type OperationsMap = Map[Option[String], Vector[Operation]]
 
   sealed trait OperationKind
   case object ReadOperation extends OperationKind
@@ -244,7 +244,7 @@ object Operations {
       st: SyntaxTree
   ): InnerOperation = {
     val targetField =
-      outerTargetModel.fields.find(_.id == modelFieldSelection.name) match {
+      outerTargetModel.fieldsById.get(modelFieldSelection.name) match {
         case Some(field: PModelField) => field
         case _ =>
           throw new InternalException(

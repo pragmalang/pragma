@@ -81,7 +81,7 @@ object PermissionsSubstitutor {
     val child =
       if (childRef.isDefined) {
         val foundChild = childRef flatMap { ref =>
-          parent.fields.find(_.id == ref.path.head)
+          parent.fieldsById.get(ref.path.head)
         }
         foundChild match {
           case None =>

@@ -34,6 +34,9 @@ class PModel(
     else defaultPrimaryField +: modelFields
   }
 
+  lazy val fieldsById: Map[FieldId, PModelField] =
+    fields.map(field => field.id -> field).toMap
+
   lazy val isUser = directives.exists(_.id == "user")
 
   lazy val primaryField =
