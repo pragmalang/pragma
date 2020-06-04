@@ -4,7 +4,6 @@ import domain._
 
 import org.jooq.DataType
 import org.jooq.util.postgres.PostgresDataType
-import cats.effect.IO
 
 package object utils {
   type IsNotNull = Boolean
@@ -64,21 +63,4 @@ package object utils {
       case PArray(ptype)                    => None
       case PFunction(args, returnType)      => None
     }
-
-  case class PostgresMigration(
-      steps: Vector[SQLMigrationStep],
-      preScripts: Vector[IO[Unit]]
-  ) {
-    def run: IO[Unit] = ???
-    def ++(that: PostgresMigration): PostgresMigration =
-      PostgresMigration(steps ++ that.steps, preScripts ++ that.preScripts)
-    def concat(that: PostgresMigration): PostgresMigration = this ++ that
-    def renderSQL: String =
-      "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";\n\n" + steps
-        .map(_.renderSQL)
-        .mkString("\n\n")
-  }
-  object PostgresMigration {
-    def empty: PostgresMigration = PostgresMigration(Vector.empty, Vector.empty)
-  }
 }

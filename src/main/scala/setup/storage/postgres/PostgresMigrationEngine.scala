@@ -1,7 +1,8 @@
 package setup.storage.postgres
 
 import setup.storage._
-import cats._
+import cats._, implicits._
+import domain.instances._
 import scala.util.Try
 import setup.MigrationStep
 import domain.SyntaxTree
@@ -22,7 +23,10 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
   case class ModelMig(modelId: String, migId: Int, fields: Vector[FieldMig])
   case class FieldMig(fieldId: String, migId: Int)
 
-  def migration: PostgresMigration = {
+  def migration(prevTree: SyntaxTree = SyntaxTree.empty): PostgresMigration = {
+    val isFirstMigration = prevTree.isEmpty
+    val prevMigrationIds: Vector[ModelMig] =
+      if (isFirstMigration) Vector.empty else ???
     // `migrationIds` Will be implemented when migration IDs are added to `SyntaxTree`
     val migrationIds: Vector[ModelMig] = ???
     val steps: Vector[MigrationStep] = ???
