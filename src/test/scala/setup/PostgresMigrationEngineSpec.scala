@@ -8,7 +8,6 @@ import org.jooq.util.postgres.PostgresDataType
 import domain.SyntaxTree
 import setup.storage.postgres._
 import setup.storage.postgres.AlterTableAction._
-import setup.storage.postgres.utils._
 
 class PostgresMigrationEngineSpec extends FunSuite {
   test("`Iterable[SQLMigrationStep]#renderSQL` works") {
