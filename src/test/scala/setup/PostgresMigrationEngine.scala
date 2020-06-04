@@ -1,11 +1,15 @@
 package setup
 
 import org.scalatest._
-import setup.storage.postgres._, Implicits._
+import setup.storage.postgres._
 import setup.storage.postgres.SQLMigrationStep._
 import org.jooq.util.postgres.PostgresDataType
+import domain.SyntaxTree
+import setup.storage.postgres._
+import setup.storage.postgres.AlterTableAction._
+import setup.storage.postgres.utils._
 
-class PostgresMigrationEngine extends FunSuite {
+class PostgresMigrationEngineSpec extends FunSuite {
   test("`Iterable[SQLMigrationStep]#renderSQL` works") {
     val columns =
       ColumnDefinition(
@@ -102,16 +106,162 @@ class PostgresMigrationEngine extends FunSuite {
 
     assert(
       expected ==
-        List(
-          createTable,
-          renameTable,
-          addColumn,
-          renameColumn,
-          changeColumnType,
-          addFk,
-          dropColumn,
-          dropTable
+        PostgresMigration(
+          Vector(
+            createTable,
+            renameTable,
+            addColumn,
+            renameColumn,
+            changeColumnType,
+            addFk,
+            dropColumn,
+            dropTable
+          ),
+          Vector.empty
         ).renderSQL
     )
+  }
+
+  test("PostgresMigrationEngine#migration works") {
+    val code = """
+    @user
+    model User {
+      id: String @uuid
+      username: String @primary @publicCredential
+      password: String @secretCredential
+      isVerified: Boolean = false
+      todo: Todo?
+    }
+
+    model Todo {
+      title: String
+    }
+    """
+
+    val syntaxTree = SyntaxTree.from(code).get
+    val createTodoModel = CreateModel(syntaxTree.modelsById("Todo"))
+    val createUserModel = CreateModel(syntaxTree.modelsById("User"))
+    val migrationEngine = new PostgresMigrationEngine(syntaxTree)
+
+    val expected = PostgresMigration(
+      Vector(
+        CreateTable("Todo", Vector()),
+        AlterTable(
+          "Todo",
+          AddColumn(
+            ColumnDefinition(
+              "_id",
+              PostgresDataType.TEXT,
+              true,
+              false,
+              true,
+              false,
+              false,
+              None
+            )
+          )
+        ),
+        AlterTable(
+          "Todo",
+          AddColumn(
+            ColumnDefinition(
+              "title",
+              PostgresDataType.TEXT,
+              true,
+              false,
+              false,
+              false,
+              false,
+              None
+            )
+          )
+        ),
+        CreateTable("User", Vector()),
+        AlterTable(
+          "User",
+          AddColumn(
+            ColumnDefinition(
+              "id",
+              PostgresDataType.UUID,
+              true,
+              false,
+              false,
+              false,
+              true,
+              None
+            )
+          )
+        ),
+        AlterTable(
+          "User",
+          AddColumn(
+            ColumnDefinition(
+              "username",
+              PostgresDataType.TEXT,
+              true,
+              false,
+              true,
+              false,
+              false,
+              None
+            )
+          )
+        ),
+        AlterTable(
+          "User",
+          AddColumn(
+            ColumnDefinition(
+              "password",
+              PostgresDataType.TEXT,
+              true,
+              false,
+              false,
+              false,
+              false,
+              None
+            )
+          )
+        ),
+        AlterTable(
+          "User",
+          AddColumn(
+            ColumnDefinition(
+              "isVerified",
+              PostgresDataType.BOOL,
+              true,
+              false,
+              false,
+              false,
+              false,
+              None
+            )
+          )
+        ),
+        AlterTable(
+          "User",
+          AddColumn(
+            ColumnDefinition(
+              "todo",
+              PostgresDataType.TEXT,
+              false,
+              false,
+              false,
+              false,
+              false,
+              Some(ForeignKey("Todo", "_id"))
+            )
+          )
+        )
+      ),
+      Vector()
+    )
+
+    val migration = migrationEngine.migration(
+      createTodoModel
+        :: createUserModel
+        :: Nil
+    )
+
+    assert(migration == expected)
   }
 }

@@ -19,6 +19,10 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
       migrationSteps: Vector[MigrationStep]
   ): M[Vector[Try[Unit]]] = Monad[M].pure(Vector(Try(())))
 
+  def migration(steps: Iterable[MigrationStep]): PostgresMigration =
+    // TODO: Re-order `steps` based on the dependency graph
+    steps.map(migration).foldLeft(PostgresMigration.empty)(_ ++ _)
+
   def migration(
       migrationStep: MigrationStep
   ): PostgresMigration = migrationStep match {
@@ -118,6 +122,13 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
           }
           case model: PModel =>
             Some(Right(ForeignKey(model.id, model.primaryField.id)))
+          case POption(model: PModel) =>
+            Some(Right(ForeignKey(model.id, model.primaryField.id)))
+          case POption(PReference(id))
+              if syntaxTree.modelsById.get(id).isDefined =>
+            Some(
+              Right(ForeignKey(id, syntaxTree.modelsById(id).primaryField.id))
+            )
           case PReference(id) if syntaxTree.modelsById.get(id).isDefined =>
             Some(
               Right(ForeignKey(id, syntaxTree.modelsById(id).primaryField.id))
@@ -130,7 +141,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
           ColumnDefinition(
             name = field.id,
             dataType = fieldPostgresType(field)(syntaxTree).get,
-            isNotNull = fieldPostgresType(field)(syntaxTree).get.nullable(),
+            isNotNull = !field.isOptional,
             isUnique = field.directives.exists(_.id == "unique"),
             isPrimaryKey = field.directives.exists(_.id == "primary"),
             isAutoIncrement = field.directives.exists(_.id == "autoIncrement"),
