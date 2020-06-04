@@ -1,5 +1,6 @@
-package setup
+package setup.storage.postgres
 
+import setup._
 import org.scalatest._
 import setup.storage.postgres._
 import setup.storage.postgres.SQLMigrationStep._
@@ -256,12 +257,12 @@ class PostgresMigrationEngineSpec extends FunSuite {
       Vector()
     )
 
-    val migration = migrationEngine.migration(
+    val postgresMigration = migrationEngine.migration(
       createTodoModel
         :: createUserModel
         :: Nil
     )
 
-    assert(migration == expected)
+    assert(postgresMigration == expected)
   }
 }

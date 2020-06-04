@@ -19,11 +19,23 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
       migrationSteps: Vector[MigrationStep]
   ): M[Vector[Try[Unit]]] = Monad[M].pure(Vector(Try(())))
 
-  def migration(steps: Iterable[MigrationStep]): PostgresMigration =
+  case class ModelMig(modelId: String, migId: Int, fields: Vector[FieldMig])
+  case class FieldMig(fieldId: String, migId: Int)
+
+  def migration: PostgresMigration = {
+    // `migrationIds` Will be implemented when migration IDs are added to `SyntaxTree`
+    val migrationIds: Vector[ModelMig] = ???
+    val steps: Vector[MigrationStep] = ???
+    migration(steps)
+  }
+
+  private[postgres] def migration(
+      steps: Iterable[MigrationStep]
+  ): PostgresMigration =
     // TODO: Re-order `steps` based on the dependency graph
     steps.map(migration).foldLeft(PostgresMigration.empty)(_ ++ _)
 
-  def migration(
+  private[postgres] def migration(
       migrationStep: MigrationStep
   ): PostgresMigration = migrationStep match {
     case CreateModel(model) => {
