@@ -9,30 +9,30 @@ case class QueryWhere(
     slice: Option[(Int, Int, Int)],
     filter: Option[QueryFilter]
 ) {
-  def apply(objects: Vector[JsObject]): IterableOnce[Vector[JsObject]] = {
+  def apply(objects: Vector[JsObject]) = {
     (orderBy, slice, filter) match {
-      case (None, None, None) => Some(objects)
+      case (None, None, None) => objects
       case (Some(orderBy), Some(slice), Some(filter)) =>
         orderBy(objects.filter(filter))
           .slice(slice._1, slice._2)
-          .grouped(slice._3)
-      case (Some(orderBy), None, None) => Some(orderBy(objects))
+          .filter(obj => objects.indexOf(obj) % slice._3 == 0)
+      case (Some(orderBy), None, None) => orderBy(objects)
       case (None, Some(slice), None) =>
         objects
           .slice(slice._1, slice._2)
-          .grouped(slice._3)
-      case (None, None, Some(filter)) => Some(objects.filter(filter))
+          .filter(obj => objects.indexOf(obj) % slice._3 == 0)
+      case (None, None, Some(filter)) => objects.filter(filter)
       case (Some(orderBy), Some(slice), None) =>
         orderBy(objects)
           .slice(slice._1, slice._2)
-          .grouped(slice._3)
+          .filter(obj => objects.indexOf(obj) % slice._3 == 0)
       case (Some(orderBy), None, Some(filter)) =>
-        Some(orderBy(objects.filter(filter)))
+        orderBy(objects.filter(filter))
       case (None, Some(slice), Some(filter)) =>
         objects
           .filter(filter)
           .slice(slice._1, slice._2)
-          .grouped(slice._3)
+          .filter(obj => objects.indexOf(obj) % slice._3 == 0)
     }
   }
 }
