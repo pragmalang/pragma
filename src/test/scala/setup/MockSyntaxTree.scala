@@ -101,6 +101,7 @@ object MockSyntaxTree {
         None
       )
     ),
+    1,
     None
   )
 
@@ -131,6 +132,7 @@ object MockSyntaxTree {
         )
       ),
       List(),
+      2,
       None
     )
 

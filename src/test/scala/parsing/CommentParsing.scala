@@ -9,7 +9,7 @@ class CommentParsing extends FlatSpec {
   "Comments" should "be allowed anywhere in code" in {
     val code = """
     # Some comment
-    @user #some other comment
+    @1 @user #some other comment
     model User { # lalalalala
         # lilililili
         username: String @publicCredential # lulululu

@@ -12,11 +12,11 @@ import org.parboiled2.Position
 class Substitution extends FlatSpec {
 
   "Substitutor" should "return an object containing all defined functions in a file as GraalFunctionValues using readGraalFunctions" in {
-    val Pimport =
+    val pImport =
       PImport("functions", "./src/test/scala/parsing/test-functions.js", None)
     val graalCtx = Context.create()
     val functionObject =
-      Substitutor.readGraalFunctionsIntoContext(Pimport, graalCtx).get
+      Substitutor.readGraalFunctionsIntoContext(pImport, graalCtx).get
     val f = functionObject.value("f").asInstanceOf[GraalFunction]
     val additionResult = f.execute(JsNumber(2))
     assert(
@@ -24,12 +24,14 @@ class Substitution extends FlatSpec {
         Success(3.0).value
       )
     )
+    graalCtx.close()
   }
 
   "Substitutor" should "substitute function references in directives with actual functions" in {
     val code = """
     import "./src/test/scala/parsing/test-functions.js" as fns
 
+    @1
     @onWrite(function: fns.validateCat)
     model Cat { name: String }
     """
@@ -67,17 +69,18 @@ class Substitution extends FlatSpec {
       case None => fail("Should've found referenced value")
       case _    => ()
     }
+    graalCtx.close()
   }
 
   "Predicate references in permissions" should "be substituted with actual predicates correctly" in {
     val code = """
-    @user model User {
+    @1 @user model User {
       username: String @publicCredential
       password: String @secretCredential
       todos: [Todo]
     }
 
-    model Todo { title: String }
+    @2 model Todo { title: String }
 
     import "./src/test/scala/parsing/test-functions.js" as fns
 
@@ -95,7 +98,7 @@ class Substitution extends FlatSpec {
 
   "Substitutor" should "substitute `self` references in access rules with appropriate model ref and predicate" in {
     val code = """
-      @user model User {
+   @1 @user model User {
         username: String @publicCredential
         password: String @secretCredential
         bio: String
@@ -158,6 +161,7 @@ class Substitution extends FlatSpec {
               Some(PositionRange(Position(7, 2, 7), Position(12, 2, 12)))
             )
           ),
+          1,
           Some(PositionRange(Position(19, 2, 19), Position(23, 2, 23)))
         ),
         Some(
@@ -224,6 +228,7 @@ class Substitution extends FlatSpec {
                 Some(PositionRange(Position(7, 2, 7), Position(12, 2, 12)))
               )
             ),
+            1,
             Some(PositionRange(Position(19, 2, 19), Position(23, 2, 23)))
           )
         )

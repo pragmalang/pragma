@@ -14,7 +14,7 @@ class RequestOperations extends FlatSpec {
     val code = """
     import "./src/test/scala/parsing/test-functions.js" as fns
 
-    @user model User {
+    @user @1 model User {
         username: String @publicCredential
         todos: Todo
         friend: User?
@@ -24,7 +24,7 @@ class RequestOperations extends FlatSpec {
         allow READ User if fns.isSelf
     }
 
-    model Todo {
+    @2 model Todo {
         title: String
         content: String
     }

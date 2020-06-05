@@ -20,6 +20,7 @@ class PModel(
     val id: String,
     modelFields: Seq[PModelField],
     val directives: Seq[Directive],
+    val index: Int,
     val position: Option[PositionRange]
 ) extends PType
     with PConstruct
@@ -50,7 +51,10 @@ class PModel(
 
   override def equals(that: Any): Boolean = that match {
     case model: PModel =>
-      model.id == id && model.fields == fields && model.directives == directives
+      model.id == id &&
+        model.fields == fields &&
+        model.directives == directives &&
+        model.index == index
     case _ => false
   }
 }
@@ -90,8 +94,9 @@ object PModel {
       id: String,
       fields: Seq[PModelField],
       directives: Seq[Directive],
+      index: Int,
       position: Option[PositionRange]
-  ): PModel = new PModel(id, fields, directives, position)
+  ): PModel = new PModel(id, fields, directives, index, position)
 }
 
 case class PInterface(

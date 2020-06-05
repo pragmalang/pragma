@@ -1,12 +1,11 @@
 package setup.storage.postgres
 
 import setup._
-import org.scalatest._
 import setup.storage.postgres._
+import org.scalatest._
 import setup.storage.postgres.SQLMigrationStep._
 import org.jooq.util.postgres.PostgresDataType
 import domain.SyntaxTree
-import setup.storage.postgres._
 import setup.storage.postgres.AlterTableAction._
 
 class PostgresMigrationEngineSpec extends FunSuite {
@@ -124,7 +123,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
 
   test("PostgresMigrationEngine#migration works") {
     val code = """
-    @user
+    @1 @user
     model User {
       id: String @uuid
       username: String @primary @publicCredential
@@ -133,11 +132,10 @@ class PostgresMigrationEngineSpec extends FunSuite {
       todo: Todo?
     }
 
-    model Todo {
+    @2 model Todo {
       title: String
     }
     """
-
     val syntaxTree = SyntaxTree.from(code).get
     val createTodoModel = CreateModel(syntaxTree.modelsById("Todo"))
     val createUserModel = CreateModel(syntaxTree.modelsById("User"))

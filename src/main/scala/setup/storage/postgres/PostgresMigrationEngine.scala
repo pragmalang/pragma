@@ -1,8 +1,7 @@
 package setup.storage.postgres
 
 import setup.storage._
-import cats._, implicits._
-import domain.instances._
+import cats._
 import scala.util.Try
 import setup.MigrationStep
 import domain.SyntaxTree
@@ -26,105 +25,97 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
   private[postgres] def inferedMigrationSteps(
       currentTree: SyntaxTree,
       prevTree: SyntaxTree
-  ): Vector[MigrationStep] = {
-    if (prevTree.isEmpty) {
+  ): Vector[MigrationStep] =
+    if (prevTree.models.isEmpty)
       currentTree.models.map(CreateModel(_)).toVector
-    } else {
+    else {
       val currentModelMigs = currentTree.models.map(ModelMig(_)).toVector
       val prevModelMigs = prevTree.models.map(ModelMig(_)).toVector
 
       val newModels = currentModelMigs
         .diff(prevModelMigs)
         .map(modelMig => CreateModel(currentTree.modelsById(modelMig.modelId)))
+
       val deletedModels = prevModelMigs
         .diff(currentModelMigs)
         .map(modelMig => DeleteModel(prevTree.modelsById(modelMig.modelId)))
+
       val renamedModels = for {
         currentModel <- currentModelMigs
         prevModel <- prevModelMigs.find(_.migId == currentModel.migId)
         if currentModel.modelId != prevModel.modelId
       } yield RenameModel(prevModel.modelId, currentModel.modelId)
 
-      val fieldMigrationSteps = {
-        for {
-          currentModelMig <- currentModelMigs
-          prevModelMig <- prevModelMigs.find(_.migId == currentModelMig.migId)
-          currentModel = currentTree.modelsById(currentModelMig.modelId)
-          prevModel = prevTree.modelsById(prevModelMig.modelId)
-        } yield {
-
-          val newFields = currentModelMig.fields
-            .diff(prevModelMig.fields)
-            .map { fieldMig =>
-              val field = currentModel.fieldsById(fieldMig.fieldId)
-              AddField(field, prevModel)
-            }
-
-          val deletedFields = prevModelMig.fields
-            .diff(currentModelMig.fields)
-            .map { fieldMig =>
-              val field = prevModel.fieldsById(fieldMig.fieldId)
-              DeleteField(field, prevModel)
-            }
-
-          val renamedFields = for {
-            currentFieldMig <- currentModelMig.fields
-            prevFieldMig <- prevModelMig.fields.find(
-              _.migId == currentFieldMig.migId
-            )
-            if currentFieldMig.fieldId != prevFieldMig.fieldId
-          } yield
-            RenameField(
-              prevFieldMig.fieldId,
-              currentFieldMig.fieldId,
-              prevModel
-            )
-
-          val changeTypeFields = {
-            for {
-              currentFieldMig <- currentModelMig.fields
-              prevFieldMig <- prevModelMig.fields.find(
-                _.migId == currentFieldMig.migId
-              )
-              currentField = currentModel.fieldsById(currentFieldMig.fieldId)
-              prevField = prevModel.fieldsById(prevFieldMig.fieldId)
-              if currentField.ptype != prevField.ptype
-            } yield
-              ChangeManyFieldTypes(
-                prevModel,
-                Vector(
-                  ChangeFieldType(currentField, currentField.ptype, ???, ???)
-                )
-              )
-          }.foldLeft[Option[ChangeManyFieldTypes]](None) {
-            case (Some(value), e) if value.prevModel == e.prevModel =>
-              Some(
-                ChangeManyFieldTypes(
-                  value.prevModel,
-                  value.changes ++ e.changes
-                )
-              )
-            case (None, e) => Some(e)
-            case _         => None
+      val fieldMigrationSteps = for {
+        currentModelMig <- currentModelMigs
+        prevModelMig <- prevModelMigs.find(_.migId == currentModelMig.migId)
+        currentModel = currentTree.modelsById(currentModelMig.modelId)
+        prevModel = prevTree.modelsById(prevModelMig.modelId)
+        newFields = currentModelMig.fields
+          .diff(prevModelMig.fields)
+          .map { fieldMig =>
+            val field = currentModel.fieldsById(fieldMig.fieldId)
+            AddField(field, prevModel)
           }
 
-          val fieldMigrationSteps: Vector[MigrationStep] =
-            changeTypeFields match {
-              case Some(changeTypeFields) =>
-                Vector(
-                  newFields ++ deletedFields ++ renamedFields,
-                  Vector(changeTypeFields)
-                ).flatten
-              case None => newFields ++ deletedFields ++ renamedFields
-            }
+        deletedFields = prevModelMig.fields
+          .diff(currentModelMig.fields)
+          .map { fieldMig =>
+            val field = prevModel.fieldsById(fieldMig.fieldId)
+            DeleteField(field, prevModel)
+          }
 
-          fieldMigrationSteps
+        renamedFields = for {
+          currentFieldMig <- currentModelMig.fields
+          prevFieldMig <- prevModelMig.fields.find(
+            _.migId == currentFieldMig.migId
+          )
+          if currentFieldMig.fieldId != prevFieldMig.fieldId
+        } yield
+          RenameField(
+            prevFieldMig.fieldId,
+            currentFieldMig.fieldId,
+            prevModel
+          )
+
+        changeTypeFields = (for {
+          currentFieldMig <- currentModelMig.fields
+          prevFieldMig <- prevModelMig.fields.find(
+            _.migId == currentFieldMig.migId
+          )
+          currentField = currentModel.fieldsById(currentFieldMig.fieldId)
+          prevField = prevModel.fieldsById(prevFieldMig.fieldId)
+          if currentField.ptype != prevField.ptype
+        } yield
+          ChangeManyFieldTypes(
+            prevModel,
+            Vector(
+              ChangeFieldType(currentField, currentField.ptype, ???, ???)
+            )
+          )).foldLeft[Option[ChangeManyFieldTypes]](None) {
+          case (Some(value), e) if value.prevModel == e.prevModel =>
+            Some(
+              ChangeManyFieldTypes(
+                value.prevModel,
+                value.changes ++ e.changes
+              )
+            )
+          case (None, e) => Some(e)
+          case _         => None
         }
-      }.flatten
 
-      newModels ++ deletedModels ++ renamedModels ++ fieldMigrationSteps
+        fieldMigrationSteps: Vector[MigrationStep] = changeTypeFields match {
+          case Some(changeTypeFields) =>
+            Vector(
+              newFields ++ deletedFields ++ renamedFields,
+              Vector(changeTypeFields)
+            ).flatten
+          case None => newFields ++ deletedFields ++ renamedFields
+        }
+      } yield fieldMigrationSteps
+
+      newModels ++ deletedModels ++ renamedModels ++ fieldMigrationSteps.flatten
     }
-  }
 
   /**
     * CAUTION: This function does not sort `steps` based on

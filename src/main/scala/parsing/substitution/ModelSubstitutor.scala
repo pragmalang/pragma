@@ -43,6 +43,7 @@ object ModelSubstitutor {
           model.id,
           newFields,
           newModelLevel.map(_.get),
+          model.index,
           model.position
         )
       }
@@ -84,7 +85,13 @@ object ModelSubstitutor {
         else field.copy(defaultValue = Some(PArrayValue(Nil, innerType)))
       case nonOptionalArrayField => nonOptionalArrayField
     }
-    new PModel(model.id, newFields, model.directives, model.position)
+    new PModel(
+      model.id,
+      newFields,
+      model.directives,
+      model.index,
+      model.position
+    )
   }
 
 }

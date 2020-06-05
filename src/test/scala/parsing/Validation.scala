@@ -2,12 +2,11 @@ import org.scalatest._
 import domain._, utils._
 import parsing._
 import scala.util._
-import org.parboiled2.Position
 
 class Validation extends FlatSpec {
   "Default field value checker" should "fail in case of type mismatch" in {
     val code = """
-      model User {
+      @1 model User {
           name: String = "John Doe"
           age: Int = "Not an Integer"
           petName: String? = "Fluffykins"
@@ -36,7 +35,7 @@ class Validation extends FlatSpec {
 
   "Roles defined for non-user models" should "not be allowed" in {
     val code = """
-    model Todo {
+    @1 model Todo {
       title: String
       content: String
     }
@@ -61,32 +60,27 @@ class Validation extends FlatSpec {
 
   "Non-existant field types" should "not be allowed" in {
     val code = """
-    @user model User {
+    @1 @user model User {
       username: String @publicCredential
       todos: [Todof]
     }
 
-    model Todo {
+    @2 model Todo {
       title: Stringf
       content: String
       user: User
     }
     """
     val syntaxTree = SyntaxTree.from(code)
-    val expected = Failure(
-      UserError(
-        List(
-          (
-            "Type `Todof` is not defined",
-            Some(PositionRange(Position(71, 4, 7), Position(76, 4, 12)))
-          ),
-          (
-            "Type `Stringf` is not defined",
-            Some(PositionRange(Position(116, 8, 7), Position(121, 8, 12)))
-          )
-        )
-      )
+    val expected = List(
+      "Type `Todof` is not defined",
+      "Type `Stringf` is not defined"
     )
-    assert(syntaxTree == expected)
+    syntaxTree match {
+      case Failure(err: UserError) =>
+        assert(err.errors.map(_._1) == expected)
+
+      case _ => fail("Result must be an error")
+    }
   }
 }

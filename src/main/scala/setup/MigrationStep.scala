@@ -55,11 +55,14 @@ case class UndeleteField(
     prevField: PModelField,
     prevModel: PModel
 ) extends MigrationStep {
-  override def reverse: Option[MigrationStep] = Some(DeleteField(prevField, prevModel))
+  override def reverse: Option[MigrationStep] =
+    Some(DeleteField(prevField, prevModel))
 }
 
-case class ChangeManyFieldTypes(prevModel: PModel, changes: Vector[ChangeFieldType])
-    extends MigrationStep {
+case class ChangeManyFieldTypes(
+    prevModel: PModel,
+    changes: Vector[ChangeFieldType]
+) extends MigrationStep {
   override def reverse: Option[MigrationStep] =
     changes.traverse(_.reverse) map { changes =>
       ChangeManyFieldTypes(prevModel, changes)

@@ -6,6 +6,7 @@ import scala.language.implicitConversions
 import domain.utils.`package`.Identifiable
 import spray.json.JsValue
 import scala.util.{Try, Failure}
+import domain.utils.UserError
 
 object PragmaParser {
   // Dummy classes will be substituted at substitution time
@@ -35,6 +36,11 @@ object PragmaParser {
     override val fields: List[PShapeField] = Nil
 
   }
+
+  /** Represents a model/field index annotation
+    *  (e.g. @1, @23)
+    */
+  case class IndexAnnotation(value: Int) extends Annotation
 
 }
 class PragmaParser(val input: ParserInput) extends Parser {
@@ -155,6 +161,11 @@ class PragmaParser(val input: ParserInput) extends Parser {
     }
   }
 
+  def indexAnnotation: Rule1[IndexAnnotation] = rule {
+    '@' ~ capture(oneOrMore(CharPredicate.Digit)) ~>
+      ((strIndex: String) => IndexAnnotation(strIndex.toInt))
+  }
+
   def directive = rule {
     '@' ~ identifier ~ optional("(" ~ namedArgs ~ ")")
   }
@@ -169,24 +180,42 @@ class PragmaParser(val input: ParserInput) extends Parser {
     }
   }
 
+  def annotation(directiveKind: DirectiveKind): Rule1[Annotation] = rule {
+    indexAnnotation | directive(directiveKind)
+  }
+
   def modelDef: Rule1[PModel] = rule {
-    wsWithEndline() ~ zeroOrMore(directive(ModelDirective))
+    wsWithEndline() ~ zeroOrMore(annotation(ModelDirective))
       .separatedBy(wsWithEndline()) ~
       ("model" ~ push(cursor) ~ identifier ~ push(cursor) ~
         "{" ~ zeroOrMore(fieldDef) ~ "}") ~> {
       (
-          ds: Seq[Directive],
+          anns: Seq[Annotation],
           start: Int,
           id: String,
           end: Int,
           fields: Seq[PModelField]
       ) =>
-        PModel(
-          id,
-          fields.toList,
-          ds.toList,
-          Some(PositionRange(start, end))
-        )
+        {
+          val modelIndexes = anns.collect { case IndexAnnotation(i) => i }
+          if (modelIndexes.length == 0)
+            throw UserError(
+              s"Model $id must have an index (e.g. @1)",
+              Some(PositionRange(start, end))
+            )
+          if (modelIndexes.length > 1)
+            throw UserError(
+              "A model cannot have more than one index",
+              Some(PositionRange(start, end))
+            )
+          PModel(
+            id,
+            fields.toList,
+            anns.collect { case d: Directive => d }.toList,
+            modelIndexes.head,
+            Some(PositionRange(start, end))
+          )
+        }
     }
   }
 

@@ -17,7 +17,7 @@ import cats.implicits._
 class Authorization extends FlatSpec {
   "Authorizer" should "authorize requests correctly" in {
     val code = """
-    @user
+    @1 @user
     model User {
       username: String @primary @publicCredential
       password: String @secretCredential
@@ -81,11 +81,11 @@ class Authorization extends FlatSpec {
 
   "Authorizer" should "handle user predicates correctly" in {
     val code = """
-    model Todo {
+    @1 model Todo {
       content: String
     }
 
-    @user model User {
+    @2 @user model User {
       username: String @primary @publicCredential
       password: String @secretCredential
       todos: [Todo]

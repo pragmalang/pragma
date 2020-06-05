@@ -19,6 +19,11 @@ case class PImport(
     with Identifiable
     with Positioned
 
+/** Used to mark model/field annotations
+  * (directives and indeces)
+  */
+trait Annotation
+
 case class Directive(
     id: String,
     args: PInterfaceValue,
@@ -26,6 +31,7 @@ case class Directive(
     position: Option[PositionRange] = None
 ) extends Identifiable
     with Positioned
+    with Annotation
 
 sealed trait DirectiveKind
 case object FieldDirective extends DirectiveKind

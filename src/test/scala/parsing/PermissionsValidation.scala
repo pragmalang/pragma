@@ -4,16 +4,15 @@ import org.scalatest._
 import domain.SyntaxTree
 import util._
 import domain._, utils._
-import org.parboiled2._
 
 class PermissionsValidation extends FlatSpec {
   "Substitutor" should "give correct errors for invalid permission use" in {
     val code = """
-    model Tweet {
+    @1 model Tweet {
       content: String
     }
 
-    @user model User {
+    @2 @user model User {
       handle: String @primary @publicCredential
       password: String @secretCredential
       tweets: [Tweet]
@@ -31,21 +30,15 @@ class PermissionsValidation extends FlatSpec {
     }
     """
     val syntaxTree = SyntaxTree.from(code)
-    val expectedErrors = Failure(
-      UserError(
-        List(
-          (
-            "Permission `PUSH_TO` cannot be specified for primitive field `handle`",
-            Some(PositionRange(Position(285, 17, 7), Position(310, 17, 32)))
-          ),
-          (
-            "Permission `MUTATE` cannot be specified for primitive field `password`",
-            Some(PositionRange(Position(353, 19, 7), Position(378, 19, 32)))
-          )
-        )
-      )
+    val expectedErrors = List(
+      "Permission `PUSH_TO` cannot be specified for primitive field `handle`",
+      "Permission `MUTATE` cannot be specified for primitive field `password`"
     )
 
-    assert(expectedErrors == syntaxTree)
+    syntaxTree match {
+      case Failure(err: UserError) =>
+        assert(err.errors.map(_._1) == expectedErrors)
+      case _ => fail("Validation should fail with expected errors")
+    }
   }
 }

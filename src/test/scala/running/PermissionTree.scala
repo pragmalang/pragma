@@ -6,19 +6,19 @@ import domain._
 class PermissionTree extends FlatSpec {
   "Permission tree" should "be generated correctly" in {
     val code = """
-    @user model User {
+    @1 @user model User {
         username: String @publicCredential
         password: String @secretCredential
         friend: User?
         todos: [Todo]
     }
 
-    @user model Admin {
+    @2 @user model Admin {
         username: String @publicCredential
         password: String @secretCredential
     }
     
-    model Todo {
+    @3 model Todo {
         title: String
         content: String
     }

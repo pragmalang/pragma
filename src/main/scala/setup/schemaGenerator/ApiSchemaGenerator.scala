@@ -449,6 +449,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         id = i.name,
         fields = i.fields.map(f => gqlFieldToHModelField(Left(f))).toList,
         Nil,
+        0,
         None
       )
     case e: EnumTypeDefinition =>
@@ -469,6 +470,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         id = o.name,
         modelFields = o.fields.map(f => gqlFieldToHModelField(Left(f))).toList,
         Nil,
+        0,
         None
       )
     case i: InputObjectTypeDefinition if isReference => PReference(i.name)
@@ -477,6 +479,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         id = i.name,
         fields = i.fields.map(f => gqlFieldToHModelField(Right(f))).toList,
         Nil,
+        0,
         None
       )
   }
@@ -511,10 +514,10 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       :: mutationType
       :: subscriptionType
       :: buitlinGraphQlDefinitions
-      ++ outputTypes
-      ++ inputTypes
-      ++ modelMutationsTypes
-      ++ modelQueriesTypes
+        ++ outputTypes
+        ++ inputTypes
+        ++ modelMutationsTypes
+        ++ modelQueriesTypes
       ++ modelSubscriptionsTypes).toVector
   }
 
