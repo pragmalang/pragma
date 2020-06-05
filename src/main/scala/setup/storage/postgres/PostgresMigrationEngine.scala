@@ -13,6 +13,7 @@ import setup.storage.postgres.SQLMigrationStep._
 
 import domain._
 import org.jooq.util.postgres.PostgresDataType
+import parsing.utils.DependencyGraph
 
 class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     extends MigrationEngine[Postgres, M] {
@@ -20,28 +21,131 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
       migrationSteps: Vector[MigrationStep]
   ): M[Vector[Try[Unit]]] = Monad[M].pure(Vector(Try(())))
 
-  case class ModelMig(modelId: String, migId: Int, fields: Vector[FieldMig])
-  case class FieldMig(fieldId: String, migId: Int)
+  def migration(prevTree: SyntaxTree = SyntaxTree.empty): PostgresMigration =
+    migration(inferedMigrationSteps(syntaxTree, prevTree))
 
-  def migration(prevTree: SyntaxTree = SyntaxTree.empty): PostgresMigration = {
-    val isFirstMigration = prevTree.isEmpty
-    val prevMigrationIds: Vector[ModelMig] =
-      if (isFirstMigration) Vector.empty else ???
-    // `migrationIds` Will be implemented when migration IDs are added to `SyntaxTree`
-    val migrationIds: Vector[ModelMig] = ???
-    val steps: Vector[MigrationStep] = ???
-    migration(steps)
+  private[postgres] def inferedMigrationSteps(
+      currentTree: SyntaxTree,
+      prevTree: SyntaxTree
+  ): Vector[MigrationStep] = {
+    if (prevTree.isEmpty) {
+      currentTree.models.map(CreateModel(_)).toVector
+    } else {
+      val currentModelMigs = currentTree.models.map(ModelMig(_)).toVector
+      val prevModelMigs = prevTree.models.map(ModelMig(_)).toVector
+
+      val newModels = currentModelMigs
+        .diff(prevModelMigs)
+        .map(modelMig => CreateModel(currentTree.modelsById(modelMig.modelId)))
+      val deletedModels = prevModelMigs
+        .diff(currentModelMigs)
+        .map(modelMig => DeleteModel(prevTree.modelsById(modelMig.modelId)))
+      val renamedModels = for {
+        currentModel <- currentModelMigs
+        prevModel <- prevModelMigs.find(_.migId == currentModel.migId)
+        if currentModel.modelId != prevModel.modelId
+      } yield RenameModel(prevModel.modelId, currentModel.modelId)
+
+      val fieldMigrationSteps = {
+        for {
+          currentModelMig <- currentModelMigs
+          prevModelMig <- prevModelMigs.find(_.migId == currentModelMig.migId)
+          currentModel = currentTree.modelsById(currentModelMig.modelId)
+          prevModel = prevTree.modelsById(prevModelMig.modelId)
+        } yield {
+
+          val newFields = currentModelMig.fields
+            .diff(prevModelMig.fields)
+            .map { fieldMig =>
+              val field = currentModel.fieldsById(fieldMig.fieldId)
+              AddField(field, prevModel)
+            }
+
+          val deletedFields = prevModelMig.fields
+            .diff(currentModelMig.fields)
+            .map { fieldMig =>
+              val field = prevModel.fieldsById(fieldMig.fieldId)
+              DeleteField(field, prevModel)
+            }
+
+          val renamedFields = for {
+            currentFieldMig <- currentModelMig.fields
+            prevFieldMig <- prevModelMig.fields.find(
+              _.migId == currentFieldMig.migId
+            )
+            if currentFieldMig.fieldId != prevFieldMig.fieldId
+          } yield
+            RenameField(
+              prevFieldMig.fieldId,
+              currentFieldMig.fieldId,
+              prevModel
+            )
+
+          val changeTypeFields = {
+            for {
+              currentFieldMig <- currentModelMig.fields
+              prevFieldMig <- prevModelMig.fields.find(
+                _.migId == currentFieldMig.migId
+              )
+              currentField = currentModel.fieldsById(currentFieldMig.fieldId)
+              prevField = prevModel.fieldsById(prevFieldMig.fieldId)
+              if currentField.ptype != prevField.ptype
+            } yield
+              ChangeManyFieldTypes(
+                prevModel,
+                Vector(
+                  ChangeFieldType(currentField, currentField.ptype, ???, ???)
+                )
+              )
+          }.foldLeft[Option[ChangeManyFieldTypes]](None) {
+            case (Some(value), e) if value.prevModel == e.prevModel =>
+              Some(
+                ChangeManyFieldTypes(
+                  value.prevModel,
+                  value.changes ++ e.changes
+                )
+              )
+            case (None, e) => Some(e)
+            case _         => None
+          }
+
+          val fieldMigrationSteps: Vector[MigrationStep] =
+            changeTypeFields match {
+              case Some(changeTypeFields) =>
+                Vector(
+                  newFields ++ deletedFields ++ renamedFields,
+                  Vector(changeTypeFields)
+                ).flatten
+              case None => newFields ++ deletedFields ++ renamedFields
+            }
+
+          fieldMigrationSteps
+        }
+      }.flatten
+
+      newModels ++ deletedModels ++ renamedModels ++ fieldMigrationSteps
+    }
   }
 
+  /**
+    * CAUTION: This function does not sort `steps` based on
+    * the dependency graph of the syntax tree models which
+    * means that if `steps` are not sorted correctly, this
+    * function might return a `PostgresMigration` that when
+    * it's `renderSQL` method is called, the method will return
+    * an out-of-order (invalid) SQL statements.
+    *
+    * This is why it's private. And it's private to the `postgres`
+    * package so it can be tested.
+    */
   private[postgres] def migration(
       steps: Iterable[MigrationStep]
   ): PostgresMigration =
-    // TODO: Re-order `steps` based on the dependency graph
     steps.map(migration).foldLeft(PostgresMigration.empty)(_ ++ _)
 
   private[postgres] def migration(
-      migrationStep: MigrationStep
-  ): PostgresMigration = migrationStep match {
+      step: MigrationStep
+  ): PostgresMigration = step match {
     case CreateModel(model) => {
       val createTableStatement = CreateTable(model.id, Vector.empty)
       val addColumnStatements = model.fields.flatMap { field =>
@@ -213,4 +317,32 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
       ???
     }
   }
+}
+
+// `ModelMig#equals` and `FieldMig#equals` assumes that the `Validator` has validated
+// that no model or field has the same name in the same scope nor the same migration id
+
+case class ModelMig(modelId: String, migId: Int, fields: Vector[FieldMig]) {
+  override def equals(that: Any): Boolean = that match {
+    case that: ModelMig => migId == that.migId
+    case _              => false
+  }
+}
+object ModelMig {
+  def apply(model: PModel): ModelMig =
+    ModelMig(model.id, ???, model.fields.map(FieldMig(_)).toVector)
+}
+case class FieldMig(
+    fieldId: String,
+    migId: Int,
+    directives: Vector[Directive]
+) {
+  override def equals(that: Any): Boolean = that match {
+    case that: FieldMig => migId == that.migId
+    case _              => false
+  }
+}
+object FieldMig {
+  def apply(field: PModelField): FieldMig =
+    FieldMig(field.id, ???, field.directives.toVector)
 }

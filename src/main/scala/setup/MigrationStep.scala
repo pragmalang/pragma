@@ -12,55 +12,57 @@ case class CreateModel(model: PModel) extends MigrationStep {
   override def reverse: Option[MigrationStep] = Some(DeleteModel(model))
 }
 
-case class RenameModel(modelId: String, newId: String) extends MigrationStep {
+case class RenameModel(prevModelId: String, newId: String)
+    extends MigrationStep {
   override def reverse: Option[MigrationStep] =
-    Some(RenameModel(newId, modelId))
+    Some(RenameModel(newId, prevModelId))
 }
 
-case class DeleteModel(model: PModel) extends MigrationStep {
-  override def reverse: Option[MigrationStep] = Some(UndeleteModel(model))
+case class DeleteModel(prevModel: PModel) extends MigrationStep {
+  override def reverse: Option[MigrationStep] = Some(UndeleteModel(prevModel))
 }
 
-case class UndeleteModel(model: PModel) extends MigrationStep {
-  override def reverse: Option[MigrationStep] = Some(DeleteModel(model))
+case class UndeleteModel(prevModel: PModel) extends MigrationStep {
+  override def reverse: Option[MigrationStep] = Some(DeleteModel(prevModel))
 }
 
 case class AddField(
     field: PModelField,
-    model: PModel
+    prevModel: PModel
 ) extends MigrationStep {
-  override def reverse: Option[MigrationStep] = Some(DeleteField(field, model))
+  override def reverse: Option[MigrationStep] =
+    Some(DeleteField(field, prevModel))
 }
 
 case class RenameField(
-    fieldId: String,
+    prevFieldId: String,
     newId: String,
-    model: PModel
+    prevModel: PModel
 ) extends MigrationStep {
   override def reverse: Option[MigrationStep] =
-    Some(RenameField(newId, fieldId, model))
+    Some(RenameField(newId, prevFieldId, prevModel))
 }
 
 case class DeleteField(
-    field: PModelField,
-    model: PModel
+    prevField: PModelField,
+    prevModel: PModel
 ) extends MigrationStep {
   override def reverse: Option[MigrationStep] =
-    Some(UndeleteField(field, model))
+    Some(UndeleteField(prevField, prevModel))
 }
 
 case class UndeleteField(
-    field: PModelField,
-    model: PModel
+    prevField: PModelField,
+    prevModel: PModel
 ) extends MigrationStep {
-  override def reverse: Option[MigrationStep] = Some(DeleteField(field, model))
+  override def reverse: Option[MigrationStep] = Some(DeleteField(prevField, prevModel))
 }
 
-case class ChangeManyFieldTypes(model: PModel, changes: Vector[ChangeFieldType])
+case class ChangeManyFieldTypes(prevModel: PModel, changes: Vector[ChangeFieldType])
     extends MigrationStep {
   override def reverse: Option[MigrationStep] =
     changes.traverse(_.reverse) map { changes =>
-      ChangeManyFieldTypes(model, changes)
+      ChangeManyFieldTypes(prevModel, changes)
     }
 }
 
