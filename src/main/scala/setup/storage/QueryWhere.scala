@@ -1,31 +1,33 @@
 package setup.storage
+
 import spray.json._
 import domain._
+import cats.implicits._
 
 case class QueryWhere(
     orderBy: Option[OrderBy],
     slice: Option[(Int, Int, Int)],
     filter: Option[QueryFilter]
 ) {
-  def apply(objects: Vector[JsObject]) = {
+  def apply(objects: Vector[JsObject]): IterableOnce[Vector[JsObject]] = {
     (orderBy, slice, filter) match {
-      case (None, None, None) => objects
+      case (None, None, None) => Some(objects)
       case (Some(orderBy), Some(slice), Some(filter)) =>
         orderBy(objects.filter(filter))
           .slice(slice._1, slice._2)
           .grouped(slice._3)
-      case (Some(orderBy), None, None) => orderBy(objects)
+      case (Some(orderBy), None, None) => Some(orderBy(objects))
       case (None, Some(slice), None) =>
         objects
           .slice(slice._1, slice._2)
           .grouped(slice._3)
-      case (None, None, Some(filter)) => objects.filter(filter)
+      case (None, None, Some(filter)) => Some(objects.filter(filter))
       case (Some(orderBy), Some(slice), None) =>
         orderBy(objects)
           .slice(slice._1, slice._2)
           .grouped(slice._3)
       case (Some(orderBy), None, Some(filter)) =>
-        orderBy(objects.filter(filter))
+        Some(orderBy(objects.filter(filter)))
       case (None, Some(slice), Some(filter)) =>
         objects
           .filter(filter)

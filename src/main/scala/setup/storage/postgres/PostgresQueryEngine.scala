@@ -96,20 +96,23 @@ class PostgresQueryEngine[M[_]: Monad](
       model: PModel,
       where: QueryWhere,
       innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[JsArray] = ???
+  ): ConnectionIO[JsArray] = {
+    val aliasedColumns = selectColumnsSql(innerReadOps)
+
+    sql"SELECT $aliasedColumns FROM ${model.id};"
+      .query[JsObject]
+      .to[Vector]
+      .flatMap(_.traverse(populateObject(model, _, innerReadOps)))
+      .map(where(_))
+      .map(it => JsArray(Vector.from(it).map(JsArray(_))))
+  }
 
   override def readOneRecord[ID: Put](
       model: PModel,
       primaryKeyValue: ID,
       innerReadOps: Vector[InnerOperation]
   ): Query[JsObject] = {
-    val aliasedColumns = innerReadOps
-      .map { iop =>
-        val fieldId = iop.targetField.field.id.withQuotes
-        val alias = iop.targetField.alias
-        fieldId + alias.map(alias => s" AS ${alias.withQuotes}").getOrElse("")
-      }
-      .mkString(", ")
+    val aliasedColumns = selectColumnsSql(innerReadOps)
 
     val sql =
       s"SELECT $aliasedColumns FROM ${model.id} WHERE ${model.primaryField.id} = ?;"
@@ -130,24 +133,21 @@ class PostgresQueryEngine[M[_]: Monad](
       innerOps: Vector[InnerOperation]
   ): Query[JsObject] = {
     val newObjFields = innerOps
-      .zip(innerOps.map(iop => model.fieldsById(iop.targetField.field.id)))
+      .lazyZip(innerOps.map(iop => model.fieldsById(iop.targetField.field.id)))
       .collect {
-        case (iop, PModelField(id, PReference(refId), _, _, _)) => {
-          val fieldIdOrAlias =
-            iop.targetField.alias.getOrElse(iop.targetField.field.id)
+        case (iop, PModelField(id, PReference(refId), _, _, _)) =>
           populateId(
             iop.operation.targetModel,
-            unpopulated.fields(fieldIdOrAlias),
+            unpopulated.fields(iop.nameOrAlias),
             iop.operation.innerReadOps
-          ).map(fieldIdOrAlias -> _)
-        }
+          ).map(iop.nameOrAlias -> _)
         case (objField, PModelField(id, PArray(PReference(refId)), _, _, _)) =>
           ???
         case (objField, PModelField(id, POption(PReference(refId)), _, _, _)) =>
           ???
       }
 
-    newObjFields.sequence.map { popFields =>
+    newObjFields.toVector.sequence.map { popFields =>
       val allFields = popFields.foldLeft(unpopulated.fields)(_ + _)
       JsObject(allFields)
     }
@@ -207,5 +207,14 @@ object PostgresQueryEngine {
     case f: Float  => JsNumber(f)
     case _         => JsNull
   }
+
+  def selectColumnsSql(innerReadOps: Vector[InnerOperation]): String =
+    innerReadOps
+      .map { iop =>
+        val fieldId = iop.targetField.field.id.withQuotes
+        val alias = iop.targetField.alias
+        fieldId + alias.map(alias => s" AS ${alias.withQuotes}").getOrElse("")
+      }
+      .mkString(", ")
 
 }

@@ -48,10 +48,13 @@ case class Operation(
     innerReadOps: Vector[InnerOperation]
 )
 
+/** Represents a data read selection within within an operation */
 case class InnerOperation(
     targetField: Operations.AliasedField,
     operation: Operation
 ) {
+  val nameOrAlias = targetField.alias.getOrElse(targetField.field.id)
+
   def displayTargetResource =
     operation.targetModel.id + "." + targetField.field.id
 }
