@@ -60,4 +60,7 @@ object SyntaxTree {
       if (config.isEmpty) None else Some(config.head)
     )
   }
+
+  def empty: SyntaxTree =
+    SyntaxTree(Seq.empty, Seq.empty, Seq.empty, Permissions.empty, None)
 }

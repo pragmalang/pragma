@@ -4,14 +4,12 @@ import domain._
 
 import org.jooq.DataType
 import org.jooq.util.postgres.PostgresDataType
-import cats.effect.IO
 
 package object utils {
   type IsNotNull = Boolean
 
   def fieldPostgresType(
-      field: PModelField,
-      isOptional: Boolean = false
+      field: PModelField
   )(implicit syntaxTree: SyntaxTree): Option[DataType[_]] =
     field.ptype match {
       case PAny => Some(PostgresDataType.ANY)
@@ -31,17 +29,11 @@ package object utils {
         Some(PostgresDataType.DATE)
       case PFile(_, _) =>
         Some(PostgresDataType.TEXT)
-      case t: POption => fieldPostgresType(field, true)
+      case POption(ptype) => fieldPostgresType(field.copy(ptype = ptype))
       case PReference(id) =>
-        fieldPostgresType(
-          syntaxTree.modelsById(id).primaryField,
-          isOptional
-        )
+        fieldPostgresType(syntaxTree.modelsById(id).primaryField)
       case model: PModel =>
-        fieldPostgresType(
-          model.primaryField,
-          isOptional
-        )
+        fieldPostgresType(model.primaryField)
       case PEnum(id, values, position) =>
         Some(PostgresDataType.TEXT)
       case PInterface(id, fields, position) => None
@@ -64,24 +56,11 @@ package object utils {
       case PDate   => Some(PostgresDataType.DATE)
       case PFile(sizeInBytes, extensions) =>
         Some(PostgresDataType.TEXT)
-      case POption(ptype)                   => toPostgresType(t, true)
+      case POption(ptype)                   => toPostgresType(ptype, true)
       case PReference(id)                   => None
       case _: PModel                        => None
       case PInterface(id, fields, position) => None
       case PArray(ptype)                    => None
       case PFunction(args, returnType)      => None
     }
-
-  class PostgresMigration(
-      val steps: Vector[SQLMigrationStep],
-      preMigrationScripts: Vector[IO[Unit]]
-  ) {
-    def run: IO[Unit] = ???
-  }
-  object PostgresMigration {
-    def apply(
-        steps: Vector[SQLMigrationStep],
-        preMigrationScripts: Vector[IO[Unit]]
-    ): PostgresMigration = new PostgresMigration(steps, preMigrationScripts)
-  }
 }

@@ -1,7 +1,8 @@
 package setup.storage.postgres
 
 import setup.storage._
-import cats._
+import cats._, implicits._
+import domain.instances._
 import scala.util.Try
 import setup.MigrationStep
 import domain.SyntaxTree
@@ -19,7 +20,26 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
       migrationSteps: Vector[MigrationStep]
   ): M[Vector[Try[Unit]]] = Monad[M].pure(Vector(Try(())))
 
-  def migration(
+  case class ModelMig(modelId: String, migId: Int, fields: Vector[FieldMig])
+  case class FieldMig(fieldId: String, migId: Int)
+
+  def migration(prevTree: SyntaxTree = SyntaxTree.empty): PostgresMigration = {
+    val isFirstMigration = prevTree.isEmpty
+    val prevMigrationIds: Vector[ModelMig] =
+      if (isFirstMigration) Vector.empty else ???
+    // `migrationIds` Will be implemented when migration IDs are added to `SyntaxTree`
+    val migrationIds: Vector[ModelMig] = ???
+    val steps: Vector[MigrationStep] = ???
+    migration(steps)
+  }
+
+  private[postgres] def migration(
+      steps: Iterable[MigrationStep]
+  ): PostgresMigration =
+    // TODO: Re-order `steps` based on the dependency graph
+    steps.map(migration).foldLeft(PostgresMigration.empty)(_ ++ _)
+
+  private[postgres] def migration(
       migrationStep: MigrationStep
   ): PostgresMigration = migrationStep match {
     case CreateModel(model) => {
@@ -118,6 +138,13 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
           }
           case model: PModel =>
             Some(Right(ForeignKey(model.id, model.primaryField.id)))
+          case POption(model: PModel) =>
+            Some(Right(ForeignKey(model.id, model.primaryField.id)))
+          case POption(PReference(id))
+              if syntaxTree.modelsById.get(id).isDefined =>
+            Some(
+              Right(ForeignKey(id, syntaxTree.modelsById(id).primaryField.id))
+            )
           case PReference(id) if syntaxTree.modelsById.get(id).isDefined =>
             Some(
               Right(ForeignKey(id, syntaxTree.modelsById(id).primaryField.id))
@@ -130,7 +157,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
           ColumnDefinition(
             name = field.id,
             dataType = fieldPostgresType(field)(syntaxTree).get,
-            isNotNull = fieldPostgresType(field)(syntaxTree).get.nullable(),
+            isNotNull = !field.isOptional,
             isUnique = field.directives.exists(_.id == "unique"),
             isPrimaryKey = field.directives.exists(_.id == "primary"),
             isAutoIncrement = field.directives.exists(_.id == "autoIncrement"),
