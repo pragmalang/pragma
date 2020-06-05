@@ -13,7 +13,6 @@ import setup.storage.postgres.SQLMigrationStep._
 
 import domain._
 import org.jooq.util.postgres.PostgresDataType
-import parsing.utils.DependencyGraph
 
 class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     extends MigrationEngine[Postgres, M] {
