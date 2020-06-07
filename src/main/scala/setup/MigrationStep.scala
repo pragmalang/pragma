@@ -3,6 +3,7 @@ package setup
 import domain._
 import spray.json.JsValue
 import cats.implicits._
+import scala.util.Try
 
 sealed trait MigrationStep {
   def reverse: Option[MigrationStep]
@@ -72,15 +73,16 @@ case class ChangeManyFieldTypes(
 case class ChangeFieldType(
     field: PModelField,
     newType: PType,
-    transformer: PFunctionValue[JsValue, JsValue],
-    reverseTransformer: Option[PFunctionValue[JsValue, JsValue]]
+    transformer: Option[PFunctionValue[JsValue, Try[JsValue]]],
+    reverseTransformer: Option[PFunctionValue[JsValue, Try[JsValue]]]
 ) {
-  def reverse = reverseTransformer map { value =>
-    ChangeFieldType(
-      field,
-      field.ptype,
-      value,
-      Some(transformer)
+  def reverse: Option[ChangeFieldType] =
+    Some(
+      ChangeFieldType(
+        field,
+        field.ptype,
+        reverseTransformer,
+        transformer
+      )
     )
-  }
 }

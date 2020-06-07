@@ -7,11 +7,14 @@ import setup.MigrationStep
 import domain.SyntaxTree
 import setup._
 import postgres.utils._
+import domain.utils._
 
 import setup.storage.postgres.SQLMigrationStep._
 
 import domain._
 import org.jooq.util.postgres.PostgresDataType
+import domain.utils.UserError
+import spray.json.JsValue
 
 class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     extends MigrationEngine[Postgres, M] {
@@ -19,22 +22,29 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
       migrationSteps: Vector[MigrationStep]
   ): M[Vector[Try[Unit]]] = Monad[M].pure(Vector(Try(())))
 
-  def migration(prevTree: SyntaxTree = SyntaxTree.empty): PostgresMigration =
-    migration(inferedMigrationSteps(syntaxTree, prevTree))
+  def migration(
+      prevTree: SyntaxTree = SyntaxTree.empty,
+      thereExistData: (ModelId, FieldId) => Boolean
+  ): PostgresMigration =
+    migration(inferedMigrationSteps(syntaxTree, prevTree, thereExistData))
 
   private[postgres] def inferedMigrationSteps(
       currentTree: SyntaxTree,
-      prevTree: SyntaxTree
+      prevTree: SyntaxTree,
+      thereExistData: (ModelId, FieldId) => Boolean
   ): Vector[MigrationStep] =
     if (prevTree.models.isEmpty)
       currentTree.models.map(CreateModel(_)).toVector
     else {
-      val currentIndexedModels = currentTree.models.map(IndexedModel(_)).toVector
+      val currentIndexedModels =
+        currentTree.models.map(IndexedModel(_)).toVector
       val prevIndexedModel = prevTree.models.map(IndexedModel(_)).toVector
 
       val newModels = currentIndexedModels
         .diff(prevIndexedModel)
-        .map(indexedModel => CreateModel(currentTree.modelsById(indexedModel.id)))
+        .map(
+          indexedModel => CreateModel(currentTree.modelsById(indexedModel.id))
+        )
 
       val deletedModels = prevIndexedModel
         .diff(currentIndexedModels)
@@ -48,7 +58,9 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
 
       val fieldMigrationSteps = for {
         currentIndexedModel <- currentIndexedModels
-        prevIndexedModel <- prevIndexedModel.find(_.index == currentIndexedModel.index)
+        prevIndexedModel <- prevIndexedModel.find(
+          _.index == currentIndexedModel.index
+        )
         currentModel = currentTree.modelsById(currentIndexedModel.id)
         prevModel = prevTree.modelsById(prevIndexedModel.id)
         newFields = currentIndexedModel.indexedFields
@@ -90,7 +102,57 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
           ChangeManyFieldTypes(
             prevModel,
             Vector(
-              ChangeFieldType(currentField, currentField.ptype, ???, ???)
+              ChangeFieldType(
+                currentField,
+                currentField.ptype,
+                currentField.directives.find(_.id == "typeTransformer") match {
+                  case Some(typeTransformerDir) =>
+                    typeTransformerDir.args.value("typeTransformer") match {
+                      case func: PFunctionValue[JsValue, Try[JsValue]] => Some(func)
+                      case pvalue => {
+                        val found = displayPType(pvalue.ptype)
+                        val required =
+                          s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
+                        throw new InternalError(
+                          s"""
+                          |Type mismatch on directive `typeTransformer` on field `${currentModel}.${currentField}`
+                          |found: `${found}`
+                          |required: `${required}`
+                          """.tail.stripMargin
+                        )
+                      }
+                    }
+                  case None if thereExistData(prevModel.id, prevField.id) => {
+                    val requiredFunctionType =
+                      s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
+                    throw UserError(
+                      s"Field `${currentModel}.${currentField}` type has changed, and Pragma needs a transformation function `${requiredFunctionType}` to transform existing data to the new type"
+                    )
+                  }
+                  case None => None
+                },
+                currentField.directives
+                  .find(_.id == "reverseTypeTransformer") match {
+                  case Some(typeTransformerDir) =>
+                    typeTransformerDir.args
+                      .value("reverseTypeTransformer") match {
+                      case func: PFunctionValue[JsValue, Try[JsValue]] => Some(func)
+                      case pvalue => {
+                        val found = displayPType(pvalue.ptype)
+                        val required =
+                          s"${displayPType(currentField.ptype)} => ${displayPType(prevField.ptype)}"
+                        throw new InternalError(
+                          s"""
+                          |Type mismatch on directive `reverseTypeTransformer` on field `${currentModel}.${currentField}`
+                          |found: `${found}`
+                          |required: `${required}`
+                          """.tail.stripMargin
+                        )
+                      }
+                    }
+                  case None => None
+                }
+              )
             )
           )).foldLeft[Option[ChangeManyFieldTypes]](None) {
           case (Some(value), e) if value.prevModel == e.prevModel =>
@@ -114,7 +176,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
         }
       } yield fieldMigrationSteps
 
-      newModels ++ deletedModels ++ renamedModels ++ fieldMigrationSteps.flatten
+      newModels ++ renamedModels ++ deletedModels ++ fieldMigrationSteps.flatten
     }
 
   /**
@@ -312,15 +374,23 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
 // `IndexedModel#equals` and `IndexedField#equals` assumes that the `Validator` has validated
 // that no model or field has the same name in the same scope nor the same index
 
-case class IndexedModel(id: String, index: Int, indexedFields: Vector[IndexedField]) {
+case class IndexedModel(
+    id: String,
+    index: Int,
+    indexedFields: Vector[IndexedField]
+) {
   override def equals(that: Any): Boolean = that match {
     case that: IndexedModel => index == that.index
-    case _              => false
+    case _                  => false
   }
 }
 object IndexedModel {
   def apply(model: PModel): IndexedModel =
-    IndexedModel(model.id, model.index, model.fields.map(IndexedField(_)).toVector)
+    IndexedModel(
+      model.id,
+      model.index,
+      model.fields.map(IndexedField(_)).toVector
+    )
 }
 case class IndexedField(
     id: String,
@@ -329,7 +399,7 @@ case class IndexedField(
 ) {
   override def equals(that: Any): Boolean = that match {
     case that: IndexedField => index == that.index
-    case _              => false
+    case _                  => false
   }
 }
 object IndexedField {

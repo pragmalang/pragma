@@ -36,19 +36,50 @@ object BuiltInDefs {
     "noStorage" -> PInterface("noStorage", Nil, None)
   )
 
-  def fieldDirectives(model: PModel, field: PModelField) = Map(
-    "uuid" -> PInterface("uuid", Nil, None),
-    "autoIncrement" -> PInterface("autoIncrement", Nil, None),
-    "unique" -> PInterface("unique", Nil, None),
-    "primary" -> PInterface("primary", Nil, None),
-    "publicCredential" -> PInterface("publicCredential", Nil, None),
-    "secretCredential" -> PInterface("secretCredential", Nil, None),
-    "relation" -> PInterface(
-      "relation",
-      List(PInterfaceField("name", PString, None)),
-      None
+  def fieldDirectives(
+      model: PModel,
+      field: PModelField,
+      newFieldType: Option[PType] = None
+  ) = {
+    val dirs = Map(
+      "uuid" -> PInterface("uuid", Nil, None),
+      "autoIncrement" -> PInterface("autoIncrement", Nil, None),
+      "unique" -> PInterface("unique", Nil, None),
+      "primary" -> PInterface("primary", Nil, None),
+      "publicCredential" -> PInterface("publicCredential", Nil, None),
+      "secretCredential" -> PInterface("secretCredential", Nil, None),
+      "relation" -> PInterface(
+        "relation",
+        List(PInterfaceField("name", PString, None)),
+        None
+      )
     )
-  )
+
+    newFieldType match {
+      case Some(newFieldType) =>
+        dirs ++ Map(
+          "typeTransformer" -> PInterface(
+            "typeTransformer",
+            PInterfaceField(
+              "function",
+              PFunction(Map(field.id -> field.ptype), newFieldType),
+              None
+            ) :: Nil,
+            None
+          ),
+          "reverseTypeTransformer" -> PInterface(
+            "reverseTypeTransformer",
+            PInterfaceField(
+              "function",
+              PFunction(Map(field.id -> newFieldType), field.ptype),
+              None
+            ) :: Nil,
+            None
+          )
+        )
+      case None => dirs
+    }
+  }
 
   // e.g. ifSelf & ifOwner
   val builtinFunctions =
