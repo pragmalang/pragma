@@ -29,62 +29,62 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     if (prevTree.models.isEmpty)
       currentTree.models.map(CreateModel(_)).toVector
     else {
-      val currentModelMigs = currentTree.models.map(ModelMig(_)).toVector
-      val prevModelMigs = prevTree.models.map(ModelMig(_)).toVector
+      val currentIndexedModels = currentTree.models.map(IndexedModel(_)).toVector
+      val prevIndexedModel = prevTree.models.map(IndexedModel(_)).toVector
 
-      val newModels = currentModelMigs
-        .diff(prevModelMigs)
-        .map(modelMig => CreateModel(currentTree.modelsById(modelMig.modelId)))
+      val newModels = currentIndexedModels
+        .diff(prevIndexedModel)
+        .map(indexedModel => CreateModel(currentTree.modelsById(indexedModel.id)))
 
-      val deletedModels = prevModelMigs
-        .diff(currentModelMigs)
-        .map(modelMig => DeleteModel(prevTree.modelsById(modelMig.modelId)))
+      val deletedModels = prevIndexedModel
+        .diff(currentIndexedModels)
+        .map(indexedModel => DeleteModel(prevTree.modelsById(indexedModel.id)))
 
       val renamedModels = for {
-        currentModel <- currentModelMigs
-        prevModel <- prevModelMigs.find(_.migId == currentModel.migId)
-        if currentModel.modelId != prevModel.modelId
-      } yield RenameModel(prevModel.modelId, currentModel.modelId)
+        currentModel <- currentIndexedModels
+        prevModel <- prevIndexedModel.find(_.index == currentModel.index)
+        if currentModel.id != prevModel.id
+      } yield RenameModel(prevModel.id, currentModel.id)
 
       val fieldMigrationSteps = for {
-        currentModelMig <- currentModelMigs
-        prevModelMig <- prevModelMigs.find(_.migId == currentModelMig.migId)
-        currentModel = currentTree.modelsById(currentModelMig.modelId)
-        prevModel = prevTree.modelsById(prevModelMig.modelId)
-        newFields = currentModelMig.fields
-          .diff(prevModelMig.fields)
-          .map { fieldMig =>
-            val field = currentModel.fieldsById(fieldMig.fieldId)
+        currentIndexedModel <- currentIndexedModels
+        prevIndexedModel <- prevIndexedModel.find(_.index == currentIndexedModel.index)
+        currentModel = currentTree.modelsById(currentIndexedModel.id)
+        prevModel = prevTree.modelsById(prevIndexedModel.id)
+        newFields = currentIndexedModel.indexedFields
+          .diff(prevIndexedModel.indexedFields)
+          .map { indexedField =>
+            val field = currentModel.fieldsById(indexedField.id)
             AddField(field, prevModel)
           }
 
-        deletedFields = prevModelMig.fields
-          .diff(currentModelMig.fields)
-          .map { fieldMig =>
-            val field = prevModel.fieldsById(fieldMig.fieldId)
+        deletedFields = prevIndexedModel.indexedFields
+          .diff(currentIndexedModel.indexedFields)
+          .map { indexedField =>
+            val field = prevModel.fieldsById(indexedField.id)
             DeleteField(field, prevModel)
           }
 
         renamedFields = for {
-          currentFieldMig <- currentModelMig.fields
-          prevFieldMig <- prevModelMig.fields.find(
-            _.migId == currentFieldMig.migId
+          currentIndexedField <- currentIndexedModel.indexedFields
+          prevIndexedField <- prevIndexedModel.indexedFields.find(
+            _.index == currentIndexedField.index
           )
-          if currentFieldMig.fieldId != prevFieldMig.fieldId
+          if currentIndexedField.id != prevIndexedField.id
         } yield
           RenameField(
-            prevFieldMig.fieldId,
-            currentFieldMig.fieldId,
+            prevIndexedField.id,
+            currentIndexedField.id,
             prevModel
           )
 
         changeTypeFields = (for {
-          currentFieldMig <- currentModelMig.fields
-          prevFieldMig <- prevModelMig.fields.find(
-            _.migId == currentFieldMig.migId
+          currentIndexedField <- currentIndexedModel.indexedFields
+          prevIndexedField <- prevIndexedModel.indexedFields.find(
+            _.index == currentIndexedField.index
           )
-          currentField = currentModel.fieldsById(currentFieldMig.fieldId)
-          prevField = prevModel.fieldsById(prevFieldMig.fieldId)
+          currentField = currentModel.fieldsById(currentIndexedField.id)
+          prevField = prevModel.fieldsById(prevIndexedField.id)
           if currentField.ptype != prevField.ptype
         } yield
           ChangeManyFieldTypes(
@@ -309,30 +309,30 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
   }
 }
 
-// `ModelMig#equals` and `FieldMig#equals` assumes that the `Validator` has validated
-// that no model or field has the same name in the same scope nor the same migration id
+// `IndexedModel#equals` and `IndexedField#equals` assumes that the `Validator` has validated
+// that no model or field has the same name in the same scope nor the same index
 
-case class ModelMig(modelId: String, migId: Int, fields: Vector[FieldMig]) {
+case class IndexedModel(id: String, index: Int, indexedFields: Vector[IndexedField]) {
   override def equals(that: Any): Boolean = that match {
-    case that: ModelMig => migId == that.migId
+    case that: IndexedModel => index == that.index
     case _              => false
   }
 }
-object ModelMig {
-  def apply(model: PModel): ModelMig =
-    ModelMig(model.id, ???, model.fields.map(FieldMig(_)).toVector)
+object IndexedModel {
+  def apply(model: PModel): IndexedModel =
+    IndexedModel(model.id, model.index, model.fields.map(IndexedField(_)).toVector)
 }
-case class FieldMig(
-    fieldId: String,
-    migId: Int,
+case class IndexedField(
+    id: String,
+    index: Int,
     directives: Vector[Directive]
 ) {
   override def equals(that: Any): Boolean = that match {
-    case that: FieldMig => migId == that.migId
+    case that: IndexedField => index == that.index
     case _              => false
   }
 }
-object FieldMig {
-  def apply(field: PModelField): FieldMig =
-    FieldMig(field.id, ???, field.directives.toVector)
+object IndexedField {
+  def apply(field: PModelField): IndexedField =
+    IndexedField(field.id, ???, field.directives.toVector)
 }
