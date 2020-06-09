@@ -8,7 +8,7 @@ case class DependencyGraph(st: SyntaxTree) {
   val pairs = for {
     model <- st.models.toList
     // Only matches HReference, not HOption[HReference]
-    PModelField(_, PReference(refId), _, _, _) <- model.fields
+    PModelField(_, PReference(refId), _, _, _, _) <- model.fields
   } yield (model.id, refId)
 
   def depsOf(modelId: String): List[String] = pairs collect {

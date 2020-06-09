@@ -152,7 +152,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       )
 
       val modelListFields = model.fields.collect {
-        case f @ PModelField(_, ptype: PArray, _, _, _) => f
+        case f @ PModelField(_, ptype: PArray, _, _, _, _) => f
       }
 
       val modelListFieldOperations = modelListFields
@@ -420,6 +420,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           id = field.name,
           ptype = fieldType(field.fieldType, fieldPType),
           None,
+          index = 0,
           Nil,
           None
         )
@@ -432,6 +433,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           id = value.name,
           ptype = fieldType(value.valueType, fieldPType),
           None,
+          index = 0,
           Nil,
           None
         )

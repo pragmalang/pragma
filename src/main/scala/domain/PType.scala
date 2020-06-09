@@ -81,6 +81,7 @@ object PModel {
     "_id",
     PString,
     None,
+    999999999,
     Directive(
       "primary",
       PInterfaceValue(Map.empty, PInterface("primary", Nil, None)),
@@ -126,6 +127,7 @@ case class PModelField(
     id: String,
     ptype: PType,
     defaultValue: Option[PValue],
+    index: Int,
     directives: Seq[Directive],
     position: Option[PositionRange]
 ) extends PShapeField

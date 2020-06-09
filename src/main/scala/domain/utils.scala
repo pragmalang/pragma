@@ -120,7 +120,7 @@ package object utils {
 
   def displayField(field: PShapeField): String = field match {
     case PInterfaceField(id, ptype, position) => s"$id: ${displayPType(ptype)}"
-    case PModelField(id, ptype, defaultValue, directives, position) =>
+    case PModelField(id, ptype, defaultValue, index, directives, position) =>
       s"$id: ${displayPType(ptype, isVerbose = false)} ${directives.map(displayDirective).mkString(" ")}"
   }
 

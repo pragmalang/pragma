@@ -135,15 +135,21 @@ class PostgresQueryEngine[M[_]: Monad](
     val newObjFields = innerOps
       .lazyZip(innerOps.map(iop => model.fieldsById(iop.targetField.field.id)))
       .collect {
-        case (iop, PModelField(id, PReference(refId), _, _, _)) =>
+        case (iop, PModelField(id, PReference(refId), _, _, _, _)) =>
           populateId(
             iop.operation.targetModel,
             unpopulated.fields(iop.nameOrAlias),
             iop.operation.innerReadOps
           ).map(iop.nameOrAlias -> _)
-        case (objField, PModelField(id, PArray(PReference(refId)), _, _, _)) =>
+        case (
+            objField,
+            PModelField(id, PArray(PReference(refId)), _, _, _, _)
+            ) =>
           ???
-        case (objField, PModelField(id, POption(PReference(refId)), _, _, _)) =>
+        case (
+            objField,
+            PModelField(id, POption(PReference(refId)), _, _, _, _)
+            ) =>
           ???
       }
 

@@ -7,17 +7,17 @@ class Validation extends FlatSpec {
   "Default field value checker" should "fail in case of type mismatch" in {
     val code = """
       @1 model User {
-          name: String = "John Doe"
-          age: Int = "Not an Integer"
-          petName: String? = "Fluffykins"
-          friends: [String] = ["John", "James", "Jane"]
-          favoriteNumbers: [Float] = [1.0, 42.0, "TEXT", 2]
-          invalidOptional: String? = 42
-          someEmptyArray: [Float] = []
+          @1 name: String = "John Doe"
+          @2 age: Int = "Not an Integer"
+          @3 petName: String? = "Fluffykins"
+          @4 friends: [String] = ["John", "James", "Jane"]
+          @5 favoriteNumbers: [Float] = [1.0, 42.0, "TEXT", 2]
+          @6 invalidOptional: String? = 42
+          @7 someEmptyArray: [Float] = []
       }
       """
-    val st = new PragmaParser(code).syntaxTree.run().get
-    val validator = new Validator(st)
+    val st = new PragmaParser(code).syntaxTree.run()
+    val validator = new Validator(st.get)
     val expectedErrors = List(
       "Invalid default value of type `String` for field `age` of type `Int`",
       "Invalid values for array field `favoriteNumbers` (all array elements must have the same type)",
@@ -36,8 +36,8 @@ class Validation extends FlatSpec {
   "Roles defined for non-user models" should "not be allowed" in {
     val code = """
     @1 model Todo {
-      title: String
-      content: String
+      @1 title: String
+      @2 content: String
     }
 
     role Todo {
@@ -61,14 +61,14 @@ class Validation extends FlatSpec {
   "Non-existant field types" should "not be allowed" in {
     val code = """
     @1 @user model User {
-      username: String @publicCredential
-      todos: [Todof]
+      @1 username: String @publicCredential
+      @2 todos: [Todof]
     }
 
     @2 model Todo {
-      title: Stringf
-      content: String
-      user: User
+      @1 title: Stringf
+      @2 content: String
+      @3 user: User
     }
     """
     val syntaxTree = SyntaxTree.from(code)

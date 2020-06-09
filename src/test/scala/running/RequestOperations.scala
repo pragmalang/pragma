@@ -15,9 +15,9 @@ class RequestOperations extends FlatSpec {
     import "./src/test/scala/parsing/test-functions.js" as fns
 
     @user @1 model User {
-        username: String @publicCredential
-        todos: Todo
-        friend: User?
+        @1 username: String @publicCredential
+        @2 todos: Todo
+        @3 friend: User?
     }
 
     role User {
@@ -25,8 +25,8 @@ class RequestOperations extends FlatSpec {
     }
 
     @2 model Todo {
-        title: String
-        content: String
+        @1 title: String
+        @2 content: String
     }
     """
     val syntaxTree = SyntaxTree.from(code).get

@@ -12,7 +12,7 @@ class CommentParsing extends FlatSpec {
     @1 @user #some other comment
     model User { # lalalalala
         # lilililili
-        username: String @publicCredential # lulululu
+        @1 username: String @publicCredential # lulululu
     } # hahahahahahaha
     """
 

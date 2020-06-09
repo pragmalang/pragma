@@ -9,13 +9,13 @@ class PermissionsValidation extends FlatSpec {
   "Substitutor" should "give correct errors for invalid permission use" in {
     val code = """
     @1 model Tweet {
-      content: String
+      @1 content: String
     }
 
     @2 @user model User {
-      handle: String @primary @publicCredential
-      password: String @secretCredential
-      tweets: [Tweet]
+      @1 handle: String @primary @publicCredential
+      @2 password: String @secretCredential
+      @3 tweets: [Tweet]
     }
 
     allow CREATE User

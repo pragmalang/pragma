@@ -10,19 +10,19 @@ class RelationsValidation extends FlatSpec {
     val code = """
         @1 @user
         model User {
-            username: String @publicCredential
-            password: String @secretCredential
-            todos: [Todo] @relation(name: "edits")
-            doneTodos: [Todo]
-            adminOf: Todo? @relation(name: "adminOf")
-            favoriteTodo: Todo?
+            @1 username: String @publicCredential
+            @2 password: String @secretCredential
+            @3 todos: [Todo] @relation(name: "edits")
+            @4 doneTodos: [Todo]
+            @5 adminOf: Todo? @relation(name: "adminOf")
+            @6 favoriteTodo: Todo?
         }
 
 
         @2
         model Todo {
-            editors: User @relation(name: "edits")
-            admin: User @relation(name: "adminOf1")
+            @1 editors: User @relation(name: "edits")
+            @2 admin: User @relation(name: "adminOf1")
         }
         """
 

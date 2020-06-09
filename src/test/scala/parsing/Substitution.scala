@@ -7,7 +7,6 @@ import spray.json._
 import scala.util.Success
 import org.graalvm.polyglot.Context
 import domain._
-import org.parboiled2.Position
 
 class Substitution extends FlatSpec {
 
@@ -33,7 +32,7 @@ class Substitution extends FlatSpec {
 
     @1
     @onWrite(function: fns.validateCat)
-    model Cat { name: String }
+    model Cat { @1 name: String }
     """
     val syntaxTree = SyntaxTree.from(code).get
     val substituted = Substitutor.substitute(syntaxTree).get
@@ -75,12 +74,12 @@ class Substitution extends FlatSpec {
   "Predicate references in permissions" should "be substituted with actual predicates correctly" in {
     val code = """
     @1 @user model User {
-      username: String @publicCredential
-      password: String @secretCredential
-      todos: [Todo]
+      @1 username: String @publicCredential
+      @2 password: String @secretCredential
+      @3 todos: [Todo]
     }
 
-    @2 model Todo { title: String }
+    @2 model Todo { @1 title: String }
 
     import "./src/test/scala/parsing/test-functions.js" as fns
 
@@ -99,9 +98,9 @@ class Substitution extends FlatSpec {
   "Substitutor" should "substitute `self` references in access rules with appropriate model ref and predicate" in {
     val code = """
    @1 @user model User {
-        username: String @publicCredential
-        password: String @secretCredential
-        bio: String
+        @1 username: String @publicCredential
+        @2 password: String @secretCredential
+        @3 bio: String
       }
 
       role User {
@@ -111,132 +110,12 @@ class Substitution extends FlatSpec {
     val st = SyntaxTree.from(code).get
     val permissions = st.permissions
     val selfRule = permissions.globalTenant.roles.head.rules.head
-    val expectedSelfRule = AccessRule(
-      Allow,
-      (
-        PModel(
-          "User",
-          List(
-            PModelField(
-              "username",
-              PString,
-              None,
-              List(
-                Directive(
-                  "publicCredential",
-                  PInterfaceValue(Map(), PInterface("", List(), None)),
-                  FieldDirective,
-                  Some(PositionRange(Position(51, 3, 26), Position(68, 3, 43)))
-                )
-              ),
-              Some(PositionRange(Position(34, 3, 9), Position(42, 3, 17)))
-            ),
-            PModelField(
-              "password",
-              PString,
-              None,
-              List(
-                Directive(
-                  "secretCredential",
-                  PInterfaceValue(Map(), PInterface("", List(), None)),
-                  FieldDirective,
-                  Some(PositionRange(Position(94, 4, 26), Position(111, 4, 43)))
-                )
-              ),
-              Some(PositionRange(Position(77, 4, 9), Position(85, 4, 17)))
-            ),
-            PModelField(
-              "bio",
-              PString,
-              None,
-              List(),
-              Some(PositionRange(Position(120, 5, 9), Position(123, 5, 12)))
-            )
-          ),
-          List(
-            Directive(
-              "user",
-              PInterfaceValue(Map(), PInterface("", List(), None)),
-              ModelDirective,
-              Some(PositionRange(Position(7, 2, 7), Position(12, 2, 12)))
-            )
-          ),
-          1,
-          Some(PositionRange(Position(19, 2, 19), Position(23, 2, 23)))
-        ),
-        Some(
-          PModelField(
-            "bio",
-            PString,
-            None,
-            List(),
-            Some(PositionRange(Position(120, 5, 9), Position(123, 5, 12)))
-          )
-        )
-      ),
-      Set(Update),
-      Some(
-        IfSelfAuthPredicate(
-          PModel(
-            "User",
-            List(
-              PModelField(
-                "username",
-                PString,
-                None,
-                List(
-                  Directive(
-                    "publicCredential",
-                    PInterfaceValue(Map(), PInterface("", List(), None)),
-                    FieldDirective,
-                    Some(
-                      PositionRange(Position(51, 3, 26), Position(68, 3, 43))
-                    )
-                  )
-                ),
-                Some(PositionRange(Position(34, 3, 9), Position(42, 3, 17)))
-              ),
-              PModelField(
-                "password",
-                PString,
-                None,
-                List(
-                  Directive(
-                    "secretCredential",
-                    PInterfaceValue(Map(), PInterface("", List(), None)),
-                    FieldDirective,
-                    Some(
-                      PositionRange(Position(94, 4, 26), Position(111, 4, 43))
-                    )
-                  )
-                ),
-                Some(PositionRange(Position(77, 4, 9), Position(85, 4, 17)))
-              ),
-              PModelField(
-                "bio",
-                PString,
-                None,
-                List(),
-                Some(PositionRange(Position(120, 5, 9), Position(123, 5, 12)))
-              )
-            ),
-            List(
-              Directive(
-                "user",
-                PInterfaceValue(Map(), PInterface("", List(), None)),
-                ModelDirective,
-                Some(PositionRange(Position(7, 2, 7), Position(12, 2, 12)))
-              )
-            ),
-            1,
-            Some(PositionRange(Position(19, 2, 19), Position(23, 2, 23)))
-          )
-        )
-      ),
-      Some(PositionRange(Position(167, 9, 9), Position(188, 9, 30)))
-    )
 
-    assert(selfRule == expectedSelfRule)
+    assert(selfRule.ruleKind == Allow)
+    assert(selfRule.resourcePath._1.id == "User")
+    assert(selfRule.resourcePath._2.get.id == "bio")
+    assert(selfRule.permissions == Set(Update))
+    assert(selfRule.predicate.get.isInstanceOf[IfSelfAuthPredicate])
   }
 
 }

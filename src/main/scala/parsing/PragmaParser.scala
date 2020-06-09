@@ -2,11 +2,11 @@ package parsing
 
 import org.parboiled2._
 import domain._
-import scala.language.implicitConversions
 import domain.utils.`package`.Identifiable
 import spray.json.JsValue
 import scala.util.{Try, Failure}
 import domain.utils.UserError
+import scala.language.implicitConversions
 
 object PragmaParser {
   // Dummy classes will be substituted at substitution time
@@ -63,13 +63,17 @@ class PragmaParser(val input: ParserInput) extends Parser {
     anyOf(" \r\t" + (if (includeEndline) "\n" else ""))
   }
 
-  implicit def wsWithEndline(terminal: String = ""): Rule0 = rule {
+  def wsWithEndline(terminal: String = ""): Rule0 = rule {
     zeroOrMore(wsChar(true) | comment) ~
       str(terminal) ~
       zeroOrMore(wsChar(true) | comment)
   }
 
-  def wsWithoutEndline = rule { zeroOrMore(wsChar(false) | comment) }
+  def wsWithoutEndline(terminal: String = ""): Rule0 = rule {
+    zeroOrMore(wsChar(false) | comment) ~
+      str(terminal) ~
+      zeroOrMore(wsChar(false) | comment)
+  }
 
   implicit def intToPos(i: Int) = Position(i, input)
 
@@ -116,11 +120,11 @@ class PragmaParser(val input: ParserInput) extends Parser {
     valueMap(Map("true" -> PBoolValue(true), "false" -> PBoolValue(false)))
   }
 
-  val arrayItem = () => rule { literal ~ optional(",") }
-
   // Note: returns an array with unknown element type if the array is empty.
   def arrayVal: Rule1[PArrayValue] = rule {
-    "[" ~ zeroOrMore(arrayItem()) ~ "]" ~>
+    '[' ~ wsWithEndline() ~
+      zeroOrMore(literal).separatedBy(optional(wsWithEndline(","))) ~
+      wsWithEndline() ~ ']' ~>
       ((elements: Seq[PValue]) => {
         PArrayValue(elements.toList, elements.headOption match {
           case Some(v) => v.ptype
@@ -151,23 +155,26 @@ class PragmaParser(val input: ParserInput) extends Parser {
   }
 
   def namedArg = rule {
-    identifier ~ ":" ~ (literal | ref) ~>
+    identifier ~ wsWithoutEndline(":") ~ (literal | ref) ~>
       ((key: String, value: PValue) => key -> value)
   }
 
   def namedArgs: Rule1[PInterfaceValue] = rule {
-    zeroOrMore(namedArg).separatedBy(",") ~> { (pairs: Seq[(String, PValue)]) =>
-      PInterfaceValue(pairs.toMap, PInterface("", Nil, None))
+    zeroOrMore(namedArg).separatedBy(wsWithEndline(",")) ~> {
+      (pairs: Seq[(String, PValue)]) =>
+        PInterfaceValue(pairs.toMap, PInterface("", Nil, None))
     }
   }
 
   def indexAnnotation: Rule1[IndexAnnotation] = rule {
-    '@' ~ capture(oneOrMore(CharPredicate.Digit)) ~>
-      ((strIndex: String) => IndexAnnotation(strIndex.toInt))
+    '@' ~ integerVal ~>
+      ((i: PIntValue) => IndexAnnotation(i.value.toInt))
   }
 
   def directive = rule {
-    '@' ~ identifier ~ optional("(" ~ namedArgs ~ ")")
+    '@' ~ identifier ~ optional(
+      '(' ~ wsWithEndline() ~ namedArgs ~ wsWithEndline() ~ ')'
+    )
   }
 
   def directive(dirKind: DirectiveKind): Rule1[Directive] = rule {
@@ -185,10 +192,13 @@ class PragmaParser(val input: ParserInput) extends Parser {
   }
 
   def modelDef: Rule1[PModel] = rule {
-    wsWithEndline() ~ zeroOrMore(annotation(ModelDirective))
-      .separatedBy(wsWithEndline()) ~
-      ("model" ~ push(cursor) ~ identifier ~ push(cursor) ~
-        "{" ~ zeroOrMore(fieldDef) ~ "}") ~> {
+    zeroOrMore(annotation(ModelDirective))
+      .separatedBy(wsWithEndline()) ~ wsWithEndline() ~
+      "model" ~ wsWithoutEndline() ~
+      push(cursor) ~ identifier ~ push(cursor) ~
+      wsWithEndline("{") ~
+      zeroOrMore(fieldDef).separatedBy(wsWithEndline()) ~
+      wsWithEndline() ~ '}' ~> {
       (
           anns: Seq[Annotation],
           start: Int,
@@ -219,26 +229,25 @@ class PragmaParser(val input: ParserInput) extends Parser {
     }
   }
 
-  def defaultValue = rule { "=" ~ literal }
-
   def fieldDef: Rule1[PModelField] = rule {
-    wsWithEndline() ~ zeroOrMore(directive(FieldDirective))
+    zeroOrMore(annotation(FieldDirective))
       .separatedBy(wsWithEndline()) ~
-      wsWithEndline() ~ push(cursor) ~ identifier ~ push(cursor) ~ ":" ~
-      ptype ~ optional(defaultValue) ~
+      wsWithEndline() ~ push(cursor) ~ identifier ~ push(cursor) ~
+      wsWithoutEndline() ~ ":" ~ wsWithoutEndline() ~ ptype ~
+      optional(wsWithoutEndline() ~ "=" ~ wsWithoutEndline() ~ literal) ~
       optional(
-        wsWithoutEndline ~
-          zeroOrMore(directive(FieldDirective))
-            .separatedBy(wsWithoutEndline)
+        wsWithoutEndline() ~
+          zeroOrMore(annotation(FieldDirective))
+            .separatedBy(wsWithoutEndline())
       ) ~ optional(",") ~> {
       (
-          ds: Seq[Directive],
+          anns: Seq[Annotation],
           start: Int,
           id: String,
           end: Int,
           ht: PType,
           dv: Option[PValue],
-          trailingDirectives: Option[Seq[Directive]]
+          trailingAnnotations: Option[Seq[Annotation]]
       ) =>
         {
           val defaultValue = dv.collect {
@@ -249,11 +258,25 @@ class PragmaParser(val input: ParserInput) extends Parser {
               })
             case nonArray => nonArray
           }
+          val allAnnotations = anns ++ trailingAnnotations.getOrElse(Nil)
+          val fieldIndex =
+            allAnnotations.collect { case i: IndexAnnotation => i }
+          if (fieldIndex.length == 0)
+            throw UserError(
+              s"Model field `$id` must have an index (e.g. @1)",
+              Some(PositionRange(start, end))
+            )
+          else if (fieldIndex.length > 1)
+            throw UserError(
+              s"Model field `$id` can only have one field index, ${fieldIndex.length} found",
+              Some(PositionRange(start, end))
+            )
           PModelField(
             id,
             ht,
             defaultValue,
-            ds.concat(trailingDirectives.getOrElse(Nil)).toList,
+            fieldIndex.head.value,
+            allAnnotations.toList.collect { case d: Directive => d },
             Some(PositionRange(start, end))
           )
         }
@@ -261,9 +284,12 @@ class PragmaParser(val input: ParserInput) extends Parser {
   }
 
   def enumDef: Rule1[PEnum] = rule {
-    "enum" ~ push(cursor) ~ identifier ~ push(cursor) ~ "{" ~
-      zeroOrMore(wsWithEndline() ~ (identifier | stringVal) ~ wsWithEndline())
-        .separatedBy(optional(",")) ~ "}" ~> {
+    "enum" ~ wsWithoutEndline() ~
+      push(cursor) ~ identifier ~ push(cursor) ~
+      wsWithEndline() ~ '{' ~ wsWithEndline() ~
+      zeroOrMore(identifier | stringVal)
+        .separatedBy(wsWithEndline(",") | wsWithEndline()) ~
+      wsWithEndline() ~ '}' ~> {
       (
           start: Int,
           id: String,
@@ -281,7 +307,9 @@ class PragmaParser(val input: ParserInput) extends Parser {
   }
 
   def importDef: Rule1[PImport] = rule {
-    "import" ~ stringVal ~ "as" ~ push(cursor) ~ identifier ~ push(cursor) ~> {
+    "import" ~ wsWithoutEndline() ~ stringVal ~
+      wsWithoutEndline("as") ~
+      push(cursor) ~ identifier ~ push(cursor) ~> {
       (
           file: PStringValue,
           start: Int,
@@ -293,15 +321,19 @@ class PragmaParser(val input: ParserInput) extends Parser {
   }
 
   def configDef: Rule1[PConfig] = rule {
-    push(cursor) ~ "config" ~ push(cursor) ~ "{" ~ zeroOrMore(configEntry) ~ "}" ~>
+    push(cursor) ~ "config" ~ push(cursor) ~
+      wsWithoutEndline() ~ '{' ~ wsWithEndline() ~
+      zeroOrMore(configEntry)
+        .separatedBy(wsWithEndline(",") | wsWithEndline()) ~
+      wsWithEndline() ~ '}' ~>
       ((start: Int, end: Int, entries: Seq[ConfigEntry]) => {
         PConfig(entries.toList, Some(PositionRange(start, end)))
       })
   }
 
   def configEntry: Rule1[ConfigEntry] = rule {
-    push(cursor) ~ identifier ~ push(cursor) ~ "=" ~
-      literal ~ optional(",") ~ wsWithEndline() ~> {
+    push(cursor) ~ identifier ~ push(cursor) ~
+      wsWithoutEndline("=") ~ literal ~> {
       (
           start: Int,
           key: String,
@@ -334,13 +366,15 @@ class PragmaParser(val input: ParserInput) extends Parser {
   }
 
   def permissionsList: Rule1[List[PPermission]] = rule {
-    ("[" ~ oneOrMore(permission).separatedBy(",") ~ "]") ~>
+    '[' ~ wsWithEndline() ~
+      oneOrMore(permission).separatedBy(wsWithEndline(",") | wsWithEndline()) ~
+      wsWithEndline() ~ ']' ~>
       ((events: Seq[PPermission]) => events.toList)
   }
 
   def ref: Rule1[Reference] = rule {
     push(cursor) ~ oneOrMore(identifier)
-      .separatedBy(ch('.')) ~ push(cursor) ~> {
+      .separatedBy('.') ~ push(cursor) ~> {
       (
           start: Int,
           path: Seq[String],
@@ -355,7 +389,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
       valueMap(Map("allow" -> Allow, "deny" -> Deny)) ~
       wsWithEndline() ~ (singletonPermission | permissionsList) ~
       wsWithEndline() ~ ref ~
-      optional(wsWithoutEndline ~ "if" ~ ref) ~
+      optional(wsWithoutEndline("if") ~ ref) ~
       push(cursor) ~> {
       (
           start: Int,
@@ -379,8 +413,11 @@ class PragmaParser(val input: ParserInput) extends Parser {
   }
 
   def roleDef: Rule1[Role] = rule {
-    "role" ~ push(cursor) ~ identifier ~ push(cursor) ~ "{" ~
-      zeroOrMore(accessRuleDef).separatedBy(wsWithEndline()) ~ "}" ~> {
+    "role" ~ wsWithoutEndline() ~
+      push(cursor) ~ identifier ~ push(cursor) ~
+      wsWithEndline() ~ '{' ~ wsWithEndline() ~
+      zeroOrMore(accessRuleDef).separatedBy(wsWithEndline()) ~
+      wsWithEndline() ~ '}' ~> {
       (start: Int, roleName: String, end: Int, rules: Seq[AccessRule]) =>
         Role(PReference(roleName), rules.toList)
     }

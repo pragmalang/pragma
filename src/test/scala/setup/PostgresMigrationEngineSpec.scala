@@ -125,15 +125,15 @@ class PostgresMigrationEngineSpec extends FunSuite {
     val code = """
     @1 @user
     model User {
-      id: String @uuid
-      username: String @primary @publicCredential
-      password: String @secretCredential
-      isVerified: Boolean = false
-      todo: Todo?
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todo: Todo?
     }
 
     @2 model Todo {
-      title: String
+      @1 title: String
     }
     """
     val syntaxTree = SyntaxTree.from(code).get

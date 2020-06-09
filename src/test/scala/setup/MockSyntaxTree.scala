@@ -3,149 +3,28 @@ package setup
 import domain._
 
 object MockSyntaxTree {
-
-  val schema =
+  lazy val code =
     """
-  @user
-  model Business {
-    username: String? 
-    email: String @publicCredential @primary
-    password: String @secretCredential
-    branches: [Branch] 
-    mainBranch: Branch? 
-    businessType: BusinessType 
-  }
-
-  model Branch {
-    address: String @primary
-    business: Business 
-  }
-
-  enum BusinessType {
-    FOOD
-    CLOTHING
-    OTHER
-  }"""
-
-  val businessModel = PModel(
-    "Business",
-    List(
-      PModelField(
-        "username",
-        POption(PString),
-        None,
-        List(),
-        None
-      ),
-      PModelField(
-        "email",
-        PString,
-        None,
-        List(
-          Directive(
-            "publicCredential",
-            PInterfaceValue(Map(), PInterface("", List(), None)),
-            FieldDirective,
-            None
-          ),
-          Directive(
-            "primary",
-            PInterfaceValue(Map(), PInterface("", List(), None)),
-            FieldDirective,
-            None
-          )
-        ),
-        None
-      ),
-      PModelField(
-        "password",
-        PString,
-        None,
-        List(
-          Directive(
-            "secretCredential",
-            PInterfaceValue(Map(), PInterface("", List(), None)),
-            FieldDirective,
-            None
-          )
-        ),
-        None
-      ),
-      PModelField(
-        "branches",
-        PArray(PReference("Branch")),
-        None,
-        Nil,
-        None
-      ),
-      PModelField(
-        "mainBranch",
-        POption(PReference("Branch")),
-        None,
-        Nil,
-        None
-      ),
-      PModelField(
-        "businessType",
-        PReference("BusinessType"),
-        None,
-        Nil,
-        None
-      )
-    ),
-    List(
-      Directive(
-        "user",
-        PInterfaceValue(Map(), PInterface("", List(), None)),
-        ModelDirective,
-        None
-      )
-    ),
-    1,
-    None
-  )
-
-  val brancPModel =
-    PModel(
-      "Branch",
-      List(
-        PModelField(
-          "address",
-          PString,
-          None,
-          List(
-            Directive(
-              "primary",
-              PInterfaceValue(Map(), PInterface("", List(), None)),
-              FieldDirective,
-              None
-            )
-          ),
-          None
-        ),
-        PModelField(
-          "business",
-          PReference("Business"),
-          None,
-          Nil,
-          None
-        )
-      ),
-      List(),
-      2,
-      None
-    )
-
-  val businessTypeEnum =
-    PEnum("BusinessType", List("FOOD", "CLOTHING", "OTHER"), None)
-  val permissions = Permissions.empty
-
-  val syntaxTree =
-    SyntaxTree(
-      Seq.empty,
-      Seq(businessModel, brancPModel),
-      Seq(businessTypeEnum),
-      permissions,
-      None
-    )
+    @1 @user
+    model Business {
+      @1 username: String? 
+      @2 email: String @publicCredential @primary
+      @3 password: String @secretCredential
+      @4 branches: [Branch] 
+      @5 mainBranch: Branch? 
+      @6 businessType: BusinessType 
+    }
+    
+    @2 model Branch {
+      @1 address: String @primary
+      @2 business: Business 
+    }
+    
+    enum BusinessType {
+      FOOD
+      CLOTHING
+      OTHER
+    }
+    """
+  lazy val syntaxTree = SyntaxTree.from(code).get
 }

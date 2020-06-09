@@ -19,9 +19,9 @@ class Authorization extends FlatSpec {
     val code = """
     @1 @user
     model User {
-      username: String @primary @publicCredential
-      password: String @secretCredential
-      isVerified: Boolean = false
+      @1 username: String @primary @publicCredential
+      @2 password: String @secretCredential
+      @3 isVerified: Boolean = false
     }
 
     deny SET_ON_CREATE User.isVerified
@@ -82,13 +82,13 @@ class Authorization extends FlatSpec {
   "Authorizer" should "handle user predicates correctly" in {
     val code = """
     @1 model Todo {
-      content: String
+      @1 content: String
     }
 
     @2 @user model User {
-      username: String @primary @publicCredential
-      password: String @secretCredential
-      todos: [Todo]
+      @1 username: String @primary @publicCredential
+      @2 password: String @secretCredential
+      @3 todos: [Todo]
     }
 
     allow CREATE User

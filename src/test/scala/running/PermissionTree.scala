@@ -7,20 +7,20 @@ class PermissionTree extends FlatSpec {
   "Permission tree" should "be generated correctly" in {
     val code = """
     @1 @user model User {
-        username: String @publicCredential
-        password: String @secretCredential
-        friend: User?
-        todos: [Todo]
+        @1 username: String @publicCredential
+        @2 password: String @secretCredential
+        @3 friend: User?
+        @4 todos: [Todo]
     }
 
     @2 @user model Admin {
-        username: String @publicCredential
-        password: String @secretCredential
+        @1 username: String @publicCredential
+        @2 password: String @secretCredential
     }
     
     @3 model Todo {
-        title: String
-        content: String
+        @1 title: String
+        @2 content: String
     }
 
     allow CREATE User

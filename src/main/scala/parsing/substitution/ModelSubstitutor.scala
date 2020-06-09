@@ -35,6 +35,7 @@ object ModelSubstitutor {
               f.id,
               f.ptype,
               f.defaultValue,
+              f.index,
               dirs.map(_.get),
               f.position
             )
@@ -79,11 +80,13 @@ object ModelSubstitutor {
   private def substituteOptionalArrayFieldDefaultValue(
       model: PModel
   ): PModel = {
-    val newFields = model.fields map {
-      case field @ PModelField(_, POption(PArray(innerType)), default, _, _) =>
-        if (default.isDefined) field
-        else field.copy(defaultValue = Some(PArrayValue(Nil, innerType)))
-      case nonOptionalArrayField => nonOptionalArrayField
+    val newFields = model.fields map { field =>
+      field.ptype match {
+        case POption(PArray(innerType)) =>
+          if (field.defaultValue.isDefined) field
+          else field.copy(defaultValue = Some(PArrayValue(Nil, innerType)))
+        case _ => field
+      }
     }
     new PModel(
       model.id,
