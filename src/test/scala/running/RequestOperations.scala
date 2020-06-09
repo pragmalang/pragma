@@ -15,7 +15,7 @@ class RequestOperations extends FlatSpec {
     import "./src/test/scala/parsing/test-functions.js" as fns
 
     @user @1 model User {
-        @1 username: String @publicCredential
+        @1 username: String @publicCredential @primary
         @2 todos: Todo
         @3 friend: User?
     }
@@ -25,7 +25,7 @@ class RequestOperations extends FlatSpec {
     }
 
     @2 model Todo {
-        @1 title: String
+        @1 title: String @primary
         @2 content: String
     }
     """

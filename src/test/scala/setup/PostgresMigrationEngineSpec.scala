@@ -133,7 +133,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
     }
 
     @2 model Todo {
-      @1 title: String
+      @1 title: String @primary
     }
     """
     val syntaxTree = SyntaxTree.from(code).get

@@ -1,7 +1,6 @@
 package domain
 
 import running.pipeline.Request
-import spray.json._
 
 object BuiltInDefs {
   def modelDirectives(self: PModel) = Map(
@@ -83,5 +82,5 @@ object BuiltInDefs {
 
   // e.g. ifSelf & ifOwner
   val builtinFunctions =
-    Map.empty[String, BuiltinFunction[JsValue, JsValue]]
+    Map.empty[String, BuiltinFunction]
 }

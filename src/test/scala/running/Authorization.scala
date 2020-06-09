@@ -83,6 +83,7 @@ class Authorization extends FlatSpec {
     val code = """
     @1 model Todo {
       @1 content: String
+      @2 id: String @primary
     }
 
     @2 @user model User {

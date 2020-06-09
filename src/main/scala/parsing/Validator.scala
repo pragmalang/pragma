@@ -24,6 +24,8 @@ class Validator(constructs: List[PConstruct]) {
       checkCircularDeps,
       checkRolesBelongToUserModels,
       checkCreateAccessRules,
+      checkModelIndexUniqueness,
+      checkFieldIndexUniqueness,
       checkRelations
     )
     val errors = results.flatMap {
@@ -225,8 +227,10 @@ class Validator(constructs: List[PConstruct]) {
     if (!allErrors.isEmpty) throw new UserError(allErrors)
   }
 
-  def checkModelPrimaryFields: Try[Unit] = Try {
+  def checkModelPrimaryFields: Try[Unit] = {
     val errors = st.models.collect {
+      case m if Validator.primaryFieldCount(m) == 0 =>
+        (s"Model `${m.id}` must have a primary field", m.position) :: Nil
       case m if Validator.primaryFieldCount(m) > 1 =>
         (s"Multiple primary fields defined for `${m.id}`", m.position) :: Nil
       case m => {
@@ -241,7 +245,8 @@ class Validator(constructs: List[PConstruct]) {
         } else Nil
       }
     }.flatten
-    if (!errors.isEmpty) new UserError(errors)
+    if (!errors.isEmpty) Failure(UserError(errors))
+    else Success(())
   }
 
   def checkDirectiveAgainst(
@@ -320,6 +325,32 @@ class Validator(constructs: List[PConstruct]) {
         s"Roles can only be defined for user models, but `${userlessRole.user.id}` is not a defined user model",
         userlessRole.position
       )
+    }
+    if (errors.isEmpty) Success(())
+    else Failure(UserError(errors))
+  }
+
+  def checkModelIndexUniqueness: Try[Unit] = {
+    val repeatedIndes = st.models.diff(st.models.distinctBy(_.index))
+    if (repeatedIndes.length == 0) Success(())
+    else {
+      val errors = repeatedIndes.map { model =>
+        (s"Model `${model.id}` has a non-unique index", model.position)
+      }
+      Failure(UserError(errors))
+    }
+  }
+
+  def checkFieldIndexUniqueness: Try[Unit] = {
+    val errors = st.models.flatMap { model =>
+      model.fields
+        .diff(model.fields.distinctBy(_.index))
+        .map { field =>
+          (
+            s"`${field.id}` has a non-unique index ${field.index}",
+            field.position
+          )
+        }
     }
     if (errors.isEmpty) Success(())
     else Failure(UserError(errors))

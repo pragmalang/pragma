@@ -16,24 +16,16 @@ trait PShape extends Identifiable {
   val fields: Seq[PShapeField]
 }
 
-class PModel(
-    val id: String,
-    modelFields: Seq[PModelField],
-    val directives: Seq[Directive],
-    val index: Int,
-    val position: Option[PositionRange]
+case class PModel(
+    id: String,
+    fields: Seq[PModelField],
+    directives: Seq[Directive],
+    index: Int,
+    position: Option[PositionRange]
 ) extends PType
     with PConstruct
     with PShape {
   import PModel._
-
-  override val fields: Seq[PModelField] = {
-    val foundPrimaryField =
-      modelFields.find(_.directives.exists(_.id == "primary"))
-
-    if (foundPrimaryField.isDefined) modelFields
-    else defaultPrimaryField +: modelFields
-  }
 
   lazy val fieldsById: Map[FieldId, PModelField] =
     fields.map(field => field.id -> field).toMap
@@ -58,7 +50,6 @@ class PModel(
     case _ => false
   }
 }
-
 object PModel {
   def getHooksByName(model: PModel, directiveName: String) =
     model.directives
@@ -77,27 +68,6 @@ object PModel {
         }
       }
 
-  val defaultPrimaryField = PModelField(
-    "_id",
-    PString,
-    None,
-    999999999,
-    Directive(
-      "primary",
-      PInterfaceValue(Map.empty, PInterface("primary", Nil, None)),
-      FieldDirective,
-      None
-    ) :: Nil,
-    None
-  )
-
-  def apply(
-      id: String,
-      fields: Seq[PModelField],
-      directives: Seq[Directive],
-      index: Int,
-      position: Option[PositionRange]
-  ): PModel = new PModel(id, fields, directives, index, position)
 }
 
 case class PInterface(

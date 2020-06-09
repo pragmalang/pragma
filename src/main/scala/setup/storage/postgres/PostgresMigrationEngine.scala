@@ -14,7 +14,6 @@ import setup.storage.postgres.SQLMigrationStep._
 import domain._
 import org.jooq.util.postgres.PostgresDataType
 import domain.utils.UserError
-import spray.json.JsValue
 
 class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     extends MigrationEngine[Postgres, M] {
@@ -108,7 +107,8 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                 currentField.directives.find(_.id == "typeTransformer") match {
                   case Some(typeTransformerDir) =>
                     typeTransformerDir.args.value("typeTransformer") match {
-                      case func: PFunctionValue[JsValue, Try[JsValue]] => Some(func)
+                      case func: ExternalFunction => Some(func)
+                      case func: BuiltinFunction  => Some(func)
                       case pvalue => {
                         val found = displayPType(pvalue.ptype)
                         val required =
@@ -136,7 +136,8 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                   case Some(typeTransformerDir) =>
                     typeTransformerDir.args
                       .value("reverseTypeTransformer") match {
-                      case func: PFunctionValue[JsValue, Try[JsValue]] => Some(func)
+                      case func: ExternalFunction => Some(func)
+                      case func: BuiltinFunction  => Some(func)
                       case pvalue => {
                         val found = displayPType(pvalue.ptype)
                         val required =

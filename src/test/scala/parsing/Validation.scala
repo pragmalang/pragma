@@ -7,7 +7,7 @@ class Validation extends FlatSpec {
   "Default field value checker" should "fail in case of type mismatch" in {
     val code = """
       @1 model User {
-          @1 name: String = "John Doe"
+          @1 name: String = "John Doe" @primary
           @2 age: Int = "Not an Integer"
           @3 petName: String? = "Fluffykins"
           @4 friends: [String] = ["John", "James", "Jane"]
@@ -36,7 +36,7 @@ class Validation extends FlatSpec {
   "Roles defined for non-user models" should "not be allowed" in {
     val code = """
     @1 model Todo {
-      @1 title: String
+      @1 title: String @primary
       @2 content: String
     }
 
@@ -61,7 +61,7 @@ class Validation extends FlatSpec {
   "Non-existant field types" should "not be allowed" in {
     val code = """
     @1 @user model User {
-      @1 username: String @publicCredential
+      @1 username: String @primary @publicCredential
       @2 todos: [Todof]
     }
 
@@ -69,6 +69,7 @@ class Validation extends FlatSpec {
       @1 title: Stringf
       @2 content: String
       @3 user: User
+      @4 id: String @primary
     }
     """
     val syntaxTree = SyntaxTree.from(code)

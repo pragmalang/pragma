@@ -6,7 +6,6 @@ import scala.util.matching.Regex
 import java.io.File
 import scala.util._
 import spray.json._
-import running.pipeline.Request
 import org.graalvm.polyglot
 
 sealed trait PValue {
@@ -61,12 +60,12 @@ trait ExternalFunction
   def execute(args: JsValue): Try[JsValue]
 }
 
-trait BuiltinFunction[I, +O]
-    extends PFunctionValue[I, Try[O]]
+trait BuiltinFunction
+    extends PFunctionValue[JsValue, Try[JsValue]]
     with Identifiable {
   val ptype: PFunction
   val id: String
-  def execute(input: I): Try[O]
+  def execute(input: JsValue): Try[JsValue]
 }
 
 /** Takes two predicates of the same input type and
@@ -76,7 +75,7 @@ case class PredicateAnd(
     predicateInputType: PType,
     p1: PFunctionValue[JsValue, Try[JsValue]],
     p2: PFunctionValue[JsValue, Try[JsValue]]
-) extends BuiltinFunction[JsValue, JsBoolean] {
+) extends BuiltinFunction {
   override val id = "predicateAnd"
   override val ptype = PFunction(Map("data" -> predicateInputType), PBool)
 
@@ -92,12 +91,11 @@ case class PredicateAnd(
 }
 
 case class IfInAuthFunction(id: String, ptype: PFunction)
-    extends BuiltinFunction[Request, Request] {
-  def execute(input: Request): Try[Request] = ???
+    extends BuiltinFunction {
+  def execute(input: JsValue): Try[JsValue] = ???
 }
 
-case class IfSelfAuthPredicate(selfModel: PModel)
-    extends BuiltinFunction[JsValue, JsBoolean] {
+case class IfSelfAuthPredicate(selfModel: PModel) extends BuiltinFunction {
   val id = "ifSelf"
 
   val ptype = PFunction(
@@ -139,8 +137,8 @@ case class IfSelfAuthPredicate(selfModel: PModel)
 }
 
 case class IfRoleAuthPredicate(id: String, ptype: PFunction)
-    extends BuiltinFunction[Request, Request] {
-  def execute(input: Request): Try[Request] = ???
+    extends BuiltinFunction {
+  def execute(input: JsValue): Try[JsValue] = ???
 }
 
 case class POptionValue(value: Option[PValue], valueType: PType)

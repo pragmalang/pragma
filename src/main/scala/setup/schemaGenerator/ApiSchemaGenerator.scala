@@ -470,7 +470,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     case o: ObjectTypeDefinition if !isReference =>
       new PModel(
         id = o.name,
-        modelFields = o.fields.map(f => gqlFieldToHModelField(Left(f))).toList,
+        fields = o.fields.map(f => gqlFieldToHModelField(Left(f))).toList,
         Nil,
         0,
         None

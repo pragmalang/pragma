@@ -10,7 +10,7 @@ class RelationsValidation extends FlatSpec {
     val code = """
         @1 @user
         model User {
-            @1 username: String @publicCredential
+            @1 username: String @publicCredential @primary
             @2 password: String @secretCredential
             @3 todos: [Todo] @relation(name: "edits")
             @4 doneTodos: [Todo]
@@ -21,8 +21,9 @@ class RelationsValidation extends FlatSpec {
 
         @2
         model Todo {
-            @1 editors: User @relation(name: "edits")
-            @2 admin: User @relation(name: "adminOf1")
+          @1 editors: User @relation(name: "edits")
+          @2 admin: User @relation(name: "adminOf1")
+          @3 id: String @uuid @primary
         }
         """
 

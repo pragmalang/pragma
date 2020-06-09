@@ -32,7 +32,7 @@ class Substitution extends FlatSpec {
 
     @1
     @onWrite(function: fns.validateCat)
-    model Cat { @1 name: String }
+    model Cat { @1 name: String @primary }
     """
     val syntaxTree = SyntaxTree.from(code).get
     val substituted = Substitutor.substitute(syntaxTree).get
@@ -74,12 +74,12 @@ class Substitution extends FlatSpec {
   "Predicate references in permissions" should "be substituted with actual predicates correctly" in {
     val code = """
     @1 @user model User {
-      @1 username: String @publicCredential
+      @1 username: String @publicCredential @primary
       @2 password: String @secretCredential
       @3 todos: [Todo]
     }
 
-    @2 model Todo { @1 title: String }
+    @2 model Todo { @1 title: String @primary }
 
     import "./src/test/scala/parsing/test-functions.js" as fns
 
@@ -98,7 +98,7 @@ class Substitution extends FlatSpec {
   "Substitutor" should "substitute `self` references in access rules with appropriate model ref and predicate" in {
     val code = """
    @1 @user model User {
-        @1 username: String @publicCredential
+        @1 username: String @publicCredential @primary
         @2 password: String @secretCredential
         @3 bio: String
       }

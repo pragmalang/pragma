@@ -1,4 +1,4 @@
-package setup.storage
+package setup.storage.postgres
 
 import domain.SyntaxTree
 import setup.storage.postgres.PostgresQueryEngine
@@ -31,11 +31,11 @@ class PostgresQueryEngineSpec extends FlatSpec {
   )
 
   val code = """
-  model Country {
-    code: String @primary
-    name: String
-    population: Int
-    gnp: Float?
+  @1 model Country {
+    @1 code: String @primary
+    @2 name: String
+    @3 population: Int
+    @4 gnp: Float?
   }
   """
 

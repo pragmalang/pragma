@@ -31,6 +31,7 @@ class ModelParsing extends FlatSpec {
       @1
       model User {
         @1 @publicCredential
+        @primary
         username: String,
 
         @2 age: Int = 20
