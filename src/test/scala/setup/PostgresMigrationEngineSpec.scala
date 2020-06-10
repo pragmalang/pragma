@@ -148,26 +148,11 @@ class PostgresMigrationEngineSpec extends FunSuite {
           "Todo",
           AddColumn(
             ColumnDefinition(
-              "_id",
-              PostgresDataType.TEXT,
-              true,
-              false,
-              true,
-              false,
-              false,
-              None
-            )
-          )
-        ),
-        AlterTable(
-          "Todo",
-          AddColumn(
-            ColumnDefinition(
               "title",
               PostgresDataType.TEXT,
               true,
               false,
-              false,
+              true,
               false,
               false,
               None
@@ -246,7 +231,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
               false,
               false,
               false,
-              Some(ForeignKey("Todo", "_id"))
+              Some(ForeignKey("Todo", "title"))
             )
           )
         )
