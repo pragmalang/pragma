@@ -84,4 +84,35 @@ class Validation extends FlatSpec {
       case _ => fail("Result must be an error")
     }
   }
+
+  "Duplicate model/field indexes" should "result in errors" in {
+    val code = """
+    @1 @user model User {
+      @1 username: String @primary @publicCredential
+      @1 password: String @secretCredential
+    }
+
+    @2 model Todo {
+      @2 title: String @primary
+    }
+
+    @1 model Admin {
+      @1 username: String @primary
+    }
+    """
+
+    val st = SyntaxTree.from(code)
+    st match {
+      case Failure(err: UserError) => {
+        val errors = err.errors.map(_._1).toList
+        val expectedErrors = List(
+          "Model `Admin` has a duplicate index 1",
+          "`password` has a duplicate index 1"
+        )
+        assert(errors == expectedErrors)
+      }
+      case _ => fail("Should result in duplicate index errors")
+    }
+    pprint.pprintln(st)
+  }
 }

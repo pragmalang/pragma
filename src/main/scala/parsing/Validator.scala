@@ -331,11 +331,14 @@ class Validator(constructs: List[PConstruct]) {
   }
 
   def checkModelIndexUniqueness: Try[Unit] = {
-    val repeatedIndes = st.models.diff(st.models.distinctBy(_.index))
-    if (repeatedIndes.length == 0) Success(())
+    val repeatedIndexess = st.models.diff(st.models.distinctBy(_.index))
+    if (repeatedIndexess.length == 0) Success(())
     else {
-      val errors = repeatedIndes.map { model =>
-        (s"Model `${model.id}` has a non-unique index", model.position)
+      val errors = repeatedIndexess.map { model =>
+        (
+          s"Model `${model.id}` has a duplicate index ${model.index}",
+          model.position
+        )
       }
       Failure(UserError(errors))
     }
@@ -347,7 +350,7 @@ class Validator(constructs: List[PConstruct]) {
         .diff(model.fields.distinctBy(_.index))
         .map { field =>
           (
-            s"`${field.id}` has a non-unique index ${field.index}",
+            s"`${field.id}` has a duplicate index ${field.index}",
             field.position
           )
         }
