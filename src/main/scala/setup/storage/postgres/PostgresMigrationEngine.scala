@@ -407,5 +407,5 @@ case class IndexedField(
 }
 object IndexedField {
   def apply(field: PModelField): IndexedField =
-    IndexedField(field.id, ???, field.directives.toVector)
+    IndexedField(field.id, field.index, field.directives.toVector)
 }
