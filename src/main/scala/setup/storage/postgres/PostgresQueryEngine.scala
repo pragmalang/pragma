@@ -115,7 +115,9 @@ class PostgresQueryEngine[M[_]: Monad](
     val aliasedColumns = selectColumnsSql(innerReadOps)
 
     val sql =
-      s"SELECT $aliasedColumns FROM ${model.id} WHERE ${model.primaryField.id} = ?;"
+      s"""
+      SELECT $aliasedColumns FROM ${model.id.withQuotes} WHERE ${model.primaryField.id.withQuotes} = ?;
+      """
 
     val prep = HPS.set(primaryKeyValue)
 

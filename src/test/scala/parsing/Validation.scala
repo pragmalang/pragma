@@ -113,6 +113,5 @@ class Validation extends FlatSpec {
       }
       case _ => fail("Should result in duplicate index errors")
     }
-    pprint.pprintln(st)
   }
 }

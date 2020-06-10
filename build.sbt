@@ -15,6 +15,8 @@ lazy val root = (project in file("."))
     )
   )
 
+scalacOptions ++= Seq("-feature", "-deprecation", "-Xlint:unused")
+
 libraryDependencies ++= Seq(
   "org.parboiled" %% "parboiled" % "2.1.8",
   "org.sangria-graphql" %% "sangria" % "2.0.0-M1",
@@ -29,11 +31,12 @@ libraryDependencies ++= Seq(
   "org.postgresql" % "postgresql" % "42.2.12"
 )
 
+enablePlugins(GraalVMNativeImagePlugin, DockerComposePlugin)
+
 // Requires `native-image` utility from Graal
 // Run `gu install native-image` to install it (`gu` comes with Graal)
 // Run `sbt graalvm-native-image:packageBin` to generate native binary
 // See: https://www.scala-sbt.org/sbt-native-packager/index.html
-enablePlugins(GraalVMNativeImagePlugin)
 graalVMNativeImageOptions := Seq(
   "--no-fallback",
   "--language:js",
@@ -41,4 +44,13 @@ graalVMNativeImageOptions := Seq(
   "--initialize-at-build-time=scala.runtime.Statics$VM"
 )
 
-scalacOptions ++= Seq("-feature", "-deprecation", "-Xlint:unused")
+// To make tests run within a Docker container
+// (for Postgres)
+// See https://github.com/Tapad/sbt-docker-compose
+// NOTE: If the docker containers cannot be started
+// it's most likely because the port 5433 is already in use.
+// Run `docker ps` and then run `docker kill <postgres-containe-id>`
+// to kill the postgres container to fix it.
+addCommandAlias("test", "dockerComposeTest")
+dockerImageCreationTask := (publishLocal in Docker).value
+dockerExposedPorts ++= Seq(9000, 9000)

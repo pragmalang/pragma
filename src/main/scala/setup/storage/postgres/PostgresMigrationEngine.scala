@@ -21,6 +21,8 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
       migrationSteps: Vector[MigrationStep]
   ): M[Vector[Try[Unit]]] = Monad[M].pure(Vector(Try(())))
 
+  def initialMigration = migration(SyntaxTree.empty, (_, _) => false)
+
   def migration(
       prevTree: SyntaxTree = SyntaxTree.empty,
       thereExistData: (ModelId, FieldId) => Boolean

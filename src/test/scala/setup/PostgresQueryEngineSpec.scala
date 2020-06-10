@@ -5,6 +5,7 @@ import setup.storage.postgres.PostgresQueryEngine
 import org.scalatest._
 import doobie._
 import doobie.implicits._
+import cats._
 import cats.effect._
 import PostgresQueryEngine._
 import spray.json._
@@ -17,9 +18,9 @@ class PostgresQueryEngineSpec extends FlatSpec {
 
   val t = Transactor.fromDriverManager[IO](
     "org.postgresql.Driver",
-    "jdbc:postgresql://test-postgres-do-user-6445746-0.a.db.ondigitalocean.com:25060/defaultdb",
-    "doadmin",
-    "j85b8frfhy1ja163",
+    "jdbc:postgresql://localhost:5433/test",
+    "test",
+    "test",
     Blocker.liftExecutionContext(ExecutionContexts.synchronous)
   )
 
@@ -41,10 +42,29 @@ class PostgresQueryEngineSpec extends FlatSpec {
 
   implicit val syntaxTree = SyntaxTree.from(code).get
   val queryEngine = new PostgresQueryEngine(t, syntaxTree)
+  val migrationEngine = new PostgresMigrationEngine[Id](syntaxTree)
+
+  Fragment(migrationEngine.initialMigration.renderSQL, Nil, None).update.run
+    .transact(t)
+    .unsafeRunSync
+
+  sql"""
+    INSERT INTO  "Country" ("code", "name", "population", "gnp") 
+      VALUES ('SY', 'Syria', 6000, 10);
+
+    INSERT INTO  "Country" ("code", "name", "population", "gnp") 
+      VALUES ('USA', 'America', 100000, 9999);
+
+    INSERT INTO  "Country" ("code", "name", "population", "gnp") 
+      VALUES ('JO', 'Jordan', 5505, 12343);
+
+    INSERT INTO  "Country" ("code", "name", "population", "gnp") 
+      VALUES ('SE', 'Sweden', 20, 300);
+  """.update.run.transact(t).unsafeRunSync
 
   "Query engine" should "connect to the database and run queries" in {
     val countries =
-      sql"select * from country;"
+      sql"""select * from "Country";"""
         .query[Country]
         .to[List]
         .transact(t)
@@ -55,7 +75,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
 
   "doobie.Read instance for JsObject" should "read all fields of a table" in {
     val sql = sql"""
-    select * from country
+    select * from "Country";
     """.query[JsObject]
 
     val results = sql.to[List].transact(t).unsafeRunSync
