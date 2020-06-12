@@ -3,9 +3,6 @@ package setup.storage.postgres
 import SQLMigrationStep._
 import setup.storage.postgres.AlterTableAction._
 import domain.Implicits._
-import setup.storage.postgres.PostgresType.INT8
-import setup.storage.postgres.PostgresType.BOOL
-import setup.storage.postgres.PostgresType.DATE
 
 sealed trait SQLMigrationStep {
   def renderSQL: String = this match {

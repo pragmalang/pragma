@@ -1,4 +1,4 @@
-ThisBuild / scalaVersion := "2.13.1"
+ThisBuild / scalaVersion := "2.13.2"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "com.pragmalang"
 ThisBuild / organizationName := "pragma"
@@ -18,15 +18,15 @@ lazy val root = (project in file("."))
 scalacOptions ++= Seq("-feature", "-deprecation", "-Xlint:unused")
 
 libraryDependencies ++= Seq(
-  "org.parboiled" %% "parboiled" % "2.1.8",
-  "org.sangria-graphql" %% "sangria" % "2.0.0-M1",
+  "org.parboiled" %% "parboiled" % "2.2.0",
+  "org.sangria-graphql" %% "sangria" % "2.0.0",
   "io.spray" %% "spray-json" % "1.3.5",
-  "com.pauldijou" %% "jwt-core" % "4.1.0",
-  "com.typesafe.akka" %% "akka-stream" % "2.6.1",
+  "com.pauldijou" %% "jwt-core" % "4.3.0",
+  "com.typesafe.akka" %% "akka-stream" % "2.6.6",
   "org.typelevel" %% "cats-effect" % "2.1.3",
   "org.typelevel" %% "cats-core" % "2.1.1",
   "org.tpolecat" %% "doobie-core" % "0.9.0",
-  "org.postgresql" % "postgresql" % "42.2.12"
+  "org.postgresql" % "postgresql" % "42.2.14"
 )
 
 enablePlugins(GraalVMNativeImagePlugin, DockerComposePlugin)

@@ -6,7 +6,6 @@ import org.scalatest._
 import doobie._
 import doobie.implicits._
 import cats._
-import cats.effect._
 import PostgresQueryEngine._
 import spray.json._
 import cats.effect._

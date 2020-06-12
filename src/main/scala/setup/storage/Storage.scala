@@ -7,7 +7,6 @@ import scala.util._
 import running.pipeline.Operation
 import domain._
 import running.pipeline.InnerOperation
-import running.pipeline._
 import cats.Monad
 import doobie._
 

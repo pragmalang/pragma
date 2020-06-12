@@ -6,7 +6,6 @@ import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import domain.PModel
 import domain.PModelField
-import domain._
 import cats.implicits._
 
 class Postgres(
