@@ -7,7 +7,6 @@ import doobie._
 import doobie.implicits._
 import cats._
 import cats.implicits._
-import cats.effect._
 import spray.json._
 import domain.Implicits._
 
@@ -99,12 +98,11 @@ class PostgresQueryEngine[M[_]: Monad](
   ): ConnectionIO[JsArray] = {
     val aliasedColumns = selectColumnsSql(innerReadOps)
 
-    sql"SELECT $aliasedColumns FROM ${model.id};"
+    Fragment(s"SELECT $aliasedColumns FROM ${model.id.withQuotes};", Nil, None)
       .query[JsObject]
       .to[Vector]
       .flatMap(_.traverse(populateObject(model, _, innerReadOps)))
-      .map(where(_))
-      .map(it => JsArray(Vector.from(it).map(JsArray(_))))
+      .map(objects => JsArray(where(objects)))
   }
 
   override def readOneRecord[ID: Put](
@@ -115,9 +113,7 @@ class PostgresQueryEngine[M[_]: Monad](
     val aliasedColumns = selectColumnsSql(innerReadOps)
 
     val sql =
-      s"""
-      SELECT $aliasedColumns FROM ${model.id.withQuotes} WHERE ${model.primaryField.id.withQuotes} = ?;
-      """
+      s"""SELECT $aliasedColumns FROM ${model.id.withQuotes} WHERE ${model.primaryField.id.withQuotes} = ?;"""
 
     val prep = HPS.set(primaryKeyValue)
 
@@ -156,8 +152,7 @@ class PostgresQueryEngine[M[_]: Monad](
       }
 
     newObjFields.toVector.sequence.map { popFields =>
-      val allFields = popFields.foldLeft(unpopulated.fields)(_ + _)
-      JsObject(allFields)
+      JsObject(unpopulated.fields ++ popFields)
     }
   }
 
@@ -174,17 +169,6 @@ class PostgresQueryEngine[M[_]: Monad](
 }
 object PostgresQueryEngine {
   type Query[A] = ConnectionIO[A]
-
-  protected implicit lazy val testContextShift =
-    IO.contextShift(ExecutionContexts.synchronous)
-
-  lazy val testTransactor = Transactor.fromDriverManager[IO](
-    "org.postgresql.Driver",
-    "jdbc:postgresql://test-postgres-do-user-6445746-0.a.db.ondigitalocean.com:25060/defaultdb",
-    "doadmin",
-    "j85b8frfhy1ja163",
-    Blocker.liftExecutionContext(ExecutionContexts.synchronous)
-  )
 
   implicit val jsObjectRead: doobie.Read[JsObject] =
     new doobie.Read[JsObject](Nil, (resultSet, _) => {

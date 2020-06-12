@@ -23,7 +23,7 @@ class Authorizer[S, M[_]: Monad](
   def apply(request: Request): M[AuthorizationResult] =
     request.user match {
       case None => {
-        val reqOps = Operations.operationsFrom(request)(syntaxTree)
+        val reqOps = Operations.from(request)(syntaxTree)
         Monad[M].pure(results(reqOps.values.flatten.toVector, JsNull))
       }
       case Some(jwt) => {
@@ -50,7 +50,7 @@ class Authorizer[S, M[_]: Monad](
           case Left(userJson: JsObject)
               if userJson.fields.get(userModel.primaryField.id)
                 == Some(JsString(jwt.userId)) => {
-            val reqOps = Operations.operationsFrom(request)(syntaxTree)
+            val reqOps = Operations.from(request)(syntaxTree)
             results(reqOps.values.flatten.toVector, userJson)
           }
           case _ =>

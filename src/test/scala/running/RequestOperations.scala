@@ -65,7 +65,7 @@ class RequestOperations extends FlatSpec {
       "http://localhost:8080/gql",
       "localhost"
     )
-    val ops = Operations.operationsFrom(request)(syntaxTree)
+    val ops = Operations.from(request)(syntaxTree)
 
     assert(ops.values.flatten.size == 2)
 

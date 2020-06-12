@@ -94,7 +94,7 @@ object Operations {
   type FieldSelection = Field
   type GqlOperationType = OperationType
 
-  def operationsFrom(request: Request)(implicit st: SyntaxTree) =
+  def from(request: Request)(implicit st: SyntaxTree) =
     request.query.operations.map {
       case (name, op) => {
         val modelSelections = op.selections.map {
@@ -295,10 +295,10 @@ object Operations {
       opArguments = Vector.empty,
       directives = modelFieldSelection.directives,
       event = Read,
-      targetModel = outerTargetModel,
+      targetModel = innerOpTargetModel,
       role = role,
       user = user,
-      crudHooks = outerTargetModel.readHooks,
+      crudHooks = innerOpTargetModel.readHooks,
       alias = modelFieldSelection.alias,
       innerReadOps = innerSelections
     )
