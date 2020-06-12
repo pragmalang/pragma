@@ -33,13 +33,17 @@ case class PModel(
   lazy val isUser = directives.exists(_.id == "user")
 
   lazy val primaryField =
-    fields.find(_.directives.exists(_.id == "primary")).get
+    fields.find(_.isPrimary).get
 
   lazy val readHooks = getHooksByName(this, "onRead")
 
   lazy val writeHooks = getHooksByName(this, "onWrite")
 
   lazy val deleteHooks = getHooksByName(this, "onDelete")
+
+  lazy val publicCredentialFields = fields.filter(_.isPublicCredential)
+
+  lazy val secretCredentialField = fields.find(_.isSecretCredential)
 
   override def equals(that: Any): Boolean = that match {
     case model: PModel =>
@@ -100,7 +104,19 @@ case class PModelField(
     index: Int,
     directives: Seq[Directive],
     position: Option[PositionRange]
-) extends PShapeField
+) extends PShapeField {
+  lazy val isPrimary = directives.exists(_.id == "primary")
+
+  lazy val isPublicCredential = directives.exists(_.id == "publicCredential")
+
+  lazy val isSecretCredential = directives.exists(_.id == "secretCredential")
+
+  lazy val isUUID = directives.exists(_.id == "uuid")
+
+  lazy val isAutoIncrement = directives.exists(_.id == "autoIncrement")
+
+  lazy val isUnique = directives.exists(_.id == "unique")
+}
 
 case class PInterfaceField(
     id: String,

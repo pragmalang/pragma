@@ -164,36 +164,31 @@ class Validator(constructs: List[PConstruct]) {
 
   // A user model's public credential can only be String or Integer.
   // A secret credential can only be a String
-  def checkCredentialTypes(model: PModel): List[ErrorMessage] =
-    if (!model.isUser) Nil
-    else {
-      val publicField =
-        model.fields.find(_.directives.exists(_.id == "publicCredential"))
-      val secretField =
-        model.fields.find(_.directives.exists(_.id == "secretCredential"))
-      publicField zip secretField match {
-        case None => Nil
-        case Some((pc, sc)) => {
-          val pcError = pc.ptype match {
-            case PString | PInt => Nil
-            case t: PType =>
-              (
-                s"Invalid type `${utils.displayPType(t)}` for public credential `${pc.id}` (must be either String or Integer)",
-                pc.position
-              ) :: Nil
-          }
-          val scError = sc.ptype match {
-            case PString => Nil
-            case t: PType =>
-              (
-                s"Invalid type `${utils.displayPType(t)}` for secret credential `${pc.id}` (must String)",
-                pc.position
-              ) :: Nil
-          }
-          pcError ::: scError
-        }
-      }
+  def checkCredentialTypes(model: PModel): List[ErrorMessage] = {
+
+    val publicFields =
+      model.publicCredentialFields
+    val secretField = model.secretCredentialField
+    val pcErrors = publicFields.collect {
+      case field @ PModelField(_, PString | PInt, _, _, _, _) => Nil
+      case field =>
+        (
+          s"Invalid type `${utils.displayPType(field.ptype)}` for public credential `${field.id}` (must be either String or Integer)",
+          field.position
+        ) :: Nil
+    }.flatten
+    val scError = secretField match {
+      case Some(field) if field.ptype != PString =>
+        (
+          s"Invalid type `${utils.displayPType(field.ptype)}` for secret credential `${field.id}` (must String)",
+          field.position
+        ) :: Nil
+      case _ => Nil
     }
+    val allErrors = pcErrors ++ scError
+    if (allErrors.isEmpty) Nil
+    else allErrors.toList
+  }
 
   // Each user model must have exactly one public credential and
   // exactly one secret credential.
@@ -201,9 +196,9 @@ class Validator(constructs: List[PConstruct]) {
     if (!model.isUser) Nil
     else {
       val publicCredentialFields =
-        model.fields.filter(_.directives.exists(_.id == "publicCredential"))
+        model.publicCredentialFields
       val secretCredentialFields =
-        model.fields.filter(_.directives.exists(_.id == "secretCredential"))
+        model.fields.filter(_.isSecretCredential)
       val pcErrors =
         if (publicCredentialFields.isEmpty)
           (
@@ -498,10 +493,10 @@ object Validator {
     arr.values.forall(_.ptype == arr.elementType)
 
   def primaryFieldCount(model: PModel) =
-    model.fields.count(field => field.directives.exists(_.id == "primary"))
+    model.fields.count(field => field.isPrimary)
 
   def findPrimaryField(model: PModel): Option[PModelField] =
-    model.fields.find(_.directives.exists(_.id == "primary"))
+    model.fields.find(_.isPrimary)
 
   val invalidTypeIdentifiers = List(
     "WhereInput",

@@ -310,40 +310,60 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
             )
           case t => None
         }
-      val alterTableStatement = AlterTable(
-        model.id,
-        AlterTableAction.AddColumn(
-          ColumnDefinition(
-            name = field.id,
-            dataType = fieldPostgresType(field)(syntaxTree).get,
-            isNotNull = !field.isOptional,
-            isUnique = field.directives.exists(_.id == "unique"),
-            isPrimaryKey = field.directives.exists(_.id == "primary"),
-            isAutoIncrement = field.directives.exists(_.id == "autoIncrement"),
-            isUUID = field.directives.exists(_.id == "uuid"),
-            foreignKey = g match {
+      val alterTableStatement = fieldPostgresType(field)(syntaxTree).map {
+        postgresType =>
+          AlterTable(
+            model.id,
+            AlterTableAction.AddColumn(
+              ColumnDefinition(
+                name = field.id,
+                dataType = postgresType,
+                isNotNull = !field.isOptional,
+                isUnique = field.isUnique,
+                isPrimaryKey = field.isPrimary,
+                isAutoIncrement =
+                  field.isAutoIncrement,
+                isUUID = field.isUUID,
+                foreignKey = g match {
+                  case Some(value) =>
+                    value match {
+                      case Left(value) => None
+                      case Right(fk)   => Some(fk)
+                    }
+                  case None => None
+                }
+              )
+            )
+          )
+      }
+      alterTableStatement match {
+        case None =>
+          PostgresMigration(
+            g match {
               case Some(value) =>
                 value match {
-                  case Left(value) => None
-                  case Right(fk)   => Some(fk)
+                  case Left(createArrayTableStatement) =>
+                    Vector(createArrayTableStatement)
+                  case Right(value) => Vector.empty
                 }
-              case None => None
-            }
+              case None => Vector.empty
+            },
+            Vector.empty
           )
-        )
-      )
-      PostgresMigration(
-        g match {
-          case Some(value) =>
-            value match {
-              case Left(createArrayTableStatement) =>
-                Vector(alterTableStatement, createArrayTableStatement)
-              case Right(value) => Vector(alterTableStatement)
-            }
-          case None => Vector(alterTableStatement)
-        },
-        Vector.empty
-      )
+        case Some(alterTableStatement) =>
+          PostgresMigration(
+            g match {
+              case Some(value) =>
+                value match {
+                  case Left(createArrayTableStatement) =>
+                    Vector(alterTableStatement, createArrayTableStatement)
+                  case Right(value) => Vector(alterTableStatement)
+                }
+              case None => Vector(alterTableStatement)
+            },
+            Vector.empty
+          )
+      }
     }
     case RenameField(fieldId, newId, model) =>
       PostgresMigration(

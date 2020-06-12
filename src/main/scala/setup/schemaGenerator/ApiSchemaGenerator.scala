@@ -54,9 +54,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
 
       val login = if (model.isUser) {
         val secretCredentialField = model.fields
-          .find(
-            f => f.directives.exists(d => d.id == "secretCredential")
-          )
+          .find(_.isSecretCredential)
           .get
         Some(
           graphQlField(
@@ -730,7 +728,7 @@ object ApiSchemaGenerator {
     s.fields.collect {
       case field: PInterfaceField => pshapeField(field)
       case field: PModelField
-          if !field.directives.exists(_.id == "secretCredential") =>
+          if !field.isSecretCredential =>
         pshapeField(field)
     }.toVector,
     directives

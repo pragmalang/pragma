@@ -13,9 +13,9 @@ package object utils {
   )(implicit syntaxTree: SyntaxTree): Option[DataType[_]] =
     field.ptype match {
       case PAny => Some(PostgresDataType.ANY)
-      case PString if field.directives.exists(_.id == "uuid") =>
+      case PString if field.isUUID =>
         Some(PostgresDataType.UUID)
-      case PInt if field.directives.exists(_.id == "autoIncrement") =>
+      case PInt if field.isAutoIncrement =>
         Some(PostgresDataType.SERIAL8)
       case PString =>
         Some(PostgresDataType.TEXT)

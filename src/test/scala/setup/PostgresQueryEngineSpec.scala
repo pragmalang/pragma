@@ -206,4 +206,21 @@ class PostgresQueryEngineSpec extends FlatSpec {
     assert(results == expected)
   }
 
+  "PostgresQueryEngine#readManyRecords" should "read records correctly in many-to-many relationship cases" taggedAs (dkr) in {
+    val code = """
+    @1 model User {
+      @1 username: String @primary
+      @2 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+      @2 users: [User]
+    }
+    """
+    val st = SyntaxTree.from(code).get
+    val me = new PostgresMigrationEngine[Id](st)
+    println(me.initialMigration.renderSQL)
+  }
+
 }
