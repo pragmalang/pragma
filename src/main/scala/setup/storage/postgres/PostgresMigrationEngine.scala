@@ -12,7 +12,6 @@ import domain.utils._
 import setup.storage.postgres.SQLMigrationStep._
 
 import domain._
-import org.jooq.util.postgres.PostgresDataType
 import domain.utils.UserError
 
 class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
@@ -115,7 +114,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                         val found = displayPType(pvalue.ptype)
                         val required =
                           s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
-                        throw new InternalError(
+                        throw new InternalException(
                           s"""
                           |Type mismatch on directive `typeTransformer` on field `${currentModel}.${currentField}`
                           |found: `${found}`
@@ -144,7 +143,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                         val found = displayPType(pvalue.ptype)
                         val required =
                           s"${displayPType(currentField.ptype)} => ${displayPType(prevField.ptype)}"
-                        throw new InternalError(
+                        throw new InternalException(
                           s"""
                           |Type mismatch on directive `reverseTypeTransformer` on field `${currentModel}.${currentField}`
                           |found: `${found}`
@@ -232,10 +231,10 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
             val thisModelReferenceColumn = ColumnDefinition(
               s"${model.id}Id",
               model.primaryField.ptype match {
-                case PString => PostgresDataType.TEXT.nullable(false)
-                case PInt    => PostgresDataType.INT.nullable(false)
+                case PString => PostgresType.TEXT
+                case PInt    => PostgresType.INT8
                 case t =>
-                  throw new InternalError(
+                  throw new InternalException(
                     s"Primary field in model `${model.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."
                   )
               },
@@ -252,10 +251,10 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                 ColumnDefinition(
                   s"${otherModel.id}Id",
                   otherModel.primaryField.ptype match {
-                    case PString => PostgresDataType.TEXT.nullable(false)
-                    case PInt    => PostgresDataType.INT.nullable(false)
+                    case PString => PostgresType.TEXT
+                    case PInt    => PostgresType.INT8
                     case t =>
-                      throw new InternalError(
+                      throw new InternalException(
                         s"Primary field in model `${otherModel.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."
                       )
                   },
@@ -275,7 +274,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                       case POption(PArray(t)) => t
                       case PArray(t)          => t
                       case t =>
-                        throw new InternalError(
+                        throw new InternalException(
                           s"Expected [T] or [T]?, found ${domain.utils.displayPType(t)}"
                         )
                     },

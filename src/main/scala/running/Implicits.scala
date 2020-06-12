@@ -6,6 +6,7 @@ import spray.json.DefaultJsonProtocol._
 import running.pipeline._
 import sangria.ast._
 import sangria.parser.QueryParser
+import domain.utils.InternalException
 
 package object Implicits {
 
@@ -66,7 +67,7 @@ package object Implicits {
         value.toJson
       case EnumValue(value, comments, location) => value.toJson
       case VariableValue(name, comments, location) =>
-        throw new InternalError(
+        throw new InternalException(
           "GraphQL variable values cannot be serialized. They must be substituted first."
         )
       case NullValue(comments, location) => JsNull

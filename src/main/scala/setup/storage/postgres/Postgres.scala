@@ -5,9 +5,6 @@ import domain.SyntaxTree
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import domain.PModel
-import org.jooq.impl._
-import java.sql._
-import org.jooq._
 import domain.PModelField
 import domain._
 import cats.implicits._
@@ -17,9 +14,6 @@ class Postgres(
     migrationEngine: MigrationEngine[Postgres, Future],
     queryEngine: QueryEngine[Postgres, Future]
 ) extends Storage[Postgres, Future](queryEngine, migrationEngine) {
-
-  val conn = DriverManager.getConnection(???, ???, ???)
-  val db = DSL.using(conn, SQLDialect.POSTGRES);
 
   def arrayFieldTableName(model: PModel, field: PModelField): String =
     s"${model.id}_${field.id}_array"

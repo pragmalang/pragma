@@ -2,40 +2,39 @@ package setup.storage.postgres
 
 import domain._
 
-import org.jooq.DataType
-import org.jooq.util.postgres.PostgresDataType
+
 
 package object utils {
   type IsNotNull = Boolean
 
   def fieldPostgresType(
       field: PModelField
-  )(implicit syntaxTree: SyntaxTree): Option[DataType[_]] =
+  )(implicit syntaxTree: SyntaxTree): Option[PostgresType] =
     field.ptype match {
-      case PAny => Some(PostgresDataType.ANY)
+      case PAny => Some(PostgresType.ANY)
       case PString if field.isUUID =>
-        Some(PostgresDataType.UUID)
+        Some(PostgresType.UUID)
       case PInt if field.isAutoIncrement =>
-        Some(PostgresDataType.SERIAL8)
+        Some(PostgresType.SERIAL8)
       case PString =>
-        Some(PostgresDataType.TEXT)
+        Some(PostgresType.TEXT)
       case PInt =>
-        Some(PostgresDataType.INT8)
+        Some(PostgresType.INT8)
       case PFloat =>
-        Some(PostgresDataType.FLOAT8)
+        Some(PostgresType.FLOAT8)
       case PBool =>
-        Some(PostgresDataType.BOOL)
+        Some(PostgresType.BOOL)
       case PDate =>
-        Some(PostgresDataType.DATE)
+        Some(PostgresType.DATE)
       case PFile(_, _) =>
-        Some(PostgresDataType.TEXT)
+        Some(PostgresType.TEXT)
       case POption(ptype) => fieldPostgresType(field.copy(ptype = ptype))
       case PReference(id) =>
         fieldPostgresType(syntaxTree.modelsById(id).primaryField)
       case model: PModel =>
         fieldPostgresType(model.primaryField)
       case PEnum(id, values, position) =>
-        Some(PostgresDataType.TEXT)
+        Some(PostgresType.TEXT)
       case PInterface(id, fields, position) => None
       case PArray(ptype)                    => None
       case PFunction(args, returnType)      => None
@@ -44,18 +43,18 @@ package object utils {
   def toPostgresType(
       t: PType,
       isOptional: Boolean
-  )(implicit syntaxTree: SyntaxTree): Option[DataType[_]] =
+  )(implicit syntaxTree: SyntaxTree): Option[PostgresType] =
     t match {
-      case PAny => Some(PostgresDataType.ANY)
+      case PAny => Some(PostgresType.ANY)
       case PEnum(id, values, position) =>
-        Some(PostgresDataType.TEXT)
-      case PString => Some(PostgresDataType.TEXT)
-      case PInt    => Some(PostgresDataType.INT8)
-      case PFloat  => Some(PostgresDataType.FLOAT8)
-      case PBool   => Some(PostgresDataType.BOOL)
-      case PDate   => Some(PostgresDataType.DATE)
+        Some(PostgresType.TEXT)
+      case PString => Some(PostgresType.TEXT)
+      case PInt    => Some(PostgresType.INT8)
+      case PFloat  => Some(PostgresType.FLOAT8)
+      case PBool   => Some(PostgresType.BOOL)
+      case PDate   => Some(PostgresType.DATE)
       case PFile(sizeInBytes, extensions) =>
-        Some(PostgresDataType.TEXT)
+        Some(PostgresType.TEXT)
       case POption(ptype)                   => toPostgresType(ptype, true)
       case PReference(id)                   => None
       case _: PModel                        => None

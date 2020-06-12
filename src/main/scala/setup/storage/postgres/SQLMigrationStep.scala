@@ -1,9 +1,11 @@
 package setup.storage.postgres
 
 import SQLMigrationStep._
-import org.jooq._
 import setup.storage.postgres.AlterTableAction._
 import domain.Implicits._
+import setup.storage.postgres.PostgresType.INT8
+import setup.storage.postgres.PostgresType.BOOL
+import setup.storage.postgres.PostgresType.DATE
 
 sealed trait SQLMigrationStep {
   def renderSQL: String = this match {
@@ -24,7 +26,7 @@ sealed trait SQLMigrationStep {
           s"ALTER TABLE ${tableName.withQuotes} DROP COLUMN $ifExistsStr ${name.withQuotes};"
         }
         case ChangeColumnType(name, dataType) =>
-          s"ALTER TABLE ${tableName.withQuotes} ALTER COLUMN ${name.withQuotes} TYPE ${dataType.getTypeName()};"
+          s"ALTER TABLE ${tableName.withQuotes} ALTER COLUMN ${name.withQuotes} TYPE ${dataType.name};"
         case RenameColumn(name, newName) =>
           s"ALTER TABLE ${tableName.withQuotes} RENAME COLUMN ${name.withQuotes} TO ${newName.withQuotes};"
         case AddForeignKey(otherTableName, otherColumnName, thisColumnName) =>
@@ -49,7 +51,7 @@ object AlterTableAction {
   case class AddColumn(definition: ColumnDefinition) extends AlterTableAction
   case class DropColumn(name: String, ifExists: Boolean = true)
       extends AlterTableAction
-  case class ChangeColumnType(name: String, dataType: DataType[_])
+  case class ChangeColumnType(name: String, dataType: PostgresType)
       extends AlterTableAction
   case class RenameColumn(name: String, newName: String)
       extends AlterTableAction
@@ -62,7 +64,7 @@ object AlterTableAction {
 
 case class ColumnDefinition(
     name: String,
-    dataType: DataType[_],
+    dataType: PostgresType,
     isNotNull: Boolean,
     isUnique: Boolean,
     isPrimaryKey: Boolean,
@@ -71,7 +73,7 @@ case class ColumnDefinition(
     foreignKey: Option[ForeignKey]
 ) {
   def render = {
-    val colPrefix = s"${name.withQuotes} ${dataType.getTypeName()}"
+    val colPrefix = s"${name.withQuotes} ${dataType.name}"
     val notNull = if (isNotNull) " NOT NULL" else ""
     val unique = if (isUnique) " UNIQUE" else ""
     val uuid = if (isUUID) " DEFAULT uuid_generate_v4 ()" else ""
@@ -91,3 +93,27 @@ case class ForeignKey(
     otherTableName: String,
     otherColumnName: String
 )
+
+sealed trait PostgresType {
+  import PostgresType._
+  def name: String = this match {
+    case ANY => "ANY"
+    case UUID => "UUID"
+    case SERIAL8 => "SERIAL8"
+    case TEXT => "TEXT"
+    case INT8 => "INT8"
+    case FLOAT8 => "FLOAT8"
+    case BOOL => "BOOL"
+    case DATE => "DATE"
+  }
+}
+object PostgresType {
+  object ANY extends PostgresType
+  object UUID extends PostgresType
+  object SERIAL8 extends PostgresType
+  object TEXT extends PostgresType
+  object INT8 extends PostgresType
+  object FLOAT8 extends PostgresType
+  object BOOL extends PostgresType
+  object DATE extends PostgresType
+}

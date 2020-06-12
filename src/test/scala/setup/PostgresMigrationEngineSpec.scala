@@ -4,7 +4,6 @@ import setup._
 import setup.storage.postgres._
 import org.scalatest._
 import setup.storage.postgres.SQLMigrationStep._
-import org.jooq.util.postgres.PostgresDataType
 import domain.SyntaxTree
 import setup.storage.postgres.AlterTableAction._
 
@@ -13,7 +12,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
     val columns =
       ColumnDefinition(
         name = "username",
-        dataType = PostgresDataType.TEXT,
+        dataType = PostgresType.TEXT,
         isNotNull = true,
         isAutoIncrement = false,
         isPrimaryKey = true,
@@ -22,7 +21,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
         foreignKey = None
       ) :: ColumnDefinition(
         name = "password",
-        dataType = PostgresDataType.TEXT,
+        dataType = PostgresType.TEXT,
         isNotNull = true,
         isAutoIncrement = false,
         isPrimaryKey = false,
@@ -31,7 +30,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
         foreignKey = None
       ) :: ColumnDefinition(
         name = "myFriend",
-        dataType = PostgresDataType.TEXT,
+        dataType = PostgresType.TEXT,
         isNotNull = true,
         isAutoIncrement = false,
         isPrimaryKey = false,
@@ -40,7 +39,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
         foreignKey = None
       ) :: ColumnDefinition(
         name = "uuid",
-        dataType = PostgresDataType.UUID,
+        dataType = PostgresType.UUID,
         isNotNull = true,
         isAutoIncrement = false,
         isPrimaryKey = false,
@@ -55,7 +54,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
       AlterTableAction.AddColumn(
         ColumnDefinition(
           name = "age1",
-          dataType = PostgresDataType.INT8,
+          dataType = PostgresType.INT8,
           isNotNull = true,
           isAutoIncrement = false,
           isPrimaryKey = false,
@@ -69,7 +68,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
       AlterTable("User", AlterTableAction.RenameColumn("age1", "age"))
     val changeColumnType = AlterTable(
       "User",
-      AlterTableAction.ChangeColumnType("age", PostgresDataType.INT)
+      AlterTableAction.ChangeColumnType("age", PostgresType.INT8)
     )
     val addFk = AlterTable(
       "User",
@@ -83,19 +82,19 @@ class PostgresMigrationEngineSpec extends FunSuite {
       """|CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
          |
          |CREATE TABLE IF NOT EXISTS "Users"(
-         |"username" text NOT NULL PRIMARY KEY,
-         |"password" text NOT NULL,
-         |"myFriend" text NOT NULL,
-         |"uuid" uuid NOT NULL UNIQUE DEFAULT uuid_generate_v4 ());
+         |"username" TEXT NOT NULL PRIMARY KEY,
+         |"password" TEXT NOT NULL,
+         |"myFriend" TEXT NOT NULL,
+         |"uuid" UUID NOT NULL UNIQUE DEFAULT uuid_generate_v4 ());
          |
          |
          |ALTER TABLE "Users" RENAME TO "User";
          |
-         |ALTER TABLE "User" ADD COLUMN "age1" int8 NOT NULL;
+         |ALTER TABLE "User" ADD COLUMN "age1" INT8 NOT NULL;
          |
          |ALTER TABLE "User" RENAME COLUMN "age1" TO "age";
          |
-         |ALTER TABLE "User" ALTER COLUMN "age" TYPE int;
+         |ALTER TABLE "User" ALTER COLUMN "age" TYPE INT8;
          |
          |ALTER TABLE "User" ADD FOREIGN KEY ("myFriend") REFERENCES "User"("username");
          |
@@ -149,7 +148,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
           AddColumn(
             ColumnDefinition(
               "title",
-              PostgresDataType.TEXT,
+              PostgresType.TEXT,
               true,
               false,
               true,
@@ -165,7 +164,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
           AddColumn(
             ColumnDefinition(
               "id",
-              PostgresDataType.UUID,
+              PostgresType.UUID,
               true,
               false,
               false,
@@ -180,7 +179,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
           AddColumn(
             ColumnDefinition(
               "username",
-              PostgresDataType.TEXT,
+              PostgresType.TEXT,
               true,
               false,
               true,
@@ -195,7 +194,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
           AddColumn(
             ColumnDefinition(
               "password",
-              PostgresDataType.TEXT,
+              PostgresType.TEXT,
               true,
               false,
               false,
@@ -210,7 +209,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
           AddColumn(
             ColumnDefinition(
               "isVerified",
-              PostgresDataType.BOOL,
+              PostgresType.BOOL,
               true,
               false,
               false,
@@ -225,7 +224,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
           AddColumn(
             ColumnDefinition(
               "todo",
-              PostgresDataType.TEXT,
+              PostgresType.TEXT,
               false,
               false,
               false,
