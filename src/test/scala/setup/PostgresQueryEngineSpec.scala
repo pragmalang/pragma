@@ -12,6 +12,7 @@ import cats.effect._
 import sangria.macros._
 import running.pipeline._
 import setup.storage.QueryWhere
+import scala.util._
 
 class PostgresQueryEngineSpec extends FlatSpec {
   val dkr = Tag("Docker")
@@ -44,6 +45,12 @@ class PostgresQueryEngineSpec extends FlatSpec {
   @2 model Citizen {
     @1 name: String @primary
     @2 country: Country
+    @3 dependents: [Dependent]
+  }
+
+  @3 model Dependent {
+    @1 name: String @primary
+    @2 dependentOn: Citizen
   }
   """
 
@@ -51,7 +58,11 @@ class PostgresQueryEngineSpec extends FlatSpec {
   val queryEngine = new PostgresQueryEngine(t, syntaxTree)
   val migrationEngine = new PostgresMigrationEngine[Id](syntaxTree)
 
-  Fragment(migrationEngine.initialMigration.renderSQL, Nil, None).update.run
+  val initSql = migrationEngine.initialMigration.renderSQL
+  println("Generating the following SQL schema:")
+  println(initSql)
+
+  Fragment(initSql, Nil, None).update.run
     .transact(t)
     .unsafeRunSync
 
@@ -205,21 +216,8 @@ class PostgresQueryEngineSpec extends FlatSpec {
     assert(results == expected)
   }
 
-  "PostgresQueryEngine#readManyRecords" should "read records correctly in many-to-many relationship cases" taggedAs (dkr) in {
-    val code = """
-    @1 model User {
-      @1 username: String @primary
-      @2 todos: [Todo]
-    }
-
-    @2 model Todo {
-      @1 title: String @primary
-      @2 users: [User]
-    }
-    """
-    val st = SyntaxTree.from(code).get
-    val me = new PostgresMigrationEngine[Id](st)
-    println(me.initialMigration.renderSQL)
+  "PostgresQueryEngine#readManyRecords" should "read array fields correctly" taggedAs (dkr) in {
+    println(initSql)
   }
 
 }

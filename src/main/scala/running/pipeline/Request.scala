@@ -312,4 +312,25 @@ object Operations {
     )
   }
 
+  /** Utility function to get an inner operation
+    * to read the primary field of a model.
+    */
+  def primaryFieldInnerOp(model: PModel): InnerOperation =
+    InnerOperation(
+      AliasedField(model.primaryField, None, Vector.empty),
+      Operation(
+        opKind = ReadOperation,
+        gqlOpKind = OperationType.Query,
+        opArguments = Vector.empty,
+        directives = Vector.empty,
+        event = Read,
+        targetModel = model,
+        role = None,
+        user = None,
+        crudHooks = Vector.empty,
+        alias = None,
+        innerReadOps = Vector.empty
+      )
+    )
+
 }

@@ -110,7 +110,8 @@ class PostgresQueryEngine[M[_]: Monad](
       primaryKeyValue: ID,
       innerReadOps: Vector[InnerOperation]
   ): Query[JsObject] = {
-    val aliasedColumns = selectColumnsSql(innerReadOps)
+    val innerOpsWithPK = innerReadOps :+ Operations.primaryFieldInnerOp(model)
+    val aliasedColumns = selectColumnsSql(innerOpsWithPK)
 
     val sql =
       s"""SELECT $aliasedColumns FROM ${model.id.withQuotes} WHERE ${model.primaryField.id.withQuotes} = ?;"""
@@ -130,29 +131,35 @@ class PostgresQueryEngine[M[_]: Monad](
       unpopulated: JsObject,
       innerOps: Vector[InnerOperation]
   ): Query[JsObject] = {
-    val newObjFields = innerOps
-      .lazyZip(innerOps.map(iop => model.fieldsById(iop.targetField.field.id)))
-      .collect {
+    val newObjFields: Query[Vector[(String, JsValue)]] = innerOps
+      .zip(innerOps.map(iop => model.fieldsById(iop.targetField.field.id)))
+      .traverse {
         case (iop, PModelField(id, PReference(refId), _, _, _, _)) =>
           populateId(
             iop.operation.targetModel,
             unpopulated.fields(iop.nameOrAlias),
             iop.operation.innerReadOps
-          ).map(iop.nameOrAlias -> _)
+          ).map(obj => iop.nameOrAlias -> obj)
         case (
-            objField,
-            PModelField(id, PArray(PReference(refId)), _, _, _, _)
+            iop,
+            arrayField @ PModelField(id, PArray(PReference(_)), _, _, _, _)
             ) =>
-          ???
+          populateArray(
+            model,
+            unpopulated.fields(model.primaryField.id),
+            arrayField,
+            iop
+          ).map(vec => iop.nameOrAlias -> JsArray(vec))
         case (
             objField,
             PModelField(id, POption(PReference(refId)), _, _, _, _)
             ) =>
           ???
+        case (iop, _) => ???
       }
 
-    newObjFields.toVector.sequence.map { popFields =>
-      JsObject(unpopulated.fields ++ popFields)
+    newObjFields.map { nfields =>
+      JsObject(unpopulated.fields ++ nfields)
     }
   }
 
@@ -166,6 +173,37 @@ class PostgresQueryEngine[M[_]: Monad](
       case JsNumber(v) => readOneRecord(model, v.toLong, iops).widen[JsValue]
       case _           => JsNull.pure[Query].widen[JsValue]
     }
+
+  def populateArray(
+      baseModel: PModel,
+      baseRecordId: JsValue,
+      arrayField: PModelField,
+      arrayInnerOp: InnerOperation
+  ): Query[Vector[JsValue]] = {
+    val sql =
+      s"SELECT ${arrayInnerOp.operation.targetModel.id.concat("Id").withQuotes} " +
+        s"FROM ${baseModel.id.concat("_").concat(arrayInnerOp.targetField.field.id).withQuotes} " +
+        s"WHERE ${baseModel.id.concat("Id").withQuotes} = ?"
+
+    val prep = idPrepStatement(baseRecordId)
+    val joinRecords = HC.stream(sql, prep, 200)
+
+    arrayField.ptype match {
+      case PArray(PReference(ref)) if st.modelsById.contains(ref) =>
+        joinRecords
+          .map { obj =>
+            populateId(
+              st.modelsById(ref),
+              obj.fields(obj.fields.head._1),
+              arrayInnerOp.operation.innerReadOps
+            )
+          }
+          .compile
+          .toVector
+          .flatMap(v => v.sequence[Query, JsValue])
+      case _ => joinRecords.map(_.fields.head._2).compile.toVector
+    }
+  }
 }
 object PostgresQueryEngine {
   type Query[A] = ConnectionIO[A]
@@ -199,6 +237,20 @@ object PostgresQueryEngine {
     case f: Float  => JsNumber(f)
     case _         => JsNull
   }
+
+  /** Utility function to get a `PreparedStatementIO`
+    * from an ID JSON value.
+    * NOTE: Only `JsString`s and `JsNumbers`s are valid.
+    */
+  def idPrepStatement(id: JsValue) =
+    id match {
+      case JsString(s) => HPS.set(s)
+      case JsNumber(n) => HPS.set(n.toLong)
+      case _ =>
+        throw InternalException(
+          s"Trying to set invalid ID of value $id in SQL query (IDs must either be strings or integers)"
+        )
+    }
 
   def selectColumnsSql(innerReadOps: Vector[InnerOperation]): String =
     innerReadOps
