@@ -18,48 +18,48 @@ class PostgresQueryEngine[M[_]: Monad](
 
   override type Query[A] = PostgresQueryEngine.Query[A]
 
-  def run(
+  override def run(
       operations: Map[Option[String], Vector[Operation]]
   ): M[Either[JsObject, Vector[JsObject]]] = ???
 
-  def createManyRecords(
+  override def createManyRecords(
       model: PModel,
       records: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsArray] = ???
 
-  def createOneRecord(
+  override def createOneRecord(
       model: PModel,
       record: JsObject,
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsObject] = ???
 
-  def updateManyRecords(
+  override def updateManyRecords(
       model: PModel,
       recordsWithIds: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsArray] = ???
 
-  def updateOneRecord(
+  override def updateOneRecord(
       model: PModel,
       primaryKeyValue: Either[BigInt, String],
       newRecord: JsObject,
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsObject] = ???
 
-  def deleteManyRecords(
+  override def deleteManyRecords(
       model: PModel,
       filter: Either[QueryFilter, Vector[Either[String, BigInt]]],
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsArray] = ???
 
-  def deleteOneRecord[ID: Put](
+  override def deleteOneRecord[ID: Put](
       model: PModel,
       primaryKeyValue: ID,
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsObject] = ???
 
-  def pushManyTo(
+  override def pushManyTo(
       model: PModel,
       field: PShapeField,
       items: Vector[JsValue],
@@ -67,7 +67,7 @@ class PostgresQueryEngine[M[_]: Monad](
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsArray] = ???
 
-  def pushOneTo(
+  override def pushOneTo(
       model: PModel,
       field: PShapeField,
       item: JsValue,
@@ -75,7 +75,7 @@ class PostgresQueryEngine[M[_]: Monad](
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsValue] = ???
 
-  def removeManyFrom(
+  override def removeManyFrom(
       model: PModel,
       field: PShapeField,
       filter: QueryFilter,
@@ -83,7 +83,7 @@ class PostgresQueryEngine[M[_]: Monad](
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsArray] = ???
 
-  def removeOneFrom(
+  override def removeOneFrom(
       model: PModel,
       field: PShapeField,
       item: JsValue,
@@ -91,7 +91,7 @@ class PostgresQueryEngine[M[_]: Monad](
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsValue] = ???
 
-  def readManyRecords(
+  override def readManyRecords(
       model: PModel,
       where: QueryWhere,
       innerReadOps: Vector[InnerOperation]
@@ -142,7 +142,7 @@ class PostgresQueryEngine[M[_]: Monad](
           ).map(obj => iop.nameOrAlias -> obj)
         case (
             iop,
-            arrayField @ PModelField(id, PArray(PReference(_)), _, _, _, _)
+            arrayField @ PModelField(id, PArray(_), _, _, _, _)
             ) =>
           populateArray(
             model,
@@ -151,11 +151,21 @@ class PostgresQueryEngine[M[_]: Monad](
             iop
           ).map(vec => iop.nameOrAlias -> JsArray(vec))
         case (
-            objField,
+            iop,
             PModelField(id, POption(PReference(refId)), _, _, _, _)
             ) =>
-          ???
-        case (iop, _) => ???
+          populateId(
+            iop.operation.targetModel,
+            unpopulated.fields(iop.nameOrAlias),
+            iop.operation.innerReadOps
+          ).map(obj => iop.nameOrAlias -> obj)
+            .recover {
+              case _ => iop.nameOrAlias -> JsNull
+            }
+        case (iop, _) =>
+          Monad[Query].pure {
+            iop.nameOrAlias -> unpopulated.fields(iop.nameOrAlias)
+          }
       }
 
     newObjFields.map { nfields =>
