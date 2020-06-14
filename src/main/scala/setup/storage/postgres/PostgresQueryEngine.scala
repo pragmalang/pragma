@@ -26,13 +26,102 @@ class PostgresQueryEngine[M[_]: Monad](
       model: PModel,
       records: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[JsArray] = ???
+  ): ConnectionIO[JsArray] =
+    records
+      .traverse(createOneRecord(model, _, innerReadOps))
+      .map(JsArray(_))
 
   override def createOneRecord(
       model: PModel,
       record: JsObject,
       innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[JsObject] = ???
+  ): ConnectionIO[JsObject] = {
+    val recordFields = record.fields.toVector.map {
+      case (key, value) => (key, value) -> model.fieldsById(key)
+    }
+    val (nonPrimitiveFields, primitiveFields) =
+      recordFields.partition {
+        case (
+            _,
+            PModelField(_, PReference(modelRef), _, _, _, _)
+            ) =>
+          st.modelsById.contains(modelRef)
+        case (
+            _,
+            PModelField(_, PArray(PReference(modelRef)), _, _, _, _)
+            ) =>
+          st.modelsById.contains(modelRef)
+        case primitiveField => false
+      }
+
+    val nonPrimitiveInserts = nonPrimitiveFields.traverse {
+      case (
+          (key, record: JsObject),
+          PModelField(id, PReference(modelId), _, _, _, _)
+          ) =>
+        createOneRecord(st.modelsById(modelId), record, Vector.empty)
+          .map(_ => ())
+      case (
+          (key, JsArray(records)),
+          PModelField(id, PArray(PReference(modelId)), _, _, _, _)
+          ) =>
+        createManyRecords(
+          st.modelsById(modelId),
+          records.map {
+            case obj: JsObject => obj
+            case notObj =>
+              throw InternalException(
+                s"Trying to insert non-object value $notObj as a record of type `$modelId`"
+              )
+          },
+          Vector.empty
+        ).map(_ => ())
+      case ((_, otherJsValueType), field) =>
+        throw InternalException(
+          s"Trying to create a record of type `${model.id}` with an object that refers to a `${displayPType(field.ptype)}` record with ID `${otherJsValueType}` Creating records that refer to existing records is not supported yet"
+        )
+    }
+
+    val primitiveColumnsSql = primitiveFields
+      .map {
+        case ((key, _), _) => key.withQuotes
+      }
+      .mkString(", ")
+    val primitivePrepSts = primitiveFields.map {
+      case ((_, JsString(value)), _)  => HPS.set(value)
+      case ((_, JsNumber(value)), _)  => HPS.set(value)
+      case ((_, JsBoolean(value)), _) => HPS.set(value)
+      case _ =>
+        throw InternalException(
+          s"Trying to set JSON object or array as an argument for an SQL INSERT statement"
+        )
+    }
+    println(primitivePrepSts)
+    val primitivesInsertSql =
+      s"INSERT INTO ${model.id.withQuotes} ($primitiveColumnsSql) VALUES (" +
+        List.fill(primitivePrepSts.length)("?").mkString(", ") +
+        s") RETURNING ${model.primaryField.id.withQuotes};"
+
+    val insertedRecord: ConnectionIO[JsObject] =
+      HC.stream(primitivesInsertSql, primitivePrepSts.reduce(_ *> _), 1)
+        .head
+        .compile
+        .toList
+        .map(_.head.fields(model.primaryField.id))
+        .flatMap {
+          case JsString(s) => readOneRecord(model, s, innerReadOps)
+          case JsNumber(n) => readOneRecord(model, n.toLong, innerReadOps)
+          case _ =>
+            throw InternalException(
+              "Trying to use invalid ID JSON in INSERT-RETURNING query"
+            )
+        }
+
+    for {
+      _ <- nonPrimitiveInserts
+      created <- insertedRecord
+    } yield created
+  }
 
   override def updateManyRecords(
       model: PModel,
@@ -42,14 +131,14 @@ class PostgresQueryEngine[M[_]: Monad](
 
   override def updateOneRecord(
       model: PModel,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: Either[Long, String],
       newRecord: JsObject,
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsObject] = ???
 
   override def deleteManyRecords(
       model: PModel,
-      filter: Either[QueryFilter, Vector[Either[String, BigInt]]],
+      filter: Either[QueryFilter, Vector[Either[String, Long]]],
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsArray] = ???
 
@@ -63,7 +152,7 @@ class PostgresQueryEngine[M[_]: Monad](
       model: PModel,
       field: PShapeField,
       items: Vector[JsValue],
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: Either[Long, String],
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsArray] = ???
 
@@ -71,7 +160,7 @@ class PostgresQueryEngine[M[_]: Monad](
       model: PModel,
       field: PShapeField,
       item: JsValue,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: Either[Long, String],
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsValue] = ???
 
@@ -79,7 +168,7 @@ class PostgresQueryEngine[M[_]: Monad](
       model: PModel,
       field: PShapeField,
       filter: QueryFilter,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: Either[Long, String],
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsArray] = ???
 
@@ -87,7 +176,7 @@ class PostgresQueryEngine[M[_]: Monad](
       model: PModel,
       field: PShapeField,
       item: JsValue,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: Either[Long, String],
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsValue] = ???
 

@@ -71,14 +71,14 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
 
   def updateOneRecord(
       model: PModel,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: Either[Long, String],
       newRecord: JsObject,
       innerReadOps: Vector[InnerOperation]
   ): JsObject = ???
 
   def deleteManyRecords(
       model: PModel,
-      filter: Either[QueryFilter, Vector[Either[String, BigInt]]],
+      filter: Either[QueryFilter, Vector[Either[String, Long]]],
       innerReadOps: Vector[InnerOperation]
   ): JsArray = ???
 
@@ -92,7 +92,7 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
       model: PModel,
       field: PShapeField,
       items: Vector[JsValue],
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: Either[Long, String],
       innerReadOps: Vector[InnerOperation]
   ): JsArray = ???
 
@@ -100,7 +100,7 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
       model: PModel,
       field: PShapeField,
       item: JsValue,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: Either[Long, String],
       innerReadOps: Vector[InnerOperation]
   ): JsValue = ???
 
@@ -108,7 +108,7 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
       model: PModel,
       field: PShapeField,
       filter: QueryFilter,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: Either[Long, String],
       innerReadOps: Vector[InnerOperation]
   ): JsArray = ???
 
@@ -116,7 +116,7 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
       model: PModel,
       field: PShapeField,
       item: JsValue,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: Either[Long, String],
       innerReadOps: Vector[InnerOperation]
   ): JsValue = ???
 

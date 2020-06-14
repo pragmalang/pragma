@@ -58,14 +58,14 @@ trait QueryEngine[S, M[_]] {
 
   def updateOneRecord(
       model: PModel,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: Either[Long, String],
       newRecord: JsObject,
       innerReadOps: Vector[InnerOperation]
   ): Query[JsObject]
 
   def deleteManyRecords(
       model: PModel,
-      filter: Either[QueryFilter, Vector[Either[String, BigInt]]],
+      filter: Either[QueryFilter, Vector[Either[String, Long]]],
       innerReadOps: Vector[InnerOperation]
   ): Query[JsArray]
 
@@ -79,7 +79,7 @@ trait QueryEngine[S, M[_]] {
       model: PModel,
       field: PShapeField,
       items: Vector[JsValue],
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: Either[Long, String],
       innerReadOps: Vector[InnerOperation]
   ): Query[JsArray]
 
@@ -87,7 +87,7 @@ trait QueryEngine[S, M[_]] {
       model: PModel,
       field: PShapeField,
       item: JsValue,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: Either[Long, String],
       innerReadOps: Vector[InnerOperation]
   ): Query[JsValue]
 
@@ -95,7 +95,7 @@ trait QueryEngine[S, M[_]] {
       model: PModel,
       field: PShapeField,
       filter: QueryFilter,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: Either[Long, String],
       innerReadOps: Vector[InnerOperation]
   ): Query[JsArray]
 
@@ -103,7 +103,7 @@ trait QueryEngine[S, M[_]] {
       model: PModel,
       field: PShapeField,
       item: JsValue,
-      primaryKeyValue: Either[BigInt, String],
+      primaryKeyValue: Either[Long, String],
       innerReadOps: Vector[InnerOperation]
   ): Query[JsValue]
 
