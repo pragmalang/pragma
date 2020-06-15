@@ -24,25 +24,23 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
 
   def run(
       operations: Map[Option[String], Vector[Operation]]
-  ): Future[Either[JsObject, Vector[JsObject]]] =
+  ): Future[JsObject] =
     Future(
-      Left(
-        JsObject(
-          Map(
-            "username" -> JsString("John Doe"),
-            "todos" -> JsArray(
-              Vector(
-                JsObject(
-                  Map(
-                    "content" -> JsString("Wash the dishes"),
-                    "done" -> JsTrue
-                  )
-                ),
-                JsObject(
-                  Map(
-                    "content" -> JsString("Pick up the kids"),
-                    "done" -> JsFalse
-                  )
+      JsObject(
+        Map(
+          "username" -> JsString("John Doe"),
+          "todos" -> JsArray(
+            Vector(
+              JsObject(
+                Map(
+                  "content" -> JsString("Wash the dishes"),
+                  "done" -> JsTrue
+                )
+              ),
+              JsObject(
+                Map(
+                  "content" -> JsString("Pick up the kids"),
+                  "done" -> JsFalse
                 )
               )
             )

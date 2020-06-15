@@ -47,9 +47,9 @@ class Authorizer[S, M[_]: Monad](
           )
 
         user.map {
-          case Left(userJson: JsObject)
-              if userJson.fields.get(userModel.primaryField.id)
-                == Some(JsString(jwt.userId)) => {
+          case userJson: JsObject
+              if userJson.fields.get(userModel.primaryField.id) ==
+                Some(JsString(jwt.userId)) => {
             val reqOps = Operations.from(request)(syntaxTree)
             results(reqOps.values.flatten.toVector, userJson)
           }

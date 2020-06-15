@@ -17,7 +17,7 @@ class Storage[S, M[_]: Monad](
 
   def run(
       operations: Map[Option[String], Vector[Operation]]
-  ): M[Either[JsObject, Vector[JsObject]]] =
+  ): M[JsObject] =
     queryEngine.run(operations)
 
   def migrate(
@@ -36,7 +36,7 @@ trait QueryEngine[S, M[_]] {
 
   def run(
       operations: Map[Option[String], Vector[Operation]]
-  ): M[Either[JsObject, Vector[JsObject]]]
+  ): M[JsObject]
 
   def createManyRecords(
       model: PModel,

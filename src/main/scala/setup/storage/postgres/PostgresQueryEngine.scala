@@ -7,20 +7,74 @@ import doobie._
 import doobie.implicits._
 import cats._
 import cats.implicits._
+import cats.effect._
 import spray.json._
 import domain.Implicits._
 
 class PostgresQueryEngine[M[_]: Monad](
     transactor: Transactor[M],
     st: SyntaxTree
-) extends QueryEngine[Postgres, M] {
+)(implicit b: Bracket[M, Throwable])
+    extends QueryEngine[Postgres, M] {
   import PostgresQueryEngine._
 
   override type Query[A] = PostgresQueryEngine.Query[A]
 
   override def run(
       operations: Map[Option[String], Vector[Operation]]
-  ): M[Either[JsObject, Vector[JsObject]]] = ???
+  ): M[JsObject] = {
+    import sangria.ast._
+    val results = operations.toVector
+      .flatMap { pair =>
+        pair._2.map { op =>
+          op.event match {
+            case domain.Read => {
+              val id =
+                op.opArguments
+                  .find(_.name == op.targetModel.primaryField.id)
+                  .map(_.value)
+                  .getOrElse {
+                    throw InternalException(
+                      "Argument of Read operation should contain the ID of the record to read"
+                    )
+                  }
+              val record = id match {
+                case s: StringValue =>
+                  readOneRecord(op.targetModel, s.value, op.innerReadOps)
+                case n: IntValue =>
+                  readOneRecord(op.targetModel, n.value, op.innerReadOps)
+                case _ =>
+                  throw InternalException(
+                    "Trying to set illegal sangria value in SQL statement"
+                  )
+              }
+              (pair._1.getOrElse("data") -> record.widen[JsValue]).sequence
+            }
+            case ReadMany => {
+              val where = ???
+              val records =
+                readManyRecords(op.targetModel, where, op.innerReadOps)
+              (pair._1.getOrElse("data") -> records.widen[JsValue]).sequence
+            }
+            case Create                    => ???
+            case CreateMany                => ???
+            case domain.Update             => ???
+            case UpdateMany                => ???
+            case Delete                    => ???
+            case DeleteMany                => ???
+            case PushTo(listField)         => ???
+            case PushManyTo(listField)     => ???
+            case RemoveFrom(listField)     => ???
+            case RemoveManyFrom(listField) => ???
+            case Login                     => ???
+          }
+        }
+      }
+      .sequence
+      .map(fields => JsObject(fields.toMap))
+    println(results)
+    results.transact(transactor)
+  }
 
   override def createManyRecords(
       model: PModel,
