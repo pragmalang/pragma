@@ -12,10 +12,10 @@ object Main {
       if (args.length > 0)
         Try(Source.fromFile(new File(args(0))))
       else
-        Try(Source.fromFile(new File("./Pragmafile")))
+        Try(Source.fromFile(new File("Pragmafile")))
 
     val code = inputFile.map { file =>
-      val text = file.getLines.mkString
+      val text = file.getLines.mkString("\n")
       file.close
       text
     }
@@ -46,7 +46,7 @@ object Main {
         println(errSep)
       }
 
-      case Success(st) => new Server(st).run(Nil)
+      case Success(st) => new Server(st).main(args)
     }
   }
 
