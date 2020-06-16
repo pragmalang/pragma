@@ -11,14 +11,12 @@ import setup.schemaGenerator.Implicits._
 import spray.json._
 import running.Implicits._
 import running.utils.QueryError
-import akka.stream.scaladsl.Source
+import cats._
 
-case class RequestValidator(syntaxTree: SyntaxTree) {
+class RequestValidator[M[_]: Monad](syntaxTree: SyntaxTree) {
 
-  def apply(input: Request): Source[Request, _] =
-    Source.fromIterator { () =>
-      Iterator(validateQuery(input).get)
-    }
+  def apply(input: Request): M[Try[Request]] =
+    Monad[M].pure(validateQuery(input))
 
   val queryValidator = QueryValidator.default
 

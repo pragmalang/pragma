@@ -4,22 +4,20 @@ import running.pipeline._
 import domain.SyntaxTree
 import sangria._, ast._
 import spray.json._
-import akka.stream.scaladsl.Source
+import cats._
 
-case class RequestReducer(syntaxTree: SyntaxTree) {
+class RequestReducer[M[_]: Monad](syntaxTree: SyntaxTree) {
 
-  def apply(input: Request): Source[Request, _] =
-    Source.fromIterator { () =>
-      Iterator {
-        input.copy(
-          query = RequestReducer
-            .reduceQuery(
-              syntaxTree,
-              input.query,
-              Some(input.queryVariables)
-            )
-        )
-      }
+  def apply(input: Request): M[Request] =
+    Monad[M].pure {
+      input.copy(
+        query = RequestReducer
+          .reduceQuery(
+            syntaxTree,
+            input.query,
+            Some(input.queryVariables)
+          )
+      )
     }
 }
 

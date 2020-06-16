@@ -7,7 +7,7 @@ object MockSyntaxTree {
     """
     @1 @user
     model Business {
-      @1 username: String? 
+      @1 username: String? @uuid
       @2 email: String @publicCredential @primary
       @3 password: String @secretCredential
       @4 branches: [Branch] 
