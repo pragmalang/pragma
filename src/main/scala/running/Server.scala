@@ -22,8 +22,7 @@ import setup.schemaGenerator.ApiSchemaGenerator
 import org.http4s.util._
 import running.pipeline.RequestHandler
 import setup.storage.postgres._
-import doobie._
-import doobie.hikari._
+import doobie._, doobie.implicits._, doobie.hikari._
 
 class Server(st: SyntaxTree) extends IOApp {
 
@@ -89,7 +88,19 @@ class Server(st: SyntaxTree) extends IOApp {
       ).pure[IO]
   }
 
-  def run(args: List[String]): IO[ExitCode] =
+  def run(args: List[String]): IO[ExitCode] = {
+    try {
+      transactor.use { t =>
+        Fragment(migrationEngine.initialMigration.renderSQL, Nil).update.run
+          .transact(t)
+      }.unsafeRunSync
+    } catch {
+      case err: Throwable => {
+        println("Failed to initialize database")
+        println(err.getMessage)
+        return ExitCode.Error.pure[IO]
+      }
+    }
     BlazeServerBuilder[IO](global)
       .bindHttp(3030, "localhost")
       .withHttpApp(Router("/graphql" -> routes).orNotFound)
@@ -97,6 +108,7 @@ class Server(st: SyntaxTree) extends IOApp {
       .compile
       .drain
       .as(ExitCode.Success)
+  }
 
   def introspectionResult(query: JsObject) = Await.result(
     Executor
