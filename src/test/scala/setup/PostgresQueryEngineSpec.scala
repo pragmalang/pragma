@@ -52,7 +52,9 @@ class PostgresQueryEngineSpec extends FlatSpec {
   val queryEngine = new PostgresQueryEngine(t, syntaxTree)
   val migrationEngine = new PostgresMigrationEngine[Id](syntaxTree)
 
-  val initSql = migrationEngine.initialMigration.renderSQL
+  val initSql = migrationEngine.initialMigration.renderSQL(syntaxTree)
+
+  println(initSql)
 
   Fragment(initSql, Nil, None).update.run
     .transact(t)
@@ -77,10 +79,10 @@ class PostgresQueryEngineSpec extends FlatSpec {
     INSERT INTO "Citizen" ("name") 
       VALUES ('Ali');
 
-    INSERT INTO "Country_citizens" ("CountryId", "CitizenId")
+    INSERT INTO "Country_citizens" ("source_Country", "target_Citizen")
       VALUES ('USA', 'John');
 
-    INSERT INTO "Country_citizens" ("CountryId", "CitizenId")
+    INSERT INTO "Country_citizens" ("source_Country", "target_Citizen")
       VALUES ('SY', 'Ali');
   """.update.run.transact(t).unsafeRunSync
 
