@@ -52,7 +52,9 @@ class PostgresQueryEngineSpec extends FlatSpec {
   val queryEngine = new PostgresQueryEngine(t, syntaxTree)
   val migrationEngine = new PostgresMigrationEngine[Id](syntaxTree)
 
-  val initSql = migrationEngine.initialMigration.renderSQL
+  val initSql = migrationEngine.initialMigration.renderSQL(syntaxTree)
+
+  println(initSql)
 
   Fragment(initSql, Nil, None).update.run
     .transact(t)

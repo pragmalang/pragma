@@ -203,7 +203,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     case CreateModel(model) => {
       val createTableStatement = CreateTable(model.id, Vector.empty)
       val addColumnStatements = model.fields.flatMap { field =>
-        migration(AddField(field, model)).steps
+        migration(AddField(field, model)).steps(syntaxTree)
       }
       PostgresMigration(
         Vector(Vector(createTableStatement), addColumnStatements).flatten,
