@@ -35,22 +35,16 @@ class PostgresQueryEngineSpec extends FlatSpec {
   )
 
   val code = """
-  @1 model Country {
+  @1 model Citizen {
+    @1 name: String @primary
+  }
+
+  @2 model Country {
     @1 code: String @primary
     @2 name: String
     @3 population: Int
     @4 gnp: Float?
-  }
-
-  @2 model Citizen {
-    @1 name: String @primary
-    @2 country: Country
-    @3 dependents: [Dependent]
-  }
-
-  @3 model Dependent {
-    @1 name: String @primary
-    @2 dependentOn: Citizen
+    @5 citizens: [Citizen]
   }
   """
 
@@ -77,11 +71,17 @@ class PostgresQueryEngineSpec extends FlatSpec {
     INSERT INTO  "Country" ("code", "name", "population", "gnp") 
       VALUES ('SE', 'Sweden', 20, 300);
     
-    INSERT INTO "Citizen" ("name", "country") 
-      VALUES ('John', 'USA');
+    INSERT INTO "Citizen" ("name") 
+      VALUES ('John');
     
-    INSERT INTO "Citizen" ("name", "country") 
-      VALUES ('Ali', 'SY')
+    INSERT INTO "Citizen" ("name") 
+      VALUES ('Ali');
+
+    INSERT INTO "Country_citizens" ("CountryId", "CitizenId")
+      VALUES ('USA', 'John');
+
+    INSERT INTO "Country_citizens" ("CountryId", "CitizenId")
+      VALUES ('SY', 'Ali');
   """.update.run.transact(t).unsafeRunSync
 
   "Query engine" should "connect to the database and run queries" in {
@@ -111,14 +111,13 @@ class PostgresQueryEngineSpec extends FlatSpec {
     }
   }
 
-  "Object population" should "replace foreign keys with object values" taggedAs (dkr) in {
+  "Array-field population" should "read array fields from join tables" taggedAs (dkr) in {
     val gqlQuery = gql"""
     {
-      Citizen {
-        read(name: "John") {
-          country {
+      Country {
+        read(code: "USA") {
+          citizens {
             name
-            population
           }
         }
       }
@@ -127,24 +126,23 @@ class PostgresQueryEngineSpec extends FlatSpec {
     val req = Request(None, None, None, gqlQuery, Right(Nil), Map.empty, "", "")
     val ops = Operations.from(req)
 
-    val result = queryEngine
+    val resultUsa = queryEngine
       .readOneRecord(
-        syntaxTree.modelsById("Citizen"),
-        "John",
+        syntaxTree.modelsById("Country"),
+        "USA",
         ops(None).head.innerReadOps
       )
       .transact(t)
       .unsafeRunSync
 
-    val expected = JsObject(
+    val expectedUsa = JsObject(
       Map(
-        "country" -> JsObject(
-          Map("name" -> JsString("America"), "population" -> JsNumber(100000))
-        )
+        "code" -> JsString("USA"),
+        "citizens" -> JsArray(Vector(JsObject(Map("name" -> JsString("John")))))
       )
     )
 
-    assert(result == expected)
+    assert(resultUsa == expectedUsa)
   }
 
   "PostgresQueryEngine#readOneRecord" should "read all selected fields recursively" in {
@@ -173,9 +171,13 @@ class PostgresQueryEngineSpec extends FlatSpec {
     val gqlQuery = gql"""
     {
       Country {
-        list(where: {}) {
+        list {
           code
           name
+          population
+          citizens {
+            name
+          }
         }
       }
     }
@@ -191,31 +193,59 @@ class PostgresQueryEngineSpec extends FlatSpec {
         url = "",
         hostname = ""
       )
-    val innerOps = Operations.from(req)
+    val reqOps = Operations.from(req)
 
     val results = queryEngine
       .readManyRecords(
         syntaxTree.modelsById("Country"),
         QueryWhere(None, None, None),
-        innerOps(None).head.innerReadOps
+        reqOps(None).head.innerReadOps
       )
       .transact(t)
       .unsafeRunSync
 
-    val expected = JsArray(
+    val expectedRecords = JsArray(
       Vector(
-        JsObject(Map("code" -> JsString("SY"), "name" -> JsString("Syria"))),
-        JsObject(Map("code" -> JsString("USA"), "name" -> JsString("America"))),
-        JsObject(Map("code" -> JsString("JO"), "name" -> JsString("Jordan"))),
-        JsObject(Map("code" -> JsString("SE"), "name" -> JsString("Sweden")))
+        JsObject(
+          Map(
+            "code" -> JsString("SY"),
+            "name" -> JsString("Syria"),
+            "population" -> JsNumber(6000),
+            "citizens" -> JsArray(
+              Vector(JsObject(Map("name" -> JsString("Ali"))))
+            )
+          )
+        ),
+        JsObject(
+          Map(
+            "code" -> JsString("USA"),
+            "name" -> JsString("America"),
+            "population" -> JsNumber(100000),
+            "citizens" -> JsArray(
+              Vector(JsObject(Map("name" -> JsString("John"))))
+            )
+          )
+        ),
+        JsObject(
+          Map(
+            "code" -> JsString("JO"),
+            "name" -> JsString("Jordan"),
+            "population" -> JsNumber(5505),
+            "citizens" -> JsArray(Vector())
+          )
+        ),
+        JsObject(
+          Map(
+            "code" -> JsString("SE"),
+            "name" -> JsString("Sweden"),
+            "population" -> JsNumber(20),
+            "citizens" -> JsArray(Vector())
+          )
+        )
       )
     )
 
-    assert(results == expected)
-  }
-
-  "PostgresQueryEngine#readManyRecords" should "read array fields correctly" taggedAs (dkr) in {
-    println(initSql)
+    assert(results == expectedRecords)
   }
 
 }

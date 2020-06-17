@@ -42,6 +42,7 @@ object Main {
 
       case Failure(otherErr) => {
         println(errSep)
+        print("[error] ")
         println(otherErr.getMessage)
         println(errSep)
       }

@@ -51,12 +51,35 @@ class PostgresQueryEngine[M[_]: Monad](
               (pair._1.getOrElse("data") -> record.widen[JsValue]).sequence
             }
             case ReadMany => {
-              val where = ???
+              // TODO: Parse QueryWhere in Operations
+              val where = QueryWhere(None, None, None)
               val records =
                 readManyRecords(op.targetModel, where, op.innerReadOps)
               (pair._1.getOrElse("data") -> records.widen[JsValue]).sequence
             }
-            case Create                    => ???
+            case Create => {
+              import sangria.marshalling.sprayJson.SprayJsonResultMarshaller.scalarNode
+
+              val objToInsert =
+                op.opArguments
+                  .map { arg =>
+                    arg.name -> scalarNode(arg.value, "", Set.empty)
+                  }
+                  .find(_._1 == op.targetModel.id.small)
+                  .map(_._2.asJsObject)
+                  .getOrElse(
+                    throw UserError(
+                      s"Create mutation takes a `${op.targetModel.id.small}` argument"
+                    )
+                  )
+
+              val result = createOneRecord(
+                op.targetModel,
+                objToInsert,
+                op.innerReadOps
+              )
+              (pair._1.getOrElse("data") -> result.widen[JsValue]).sequence
+            }
             case CreateMany                => ???
             case domain.Update             => ???
             case UpdateMany                => ???
@@ -407,6 +430,7 @@ object PostgresQueryEngine {
 
   def selectColumnsSql(innerReadOps: Vector[InnerOperation]): String =
     innerReadOps
+      .filterNot(_.targetField.field.ptype.isInstanceOf[PArray])
       .map { iop =>
         val fieldId = iop.targetField.field.id.withQuotes
         val alias = iop.targetField.alias

@@ -3,12 +3,13 @@ package setup
 import org.scalatest._
 import setup.schemaGenerator._
 import sangria.macros._
+import sangria.schema.Schema
 
 class ApiSchemaGeneratorSpec extends FunSuite {
   val generator = ApiSchemaGenerator(MockSyntaxTree.syntaxTree)
 
   test("buildApiSchema method works") {
-    val expected = gql"""
+    val gqlDoc = gql"""
       type Query {
         Business: BusinessQueries
         Branch: BranchQueries
@@ -41,6 +42,12 @@ class ApiSchemaGeneratorSpec extends FunSuite {
       enum OrderEnum {
         DESC
         ASC
+      }
+      
+      enum EventEnum {
+        REMOVE
+        NEW
+        CHANGE
       }
       
       input RangeInput {
@@ -76,15 +83,9 @@ class ApiSchemaGeneratorSpec extends FunSuite {
         value: Any!
       }
       
-      enum EVENT_ENUM {
-        REMOVE
-        NEW
-        CHANGE
-      }
-      
       scalar Any
 
-      directive @listen(to: EVENT_ENUM!) on FIELD
+      directive @listen(to: EventEnum!) on FIELD
       
       type Business {
         username: String
@@ -160,11 +161,18 @@ class ApiSchemaGeneratorSpec extends FunSuite {
       type BranchSubscriptions {
         read(address: String!): Branch
         list(where: WhereInput): Branch
-      }""".renderPretty
+      }"""
 
-    val schema =
-      generator.buildApiSchemaAsDocument.renderPretty
+    val expectedSchema = Schema.buildFromAst(gqlDoc)
 
-    assert(schema == expected)
+    val resultSchema =
+      Schema.buildFromAst(generator.buildApiSchemaAsDocument)
+
+    assert(resultSchema.types.keys == expectedSchema.types.keys)
+    assert(resultSchema.additionalTypes == expectedSchema.additionalTypes)
+    assert(
+      resultSchema.directives.map(_.name) ==
+        expectedSchema.directives.map(_.name)
+    )
   }
 }
