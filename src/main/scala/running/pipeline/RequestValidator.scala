@@ -11,12 +11,11 @@ import setup.schemaGenerator.Implicits._
 import spray.json._
 import running.Implicits._
 import running.utils.QueryError
-import cats._
 
-class RequestValidator[M[_]: Monad](syntaxTree: SyntaxTree) {
+class RequestValidator(syntaxTree: SyntaxTree) {
 
-  def apply(input: Request): M[Try[Request]] =
-    Monad[M].pure(validateQuery(input))
+  def apply(input: Request): Try[Request] =
+    validateQuery(input)
 
   val queryValidator = QueryValidator.default
 

@@ -13,6 +13,7 @@ import scala.concurrent.duration.Duration
 import scala.util._
 import domain.utils.AuthorizationError
 import cats.implicits._
+import running.pipeline.Operations
 
 class Authorization extends FlatSpec {
   "Authorizer" should "authorize requests correctly" in {
@@ -65,8 +66,9 @@ class Authorization extends FlatSpec {
       "",
       ""
     )
+    val reqOps = Operations.from(req)(syntaxTree)
 
-    val result = Await.result(authorizer(req), Duration.Inf)
+    val result = Await.result(authorizer(reqOps, req.user), Duration.Inf)
     assert(
       result == Left(
         Vector(
@@ -102,7 +104,7 @@ class Authorization extends FlatSpec {
     }
     """
 
-    val syntaxTree = SyntaxTree.from(code).get
+    implicit val syntaxTree = SyntaxTree.from(code).get
     val reqWithoutRole = Request(
       hookData = None,
       body = None,
@@ -146,8 +148,8 @@ class Authorization extends FlatSpec {
     val authorizer = new Authorizer(syntaxTree, mockStorage, devModeOn = true)
     val results = Await.result(
       Future.sequence(
-        authorizer(reqWithoutRole) ::
-          authorizer(reqWithRole) :: Nil
+        authorizer(Operations.from(reqWithoutRole), reqWithoutRole.user) ::
+          authorizer(Operations.from(reqWithRole), reqWithRole.user) :: Nil
       ),
       Duration.Inf
     )

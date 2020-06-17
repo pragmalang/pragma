@@ -20,12 +20,13 @@ class Authorizer[S, M[_]: Monad](
 ) {
   import Authorizer._
 
-  def apply(request: Request): M[AuthorizationResult] =
-    request.user match {
-      case None => {
-        val reqOps = Operations.from(request)(syntaxTree)
-        Monad[M].pure(results(reqOps.values.flatten.toVector, JsNull))
-      }
+  def apply(
+      ops: Operations.OperationsMap,
+      user: Option[JwtPaylod]
+  ): M[AuthorizationResult] =
+    user match {
+      case None =>
+        Monad[M].pure(results(ops.values.flatten.toVector, JsNull))
       case Some(jwt) => {
         val userModel = syntaxTree.modelsById.get(jwt.role) match {
           case Some(model) => model
@@ -50,8 +51,7 @@ class Authorizer[S, M[_]: Monad](
           case userJson: JsObject
               if userJson.fields.get(userModel.primaryField.id) ==
                 Some(JsString(jwt.userId)) => {
-            val reqOps = Operations.from(request)(syntaxTree)
-            results(reqOps.values.flatten.toVector, userJson)
+            results(ops.values.flatten.toVector, userJson)
           }
           case _ =>
             throw InternalException(

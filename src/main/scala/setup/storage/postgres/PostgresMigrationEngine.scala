@@ -15,7 +15,7 @@ import domain._
 import domain.utils.UserError
 
 class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
-    extends MigrationEngine[Postgres, M] {
+    extends MigrationEngine[Postgres[M], M] {
   override def migrate(
       migrationSteps: Vector[MigrationStep]
   ): M[Vector[Try[Unit]]] = Monad[M].pure(Vector(Try(())))

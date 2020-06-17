@@ -94,7 +94,7 @@ object Operations {
   type FieldSelection = Field
   type GqlOperationType = OperationType
 
-  def from(request: Request)(implicit st: SyntaxTree) =
+  def from(request: Request)(implicit st: SyntaxTree): OperationsMap =
     request.query.operations.map {
       case (name, op) => {
         val modelSelections = op.selections.map {

@@ -4,21 +4,18 @@ import running.pipeline._
 import domain.SyntaxTree
 import sangria._, ast._
 import spray.json._
-import cats._
 
-class RequestReducer[M[_]: Monad](syntaxTree: SyntaxTree) {
+class RequestReducer(syntaxTree: SyntaxTree) {
 
-  def apply(input: Request): M[Request] =
-    Monad[M].pure {
-      input.copy(
-        query = RequestReducer
-          .reduceQuery(
-            syntaxTree,
-            input.query,
-            Some(input.queryVariables)
-          )
-      )
-    }
+  def apply(input: Request): Request =
+    input.copy(
+      query = RequestReducer
+        .reduceQuery(
+          syntaxTree,
+          input.query,
+          Some(input.queryVariables)
+        )
+    )
 }
 
 object RequestReducer {

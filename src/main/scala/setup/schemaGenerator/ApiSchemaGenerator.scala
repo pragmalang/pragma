@@ -744,7 +744,7 @@ object ApiSchemaGenerator {
 
   lazy val buitlinGraphQlDefinitions =
     gql"""
-      input WhereInput {
+    input WhereInput {
       filter: FilterInput
       orderBy: OrderByInput
       range: RangeInput
@@ -756,6 +756,12 @@ object ApiSchemaGenerator {
     input OrderByInput {
       field: String!
       order: OrderEnum
+    }
+
+    enum EventEnum {
+      REMOVE
+      NEW
+      CHANGE
     }
 
     enum OrderEnum {
@@ -796,14 +802,8 @@ object ApiSchemaGenerator {
       value: Any!
     }
 
-    enum EVENT_ENUM {
-      REMOVE
-      NEW
-      CHANGE
-    }
-
     scalar Any
 
-    directive @listen(to: EVENT_ENUM!) on FIELD # on field selections inside a subscription
+    directive @listen(to: EventEnum!) on FIELD # on field selections inside a subscription
       """.definitions.toList
 }

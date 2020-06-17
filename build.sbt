@@ -25,9 +25,11 @@ libraryDependencies ++= Seq(
   "com.pauldijou" %% "jwt-core" % "4.3.0",
   "org.http4s" %% "http4s-dsl" % "0.21.4",
   "org.http4s" %% "http4s-blaze-server" % "0.21.4",
+  "ch.qos.logback" % "logback-classic" % "1.2.3",
   "org.typelevel" %% "cats-effect" % "2.1.3",
   "org.typelevel" %% "cats-core" % "2.1.1",
   "org.tpolecat" %% "doobie-core" % "0.9.0",
+  "org.tpolecat" %% "doobie-hikari" % "0.9.0",
   "org.postgresql" % "postgresql" % "42.2.14"
 )
 

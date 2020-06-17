@@ -15,7 +15,7 @@ class PostgresQueryEngine[M[_]: Monad](
     transactor: Transactor[M],
     st: SyntaxTree
 )(implicit b: Bracket[M, Throwable])
-    extends QueryEngine[Postgres, M] {
+    extends QueryEngine[Postgres[M], M] {
   import PostgresQueryEngine._
 
   override type Query[A] = PostgresQueryEngine.Query[A]
