@@ -79,10 +79,10 @@ class PostgresQueryEngineSpec extends FlatSpec {
     INSERT INTO "Citizen" ("name") 
       VALUES ('Ali');
 
-    INSERT INTO "Country_citizens" ("CountryId", "CitizenId")
+    INSERT INTO "Country_citizens" ("source_Country", "target_Citizen")
       VALUES ('USA', 'John');
 
-    INSERT INTO "Country_citizens" ("CountryId", "CitizenId")
+    INSERT INTO "Country_citizens" ("source_Country", "target_Citizen")
       VALUES ('SY', 'Ali');
   """.update.run.transact(t).unsafeRunSync
 

@@ -357,9 +357,9 @@ class PostgresQueryEngine[M[_]: Monad](
       arrayInnerOp: InnerOperation
   ): Query[Vector[JsValue]] = {
     val sql =
-      s"SELECT ${arrayInnerOp.operation.targetModel.id.concat("Id").withQuotes} " +
+      s"SELECT ${("target_" + arrayInnerOp.operation.targetModel.id).withQuotes} " +
         s"FROM ${baseModel.id.concat("_").concat(arrayInnerOp.targetField.field.id).withQuotes} " +
-        s"WHERE ${baseModel.id.concat("Id").withQuotes} = ?"
+        s"WHERE ${("source_" + baseModel.id).withQuotes} = ?"
 
     val prep = idPrepStatement(baseRecordId)
     val joinRecords = HC.stream(sql, prep, 200)
