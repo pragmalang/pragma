@@ -407,6 +407,7 @@ object PostgresQueryEngine {
 
   def selectColumnsSql(innerReadOps: Vector[InnerOperation]): String =
     innerReadOps
+      .filterNot(_.targetField.field.ptype.isInstanceOf[PArray])
       .map { iop =>
         val fieldId = iop.targetField.field.id.withQuotes
         val alias = iop.targetField.alias
