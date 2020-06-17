@@ -4,11 +4,14 @@ import cats.effect.IO
 import instances._
 import cats.implicits._
 import cats.kernel.Monoid
+import instances.sqlMigrationStepOrdering
 
 case class PostgresMigration(
-    steps: Vector[SQLMigrationStep],
+    private val unorderedSteps: Vector[SQLMigrationStep],
     preScripts: Vector[IO[Unit]]
 ) {
+  lazy val steps: Vector[SQLMigrationStep] = unorderedSteps.sorted
+
   def run: IO[Unit] = ???
   def ++(that: PostgresMigration): PostgresMigration = this.combine(that)
   def concat(that: PostgresMigration): PostgresMigration = this.combine(that)
