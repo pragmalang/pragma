@@ -229,7 +229,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
             }
 
             val thisModelReferenceColumn = ColumnDefinition(
-              s"${model.id}Id",
+              s"source_${model.id}",
               model.primaryField.ptype match {
                 case PString => PostgresType.TEXT
                 case PInt    => PostgresType.INT8
@@ -249,7 +249,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
             val valueOrReferenceColumn = innerModel match {
               case Some(otherModel) =>
                 ColumnDefinition(
-                  s"${otherModel.id}Id",
+                  s"target_${otherModel.id}",
                   otherModel.primaryField.ptype match {
                     case PString => PostgresType.TEXT
                     case PInt    => PostgresType.INT8

@@ -50,8 +50,8 @@ class PostgresMigrationEngineSpec extends FunSuite {
        |ALTER TABLE "User" ADD COLUMN "isVerified" BOOL NOT NULL;
        |
        |CREATE TABLE IF NOT EXISTS "User_todos"(
-       |"UserId" TEXT NOT NULL REFERENCES "User"("username"),
-       |"TodoId" TEXT NOT NULL REFERENCES "Todo"("title"));
+       |"source_User" TEXT NOT NULL REFERENCES "User"("username"),
+       |"target_Todo" TEXT NOT NULL REFERENCES "Todo"("title"));
        |""".stripMargin
 
     assert(expected == migrationEngine.initialMigration.renderSQL(syntaxTree))
@@ -146,7 +146,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
           "User_todos",
           Vector(
             ColumnDefinition(
-              "UserId",
+              "source_User",
               PostgresType.TEXT,
               true,
               false,
@@ -156,7 +156,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
               Some(ForeignKey("User", "username"))
             ),
             ColumnDefinition(
-              "TodoId",
+              "target_Todo",
               PostgresType.TEXT,
               true,
               false,
