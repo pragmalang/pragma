@@ -54,8 +54,6 @@ class PostgresQueryEngineSpec extends FlatSpec {
 
   val initSql = migrationEngine.initialMigration.renderSQL(syntaxTree)
 
-  println(initSql)
-
   Fragment(initSql, Nil, None).update.run
     .transact(t)
     .unsafeRunSync
@@ -248,6 +246,55 @@ class PostgresQueryEngineSpec extends FlatSpec {
     )
 
     assert(results == expectedRecords)
+  }
+
+  "PostgresQueryEngine#createOneRecord" should "insert a record into the database" taggedAs (dkr) in {
+    val gqlQuery = gql"""
+    mutation {
+      Country {
+        create(country: {
+          code: "JP",
+          name: "Japan",
+          population: 2523,
+          gnp: 9254.542,
+          citizens: []
+        }) {
+          code
+          name
+          gnp
+          population
+        }
+      }
+    }
+    """
+    val req =
+      Request(
+        hookData = None,
+        body = None,
+        user = None,
+        query = gqlQuery,
+        queryVariables = Left(JsObject.empty),
+        cookies = Map.empty,
+        url = "",
+        hostname = ""
+      )
+    val reqOps = Operations.from(req)
+
+    val inserted = queryEngine.run(reqOps).unsafeRunSync
+    val expected = JsObject(
+      Map(
+        "data" -> JsObject(
+          Map(
+            "code" -> JsString("JP"),
+            "name" -> JsString("Japan"),
+            "gnp" -> JsNumber(9254.542),
+            "population" -> JsNumber(2523)
+          )
+        )
+      )
+    )
+
+    assert(inserted == expected)
   }
 
 }

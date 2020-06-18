@@ -10,6 +10,7 @@ import cats.implicits._
 import cats.effect._
 import spray.json._
 import domain.Implicits._
+import postgres.utils.sangriaToJson
 
 class PostgresQueryEngine[M[_]: Monad](
     transactor: Transactor[M],
@@ -58,12 +59,10 @@ class PostgresQueryEngine[M[_]: Monad](
               (pair._1.getOrElse("data") -> records.widen[JsValue]).sequence
             }
             case Create => {
-              import sangria.marshalling.sprayJson.SprayJsonResultMarshaller.scalarNode
-
               val objToInsert =
                 op.opArguments
                   .map { arg =>
-                    arg.name -> scalarNode(arg.value, "", Set.empty)
+                    arg.name -> sangriaToJson(arg.value)
                   }
                   .find(_._1 == op.targetModel.id.small)
                   .map(_._2.asJsObject)
@@ -95,7 +94,7 @@ class PostgresQueryEngine[M[_]: Monad](
       }
       .sequence
       .map(fields => JsObject(fields.toMap))
-    println(results)
+
     results.transact(transactor)
   }
 
@@ -113,9 +112,15 @@ class PostgresQueryEngine[M[_]: Monad](
       record: JsObject,
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsObject] = {
-    val recordFields = record.fields.toVector.map {
-      case (key, value) => (key, value) -> model.fieldsById(key)
-    }
+    val parallelFields =
+      model.fields.map(mfield => record.fields.get(mfield.id))
+    val recordFields = model.fields
+      .zip(parallelFields)
+      .map {
+        case (mfield, recordValue) =>
+          (mfield.id, recordValue.getOrElse(JsNull)) -> mfield
+      }
+      .toVector
     val (nonPrimitiveFields, primitiveFields) =
       recordFields.partition {
         case (
@@ -136,8 +141,7 @@ class PostgresQueryEngine[M[_]: Monad](
           (key, record: JsObject),
           PModelField(id, PReference(modelId), _, _, _, _)
           ) =>
-        createOneRecord(st.modelsById(modelId), record, Vector.empty)
-          .map(_ => ())
+        createOneRecord(st.modelsById(modelId), record, Vector.empty).as(())
       case (
           (key, JsArray(records)),
           PModelField(id, PArray(PReference(modelId)), _, _, _, _)
@@ -152,7 +156,7 @@ class PostgresQueryEngine[M[_]: Monad](
               )
           },
           Vector.empty
-        ).map(_ => ())
+        ).as(())
       case ((_, otherJsValueType), field) =>
         throw InternalException(
           s"Trying to create a record of type `${model.id}` with an object that refers to a `${displayPType(field.ptype)}` record with ID `${otherJsValueType}` Creating records that refer to existing records is not supported yet"
@@ -164,30 +168,26 @@ class PostgresQueryEngine[M[_]: Monad](
         case ((key, _), _) => key.withQuotes
       }
       .mkString(", ")
-    val primitivePrepSts = primitiveFields.map {
-      case ((_, JsString(value)), _)  => HPS.set(value)
-      case ((_, JsNumber(value)), _)  => HPS.set(value)
-      case ((_, JsBoolean(value)), _) => HPS.set(value)
-      case _ =>
-        throw InternalException(
-          s"Trying to set JSON object or array as an argument for an SQL INSERT statement"
-        )
+
+    val primitivesSet = primitiveFields.zipWithIndex.foldLeft(HPS.set(())) {
+      case (acc, (((_, value), _), index)) =>
+        acc *> setJsValue(value, index + 1)
     }
-    println(primitivePrepSts)
+
     val primitivesInsertSql =
       s"INSERT INTO ${model.id.withQuotes} ($primitiveColumnsSql) VALUES (" +
-        List.fill(primitivePrepSts.length)("?").mkString(", ") +
+        List.fill(primitiveFields.length)("?").mkString(", ") +
         s") RETURNING ${model.primaryField.id.withQuotes};"
 
     val insertedRecord: ConnectionIO[JsObject] =
-      HC.stream(primitivesInsertSql, primitivePrepSts.reduce(_ *> _), 1)
+      HC.stream(primitivesInsertSql, primitivesSet, 1)
         .head
         .compile
         .toList
         .map(_.head.fields(model.primaryField.id))
         .flatMap {
           case JsString(s) => readOneRecord(model, s, innerReadOps)
-          case JsNumber(n) => readOneRecord(model, n.toLong, innerReadOps)
+          case JsNumber(n) => readOneRecord(model, n.toDouble, innerReadOps)
           case _ =>
             throw InternalException(
               "Trying to use invalid ID JSON in INSERT-RETURNING query"
@@ -346,7 +346,7 @@ class PostgresQueryEngine[M[_]: Monad](
   ): Query[JsValue] =
     key match {
       case JsString(v) => readOneRecord(model, v, iops).widen[JsValue]
-      case JsNumber(v) => readOneRecord(model, v.toLong, iops).widen[JsValue]
+      case JsNumber(v) => readOneRecord(model, v.toDouble, iops).widen[JsValue]
       case _           => JsNull.pure[Query].widen[JsValue]
     }
 
@@ -361,7 +361,7 @@ class PostgresQueryEngine[M[_]: Monad](
         s"FROM ${baseModel.id.concat("_").concat(arrayInnerOp.targetField.field.id).withQuotes} " +
         s"WHERE ${("source_" + baseModel.id).withQuotes} = ?"
 
-    val prep = idPrepStatement(baseRecordId)
+    val prep = setJsValue(baseRecordId)
     val joinRecords = HC.stream(sql, prep, 200)
 
     arrayField.ptype match {
@@ -415,16 +415,17 @@ object PostgresQueryEngine {
   }
 
   /** Utility function to get a `PreparedStatementIO`
-    * from an ID JSON value.
-    * NOTE: Only `JsString`s and `JsNumbers`s are valid.
+    * from a JSON value.
     */
-  def idPrepStatement(id: JsValue) =
-    id match {
-      case JsString(s) => HPS.set(s)
-      case JsNumber(n) => HPS.set(n.toLong)
+  def setJsValue(jsVal: JsValue, paramIndex: Int = 1) =
+    jsVal match {
+      case JsString(s)  => HPS.set(paramIndex, s)
+      case JsNumber(n)  => HPS.set(paramIndex, n.toDouble)
+      case JsBoolean(b) => HPS.set(paramIndex, b)
+      case JsNull       => HPS.set(paramIndex, None)
       case _ =>
         throw InternalException(
-          s"Trying to set invalid ID of value $id in SQL query (IDs must either be strings or integers)"
+          s"Trying to set illegal value $jsVal at index $paramIndex in SQL query"
         )
     }
 

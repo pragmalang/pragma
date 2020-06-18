@@ -1,8 +1,8 @@
 package setup.storage.postgres
 
 import domain._
-
-
+import spray.json._
+import domain.utils.InternalException
 
 package object utils {
   type IsNotNull = Boolean
@@ -62,4 +62,25 @@ package object utils {
       case PArray(ptype)                    => None
       case PFunction(args, returnType)      => None
     }
+
+  import sangria.ast._
+  def sangriaToJson(v: Value): JsValue = v match {
+    case BigDecimalValue(value, _, _)   => JsNumber(value.toDouble)
+    case BigIntValue(value, _, _)       => JsNumber(value.toLong)
+    case BooleanValue(value, _, _)      => JsBoolean(value)
+    case StringValue(value, _, _, _, _) => JsString(value)
+    case EnumValue(value, _, _)         => JsString(value)
+    case FloatValue(value, _, _)        => JsNumber(value)
+    case IntValue(value, _, _)          => JsNumber(value)
+    case NullValue(_, _)                => JsNull
+    case ListValue(values, _, _)        => JsArray(values.map(sangriaToJson))
+    case ObjectValue(fields, _, _) =>
+      JsObject(fields.map { field =>
+        field.name -> sangriaToJson(field.value)
+      }.toMap)
+    case VariableValue(name, _, _) =>
+      throw InternalException(
+        s"Variable $name should have been substituted at query reduction"
+      )
+  }
 }
