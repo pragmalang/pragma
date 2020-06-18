@@ -7,7 +7,7 @@ import domain._
 import setup.storage.Storage
 import scala.util._
 import domain.utils.UserError
-import spray.json.JsObject
+import spray.json._
 
 class RequestHandler[S, M[_]: Monad](
     syntaxTree: SyntaxTree,
@@ -38,11 +38,16 @@ class RequestHandler[S, M[_]: Monad](
         }
 
     // Add hook execution here
+    // Return hook results instead
 
     val storageResult =
       authResult.flatMap(ops => ops.traverse(storage.run(_)))
 
-    storageResult // Return hook results instead
+    storageResult.map { result =>
+      result.map { data =>
+        JsObject(Map("data" -> data, "errors" -> JsArray.empty))
+      }
+    }
   }
 
 }
