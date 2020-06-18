@@ -42,7 +42,7 @@ trait QueryEngine[S, M[_]] {
       model: PModel,
       records: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsArray]
+  ): Query[Vector[JsObject]]
 
   def createOneRecord(
       model: PModel,

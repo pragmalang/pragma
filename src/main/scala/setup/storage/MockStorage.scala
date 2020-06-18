@@ -53,7 +53,7 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
       model: PModel,
       records: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
-  ): JsArray = ???
+  ): Vector[JsObject] = ???
 
   def createOneRecord(
       model: PModel,

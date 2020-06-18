@@ -71,7 +71,6 @@ class PostgresQueryEngine[M[_]: Monad](
                       s"Create mutation takes a `${op.targetModel.id.small}` argument"
                     )
                   )
-
               val result = createOneRecord(
                 op.targetModel,
                 objToInsert,
@@ -102,101 +101,105 @@ class PostgresQueryEngine[M[_]: Monad](
       model: PModel,
       records: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[JsArray] =
-    records
-      .traverse(createOneRecord(model, _, innerReadOps))
-      .map(JsArray(_))
+  ): ConnectionIO[Vector[JsObject]] =
+    records.traverse(createOneRecord(model, _, innerReadOps))
 
   override def createOneRecord(
       model: PModel,
       record: JsObject,
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsObject] = {
-    val parallelFields =
-      model.fields.map(mfield => record.fields.get(mfield.id))
-    val recordFields = model.fields
-      .zip(parallelFields)
-      .map {
-        case (mfield, recordValue) =>
-          (mfield.id, recordValue.getOrElse(JsNull)) -> mfield
+    val parallelFields = model.fields.map { mfield =>
+      mfield -> record.fields.get(mfield.id).getOrElse(JsNull)
+    }.toVector
+    val fieldTypeMap = parallelFields
+      .groupBy {
+        case (PModelField(_, PReference(refId), _, _, _, _), _) =>
+          if (st.modelsById.contains(refId)) "ref"
+          else "prim"
+        case (PModelField(_, PArray(PReference(refId)), _, _, _, _), _) =>
+          if (st.modelsById.contains(refId)) "refArray"
+          else "primArray"
+        case (PModelField(_, PArray(_), _, _, _, _), _) => "primArray"
+        case _                                          => "prim"
       }
-      .toVector
-    val (nonPrimitiveFields, primitiveFields) =
-      recordFields.partition {
-        case (
-            _,
-            PModelField(_, PReference(modelRef), _, _, _, _)
-            ) =>
-          st.modelsById.contains(modelRef)
-        case (
-            _,
-            PModelField(_, PArray(PReference(modelRef)), _, _, _, _)
-            ) =>
-          st.modelsById.contains(modelRef)
-        case primitiveField => false
-      }
+      .withDefaultValue(Vector.empty)
 
-    val nonPrimitiveInserts = nonPrimitiveFields.traverse {
-      case (
-          (key, record: JsObject),
-          PModelField(id, PReference(modelId), _, _, _, _)
-          ) =>
-        createOneRecord(st.modelsById(modelId), record, Vector.empty).as(())
-      case (
-          (key, JsArray(records)),
-          PModelField(id, PArray(PReference(modelId)), _, _, _, _)
-          ) =>
-        createManyRecords(
-          st.modelsById(modelId),
-          records.map {
-            case obj: JsObject => obj
+    val refInserts = fieldTypeMap("ref")
+      .traverse {
+        case (PModelField(_, PReference(refId), _, _, _, _), r: JsObject) =>
+          createOneRecord(st.modelsById(refId), r, Vector.empty)
+        case _ => throw InternalException("Invalid reference table insert")
+      }
+      .as(())
+
+    val refArrayInserts = fieldTypeMap("refArray")
+      .traverse {
+        case (
+            field @ PModelField(_, PArray(PReference(refId)), _, _, _, _),
+            JsArray(rs)
+            ) => {
+          val objects = rs.map {
+            case r: JsObject => r
             case notObj =>
-              throw InternalException(
-                s"Trying to insert non-object value $notObj as a record of type `$modelId`"
+              throw UserError(
+                s"Trying to insert non-object value $notObj as a record of type `$refId`"
               )
-          },
-          Vector.empty
-        ).as(())
-      case ((_, otherJsValueType), field) =>
-        throw InternalException(
-          s"Trying to create a record of type `${model.id}` with an object that refers to a `${displayPType(field.ptype)}` record with ID `${otherJsValueType}` Creating records that refer to existing records is not supported yet"
-        )
-    }
+          }
+          createManyRecords(
+            st.modelsById(refId),
+            objects,
+            Vector(idInnerOp(st.modelsById(refId)))
+          ).map((field, _, st.modelsById(refId).primaryField.id))
+        }
+        case _ => throw InternalException("Invalid reference array insert")
+      }
 
-    val primitiveColumnsSql = primitiveFields
+    val primitiveColumnsSql = fieldTypeMap("prim")
       .map {
-        case ((key, _), _) => key.withQuotes
+        case (field, _) => field.id.withQuotes
       }
       .mkString(", ")
 
-    val primitivesSet = primitiveFields.zipWithIndex.foldLeft(HPS.set(())) {
-      case (acc, (((_, value), _), index)) =>
-        acc *> setJsValue(value, index + 1)
-    }
+    val primitivesSet =
+      fieldTypeMap("prim").zipWithIndex.foldLeft(HPS.set(())) {
+        case (acc, ((_, value), index)) =>
+          acc *> setJsValue(value, index + 1)
+      }
 
     val primitivesInsertSql =
       s"INSERT INTO ${model.id.withQuotes} ($primitiveColumnsSql) VALUES (" +
-        List.fill(primitiveFields.length)("?").mkString(", ") +
+        List.fill(fieldTypeMap("prim").length)("?").mkString(", ") +
         s") RETURNING ${model.primaryField.id.withQuotes};"
 
-    val insertedRecord: ConnectionIO[JsObject] =
-      HC.stream(primitivesInsertSql, primitivesSet, 1)
-        .head
-        .compile
-        .toList
-        .map(_.head.fields(model.primaryField.id))
-        .flatMap {
-          case JsString(s) => readOneRecord(model, s, innerReadOps)
-          case JsNumber(n) => readOneRecord(model, n.toDouble, innerReadOps)
-          case _ =>
-            throw InternalException(
-              "Trying to use invalid ID JSON in INSERT-RETURNING query"
-            )
-        }
+    val insertedRecordId = HC
+      .stream(primitivesInsertSql, primitivesSet, 1)
+      .head
+      .compile
+      .toList
+      .map(_.head.fields(model.primaryField.id))
 
     for {
-      _ <- nonPrimitiveInserts
-      created <- insertedRecord
+      _ <- refInserts
+      arrays <- refArrayInserts
+      id <- insertedRecordId
+      _ <- arrays.flatTraverse {
+        case (field, values, primaryKey) =>
+          values
+            .map(_.fields(primaryKey))
+            .traverse(joinInsert(model, field, id, _))
+      }
+      _ <- fieldTypeMap("primArray").traverse {
+        case (field, value) => joinInsert(model, field, id, value)
+      }
+      created <- id match {
+        case JsString(s) => readOneRecord(model, s, innerReadOps)
+        case JsNumber(n) => readOneRecord(model, n, innerReadOps)
+        case _ =>
+          throw InternalException(
+            "Primary keys must either be strings or integers"
+          )
+      }
     } yield created
   }
 
@@ -262,7 +265,7 @@ class PostgresQueryEngine[M[_]: Monad](
       where: QueryWhere,
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsArray] = {
-    val aliasedColumns = selectColumnsSql(innerReadOps)
+    val aliasedColumns = selectColumnsSql(idInnerOp(model) +: innerReadOps)
 
     Fragment(s"SELECT $aliasedColumns FROM ${model.id.withQuotes};", Nil, None)
       .query[JsObject]
@@ -438,5 +441,43 @@ object PostgresQueryEngine {
         fieldId + alias.map(alias => s" AS ${alias.withQuotes}").getOrElse("")
       }
       .mkString(", ")
+
+  def idInnerOp(model: PModel): InnerOperation = {
+    val op = Operation(
+      opKind = Operations.ReadOperation,
+      gqlOpKind = sangria.ast.OperationType.Query,
+      opArguments = Vector.empty,
+      directives = Vector.empty,
+      event = domain.Read,
+      targetModel = model,
+      role = None,
+      user = None,
+      crudHooks = Vector.empty,
+      alias = None,
+      innerReadOps = Vector.empty
+    )
+    InnerOperation(
+      Operations.AliasedField(
+        model.primaryField,
+        None,
+        Vector.empty
+      ),
+      op
+    )
+  }
+
+  def joinInsert(
+      model: PModel,
+      field: PModelField,
+      sourceValue: JsValue,
+      targetValue: JsValue
+  ): Query[Unit] = {
+    val joinTable = model.id.concat("_").concat(field.id).withQuotes
+    val sourceField = model.id.concat("_").concat(field.id).withQuotes
+    val sql =
+      s"INSERT INTO $joinTable VALUES (?, ?) RETURNING $sourceField;"
+    val set = setJsValue(sourceValue) *> setJsValue(targetValue, 2)
+    HC.stream(sql, set, 1).compile.toVector.as(())
+  }
 
 }
