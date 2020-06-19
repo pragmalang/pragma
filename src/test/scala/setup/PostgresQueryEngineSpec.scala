@@ -298,12 +298,6 @@ class PostgresQueryEngineSpec extends FlatSpec {
   }
 
   "PostgresQueryEngine#run" should "populate results of inserts correctly" taggedAs (dkr) in {
-    import doobie._, doobie.implicits._
-    HC.prepareStatement(
-        """insert into "Country" ("code", "name", "population", "gnp") VALUES ('SA', 'Saudiyeh', 20, 20)"""
-      )(HPS.set(()))
-      .transact(t)
-      .unsafeRunSync()
     val gqlQuery = gql"""
     mutation createDenmark {
       Country {

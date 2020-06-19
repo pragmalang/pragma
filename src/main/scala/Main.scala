@@ -5,6 +5,7 @@ import domain.utils._
 import org.parboiled2.Position
 import domain._
 import running.Server
+import org.parboiled2.ParseError
 
 object Main {
   def main(args: Array[String]): Unit = {
@@ -23,33 +24,37 @@ object Main {
 
     syntaxTree match {
       case Failure(userErr: UserError) =>
-        userErr.errors foreach { err =>
-          println(errSep)
-          print("[error] ")
-          println(err._1)
-          err._2.foreach {
-            case PositionRange(
-                Position(_, line, char),
-                Position(_, line2, char2)
-                ) =>
-              print('\t')
-              println(
-                s"(at line $line character $char until line $line2 character $char2)"
-              )
-          }
-          println(errSep)
-        }
+        userErr.errors foreach (err => printError(err._1, err._2))
 
-      case Failure(otherErr) => {
-        println(errSep)
-        print("[error] ")
-        println(otherErr.getMessage)
-        println(errSep)
-      }
+      case Failure(ParseError(pos, _, _)) =>
+        printError("Parse error", Some(PositionRange(pos, pos)))
+
+      case Failure(otherErr) => printError(otherErr.getMessage, None)
 
       case Success(st) => new Server(st).main(args)
     }
   }
 
-  lazy val errSep = Console.RED + ("━" * 80) + Console.RESET
+  lazy val errSep = Console.RED + ("━" * 100) + Console.RESET
+
+  def printError(message: String, position: Option[PositionRange]) = {
+    println(errSep)
+    print("[error] ")
+    println(message)
+    position match {
+      case Some(
+          PositionRange(
+            Position(_, line, char),
+            Position(_, line2, char2)
+          )
+          ) => {
+        print('\t')
+        println(
+          s"(at line $line character $char until line $line2 character $char2)"
+        )
+      }
+      case _ => ()
+    }
+    println(errSep)
+  }
 }
