@@ -104,6 +104,12 @@ class PostgresQueryEngine[M[_]: Monad](
   ): ConnectionIO[Vector[JsObject]] =
     records.traverse(createOneRecord(model, _, innerReadOps))
 
+  // To be used in `INSERT` statement classification
+  private val ref = "ref"
+  private val prim = "prim"
+  private val refArray = "refArray"
+  private val primArray = "primArray"
+
   override def createOneRecord(
       model: PModel,
       record: JsObject,
@@ -115,25 +121,20 @@ class PostgresQueryEngine[M[_]: Monad](
     val fieldTypeMap = parallelFields
       .groupBy {
         case (PModelField(_, PReference(refId), _, _, _, _), _) =>
-          if (st.modelsById.contains(refId)) "ref"
-          else "prim"
+          if (st.modelsById.contains(refId)) ref
+          else prim
         case (PModelField(_, PArray(PReference(refId)), _, _, _, _), _) =>
-          if (st.modelsById.contains(refId)) "refArray"
-          else "primArray"
-        case (PModelField(_, PArray(_), _, _, _, _), _) => "primArray"
-        case _                                          => "prim"
+          if (st.modelsById.contains(refId)) refArray
+          else primArray
+        case (PModelField(_, POption(PReference(refId)), _, _, _, _), _) =>
+          if (st.modelsById.contains(refId)) ref
+          else prim
+        case (PModelField(_, PArray(_), _, _, _, _), _) => primArray
+        case _                                          => prim
       }
       .withDefaultValue(Vector.empty)
 
-    val refInserts = fieldTypeMap("ref")
-      .traverse {
-        case (PModelField(_, PReference(refId), _, _, _, _), r: JsObject) =>
-          createOneRecord(st.modelsById(refId), r, Vector.empty)
-        case _ => throw InternalException("Invalid reference table insert")
-      }
-      .as(())
-
-    val refArrayInserts = fieldTypeMap("refArray")
+    val refArrayInserts = fieldTypeMap(refArray)
       .traverse {
         case (
             field @ PModelField(_, PArray(PReference(refId)), _, _, _, _),
@@ -146,41 +147,60 @@ class PostgresQueryEngine[M[_]: Monad](
                 s"Trying to insert non-object value $notObj as a record of type `$refId`"
               )
           }
+          val refModel = st.modelsById(refId)
           createManyRecords(
-            st.modelsById(refId),
+            refModel,
             objects,
-            Vector(idInnerOp(st.modelsById(refId)))
-          ).map((field, _, st.modelsById(refId).primaryField.id))
+            Vector(idInnerOp(refModel))
+          ).map((field, _, refModel.primaryField.id))
         }
         case _ => throw InternalException("Invalid reference array insert")
       }
 
-    val primitiveColumnsSql = fieldTypeMap("prim")
-      .map {
-        case (field, _) => field.id.withQuotes
-      }
-      .mkString(", ")
+    val refInserts = fieldTypeMap(ref)
+      .traverse {
+        case (field, refRecord: JsObject) => {
+          val modelRef = field.ptype match {
+            case PReference(id)          => id
+            case POption(PReference(id)) => id
+            case _ =>
+              throw InternalException(
+                s"Invalid reference table insert: type `${displayPType(field.ptype)}` is being treated as a reference"
+              )
+          }
+          val refModel = st.modelsById(modelRef)
 
-    val primitivesSet =
-      fieldTypeMap("prim").zipWithIndex.foldLeft(HPS.set(())) {
+          createOneRecord(refModel, refRecord, Vector(idInnerOp(refModel)))
+            .map(refObj => field -> refObj.fields(refModel.primaryField.id))
+        }
+        case (field, JsNull) => (field, JsNull).widen[JsValue].pure[Query]
+        case _ =>
+          throw InternalException(
+            "Trying to insert a non-object value as a referenced object"
+          )
+      }
+
+    val primFields = refInserts.map(fieldTypeMap(prim) ++ _)
+
+    val insertedRecordId = for {
+      columns <- primFields
+      columnSql = columns.map(_._1.id.withQuotes).mkString(", ")
+      set = columns.zipWithIndex.foldLeft(HPS.set(())) {
         case (acc, ((_, value), index)) =>
           acc *> setJsValue(value, index + 1)
       }
-
-    val primitivesInsertSql =
-      s"INSERT INTO ${model.id.withQuotes} ($primitiveColumnsSql) VALUES (" +
-        List.fill(fieldTypeMap("prim").length)("?").mkString(", ") +
+      insertSql = s"INSERT INTO ${model.id.withQuotes} (${columnSql}) VALUES (" +
+        List.fill(columns.length)("?").mkString(", ") +
         s") RETURNING ${model.primaryField.id.withQuotes};"
-
-    val insertedRecordId = HC
-      .stream(primitivesInsertSql, primitivesSet, 1)
-      .head
-      .compile
-      .toList
-      .map(_.head.fields(model.primaryField.id))
+      rowId <- HC
+        .stream(insertSql, set, 1)
+        .head
+        .compile
+        .toList
+        .map(_.head.fields(model.primaryField.id))
+    } yield rowId
 
     for {
-      _ <- refInserts
       arrays <- refArrayInserts
       id <- insertedRecordId
       _ <- arrays.flatTraverse {
@@ -189,7 +209,7 @@ class PostgresQueryEngine[M[_]: Monad](
             .map(_.fields(primaryKey))
             .traverse(joinInsert(model, field, id, _))
       }
-      _ <- fieldTypeMap("primArray").traverse {
+      _ <- fieldTypeMap(primArray).traverse {
         case (field, value) => joinInsert(model, field, id, value)
       }
       created <- id match {
@@ -425,7 +445,7 @@ object PostgresQueryEngine {
       case JsString(s)  => HPS.set(paramIndex, s)
       case JsNumber(n)  => HPS.set(paramIndex, n.toDouble)
       case JsBoolean(b) => HPS.set(paramIndex, b)
-      case JsNull       => HPS.set(paramIndex, None)
+      case JsNull       => HPS.set(paramIndex, Option.empty[Int])
       case _ =>
         throw InternalException(
           s"Trying to set illegal value $jsVal at index $paramIndex in SQL query"

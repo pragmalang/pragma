@@ -37,6 +37,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
   val code = """
   @1 model Citizen {
     @1 name: String @primary
+    @2 home: Country?
   }
 
   @2 model Country {
@@ -350,6 +351,61 @@ class PostgresQueryEngineSpec extends FlatSpec {
       )
     )
 
+    assert(result == expected)
+  }
+
+  "PostgresQueryEngine#createOneRecord" should "handle nested inserts correctly" taggedAs (dkr) in {
+    val gqlQuery = gql"""
+    mutation createJeff {
+      Citizen {
+        create(citizen: {
+          name: "Jeff",
+          home: {
+            code: "CA",
+            name: "Canada",
+            population: 55050,
+            citizens: []
+          }
+        }) {
+          name
+          home {
+            code
+            name
+            population
+          }
+        }
+      }
+    }
+    """
+    val req =
+      Request(
+        hookData = None,
+        body = None,
+        user = None,
+        query = gqlQuery,
+        queryVariables = Left(JsObject.empty),
+        cookies = Map.empty,
+        url = "",
+        hostname = ""
+      )
+    val reqOps = Operations.from(req)
+    val result = queryEngine.run(reqOps).unsafeRunSync
+    val expected = JsObject(
+      Map(
+        "createJeff" -> JsObject(
+          Map(
+            "name" -> JsString("Jeff"),
+            "home" -> JsObject(
+              Map(
+                "code" -> JsString("CA"),
+                "name" -> JsString("Canada"),
+                "population" -> JsNumber(55050)
+              )
+            )
+          )
+        )
+      )
+    )
     assert(result == expected)
   }
 
