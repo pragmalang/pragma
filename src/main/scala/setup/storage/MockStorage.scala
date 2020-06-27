@@ -90,17 +90,17 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
       model: PModel,
       field: PShapeField,
       items: Vector[JsValue],
-      primaryKeyValue: Either[Long, String],
+      primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): JsArray = ???
+  ): JsObject = ???
 
   def pushOneTo(
       model: PModel,
       field: PShapeField,
       item: JsValue,
-      primaryKeyValue: Either[Long, String],
+      primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): JsValue = ???
+  ): JsObject = ???
 
   def removeManyFrom(
       model: PModel,
@@ -124,9 +124,9 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
       innerReadOps: Vector[InnerOperation]
   ): JsArray = ???
 
-  def readOneRecord[ID: Put](
+  def readOneRecord(
       model: PModel,
-      primaryKeyValue: ID,
+      primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
   ): JsObject = ???
 }

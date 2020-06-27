@@ -79,17 +79,17 @@ trait QueryEngine[S, M[_]] {
       model: PModel,
       field: PShapeField,
       items: Vector[JsValue],
-      primaryKeyValue: Either[Long, String],
+      primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsArray]
+  ): Query[JsObject]
 
   def pushOneTo(
       model: PModel,
       field: PShapeField,
       item: JsValue,
-      primaryKeyValue: Either[Long, String],
+      sourceId: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsValue]
+  ): Query[JsObject]
 
   def removeManyFrom(
       model: PModel,
@@ -113,9 +113,9 @@ trait QueryEngine[S, M[_]] {
       innerReadOps: Vector[InnerOperation]
   ): Query[JsArray]
 
-  def readOneRecord[ID: Put](
+  def readOneRecord(
       model: PModel,
-      primaryKeyValue: ID,
+      primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
   ): Query[JsObject]
 }

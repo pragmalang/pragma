@@ -24,7 +24,6 @@ class PostgresQueryEngine[M[_]: Monad](
   override def run(
       operations: Map[Option[String], Vector[Operation]]
   ): M[JsObject] = {
-    import sangria.ast._
     val results = operations.toVector
       .flatMap { pair =>
         pair._2.map { op =>
@@ -36,19 +35,14 @@ class PostgresQueryEngine[M[_]: Monad](
                   .map(_.value)
                   .getOrElse {
                     throw InternalException(
-                      "Argument of Read operation should contain the ID of the record to read"
+                      "Arguments of Read operation should contain the ID of the record to read"
                     )
                   }
-              val record = id match {
-                case s: StringValue =>
-                  readOneRecord(op.targetModel, s.value, op.innerReadOps)
-                case n: IntValue =>
-                  readOneRecord(op.targetModel, n.value, op.innerReadOps)
-                case _ =>
-                  throw InternalException(
-                    "Trying to set illegal sangria value in SQL statement"
-                  )
-              }
+              val record = readOneRecord(
+                op.targetModel,
+                sangriaToJson(id),
+                op.innerReadOps
+              )
               (pair._1.getOrElse("data") -> record.widen[JsValue]).sequence
             }
             case ReadMany => {
@@ -101,12 +95,67 @@ class PostgresQueryEngine[M[_]: Monad](
                   .map(JsArray(_))
               (pair._1.getOrElse("data") -> created.widen[JsValue]).sequence
             }
+            case PushTo(listField) => {
+              val item = op.opArguments
+                .find(_.name == "item")
+                .map(arg => sangriaToJson(arg.value))
+                .getOrElse(
+                  throw InternalException {
+                    "Arguments of `PUSH_TO` operation must contain the item to be pushed"
+                  }
+                )
+              val sourceId = op.opArguments
+                .find(_.name == op.targetModel.primaryField.id)
+                .map(arg => sangriaToJson(arg.value))
+                .getOrElse(
+                  throw InternalException {
+                    "Arguments of `PUSH_TO` operation must contain the ID of the array field object"
+                  }
+                )
+              pushOneTo(
+                op.targetModel,
+                listField,
+                item,
+                sourceId,
+                op.innerReadOps
+              ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
+            }
+            case PushManyTo(listField) => {
+              val items = op.opArguments
+                .find(_.name == "items")
+                .map(_.value)
+                .map {
+                  case ls: sangria.ast.ListValue => ls.values.map(sangriaToJson)
+                  case _ =>
+                    throw InternalException(
+                      "`items` argument of `PUSH_MANY_TO` operation must be an array"
+                    )
+                }
+                .getOrElse(
+                  throw InternalException {
+                    "Arguments of `PUSH_MANY_TO` operation must contain the items to be pushed"
+                  }
+                )
+              val sourceId = op.opArguments
+                .find(_.name == op.targetModel.primaryField.id)
+                .map(arg => sangriaToJson(arg.value))
+                .getOrElse(
+                  throw InternalException {
+                    "Arguments of `PUSH_TO` operation must contain the ID of the array field object"
+                  }
+                )
+              pushManyTo(
+                op.targetModel,
+                listField,
+                items,
+                sourceId,
+                op.innerReadOps
+              ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
+            }
             case domain.Update             => ???
             case UpdateMany                => ???
             case Delete                    => ???
             case DeleteMany                => ???
-            case PushTo(listField)         => ???
-            case PushManyTo(listField)     => ???
             case RemoveFrom(listField)     => ???
             case RemoveManyFrom(listField) => ???
             case Login                     => ???
@@ -164,11 +213,7 @@ class PostgresQueryEngine[M[_]: Monad](
             ) => {
           val refModel = st.modelsById(refId)
           val createdRecords = rs.traverse {
-            case r: JsObject
-                if r.fields.size == 1 && r.fields.head._1 == refModel.primaryField.id =>
-              r.pure[Query]
-            case r: JsObject =>
-              createOneRecord(refModel, r, Vector(idInnerOp(refModel)))
+            case r: JsObject => refInsertReturningId(refModel, r)
             case notObj =>
               throw UserError(
                 s"Trying to insert non-object value $notObj as a record of type `$refId`"
@@ -192,12 +237,7 @@ class PostgresQueryEngine[M[_]: Monad](
           }
           val refModel = st.modelsById(modelRef)
 
-          if (refRecord.fields.size == 1 && refRecord.fields.head._1 == refModel.primaryField.id)
-            (field -> refRecord.fields(refModel.primaryField.id))
-              .pure[ConnectionIO]
-          else
-            createOneRecord(refModel, refRecord, Vector(idInnerOp(refModel)))
-              .map(refObj => field -> refObj.fields(refModel.primaryField.id))
+          refInsertReturningId(refModel, refRecord).map(field -> _)
         }
         case (field, JsNull) => (field, JsNull).widen[JsValue].pure[Query]
         case _ =>
@@ -231,21 +271,12 @@ class PostgresQueryEngine[M[_]: Monad](
       id <- insertedRecordId
       _ <- arrays.flatTraverse {
         case (field, values, primaryKey) =>
-          values
-            .map(_.fields(primaryKey))
-            .traverse(joinInsert(model, field, id, _))
+          values.traverse(joinInsert(model, field, id, _))
       }
       _ <- fieldTypeMap(primArray).traverse {
         case (field, value) => joinInsert(model, field, id, value)
       }
-      created <- id match {
-        case JsString(s) => readOneRecord(model, s, innerReadOps)
-        case JsNumber(n) => readOneRecord(model, n, innerReadOps)
-        case _ =>
-          throw InternalException(
-            "Primary keys must either be strings or integers"
-          )
-      }
+      created <- readOneRecord(model, id, innerReadOps)
     } yield created
   }
 
@@ -278,17 +309,36 @@ class PostgresQueryEngine[M[_]: Monad](
       model: PModel,
       field: PShapeField,
       items: Vector[JsValue],
-      primaryKeyValue: Either[Long, String],
+      primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[JsArray] = ???
+  ): ConnectionIO[JsObject] =
+    for {
+      _ <- items.traverse { item =>
+        pushOneTo(model, field, item, primaryKeyValue, Vector.empty)
+      }
+      selected <- readOneRecord(model, primaryKeyValue, innerReadOps)
+    } yield selected
 
   override def pushOneTo(
       model: PModel,
       field: PShapeField,
       item: JsValue,
-      primaryKeyValue: Either[Long, String],
+      sourceId: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[JsValue] = ???
+  ): ConnectionIO[JsObject] = {
+    val insert = (field.ptype, item) match {
+      case (PArray(PReference(id)), obj: JsObject) =>
+        refInsertReturningId(st.modelsById(id), obj).flatMap { id =>
+          joinInsert(model, field, sourceId, id)
+        }
+      case (PArray(_), value) => joinInsert(model, field, sourceId, value)
+      case _ =>
+        throw InternalException(
+          s"Invalid operation PUSH_TO with value $item to field ${field.id}"
+        )
+    }
+    insert.flatMap(_ => readOneRecord(model, sourceId, innerReadOps))
+  }
 
   override def removeManyFrom(
       model: PModel,
@@ -320,9 +370,9 @@ class PostgresQueryEngine[M[_]: Monad](
       .map(objects => JsArray(where(objects)))
   }
 
-  override def readOneRecord[ID: Put](
+  override def readOneRecord(
       model: PModel,
-      primaryKeyValue: ID,
+      primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
   ): Query[JsObject] = {
     val innerOpsWithPK = innerReadOps :+ Operations.primaryFieldInnerOp(model)
@@ -331,7 +381,7 @@ class PostgresQueryEngine[M[_]: Monad](
     val sql =
       s"""SELECT $aliasedColumns FROM ${model.id.withQuotes} WHERE ${model.primaryField.id.withQuotes} = ?;"""
 
-    val prep = HPS.set(primaryKeyValue)
+    val prep = setJsValue(primaryKeyValue)
 
     HC.stream(sql, prep, 1)
       .head
@@ -341,7 +391,7 @@ class PostgresQueryEngine[M[_]: Monad](
       .flatMap(populateObject(model, _, innerReadOps))
   }
 
-  def populateObject(
+  private def populateObject(
       model: PModel,
       unpopulated: JsObject,
       innerOps: Vector[InnerOperation]
@@ -394,12 +444,11 @@ class PostgresQueryEngine[M[_]: Monad](
       iops: Vector[InnerOperation]
   ): Query[JsValue] =
     key match {
-      case JsString(v) => readOneRecord(model, v, iops).widen[JsValue]
-      case JsNumber(v) => readOneRecord(model, v.toDouble, iops).widen[JsValue]
-      case _           => JsNull.pure[Query].widen[JsValue]
+      case JsNull => JsNull.pure[Query].widen[JsValue]
+      case v      => readOneRecord(model, v, iops).widen[JsValue]
     }
 
-  def populateArray(
+  private def populateArray(
       baseModel: PModel,
       baseRecordId: JsValue,
       arrayField: PModelField,
@@ -429,6 +478,14 @@ class PostgresQueryEngine[M[_]: Monad](
       case _ => joinRecords.map(_.fields.head._2).compile.toVector
     }
   }
+
+  private def refInsertReturningId(refModel: PModel, value: JsObject) =
+    if (value.fields.size == 1 && value.fields.head._1 == refModel.primaryField.id)
+      value.fields(refModel.primaryField.id).pure[Query]
+    else
+      createOneRecord(refModel, value, Vector(idInnerOp(refModel)))
+        .map(_.fields(refModel.primaryField.id))
+
 }
 object PostgresQueryEngine {
   type Query[A] = ConnectionIO[A]
@@ -514,7 +571,7 @@ object PostgresQueryEngine {
 
   def joinInsert(
       model: PModel,
-      field: PModelField,
+      field: PShapeField,
       sourceValue: JsValue,
       targetValue: JsValue
   ): Query[Unit] = {

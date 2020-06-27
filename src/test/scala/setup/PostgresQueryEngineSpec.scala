@@ -112,6 +112,26 @@ class PostgresQueryEngineSpec extends FlatSpec {
     }
   }
 
+  /** Helper to construct simple `Request`s */
+  def bareReqFrom(gqlQuery: sangria.ast.Document) =
+    Request(
+      hookData = None,
+      body = None,
+      user = None,
+      query = gqlQuery,
+      queryVariables = Left(JsObject.empty),
+      cookies = Map.empty,
+      url = "",
+      hostname = ""
+    )
+
+  /** Helper to run GQL queryies agains the `queryEngine` */
+  def runGql(gqlQuery: sangria.ast.Document) = {
+    val req = bareReqFrom(gqlQuery)
+    val reqOps = Operations.from(req)
+    queryEngine.run(reqOps).unsafeRunSync
+  }
+
   "Array-field population" should "read array fields from join tables" taggedAs (dkr) in {
     val gqlQuery = gql"""
     {
@@ -124,13 +144,13 @@ class PostgresQueryEngineSpec extends FlatSpec {
       }
     }
     """
-    val req = Request(None, None, None, gqlQuery, Right(Nil), Map.empty, "", "")
+    val req = bareReqFrom(gqlQuery)
     val ops = Operations.from(req)
 
     val resultUS = queryEngine
       .readOneRecord(
         syntaxTree.modelsById("Country"),
-        "US",
+        JsString("US"),
         ops(None).head.innerReadOps
       )
       .transact(t)
@@ -157,11 +177,11 @@ class PostgresQueryEngineSpec extends FlatSpec {
       }
     }
     """
-    val req = Request(None, None, None, gqlQuery, Right(Nil), Map.empty, "", "")
+    val req = bareReqFrom(gqlQuery)
     val iops = Operations.from(req).apply(None).head.innerReadOps
     val us = queryEngine.readOneRecord(
       syntaxTree.modelsById("Country"),
-      "US",
+      JsString("US"),
       iops
     )
 
@@ -183,17 +203,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
       }
     }
     """
-    val req =
-      Request(
-        hookData = None,
-        body = None,
-        user = None,
-        query = gqlQuery,
-        queryVariables = Left(JsObject.empty),
-        cookies = Map.empty,
-        url = "",
-        hostname = ""
-      )
+    val req = bareReqFrom(gqlQuery)
     val reqOps = Operations.from(req)
 
     val results = queryEngine
@@ -268,20 +278,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
       }
     }
     """
-    val req =
-      Request(
-        hookData = None,
-        body = None,
-        user = None,
-        query = gqlQuery,
-        queryVariables = Left(JsObject.empty),
-        cookies = Map.empty,
-        url = "",
-        hostname = ""
-      )
-    val reqOps = Operations.from(req)
-
-    val inserted = queryEngine.run(reqOps).unsafeRunSync
+    val inserted = runGql(gqlQuery)
     val expected = JsObject(
       Map(
         "data" -> JsObject(
@@ -322,19 +319,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
       }
     }
     """
-    val req =
-      Request(
-        hookData = None,
-        body = None,
-        user = None,
-        query = gqlQuery,
-        queryVariables = Left(JsObject.empty),
-        cookies = Map.empty,
-        url = "",
-        hostname = ""
-      )
-    val reqOps = Operations.from(req)
-    val result = queryEngine.run(reqOps).unsafeRunSync
+    val result = runGql(gqlQuery)
     val expected = JsObject(
       Map(
         "createDenmark" -> JsObject(
@@ -377,19 +362,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
       }
     }
     """
-    val req =
-      Request(
-        hookData = None,
-        body = None,
-        user = None,
-        query = gqlQuery,
-        queryVariables = Left(JsObject.empty),
-        cookies = Map.empty,
-        url = "",
-        hostname = ""
-      )
-    val reqOps = Operations.from(req)
-    val result = queryEngine.run(reqOps).unsafeRunSync
+    val result = runGql(gqlQuery)
     val expected = JsObject(
       Map(
         "createJeff" -> JsObject(
@@ -429,19 +402,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
       }
     }
     """
-    val req =
-      Request(
-        hookData = None,
-        body = None,
-        user = None,
-        query = gqlQuery,
-        queryVariables = Left(JsObject.empty),
-        cookies = Map.empty,
-        url = "",
-        hostname = ""
-      )
-    val reqOps = Operations.from(req)
-    val result = queryEngine.run(reqOps).unsafeRunSync
+    val result = runGql(gqlQuery)
     val expected = JsObject(
       Map(
         "createJackson" -> JsObject(
@@ -452,6 +413,41 @@ class PostgresQueryEngineSpec extends FlatSpec {
                 "code" -> JsString("US"),
                 "name" -> JsString("America"),
                 "population" -> JsNumber(100000)
+              )
+            )
+          )
+        )
+      )
+    )
+
+    assert(result == expected)
+  }
+
+  "PostgresQueryEngine#pushTo" should "push references and full objects to array fields" taggedAs (dkr) in {
+    val gqlQuery = gql"""
+    mutation {
+      Country {
+        pushToCitizens(code: "US", item: { name: "Jackson" }) {
+          code
+          name
+          citizens {
+            name
+          }
+        }
+      }
+    }
+    """
+    val result = runGql(gqlQuery)
+    val expected = JsObject(
+      Map(
+        "data" -> JsObject(
+          Map(
+            "code" -> JsString("US"),
+            "name" -> JsString("America"),
+            "citizens" -> JsArray(
+              Vector(
+                JsObject(Map("name" -> JsString("John"))),
+                JsObject(Map("name" -> JsString("Jackson")))
               )
             )
           )
