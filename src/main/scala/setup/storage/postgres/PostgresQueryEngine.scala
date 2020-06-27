@@ -162,19 +162,19 @@ class PostgresQueryEngine[M[_]: Monad](
             field @ PModelField(_, PArray(PReference(refId)), _, _, _, _),
             JsArray(rs)
             ) => {
-          val objects = rs.map {
-            case r: JsObject => r
+          val refModel = st.modelsById(refId)
+          val createdRecords = rs.traverse {
+            case r: JsObject
+                if r.fields.size == 1 && r.fields.head._1 == refModel.primaryField.id =>
+              r.pure[Query]
+            case r: JsObject =>
+              createOneRecord(refModel, r, Vector(idInnerOp(refModel)))
             case notObj =>
               throw UserError(
                 s"Trying to insert non-object value $notObj as a record of type `$refId`"
               )
           }
-          val refModel = st.modelsById(refId)
-          createManyRecords(
-            refModel,
-            objects,
-            Vector(idInnerOp(refModel))
-          ).map((field, _, refModel.primaryField.id))
+          createdRecords.map((field, _, refModel.primaryField.id))
         }
         case _ => throw InternalException("Invalid reference array insert")
       }
@@ -192,8 +192,12 @@ class PostgresQueryEngine[M[_]: Monad](
           }
           val refModel = st.modelsById(modelRef)
 
-          createOneRecord(refModel, refRecord, Vector(idInnerOp(refModel)))
-            .map(refObj => field -> refObj.fields(refModel.primaryField.id))
+          if (refRecord.fields.size == 1 && refRecord.fields.head._1 == refModel.primaryField.id)
+            (field -> refRecord.fields(refModel.primaryField.id))
+              .pure[ConnectionIO]
+          else
+            createOneRecord(refModel, refRecord, Vector(idInnerOp(refModel)))
+              .map(refObj => field -> refObj.fields(refModel.primaryField.id))
         }
         case (field, JsNull) => (field, JsNull).widen[JsValue].pure[Query]
         case _ =>

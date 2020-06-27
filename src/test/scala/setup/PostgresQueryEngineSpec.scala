@@ -64,7 +64,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
       VALUES ('SY', 'Syria', 6000, 10);
 
     INSERT INTO  "Country" ("code", "name", "population", "gnp") 
-      VALUES ('USA', 'America', 100000, 999999);
+      VALUES ('US', 'America', 100000, 999999);
 
     INSERT INTO  "Country" ("code", "name", "population", "gnp") 
       VALUES ('JO', 'Jordan', 5505, 12343);
@@ -79,7 +79,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
       VALUES ('Ali');
 
     INSERT INTO "Country_citizens" ("source_Country", "target_Citizen")
-      VALUES ('USA', 'John');
+      VALUES ('US', 'John');
 
     INSERT INTO "Country_citizens" ("source_Country", "target_Citizen")
       VALUES ('SY', 'Ali');
@@ -116,7 +116,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
     val gqlQuery = gql"""
     {
       Country {
-        read(code: "USA") {
+        read(code: "US") {
           citizens {
             name
           }
@@ -127,30 +127,30 @@ class PostgresQueryEngineSpec extends FlatSpec {
     val req = Request(None, None, None, gqlQuery, Right(Nil), Map.empty, "", "")
     val ops = Operations.from(req)
 
-    val resultUsa = queryEngine
+    val resultUS = queryEngine
       .readOneRecord(
         syntaxTree.modelsById("Country"),
-        "USA",
+        "US",
         ops(None).head.innerReadOps
       )
       .transact(t)
       .unsafeRunSync
 
-    val expectedUsa = JsObject(
+    val expectedUS = JsObject(
       Map(
-        "code" -> JsString("USA"),
+        "code" -> JsString("US"),
         "citizens" -> JsArray(Vector(JsObject(Map("name" -> JsString("John")))))
       )
     )
 
-    assert(resultUsa == expectedUsa)
+    assert(resultUS == expectedUS)
   }
 
   "PostgresQueryEngine#readOneRecord" should "read all selected fields recursively" in {
     val gqlQuery = gql"""
     {
       Country {
-        read(code: "USA") {
+        read(code: "US") {
           code
           name
         }
@@ -161,11 +161,11 @@ class PostgresQueryEngineSpec extends FlatSpec {
     val iops = Operations.from(req).apply(None).head.innerReadOps
     val us = queryEngine.readOneRecord(
       syntaxTree.modelsById("Country"),
-      "USA",
+      "US",
       iops
     )
 
-    assert(us.transact(t).unsafeRunSync.fields("code") == JsString("USA"))
+    assert(us.transact(t).unsafeRunSync.fields("code") == JsString("US"))
   }
 
   "PostgresQueryEngine#readMany" should "return the expected records" taggedAs (dkr) in {
@@ -219,7 +219,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
         ),
         JsObject(
           Map(
-            "code" -> JsString("USA"),
+            "code" -> JsString("US"),
             "name" -> JsString("America"),
             "population" -> JsNumber(100000),
             "citizens" -> JsArray(
@@ -308,7 +308,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
           population: 682940,
           gnp: 9940934.542,
           citizens: [
-            { name: "Jack" }
+            { name: "John" }
           ]
         }) {
           code
@@ -343,7 +343,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
             "name" -> JsString("Denmark"),
             "population" -> JsNumber(682940),
             "citizens" -> JsArray(
-              Vector(JsObject(Map("name" -> JsString("Jack"))))
+              Vector(JsObject(Map("name" -> JsString("John"))))
             ),
             "code" -> JsString("DK")
           )
@@ -406,6 +406,59 @@ class PostgresQueryEngineSpec extends FlatSpec {
         )
       )
     )
+    assert(result == expected)
+  }
+
+  "PostgresQueryEngine#createOneRecord" should "handle referencing an existing record by ID" taggedAs (dkr) in {
+    val gqlQuery = gql"""
+    mutation createJackson {
+      Citizen {
+        create(citizen: {
+          name: "Jackson",
+          home: {
+            code: "US" # US already exists. It's being referenced here
+          }
+        }) {
+          name
+          home {
+            code
+            name
+            population
+          }
+        }
+      }
+    }
+    """
+    val req =
+      Request(
+        hookData = None,
+        body = None,
+        user = None,
+        query = gqlQuery,
+        queryVariables = Left(JsObject.empty),
+        cookies = Map.empty,
+        url = "",
+        hostname = ""
+      )
+    val reqOps = Operations.from(req)
+    val result = queryEngine.run(reqOps).unsafeRunSync
+    val expected = JsObject(
+      Map(
+        "createJackson" -> JsObject(
+          Map(
+            "name" -> JsString("Jackson"),
+            "home" -> JsObject(
+              Map(
+                "code" -> JsString("US"),
+                "name" -> JsString("America"),
+                "population" -> JsNumber(100000)
+              )
+            )
+          )
+        )
+      )
+    )
+
     assert(result == expected)
   }
 
