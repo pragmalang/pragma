@@ -10,12 +10,12 @@ import cats.implicits._
 import cats.effect._
 import spray.json._
 import domain.Implicits._
-import postgres.utils.sangriaToJson
+import postgres.utils._
 
 class PostgresQueryEngine[M[_]: Monad](
     transactor: Transactor[M],
     st: SyntaxTree
-)(implicit b: Bracket[M, Throwable])
+)(implicit bracket: Bracket[M, Throwable])
     extends QueryEngine[Postgres[M], M] {
   import PostgresQueryEngine._
 
@@ -60,10 +60,7 @@ class PostgresQueryEngine[M[_]: Monad](
             }
             case Create => {
               val objToInsert =
-                op.opArguments
-                  .map { arg =>
-                    arg.name -> sangriaToJson(arg.value)
-                  }
+                objFieldsFrom(op.opArguments)
                   .find(_._1 == op.targetModel.id.small)
                   .map(_._2.asJsObject)
                   .getOrElse(
@@ -78,7 +75,32 @@ class PostgresQueryEngine[M[_]: Monad](
               )
               (pair._1.getOrElse("data") -> result.widen[JsValue]).sequence
             }
-            case CreateMany                => ???
+            case CreateMany => {
+              val records =
+                objFieldsFrom(op.opArguments)
+                  .find(_._1 == "items")
+                  .map {
+                    case (_, arr: JsArray) =>
+                      arr.elements.map {
+                        case obj: JsObject => obj
+                        case nonObj =>
+                          throw InternalException(
+                            s"Trying to create a record with non-object value `$nonObj`"
+                          )
+                      }
+                    case _ =>
+                      throw InternalException("Value `items` must be an array")
+                  }
+                  .getOrElse(
+                    throw InternalException(
+                      "CREATE_MANY operation arguments must have an `items` field"
+                    )
+                  )
+              val created =
+                createManyRecords(op.targetModel, records, op.innerReadOps)
+                  .map(JsArray(_))
+              (pair._1.getOrElse("data") -> created.widen[JsValue]).sequence
+            }
             case domain.Update             => ???
             case UpdateMany                => ???
             case Delete                    => ???

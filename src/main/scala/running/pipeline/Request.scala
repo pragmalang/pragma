@@ -141,12 +141,11 @@ object Operations {
     }
 
   def opKindFromEvent(event: PEvent): Operations.OperationKind = event match {
-    case Read | ReadMany => ReadOperation
-    case Create | Update | PushTo(_) | PushManyTo(_) | RemoveFrom(_) |
-        RemoveManyFrom(_) =>
+    case Read | ReadMany | Login => ReadOperation
+    case Create | CreateMany | Update | UpdateMany | PushTo(_) | PushManyTo(_) |
+        RemoveFrom(_) | RemoveManyFrom(_) =>
       WriteOperation
-    case Delete => DeleteOperation
-    case _      => throw new InternalException(s"Invalid operation event `$event`")
+    case Delete | DeleteMany => DeleteOperation
   }
 
   def captureListField(

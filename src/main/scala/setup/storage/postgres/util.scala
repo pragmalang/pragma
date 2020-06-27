@@ -64,7 +64,7 @@ package object utils {
     }
 
   import sangria.ast._
-  def sangriaToJson(v: Value): JsValue = v match {
+  def sangriaToJson(v: sangria.ast.Value): JsValue = v match {
     case BigDecimalValue(value, _, _)   => JsNumber(value.toDouble)
     case BigIntValue(value, _, _)       => JsNumber(value.toLong)
     case BooleanValue(value, _, _)      => JsBoolean(value)
@@ -83,4 +83,10 @@ package object utils {
         s"Variable $name should have been substituted at query reduction"
       )
   }
+
+  def objFieldsFrom(
+      args: Vector[sangria.ast.Argument]
+  ): Vector[(String, JsValue)] =
+    args.map(arg => arg.name -> sangriaToJson(arg.value))
+
 }
