@@ -64,7 +64,7 @@ trait QueryEngine[S, M[_]] {
 
   def deleteManyRecords(
       model: PModel,
-      filter: Either[QueryFilter, Vector[Either[String, Long]]],
+      primaryKeyValues: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
   ): Query[JsArray]
 

@@ -150,8 +150,6 @@ class PostgresQueryEngine[M[_]: Monad](
                 op.innerReadOps
               ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
             }
-            case domain.Update => ???
-            case UpdateMany    => ???
             case Delete => {
               val id = op.opArguments
                 .collectFirst {
@@ -167,7 +165,23 @@ class PostgresQueryEngine[M[_]: Monad](
                 .widen[JsValue]
                 .map(pair._1.getOrElse("data") -> _)
             }
-            case DeleteMany                => ???
+            case DeleteMany => {
+              val idsToDelete = op.opArguments.collectFirst {
+                case arg if arg.name == "items" => sangriaToJson(arg.value)
+              }
+              idsToDelete match {
+                case Some(JsArray(ids)) =>
+                  deleteManyRecords(op.targetModel, ids, op.innerReadOps)
+                    .widen[JsValue]
+                    .map(pair._1.getOrElse("data") -> _)
+                case _ =>
+                  throw InternalException(
+                    "DELETE_MANY operation must have an `items` list argument"
+                  )
+              }
+            }
+            case domain.Update             => ???
+            case UpdateMany                => ???
             case RemoveFrom(listField)     => ???
             case RemoveManyFrom(listField) => ???
             case Login                     => ???
@@ -284,9 +298,12 @@ class PostgresQueryEngine[M[_]: Monad](
 
   override def deleteManyRecords(
       model: PModel,
-      filter: Either[QueryFilter, Vector[Either[String, Long]]],
+      primaryKeyValues: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsArray] = ???
+  ): Query[JsArray] =
+    primaryKeyValues
+      .traverse(deleteOneRecord(model, _, innerReadOps))
+      .map(JsArray(_))
 
   override def deleteOneRecord(
       model: PModel,

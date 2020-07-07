@@ -75,7 +75,7 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
 
   def deleteManyRecords(
       model: PModel,
-      filter: Either[QueryFilter, Vector[Either[String, Long]]],
+      primaryKeyValues: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
   ): JsArray = ???
 
