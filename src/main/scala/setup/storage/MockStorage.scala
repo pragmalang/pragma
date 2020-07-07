@@ -11,7 +11,6 @@ import concurrent.ExecutionContext.Implicits.global
 import domain.{PModel, PShapeField}
 import running.pipeline.InnerOperation
 import scala.util.Try
-import doobie.util.Put
 
 object MockMigrationEngine extends MigrationEngine[MockStorage.type, Future] {
   def migrate(
@@ -80,10 +79,11 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
       innerReadOps: Vector[InnerOperation]
   ): JsArray = ???
 
-  def deleteOneRecord[ID: Put](
+  def deleteOneRecord(
       model: PModel,
-      primaryKeyValue: ID,
-      innerReadOps: Vector[InnerOperation]
+      primaryKeyValue: JsValue,
+      innerReadOps: Vector[InnerOperation],
+      cascade: Boolean
   ): JsObject = ???
 
   def pushManyTo(

@@ -21,9 +21,7 @@ class PostgresQueryEngine[M[_]: Monad](
 
   override type Query[A] = PostgresQueryEngine.Query[A]
 
-  override def run(
-      operations: Map[Option[String], Vector[Operation]]
-  ): M[JsObject] = {
+  override def run(operations: Operations.OperationsMap): M[JsObject] = {
     val results = operations.toVector
       .flatMap { pair =>
         pair._2.map { op =>
@@ -152,9 +150,23 @@ class PostgresQueryEngine[M[_]: Monad](
                 op.innerReadOps
               ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
             }
-            case domain.Update             => ???
-            case UpdateMany                => ???
-            case Delete                    => ???
+            case domain.Update => ???
+            case UpdateMany    => ???
+            case Delete => {
+              val id = op.opArguments
+                .collectFirst {
+                  case arg if arg.name == op.targetModel.primaryField.id =>
+                    sangriaToJson(arg.value)
+                }
+                .getOrElse {
+                  throw new InternalException(
+                    "DELETE operation arguments must contain the ID of the record to be deleted"
+                  )
+                }
+              deleteOneRecord(op.targetModel, id, op.innerReadOps)
+                .widen[JsValue]
+                .map(pair._1.getOrElse("data") -> _)
+            }
             case DeleteMany                => ???
             case RemoveFrom(listField)     => ???
             case RemoveManyFrom(listField) => ???
@@ -175,37 +187,14 @@ class PostgresQueryEngine[M[_]: Monad](
   ): ConnectionIO[Vector[JsObject]] =
     records.traverse(createOneRecord(model, _, innerReadOps))
 
-  // To be used in `INSERT` statement classification
-  private val ref = "ref"
-  private val prim = "prim"
-  private val refArray = "refArray"
-  private val primArray = "primArray"
-
   override def createOneRecord(
       model: PModel,
       record: JsObject,
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsObject] = {
-    val parallelFields = model.fields.map { mfield =>
-      mfield -> record.fields.get(mfield.id).getOrElse(JsNull)
-    }.toVector
-    val fieldTypeMap = parallelFields
-      .groupBy {
-        case (PModelField(_, PReference(refId), _, _, _, _), _) =>
-          if (st.modelsById.contains(refId)) ref
-          else prim
-        case (PModelField(_, PArray(PReference(refId)), _, _, _, _), _) =>
-          if (st.modelsById.contains(refId)) refArray
-          else primArray
-        case (PModelField(_, POption(PReference(refId)), _, _, _, _), _) =>
-          if (st.modelsById.contains(refId)) ref
-          else prim
-        case (PModelField(_, PArray(_), _, _, _, _), _) => primArray
-        case _                                          => prim
-      }
-      .withDefaultValue(Vector.empty)
+    val fieldTypeMap = fieldTypeMapFrom(record, model)
 
-    val refArrayInserts = fieldTypeMap(refArray)
+    val refArrayInserts = fieldTypeMap(RefArray)
       .traverse {
         case (
             field @ PModelField(_, PArray(PReference(refId)), _, _, _, _),
@@ -224,7 +213,7 @@ class PostgresQueryEngine[M[_]: Monad](
         case _ => throw InternalException("Invalid reference array insert")
       }
 
-    val refInserts = fieldTypeMap(ref)
+    val refInserts = fieldTypeMap(Ref)
       .traverse {
         case (field, refRecord: JsObject) => {
           val modelRef = field.ptype match {
@@ -246,7 +235,7 @@ class PostgresQueryEngine[M[_]: Monad](
           )
       }
 
-    val primFields = refInserts.map(fieldTypeMap(prim) ++ _)
+    val primFields = refInserts.map(fieldTypeMap(Prim) ++ _)
 
     val insertedRecordId = for {
       columns <- primFields
@@ -273,7 +262,7 @@ class PostgresQueryEngine[M[_]: Monad](
         case (field, values, primaryKey) =>
           values.traverse(joinInsert(model, field, id, _))
       }
-      _ <- fieldTypeMap(primArray).traverse {
+      _ <- fieldTypeMap(PrimArray).traverse {
         case (field, value) => joinInsert(model, field, id, value)
       }
       created <- readOneRecord(model, id, innerReadOps)
@@ -284,7 +273,7 @@ class PostgresQueryEngine[M[_]: Monad](
       model: PModel,
       recordsWithIds: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[JsArray] = ???
+  ): Query[JsArray] = ???
 
   override def updateOneRecord(
       model: PModel,
@@ -297,13 +286,53 @@ class PostgresQueryEngine[M[_]: Monad](
       model: PModel,
       filter: Either[QueryFilter, Vector[Either[String, Long]]],
       innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[JsArray] = ???
+  ): Query[JsArray] = ???
 
-  override def deleteOneRecord[ID: Put](
+  override def deleteOneRecord(
       model: PModel,
-      primaryKeyValue: ID,
-      innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[JsObject] = ???
+      primaryKeyValue: JsValue,
+      innerReadOps: Vector[InnerOperation],
+      cascade: Boolean = false
+  ): Query[JsObject] =
+    if (cascade) cascadeDelete(model, primaryKeyValue, innerReadOps)
+    else strictDelete(model, primaryKeyValue, innerReadOps)
+
+  private def strictDelete(
+      model: PModel,
+      id: JsValue,
+      innerOps: Vector[InnerOperation]
+  ): Query[JsObject] = {
+    val toDelete = readOneRecord(model, id, innerOps)
+    val sql =
+      s"DELETE FROM ${model.id.withQuotes} WHERE ${model.primaryField.id.withQuotes} = ?;"
+    HC.updateWithGeneratedKeys(Nil)(sql, setJsValue(id), 0)
+      .compile
+      .drain *> toDelete
+  }
+
+  private def cascadeDelete(
+      model: PModel,
+      id: JsValue,
+      innerOps: Vector[InnerOperation]
+  ): Query[JsObject] = {
+    val fieldKindMap = modelFieldKindMap(model.id)
+    for {
+      record <- selectAllById(model, id)
+      _ <- fieldKindMap(Ref).toList.traverse { field =>
+        val refModel = field.ptype match {
+          case PReference(id)          => st.modelsById(id)
+          case POption(PReference(id)) => st.modelsById(id)
+          case _                       => ???
+        }
+        deleteOneRecord(
+          refModel,
+          record.fields.get(field.id).getOrElse(JsNull),
+          Vector.empty
+        )
+      }
+      toDelete <- strictDelete(model, id, innerOps)
+    } yield toDelete
+  }
 
   override def pushManyTo(
       model: PModel,
@@ -354,14 +383,15 @@ class PostgresQueryEngine[M[_]: Monad](
       item: JsValue,
       primaryKeyValue: Either[Long, String],
       innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[JsValue] = ???
+  ): Query[JsValue] = ???
 
   override def readManyRecords(
       model: PModel,
       where: QueryWhere,
       innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[JsArray] = {
-    val aliasedColumns = selectColumnsSql(idInnerOp(model) +: innerReadOps)
+  ): Query[JsArray] = {
+    val aliasedColumns =
+      selectColumnsSql(Operations.primaryFieldInnerOp(model) +: innerReadOps)
 
     Fragment(s"SELECT $aliasedColumns FROM ${model.id.withQuotes};", Nil, None)
       .query[JsObject]
@@ -483,12 +513,63 @@ class PostgresQueryEngine[M[_]: Monad](
     if (value.fields.size == 1 && value.fields.head._1 == refModel.primaryField.id)
       value.fields(refModel.primaryField.id).pure[Query]
     else
-      createOneRecord(refModel, value, Vector(idInnerOp(refModel)))
-        .map(_.fields(refModel.primaryField.id))
+      createOneRecord(
+        refModel,
+        value,
+        Vector(Operations.primaryFieldInnerOp(refModel))
+      ).map(_.fields(refModel.primaryField.id))
+
+  /** Use to get the kind of a field, paired to the field and its value in the record */
+  private def fieldTypeMapFrom(
+      record: JsObject,
+      recordModel: PModel
+  ): FieldKindValueMap = {
+    val fieldKindMap = modelFieldKindMap(recordModel.id)
+    fieldKindMap
+      .map {
+        case (kind, fields) =>
+          kind -> fields
+            .map(f => (f, record.fields.get(f.id).getOrElse(JsNull)))
+            .toVector
+      }
+      .withDefaultValue(Vector.empty)
+  }
+
+  /** Use to get a model's fields by their `FieldKind` */
+  private val modelFieldKindMap: FieldKindMap =
+    st.models.map { model =>
+      model.id -> model.fields
+        .groupBy {
+          case PModelField(_, PReference(refId), _, _, _, _) =>
+            if (st.modelsById.contains(refId)) Ref
+            else Prim
+          case PModelField(_, PArray(PReference(refId)), _, _, _, _) =>
+            if (st.modelsById.contains(refId)) RefArray
+            else PrimArray
+          case PModelField(_, POption(PReference(refId)), _, _, _, _) =>
+            if (st.modelsById.contains(refId)) Ref
+            else Prim
+          case PModelField(_, PArray(_), _, _, _, _) => PrimArray
+          case _                                     => Prim
+        }
+        .withDefaultValue(Vector.empty)
+    }.toMap
 
 }
 object PostgresQueryEngine {
   type Query[A] = ConnectionIO[A]
+
+  /** To be used in `INSERT` statement classification */
+  private trait FieldKind
+  private object Ref extends FieldKind
+  private object Prim extends FieldKind
+  private object RefArray extends FieldKind
+  private object PrimArray extends FieldKind
+
+  private type FieldKindMap = Map[ModelId, Map[FieldKind, Seq[PModelField]]]
+
+  private type FieldKindValueMap =
+    Map[FieldKind, Vector[(PModelField, JsValue)]]
 
   implicit val jsObjectRead: doobie.Read[JsObject] =
     new doobie.Read[JsObject](Nil, (resultSet, _) => {
@@ -545,28 +626,10 @@ object PostgresQueryEngine {
       }
       .mkString(", ")
 
-  def idInnerOp(model: PModel): InnerOperation = {
-    val op = Operation(
-      opKind = Operations.ReadOperation,
-      gqlOpKind = sangria.ast.OperationType.Query,
-      opArguments = Vector.empty,
-      directives = Vector.empty,
-      event = domain.Read,
-      targetModel = model,
-      role = None,
-      user = None,
-      crudHooks = Vector.empty,
-      alias = None,
-      innerReadOps = Vector.empty
-    )
-    InnerOperation(
-      Operations.AliasedField(
-        model.primaryField,
-        None,
-        Vector.empty
-      ),
-      op
-    )
+  def selectAllById(model: PModel, id: JsValue): Query[JsObject] = {
+    val sql =
+      s"SELECT * FROM ${model.id.withQuotes} WHERE ${model.primaryField.id} = ?;"
+    HC.stream(sql, setJsValue(id), 1).head.compile.toList.map(_.head)
   }
 
   def joinInsert(

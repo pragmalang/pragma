@@ -126,11 +126,17 @@ class PostgresQueryEngineSpec extends FlatSpec {
     )
 
   /** Helper to run GQL queryies agains the `queryEngine` */
-  def runGql(gqlQuery: sangria.ast.Document) = {
-    val req = bareReqFrom(gqlQuery)
-    val reqOps = Operations.from(req)
-    queryEngine.run(reqOps).unsafeRunSync
-  }
+  def runGql(gqlQuery: sangria.ast.Document) =
+    try {
+      val req = bareReqFrom(gqlQuery)
+      val reqOps = Operations.from(req)
+      queryEngine.run(reqOps).unsafeRunSync
+    } catch {
+      case e: Exception => {
+        e.printStackTrace()
+        throw e
+      }
+    }
 
   "Array-field population" should "read array fields from join tables" taggedAs (dkr) in {
     val gqlQuery = gql"""
@@ -456,6 +462,41 @@ class PostgresQueryEngineSpec extends FlatSpec {
     )
 
     assert(result == expected)
+  }
+
+  "PostgresQueryEngine#deleteOneRecord" should "delete records successfully" taggedAs (dkr) in {
+    val gqlQuery = gql"""
+    mutation {
+      Citizen {
+        delete(name: "Jackson") {
+          name
+          home {
+            code
+          }
+        }
+      }
+    }
+    """
+    val deleteResult = runGql(gqlQuery)
+    pprint.pprintln(deleteResult)
+    try {
+      val readDeleted = gql"""
+      query {
+        Citizen {
+          read(name: "Jackson") {
+            name
+          }
+        }
+      }
+      """
+      println("Read of deleted record:")
+      pprint.pprintln(runGql(readDeleted))
+    } catch {
+      case e: Exception => {
+        e.printStackTrace()
+        println("Failed to read deleted record:")
+      }
+    }
   }
 
 }
