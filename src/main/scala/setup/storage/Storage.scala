@@ -93,19 +93,19 @@ trait QueryEngine[S, M[_]] {
 
   def removeManyFrom(
       model: PModel,
-      field: PShapeField,
-      filter: QueryFilter,
-      primaryKeyValue: Either[Long, String],
+      arrayField: PShapeField,
+      sourcePkValue: JsValue,
+      targetPkValues: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
   ): Query[JsArray]
 
   def removeOneFrom(
       model: PModel,
-      field: PShapeField,
-      item: JsValue,
-      primaryKeyValue: Either[Long, String],
+      arrayField: PShapeField,
+      sourcePkValue: JsValue,
+      targetPkValue: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsValue]
+  ): Query[JsObject]
 
   def readManyRecords(
       model: PModel,

@@ -104,9 +104,9 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
 
   def removeManyFrom(
       model: PModel,
-      field: PShapeField,
-      filter: QueryFilter,
-      primaryKeyValue: Either[Long, String],
+      arrayField: PShapeField,
+      sourcePkValue: JsValue,
+      targetPkValues: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
   ): JsArray = ???
 
@@ -114,9 +114,9 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
       model: PModel,
       field: PShapeField,
       item: JsValue,
-      primaryKeyValue: Either[Long, String],
+      primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): JsValue = ???
+  ): JsObject = ???
 
   def readManyRecords(
       model: PModel,

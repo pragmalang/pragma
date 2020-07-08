@@ -180,10 +180,10 @@ class PostgresQueryEngine[M[_]: Monad](
                   )
               }
             }
-            case domain.Update             => ???
-            case UpdateMany                => ???
             case RemoveFrom(listField)     => ???
             case RemoveManyFrom(listField) => ???
+            case domain.Update             => ???
+            case UpdateMany                => ???
             case Login                     => ???
           }
         }
@@ -388,19 +388,36 @@ class PostgresQueryEngine[M[_]: Monad](
 
   override def removeManyFrom(
       model: PModel,
-      field: PShapeField,
-      filter: QueryFilter,
-      primaryKeyValue: Either[Long, String],
+      arrayField: PShapeField,
+      sourcePkValue: JsValue,
+      targetPkValues: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[JsArray] = ???
+  ): Query[JsArray] =
+    targetPkValues
+      .traverse { targetPk =>
+        removeOneFrom(model, arrayField, sourcePkValue, targetPk, innerReadOps)
+      }
+      .map(JsArray(_))
 
   override def removeOneFrom(
       model: PModel,
-      field: PShapeField,
-      item: JsValue,
-      primaryKeyValue: Either[Long, String],
+      arrayField: PShapeField,
+      sourcePkValue: JsValue,
+      tergetPkValue: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsValue] = ???
+  ): Query[JsObject] = {
+    val refModel = arrayField.ptype match {
+      case PArray(PReference(modelId)) => st.modelsById(modelId)
+      case _                           => ???
+    }
+    val sql =
+      s"DELETE FROM ${model.id.concat("-" + arrayField.id).withQuotes} WHERE ${"source_"
+        .concat(model.id)
+        .withQuotes} = ? AND ${"target_".concat(refModel.id).withQuotes} = ?;"
+    val prep = setJsValue(sourcePkValue, 1) *> setJsValue(tergetPkValue, 2)
+    HC.updateWithGeneratedKeys(Nil)(sql, prep, 0).compile.drain *>
+      readOneRecord(model, sourcePkValue, innerReadOps)
+  }
 
   override def readManyRecords(
       model: PModel,
