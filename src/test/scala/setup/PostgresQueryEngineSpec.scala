@@ -14,6 +14,9 @@ import running.pipeline._
 import setup.storage.QueryWhere
 import scala.util._
 
+/** NOTE: These tests may fail if executed out of oder
+  * They also require a running Postgress instance
+  */
 class PostgresQueryEngineSpec extends FlatSpec {
   val dkr = Tag("Docker")
 
@@ -497,6 +500,35 @@ class PostgresQueryEngineSpec extends FlatSpec {
         println("Failed to read deleted record:")
       }
     }
+  }
+
+  "PostgresQueryEngine#deleteOneFrom" should "successfully remove a single element from an array field" taggedAs (dkr) in {
+    val gqlQuery = gql"""
+    mutation {
+      Country {
+        removeFromCitizens(code: "US", item: "John") {
+          citizens {
+            name
+          }
+        }
+      }
+    }
+    """
+    val resultAfterDelete = runGql(gqlQuery)
+    val expected = JsObject(
+      Map(
+        "data" -> JsObject(
+          Map(
+            "code" -> JsString("US"),
+            "citizens" -> JsArray(
+              Vector(JsObject(Map("name" -> JsString("Jackson"))))
+            )
+          )
+        )
+      )
+    )
+
+    assert(resultAfterDelete == expected)
   }
 
 }

@@ -124,20 +124,14 @@ object Operations {
       case "delete"     => Delete
       case "deleteMany" => DeleteMany
       case "login"      => Login
-      case _ if opSelection startsWith "pushTo" =>
-        PushTo(captureListField(model, opSelection.replace("pushTo", "")))
-      case _ if opSelection startsWith "pushManyTo" =>
-        PushManyTo(
-          captureListField(model, opSelection.replace("pushManyTo", ""))
-        )
-      case _ if opSelection startsWith "removeFrom" =>
-        RemoveFrom(
-          captureListField(model, opSelection.replace("removeFrom", ""))
-        )
-      case _ if opSelection startsWith "removeManyFrom" =>
-        RemoveManyFrom(
-          captureListField(model, opSelection.replace("removeManyFrom", ""))
-        )
+      case s if s startsWith "pushTo" =>
+        PushTo(captureListField(model, s.replace("pushTo", "")))
+      case s if s startsWith "pushManyTo" =>
+        PushManyTo(captureListField(model, s.replace("pushManyTo", "")))
+      case s if s startsWith "removeFrom" =>
+        RemoveFrom(captureListField(model, s.replace("removeFrom", "")))
+      case s if s startsWith "removeManyFrom" =>
+        RemoveManyFrom(captureListField(model, s.replace("removeManyFrom", "")))
     }
 
   def opKindFromEvent(event: PEvent): Operations.OperationKind = event match {

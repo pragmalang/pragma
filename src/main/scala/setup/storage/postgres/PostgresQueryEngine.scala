@@ -180,7 +180,35 @@ class PostgresQueryEngine[M[_]: Monad](
                   )
               }
             }
-            case RemoveFrom(listField)     => ???
+            case RemoveFrom(listField) => {
+              val sourceId = op.opArguments
+                .collectFirst {
+                  case arg if arg.name == op.targetModel.primaryField.id =>
+                    sangriaToJson(arg.value)
+                }
+                .getOrElse {
+                  throw InternalException(
+                    "REMOVE_FROM operation arguments must contain the ID of the parent object"
+                  )
+                }
+              val targetId = op.opArguments
+                .collectFirst {
+                  case arg if arg.name == "item" =>
+                    sangriaToJson(arg.value)
+                }
+                .getOrElse {
+                  throw InternalException(
+                    "REMOVE_FROM operation arguments must contain the ID of the child object to remove"
+                  )
+                }
+              removeOneFrom(
+                op.targetModel,
+                listField,
+                sourceId,
+                targetId,
+                op.innerReadOps
+              ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
+            }
             case RemoveManyFrom(listField) => ???
             case domain.Update             => ???
             case UpdateMany                => ???
@@ -411,7 +439,7 @@ class PostgresQueryEngine[M[_]: Monad](
       case _                           => ???
     }
     val sql =
-      s"DELETE FROM ${model.id.concat("-" + arrayField.id).withQuotes} WHERE ${"source_"
+      s"DELETE FROM ${model.id.concat("_" + arrayField.id).withQuotes} WHERE ${"source_"
         .concat(model.id)
         .withQuotes} = ? AND ${"target_".concat(refModel.id).withQuotes} = ?;"
     val prep = setJsValue(sourcePkValue, 1) *> setJsValue(tergetPkValue, 2)
