@@ -350,9 +350,10 @@ class PostgresQueryEngine[M[_]: Monad](
     val toDelete = readOneRecord(model, id, innerOps)
     val sql =
       s"DELETE FROM ${model.id.withQuotes} WHERE ${model.primaryField.id.withQuotes} = ?;"
-    HC.updateWithGeneratedKeys(Nil)(sql, setJsValue(id), 0)
+    toDelete <* HC
+      .updateWithGeneratedKeys(Nil)(sql, setJsValue(id), 0)
       .compile
-      .drain *> toDelete
+      .drain
   }
 
   private def cascadeDelete(

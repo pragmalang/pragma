@@ -129,17 +129,11 @@ class PostgresQueryEngineSpec extends FlatSpec {
     )
 
   /** Helper to run GQL queryies agains the `queryEngine` */
-  def runGql(gqlQuery: sangria.ast.Document) =
-    try {
-      val req = bareReqFrom(gqlQuery)
-      val reqOps = Operations.from(req)
-      queryEngine.run(reqOps).unsafeRunSync
-    } catch {
-      case e: Exception => {
-        e.printStackTrace()
-        throw e
-      }
-    }
+  def runGql(gqlQuery: sangria.ast.Document) = {
+    val req = bareReqFrom(gqlQuery)
+    val reqOps = Operations.from(req)
+    queryEngine.run(reqOps).unsafeRunSync
+  }
 
   "Array-field population" should "read array fields from join tables" taggedAs (dkr) in {
     val gqlQuery = gql"""
@@ -481,7 +475,19 @@ class PostgresQueryEngineSpec extends FlatSpec {
     }
     """
     val deleteResult = runGql(gqlQuery)
-    pprint.pprintln(deleteResult)
+    val expectedDeleteResult = JsObject(
+      Map(
+        "data" -> JsObject(
+          Map(
+            "name" -> JsString("Jackson"),
+            "home" -> JsObject(Map("code" -> JsString("US")))
+          )
+        )
+      )
+    )
+
+    assert(deleteResult == expectedDeleteResult)
+
     try {
       val readDeleted = gql"""
       query {
@@ -492,13 +498,10 @@ class PostgresQueryEngineSpec extends FlatSpec {
         }
       }
       """
-      println("Read of deleted record:")
-      pprint.pprintln(runGql(readDeleted))
+      runGql(readDeleted)
+      fail("Should not have been able to read the deleted record")
     } catch {
-      case e: Exception => {
-        e.printStackTrace()
-        println("Failed to read deleted record:")
-      }
+      case e: Exception => ()
     }
   }
 
@@ -520,9 +523,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
         "data" -> JsObject(
           Map(
             "code" -> JsString("US"),
-            "citizens" -> JsArray(
-              Vector(JsObject(Map("name" -> JsString("Jackson"))))
-            )
+            "citizens" -> JsArray()
           )
         )
       )
