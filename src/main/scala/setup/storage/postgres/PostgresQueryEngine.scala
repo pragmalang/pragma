@@ -180,7 +180,7 @@ class PostgresQueryEngine[M[_]: Monad](
                   )
               }
             }
-            case RemoveFrom(listField) => {
+            case RemoveFrom(arrayField) => {
               val sourceId = op.opArguments
                 .collectFirst {
                   case arg if arg.name == op.targetModel.primaryField.id =>
@@ -203,16 +203,16 @@ class PostgresQueryEngine[M[_]: Monad](
                 }
               removeOneFrom(
                 op.targetModel,
-                listField,
+                arrayField,
                 sourceId,
                 targetId,
                 op.innerReadOps
               ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
             }
-            case RemoveManyFrom(listField) => ???
-            case domain.Update             => ???
-            case UpdateMany                => ???
-            case Login                     => ???
+            case RemoveManyFrom(arrayField) => ???
+            case domain.Update              => ???
+            case UpdateMany                 => ???
+            case Login                      => ???
           }
         }
       }
@@ -226,7 +226,7 @@ class PostgresQueryEngine[M[_]: Monad](
       model: PModel,
       records: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[Vector[JsObject]] =
+  ): Query[Vector[JsObject]] =
     records.traverse(createOneRecord(model, _, innerReadOps))
 
   override def createOneRecord(
@@ -399,7 +399,7 @@ class PostgresQueryEngine[M[_]: Monad](
       item: JsValue,
       sourceId: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[JsObject] = {
+  ): Query[JsObject] = {
     val insert = (field.ptype, item) match {
       case (PArray(PReference(id)), obj: JsObject) =>
         refInsertReturningId(st.modelsById(id), obj).flatMap { id =>
