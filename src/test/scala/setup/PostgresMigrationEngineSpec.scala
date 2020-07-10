@@ -6,6 +6,7 @@ import org.scalatest._
 import setup.storage.postgres.SQLMigrationStep._
 import domain.SyntaxTree
 import setup.storage.postgres.AlterTableAction._
+import setup.storage.postgres.OnDeleteAction.Cascade
 
 class PostgresMigrationEngineSpec extends FunSuite {
   val code = """
@@ -153,7 +154,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
               false,
               false,
               false,
-              Some(ForeignKey("User", "username", true))
+              Some(ForeignKey("User", "username", Cascade))
             ),
             ColumnDefinition(
               "target_Todo",
@@ -163,7 +164,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
               false,
               false,
               false,
-              Some(ForeignKey("Todo", "title", true))
+              Some(ForeignKey("Todo", "title", Cascade))
             )
           )
         )

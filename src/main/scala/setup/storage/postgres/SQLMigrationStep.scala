@@ -3,6 +3,7 @@ package setup.storage.postgres
 import SQLMigrationStep._
 import setup.storage.postgres.AlterTableAction._
 import domain.Implicits._
+import setup.storage.postgres.OnDeleteAction._
 
 sealed trait SQLMigrationStep {
   def renderSQL: String = this match {
@@ -78,8 +79,12 @@ case class ColumnDefinition(
     val autoIncrement = ""
     val fk = foreignKey match {
       case Some(fk) => {
-        val onDeleteCascade =
-          if (fk.onDeleteCascade) "ON DELETE CASCADE" else ""
+        val onDeleteCascade = fk.onDelete match {
+          case Cascade  => "ON DELETE CASCADE"
+          case SetNull  => "ON DELETE RESTRICT"
+          case Restrict => "ON DELETE SET NULL"
+          case Default  => ""
+        }
         s" REFERENCES ${fk.otherTableName.withQuotes}(${fk.otherColumnName.withQuotes}) ${onDeleteCascade}"
       }
       case None => ""
@@ -92,8 +97,16 @@ case class ColumnDefinition(
 case class ForeignKey(
     otherTableName: String,
     otherColumnName: String,
-    onDeleteCascade: Boolean = false
+    onDelete: OnDeleteAction = OnDeleteAction.Restrict
 )
+
+sealed trait OnDeleteAction
+object OnDeleteAction {
+  case object Default extends OnDeleteAction
+  case object Cascade extends OnDeleteAction
+  case object SetNull extends OnDeleteAction
+  case object Restrict extends OnDeleteAction
+}
 
 sealed trait PostgresType {
   import PostgresType._

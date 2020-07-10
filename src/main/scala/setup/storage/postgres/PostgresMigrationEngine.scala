@@ -13,6 +13,7 @@ import setup.storage.postgres.SQLMigrationStep._
 
 import domain._
 import domain.utils.UserError
+import setup.storage.postgres.OnDeleteAction.Cascade
 
 class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     extends MigrationEngine[Postgres[M], M] {
@@ -247,7 +248,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                 ForeignKey(
                   model.id,
                   model.primaryField.id,
-                  onDeleteCascade = true
+                  onDelete = Cascade
                 )
               )
             )
@@ -273,7 +274,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                     ForeignKey(
                       otherModel.id,
                       otherModel.primaryField.id,
-                      onDeleteCascade = true
+                      onDelete = Cascade
                     )
                   )
                 )
