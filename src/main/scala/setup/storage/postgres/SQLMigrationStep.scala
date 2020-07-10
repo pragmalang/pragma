@@ -77,8 +77,11 @@ case class ColumnDefinition(
     val primaryKey = if (isPrimaryKey) " PRIMARY KEY" else ""
     val autoIncrement = ""
     val fk = foreignKey match {
-      case Some(fk) =>
-        s" REFERENCES ${fk.otherTableName.withQuotes}(${fk.otherColumnName.withQuotes})"
+      case Some(fk) => {
+        val onDeleteCascade =
+          if (fk.onDeleteCascade) "ON DELETE CASCADE" else ""
+        s" REFERENCES ${fk.otherTableName.withQuotes}(${fk.otherColumnName.withQuotes}) ${onDeleteCascade}"
+      }
       case None => ""
     }
 
@@ -88,20 +91,21 @@ case class ColumnDefinition(
 
 case class ForeignKey(
     otherTableName: String,
-    otherColumnName: String
+    otherColumnName: String,
+    onDeleteCascade: Boolean = false
 )
 
 sealed trait PostgresType {
   import PostgresType._
   def name: String = this match {
-    case ANY => "ANY"
-    case UUID => "UUID"
+    case ANY     => "ANY"
+    case UUID    => "UUID"
     case SERIAL8 => "SERIAL8"
-    case TEXT => "TEXT"
-    case INT8 => "INT8"
-    case FLOAT8 => "FLOAT8"
-    case BOOL => "BOOL"
-    case DATE => "DATE"
+    case TEXT    => "TEXT"
+    case INT8    => "INT8"
+    case FLOAT8  => "FLOAT8"
+    case BOOL    => "BOOL"
+    case DATE    => "DATE"
   }
 }
 object PostgresType {
