@@ -6,6 +6,7 @@ import org.scalatest._
 import setup.storage.postgres.SQLMigrationStep._
 import domain.SyntaxTree
 import setup.storage.postgres.AlterTableAction._
+import setup.storage.postgres.OnDeleteAction.Cascade
 
 class PostgresMigrationEngineSpec extends FunSuite {
   val code = """
@@ -24,7 +25,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
     """
   val syntaxTree = SyntaxTree.from(code).get
 
-  test("`Iterable[SQLMigrationStep]#renderSQL` works") {
+  test("`PostgresMigration#renderSQL` works") {
 
     val migrationEngine = new PostgresMigrationEngine(syntaxTree)
 
@@ -50,8 +51,8 @@ class PostgresMigrationEngineSpec extends FunSuite {
        |ALTER TABLE "User" ADD COLUMN "isVerified" BOOL NOT NULL;
        |
        |CREATE TABLE IF NOT EXISTS "User_todos"(
-       |"source_User" TEXT NOT NULL REFERENCES "User"("username"),
-       |"target_Todo" TEXT NOT NULL REFERENCES "Todo"("title"));
+       |"source_User" TEXT NOT NULL REFERENCES "User"("username") ON DELETE CASCADE,
+       |"target_Todo" TEXT NOT NULL REFERENCES "Todo"("title") ON DELETE CASCADE);
        |""".stripMargin
 
     assert(expected == migrationEngine.initialMigration.renderSQL(syntaxTree))
@@ -153,7 +154,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
               false,
               false,
               false,
-              Some(ForeignKey("User", "username"))
+              Some(ForeignKey("User", "username", Cascade))
             ),
             ColumnDefinition(
               "target_Todo",
@@ -163,7 +164,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
               false,
               false,
               false,
-              Some(ForeignKey("Todo", "title"))
+              Some(ForeignKey("Todo", "title", Cascade))
             )
           )
         )

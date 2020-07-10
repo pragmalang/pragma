@@ -13,6 +13,7 @@ import setup.storage.postgres.SQLMigrationStep._
 
 import domain._
 import domain.utils.UserError
+import setup.storage.postgres.OnDeleteAction.Cascade
 
 class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     extends MigrationEngine[Postgres[M], M] {
@@ -243,7 +244,13 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
               isPrimaryKey = false,
               isUUID = false,
               isUnique = false,
-              foreignKey = Some(ForeignKey(model.id, model.primaryField.id))
+              foreignKey = Some(
+                ForeignKey(
+                  model.id,
+                  model.primaryField.id,
+                  onDelete = Cascade
+                )
+              )
             )
 
             val valueOrReferenceColumn = innerModel match {
@@ -263,8 +270,13 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                   isPrimaryKey = false,
                   isUUID = false,
                   isUnique = false,
-                  foreignKey =
-                    Some(ForeignKey(otherModel.id, otherModel.primaryField.id))
+                  foreignKey = Some(
+                    ForeignKey(
+                      otherModel.id,
+                      otherModel.primaryField.id,
+                      onDelete = Cascade
+                    )
+                  )
                 )
               case None =>
                 ColumnDefinition(
@@ -320,8 +332,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                 isNotNull = !field.isOptional,
                 isUnique = field.isUnique,
                 isPrimaryKey = field.isPrimary,
-                isAutoIncrement =
-                  field.isAutoIncrement,
+                isAutoIncrement = field.isAutoIncrement,
                 isUUID = field.isUUID,
                 foreignKey = g match {
                   case Some(value) =>

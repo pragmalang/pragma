@@ -3,6 +3,7 @@ package setup.storage.postgres
 import SQLMigrationStep._
 import setup.storage.postgres.AlterTableAction._
 import domain.Implicits._
+import setup.storage.postgres.OnDeleteAction._
 
 sealed trait SQLMigrationStep {
   def renderSQL: String = this match {
@@ -77,8 +78,15 @@ case class ColumnDefinition(
     val primaryKey = if (isPrimaryKey) " PRIMARY KEY" else ""
     val autoIncrement = ""
     val fk = foreignKey match {
-      case Some(fk) =>
-        s" REFERENCES ${fk.otherTableName.withQuotes}(${fk.otherColumnName.withQuotes})"
+      case Some(fk) => {
+        val onDeleteCascade = fk.onDelete match {
+          case Cascade  => "ON DELETE CASCADE"
+          case SetNull  => "ON DELETE RESTRICT"
+          case Restrict => "ON DELETE SET NULL"
+          case Default  => ""
+        }
+        s" REFERENCES ${fk.otherTableName.withQuotes}(${fk.otherColumnName.withQuotes}) ${onDeleteCascade}"
+      }
       case None => ""
     }
 
@@ -88,20 +96,29 @@ case class ColumnDefinition(
 
 case class ForeignKey(
     otherTableName: String,
-    otherColumnName: String
+    otherColumnName: String,
+    onDelete: OnDeleteAction = OnDeleteAction.Restrict
 )
+
+sealed trait OnDeleteAction
+object OnDeleteAction {
+  case object Default extends OnDeleteAction
+  case object Cascade extends OnDeleteAction
+  case object SetNull extends OnDeleteAction
+  case object Restrict extends OnDeleteAction
+}
 
 sealed trait PostgresType {
   import PostgresType._
   def name: String = this match {
-    case ANY => "ANY"
-    case UUID => "UUID"
+    case ANY     => "ANY"
+    case UUID    => "UUID"
     case SERIAL8 => "SERIAL8"
-    case TEXT => "TEXT"
-    case INT8 => "INT8"
-    case FLOAT8 => "FLOAT8"
-    case BOOL => "BOOL"
-    case DATE => "DATE"
+    case TEXT    => "TEXT"
+    case INT8    => "INT8"
+    case FLOAT8  => "FLOAT8"
+    case BOOL    => "BOOL"
+    case DATE    => "DATE"
   }
 }
 object PostgresType {
