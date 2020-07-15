@@ -1,16 +1,14 @@
-package setup.storage.postgres
+package running.storage.postgres
 
 import domain._, domain.utils._
-import setup.storage._
-import running.pipeline._
+import running._, storage._
 import doobie._
 import doobie.implicits._
 import cats._
 import cats.implicits._
 import cats.effect._
 import spray.json._
-import domain.Implicits._
-import postgres.utils._
+import domain.DomainImplicits._
 
 class PostgresQueryEngine[M[_]: Monad](
     transactor: Transactor[M],
@@ -24,196 +22,82 @@ class PostgresQueryEngine[M[_]: Monad](
   override def run(operations: Operations.OperationsMap): M[JsObject] = {
     val results = operations.toVector
       .flatMap { pair =>
-        pair._2.map { op =>
-          op.event match {
-            case domain.Read => {
-              val id =
-                op.opArguments
-                  .find(_.name == op.targetModel.primaryField.id)
-                  .map(_.value)
-                  .getOrElse {
-                    throw InternalException(
-                      "Arguments of Read operation should contain the ID of the record to read"
-                    )
-                  }
-              val record = readOneRecord(
-                op.targetModel,
-                sangriaToJson(id),
-                op.innerReadOps
-              )
-              (pair._1.getOrElse("data") -> record.widen[JsValue]).sequence
-            }
-            case ReadMany => {
-              // TODO: Parse QueryWhere in Operations
-              val where = QueryWhere(None, None, None)
-              val records =
-                readManyRecords(op.targetModel, where, op.innerReadOps)
-              (pair._1.getOrElse("data") -> records.widen[JsValue]).sequence
-            }
-            case Create => {
-              val objToInsert =
-                objFieldsFrom(op.opArguments)
-                  .find(_._1 == op.targetModel.id.small)
-                  .map(_._2.asJsObject)
-                  .getOrElse(
-                    throw UserError(
-                      s"Create mutation takes a `${op.targetModel.id.small}` argument"
-                    )
-                  )
-              val result = createOneRecord(
-                op.targetModel,
-                objToInsert,
-                op.innerReadOps
-              )
-              (pair._1.getOrElse("data") -> result.widen[JsValue]).sequence
-            }
-            case CreateMany => {
-              val records =
-                objFieldsFrom(op.opArguments)
-                  .find(_._1 == "items")
-                  .map {
-                    case (_, arr: JsArray) =>
-                      arr.elements.map {
-                        case obj: JsObject => obj
-                        case nonObj =>
-                          throw InternalException(
-                            s"Trying to create a record with non-object value `$nonObj`"
-                          )
-                      }
-                    case _ =>
-                      throw InternalException("Value `items` must be an array")
-                  }
-                  .getOrElse(
-                    throw InternalException(
-                      "CREATE_MANY operation arguments must have an `items` field"
-                    )
-                  )
-              val created =
-                createManyRecords(op.targetModel, records, op.innerReadOps)
-                  .map(JsArray(_))
-              (pair._1.getOrElse("data") -> created.widen[JsValue]).sequence
-            }
-            case PushTo(listField) => {
-              val item = op.opArguments
-                .find(_.name == "item")
-                .map(arg => sangriaToJson(arg.value))
-                .getOrElse(
-                  throw InternalException {
-                    "Arguments of `PUSH_TO` operation must contain the item to be pushed"
-                  }
-                )
-              val sourceId = op.opArguments
-                .find(_.name == op.targetModel.primaryField.id)
-                .map(arg => sangriaToJson(arg.value))
-                .getOrElse(
-                  throw InternalException {
-                    "Arguments of `PUSH_TO` operation must contain the ID of the array field object"
-                  }
-                )
-              pushOneTo(
-                op.targetModel,
-                listField,
-                item,
-                sourceId,
-                op.innerReadOps
-              ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
-            }
-            case PushManyTo(listField) => {
-              val items = op.opArguments
-                .find(_.name == "items")
-                .map(_.value)
-                .map {
-                  case ls: sangria.ast.ListValue => ls.values.map(sangriaToJson)
-                  case _ =>
-                    throw InternalException(
-                      "`items` argument of `PUSH_MANY_TO` operation must be an array"
-                    )
-                }
-                .getOrElse(
-                  throw InternalException {
-                    "Arguments of `PUSH_MANY_TO` operation must contain the items to be pushed"
-                  }
-                )
-              val sourceId = op.opArguments
-                .find(_.name == op.targetModel.primaryField.id)
-                .map(arg => sangriaToJson(arg.value))
-                .getOrElse(
-                  throw InternalException {
-                    "Arguments of `PUSH_TO` operation must contain the ID of the array field object"
-                  }
-                )
-              pushManyTo(
-                op.targetModel,
-                listField,
-                items,
-                sourceId,
-                op.innerReadOps
-              ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
-            }
-            case Delete => {
-              val id = op.opArguments
-                .collectFirst {
-                  case arg if arg.name == op.targetModel.primaryField.id =>
-                    sangriaToJson(arg.value)
-                }
-                .getOrElse {
-                  throw new InternalException(
-                    "DELETE operation arguments must contain the ID of the record to be deleted"
-                  )
-                }
-              deleteOneRecord(op.targetModel, id, op.innerReadOps)
-                .widen[JsValue]
-                .map(pair._1.getOrElse("data") -> _)
-            }
-            case DeleteMany => {
-              val idsToDelete = op.opArguments.collectFirst {
-                case arg if arg.name == "items" => sangriaToJson(arg.value)
-              }
-              idsToDelete match {
-                case Some(JsArray(ids)) =>
-                  deleteManyRecords(op.targetModel, ids, op.innerReadOps)
-                    .widen[JsValue]
-                    .map(pair._1.getOrElse("data") -> _)
-                case _ =>
-                  throw InternalException(
-                    "DELETE_MANY operation must have an `items` list argument"
-                  )
-              }
-            }
-            case RemoveFrom(arrayField) => {
-              val sourceId = op.opArguments
-                .collectFirst {
-                  case arg if arg.name == op.targetModel.primaryField.id =>
-                    sangriaToJson(arg.value)
-                }
-                .getOrElse {
-                  throw InternalException(
-                    "REMOVE_FROM operation arguments must contain the ID of the parent object"
-                  )
-                }
-              val targetId = op.opArguments
-                .collectFirst {
-                  case arg if arg.name == "item" =>
-                    sangriaToJson(arg.value)
-                }
-                .getOrElse {
-                  throw InternalException(
-                    "REMOVE_FROM operation arguments must contain the ID of the child object to remove"
-                  )
-                }
-              removeOneFrom(
-                op.targetModel,
-                arrayField,
-                sourceId,
-                targetId,
-                op.innerReadOps
-              ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
-            }
-            case RemoveManyFrom(arrayField) => ???
-            case domain.Update              => ???
-            case UpdateMany                 => ???
-            case Login                      => ???
+        pair._2.map {
+          case op: ReadOperation => {
+            val record = readOneRecord(
+              op.targetModel,
+              op.opArguments.id,
+              op.innerReadOps
+            )
+            (pair._1.getOrElse("data") -> record.widen[JsValue]).sequence
           }
+          case op: ReadManyOperation => {
+            val where = QueryWhere(None, None, None)
+            val records =
+              readManyRecords(op.targetModel, where, op.innerReadOps)
+            (pair._1.getOrElse("data") -> records.widen[JsValue]).sequence
+          }
+          case op: CreateOperation => {
+            val result = createOneRecord(
+              op.targetModel,
+              op.opArguments.obj,
+              op.innerReadOps
+            )
+            (pair._1.getOrElse("data") -> result.widen[JsValue]).sequence
+          }
+          case op: CreateManyOperation => {
+            val created =
+              createManyRecords(
+                op.targetModel,
+                op.opArguments.items.toVector,
+                op.innerReadOps
+              ).map(JsArray(_))
+            (pair._1.getOrElse("data") -> created.widen[JsValue]).sequence
+          }
+          case op: PushToOperation =>
+            pushOneTo(
+              op.targetModel,
+              op.arrayField,
+              op.opArguments.item,
+              op.opArguments.id,
+              op.innerReadOps
+            ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
+          case op: PushManyToOperation =>
+            pushManyTo(
+              op.targetModel,
+              op.arrayField,
+              op.opArguments.items.toVector,
+              op.opArguments.id,
+              op.innerReadOps
+            ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
+
+          case op: DeleteOperation =>
+            deleteOneRecord(op.targetModel, op.opArguments.id, op.innerReadOps)
+              .widen[JsValue]
+              .map(pair._1.getOrElse("data") -> _)
+          case op: DeleteManyOperation =>
+            deleteManyRecords(
+              op.targetModel,
+              op.opArguments.ids.toVector,
+              op.innerReadOps
+            ).widen[JsValue]
+              .map(pair._1.getOrElse("data") -> _)
+          case op: RemoveFromOperation =>
+            removeOneFrom(
+              op.targetModel,
+              op.arrayField,
+              op.opArguments.id,
+              op.opArguments.item,
+              op.innerReadOps
+            ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
+          case op: RemoveManyFromOperation => ???
+          case op: UpdateOperation         => ???
+          case op: UpdateManyOperation     => ???
+          case op: LoginOperation          => ???
+          case otherOp =>
+            throw InternalException(
+              s"Unsupported operation of event ${otherOp.event}"
+            )
         }
       }
       .sequence
@@ -494,9 +378,9 @@ class PostgresQueryEngine[M[_]: Monad](
       .traverse {
         case (iop, PModelField(id, PReference(refId), _, _, _, _)) =>
           populateId(
-            iop.operation.targetModel,
+            iop.targetModel,
             unpopulated.fields(iop.nameOrAlias),
-            iop.operation.innerReadOps
+            iop.innerReadOps
           ).map(obj => iop.nameOrAlias -> obj)
         case (
             iop,
@@ -513,9 +397,9 @@ class PostgresQueryEngine[M[_]: Monad](
             PModelField(id, POption(PReference(refId)), _, _, _, _)
             ) =>
           populateId(
-            iop.operation.targetModel,
+            iop.targetModel,
             unpopulated.fields(iop.nameOrAlias),
-            iop.operation.innerReadOps
+            iop.innerReadOps
           ).map(obj => iop.nameOrAlias -> obj)
             .recover {
               case _ => iop.nameOrAlias -> JsNull
@@ -548,7 +432,7 @@ class PostgresQueryEngine[M[_]: Monad](
       arrayInnerOp: InnerOperation
   ): Query[Vector[JsValue]] = {
     val sql =
-      s"SELECT ${("target_" + arrayInnerOp.operation.targetModel.id).withQuotes} " +
+      s"SELECT ${("target_" + arrayInnerOp.targetModel.id).withQuotes} " +
         s"FROM ${baseModel.id.concat("_").concat(arrayInnerOp.targetField.field.id).withQuotes} " +
         s"WHERE ${("source_" + baseModel.id).withQuotes} = ?"
 
@@ -562,7 +446,7 @@ class PostgresQueryEngine[M[_]: Monad](
             populateId(
               st.modelsById(ref),
               obj.fields(obj.fields.head._1),
-              arrayInnerOp.operation.innerReadOps
+              arrayInnerOp.innerReadOps
             )
           }
           .compile

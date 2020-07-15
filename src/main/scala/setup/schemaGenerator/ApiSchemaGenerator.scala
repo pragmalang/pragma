@@ -1,6 +1,6 @@
 package setup.schemaGenerator
 
-import domain._, Implicits._
+import domain._, DomainImplicits._
 import sangria.ast._
 import sangria.ast.{Directive => GraphQlDirective}
 import sangria.macros._

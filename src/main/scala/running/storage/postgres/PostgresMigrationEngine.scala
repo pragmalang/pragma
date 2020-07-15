@@ -1,19 +1,17 @@
-package setup.storage.postgres
+package running.storage.postgres
 
-import setup.storage._
+import running.storage._
 import cats._
 import scala.util.Try
-import setup.MigrationStep
 import domain.SyntaxTree
-import setup._
 import postgres.utils._
 import domain.utils._
 
-import setup.storage.postgres.SQLMigrationStep._
+import SQLMigrationStep._
 
 import domain._
 import domain.utils.UserError
-import setup.storage.postgres.OnDeleteAction.Cascade
+import OnDeleteAction.Cascade
 
 class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     extends MigrationEngine[Postgres[M], M] {

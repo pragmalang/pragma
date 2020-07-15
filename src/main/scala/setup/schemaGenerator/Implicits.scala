@@ -4,7 +4,7 @@ import scala.language.implicitConversions
 import domain._
 import sangria.ast.NamedType
 
-package object Implicits {
+object SchemaGeneratorImplicits {
   implicit def fromGraphQLNamedTypeToPType(namedType: NamedType): PType =
     namedType.name match {
       case "String"  => PString

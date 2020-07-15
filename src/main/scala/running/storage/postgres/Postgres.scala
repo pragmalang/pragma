@@ -1,6 +1,6 @@
-package setup.storage.postgres
+package running.storage.postgres
 
-import setup._, storage._
+import running.storage._
 import domain.SyntaxTree
 import domain.PModel
 import domain.PModelField

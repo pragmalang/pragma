@@ -5,7 +5,7 @@ import spray.json.DefaultJsonProtocol._
 import org.graalvm.polyglot
 import scala.util.{Try, Success, Failure}
 
-package object Implicits {
+object DomainImplicits {
 
   import domain.utils.InternalException
 

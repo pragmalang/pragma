@@ -3,12 +3,11 @@ package running
 import domain._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
-import running.pipeline._
 import sangria.ast._
 import sangria.parser.QueryParser
 import domain.utils.InternalException
 
-package object Implicits {
+object RunningImplicits {
 
   implicit object PValueJsonWriter extends JsonWriter[PValue] {
     override def write(obj: PValue): JsValue = obj match {
@@ -74,14 +73,14 @@ package object Implicits {
     }
   }
 
-  implicit object JwtPaylodJsonFormater extends JsonFormat[JwtPaylod] {
-    def read(json: JsValue): JwtPaylod = JwtPaylod(
-      json.asJsObject.fields("userId").convertTo[String],
+  implicit object JwtPaylodJsonFormater extends JsonFormat[JwtPayload] {
+    def read(json: JsValue): JwtPayload = JwtPayload(
+      json.asJsObject.fields("userId"),
       json.asJsObject.fields("role").convertTo[String]
     )
 
-    def write(obj: JwtPaylod): JsValue =
-      JsObject("userId" -> JsString(obj.userId), "role" -> JsString(obj.role))
+    def write(obj: JwtPayload): JsValue =
+      JsObject("userId" -> obj.userId, "role" -> JsString(obj.role))
   }
 
   implicit object RequestJsonFormater extends JsonFormat[Request] {
@@ -102,7 +101,7 @@ package object Implicits {
       cookies = json.asJsObject.fields("cookies").convertTo[Map[String, String]],
       url = json.asJsObject.fields("url").convertTo[String],
       hostname = json.asJsObject.fields("hostname").convertTo[String],
-      user = json.asJsObject.fields("user").convertTo[Option[JwtPaylod]]
+      user = json.asJsObject.fields("user").convertTo[Option[JwtPayload]]
     )
     def write(obj: Request): JsValue = JsObject(
       "hookData" -> obj.hookData.toJson,

@@ -1,10 +1,11 @@
 package setup
+
 import sangria.parser.QueryParser
 import scala.language.implicitConversions
 import spray.json._
-import domain.Implicits._
+import domain.DomainImplicits._
 
-package object Implicits {
+object SetupImplicits {
   implicit def parseQuery(query: String) = QueryParser.parse(query)
 
   implicit class JsValueMethods(value: JsValue) {

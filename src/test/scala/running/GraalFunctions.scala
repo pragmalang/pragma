@@ -1,7 +1,7 @@
 package running
 
 import org.graalvm.polyglot._
-import domain.Implicits.GraalValueJsonFormater
+import domain.DomainImplicits.GraalValueJsonFormater
 import org.scalatest.FlatSpec
 import spray.json._
 import domain.SyntaxTree

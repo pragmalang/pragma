@@ -1,7 +1,7 @@
 package domain
 
 import domain.utils._
-import domain.Implicits._
+import domain.DomainImplicits._
 import scala.util.matching.Regex
 import java.io.File
 import scala.util._

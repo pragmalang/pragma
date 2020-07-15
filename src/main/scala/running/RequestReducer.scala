@@ -1,6 +1,5 @@
-package running.pipeline.functions
+package running
 
-import running.pipeline._
 import domain.SyntaxTree
 import sangria._, ast._
 import spray.json._

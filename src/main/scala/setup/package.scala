@@ -1,8 +1,7 @@
 package setup
 
-import storage.Storage, schemaGenerator.ApiSchemaGenerator
-import domain._
-import Implicits._
+import running.storage._, schemaGenerator.ApiSchemaGenerator
+import domain._, DomainImplicits._
 import setup.utils.DockerCompose
 import domain.utils.UserError
 import cats.Monad

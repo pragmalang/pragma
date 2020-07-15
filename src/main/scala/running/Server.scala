@@ -20,8 +20,8 @@ import domain._
 import domain.utils._
 import setup.schemaGenerator.ApiSchemaGenerator
 import org.http4s.util._
-import running.pipeline.RequestHandler
-import setup.storage.postgres._
+import running.RequestHandler
+import storage.postgres._
 import doobie._, doobie.implicits._, doobie.hikari._
 
 class Server(st: SyntaxTree) extends IOApp {
@@ -41,7 +41,7 @@ class Server(st: SyntaxTree) extends IOApp {
             body = Stream.fromIterator[IO](introspectionResult(jsonBody))
           )
         } else {
-          val preq = running.pipeline.Request(
+          val preq = running.Request(
             hookData = None,
             body = Some(jsonBody),
             cookies = req.cookies.map(c => c.name -> c.content).toMap,

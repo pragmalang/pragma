@@ -1,15 +1,15 @@
-package setup.storage
+package running.storage
 
-import running.pipeline.Operation
+import running.Operation
 import spray.json._
-import setup.MigrationStep
+import running.storage.MigrationStep
 import cats._
 import cats.implicits._
 
 import concurrent.Future
 import concurrent.ExecutionContext.Implicits.global
 import domain.{PModel, PShapeField}
-import running.pipeline.InnerOperation
+import running.InnerOperation
 import scala.util.Try
 
 object MockMigrationEngine extends MigrationEngine[MockStorage.type, Future] {

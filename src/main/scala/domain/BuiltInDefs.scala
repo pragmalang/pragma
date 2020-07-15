@@ -1,6 +1,6 @@
 package domain
 
-import running.pipeline.Request
+import running.Request
 
 object BuiltInDefs {
   def modelDirectives(self: PModel) = Map(

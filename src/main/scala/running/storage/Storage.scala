@@ -1,27 +1,22 @@
-package setup.storage
+package running.storage
 
-import setup._
-
+import running._
 import spray.json._
 import scala.util._
-import running.pipeline.Operation
 import domain._
-import running.pipeline.InnerOperation
 import cats.Monad
 
 class Storage[S, M[_]: Monad](
-    queryEngine: QueryEngine[S, M],
-    migrationEngine: MigrationEngine[S, M]
+    val queryEngine: QueryEngine[S, M],
+    val migrationEngine: MigrationEngine[S, M]
 ) {
 
-  def run(
-      operations: Map[Option[String], Vector[Operation]]
-  ): M[JsObject] =
+  def run(operations: Operations.OperationsMap): M[JsObject] =
     queryEngine.run(operations)
 
-  def migrate(
-      migrationSteps: Vector[MigrationStep]
-  ): M[Vector[Try[Unit]]] = migrationEngine.migrate(migrationSteps)
+  def migrate(migrationSteps: Vector[MigrationStep]): M[Vector[Try[Unit]]] =
+    migrationEngine.migrate(migrationSteps)
+
 }
 
 trait MigrationEngine[S, M[_]] {
@@ -30,7 +25,7 @@ trait MigrationEngine[S, M[_]] {
   ): M[Vector[Try[Unit]]]
 }
 
-trait QueryEngine[S, M[_]] {
+abstract class QueryEngine[S, M[_]: Monad] {
   type Query[_]
 
   def run(
@@ -133,7 +128,6 @@ object Storage {
             val op = innerReadOps
               .find(_.targetField.field.id == field._1)
               .get
-              .operation
             val fieldKey = op.alias.getOrElse(field._1)
 
             field._2 match {

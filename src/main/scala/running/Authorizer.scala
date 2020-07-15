@@ -1,14 +1,11 @@
-package running.pipeline.functions
+package running
 
-import running.pipeline._
-import domain._, Implicits.StringMethods
+import domain._
 import domain.utils.InternalException
 import domain.utils.AuthorizationError
+import running._, running.storage._
 import spray.json._
-import setup.storage.Storage
-import running.pipeline.Operations.ReadOperation
-import sangria.ast._
-import running.JwtPaylod
+import running.JwtPayload
 import scala.util._
 import cats.Monad
 import cats.implicits._
@@ -22,11 +19,11 @@ class Authorizer[S, M[_]: Monad](
 
   def apply(
       ops: Operations.OperationsMap,
-      user: Option[JwtPaylod]
+      user: Option[JwtPayload]
   ): M[AuthorizationResult] =
     user match {
       case None =>
-        Monad[M].pure(results(ops.values.flatten.toVector, JsNull))
+        results(ops.values.flatten.toVector, JsNull).pure[M]
       case Some(jwt) => {
         val userModel = syntaxTree.modelsById.get(jwt.role) match {
           case Some(model) => model
@@ -42,17 +39,12 @@ class Authorizer[S, M[_]: Monad](
             )
         }
 
-        val user = storage
-          .run(
-            Map(None -> Vector(userReadOperation(userModel, jwt)))
-          )
+        val user =
+          storage.run(userReadOpsMap(userModel, jwt.userId))
 
         user.map {
-          case userJson: JsObject
-              if userJson.fields.get(userModel.primaryField.id) ==
-                Some(JsString(jwt.userId)) => {
+          case userJson: JsObject =>
             results(ops.values.flatten.toVector, userJson)
-          }
           case _ =>
             throw InternalException(
               "User retrieved from storage must be an object with the same ID as the request's JWT"
@@ -67,7 +59,10 @@ class Authorizer[S, M[_]: Monad](
   ): AuthorizationResult =
     ops.map(opResults(_, predicateArg)).reduce(combineResults)
 
-  def opResults(op: Operation, predicateArg: JsValue): AuthorizationResult = {
+  def opResults(
+      op: Operation,
+      predicateArg: JsValue
+  ): AuthorizationResult = {
     val rules = relevantRules(op)
 
     val acc: AuthorizationResult =
@@ -89,7 +84,7 @@ class Authorizer[S, M[_]: Monad](
 
   /** Returns all the rules that can match */
   def relevantRules(op: Operation): Seq[AccessRule] =
-    syntaxTree.permissions.rulesOf(op.role, op.targetModel, op.event)
+    syntaxTree.permissions.rulesOf(op.user.map(_._2), op.targetModel, op.event)
 
   /** Note: should only recieve a relevant rule (use `relevantRules`) */
   def opArgumentsResult(
@@ -97,51 +92,18 @@ class Authorizer[S, M[_]: Monad](
       op: Operation,
       predicateArg: JsValue
   ): AuthorizationResult = {
-    lazy val argsMatchRule = (rule.resourcePath._2, op.event) match {
+    lazy val argsMatchRule = (rule.resourcePath._2, op) match {
       case (None, _) => true
-      case (Some(ruleField), Update) =>
-        op.opArguments
-          .find(_.name == op.targetModel.id.small)
-          .map(_.value) match {
-          case Some(ObjectValue(fields, _, _)) => {
-            fields.exists(_.name == ruleField.id)
-          }
-          case _ =>
-            throw InternalException(
-              "Argument passed to `update` is not an object. Something must've went wrond duing query validation or schema generation"
-            )
+      case (Some(ruleField), op: UpdateOperation) =>
+        op.opArguments.obj.obj.fields.contains(ruleField.id)
+
+      case (Some(ruleField), op: UpdateManyOperation) =>
+        op.opArguments.items.exists { item =>
+          item.obj.fields.contains(ruleField.id)
         }
-      case (Some(ruleField), UpdateMany) => {
-        op.opArguments
-          .find(_.name == "items")
-          .map(_.value) match {
-          case Some(ListValue(values, _, _)) =>
-            values.exists { value =>
-              value.isInstanceOf[ObjectValue] &&
-              value
-                .asInstanceOf[ObjectValue]
-                .fields
-                .exists(_.name == ruleField.id)
-            }
-          case _ =>
-            throw InternalException(
-              "`items` argument must be passed to `updateMany` and it must be a list of values"
-            )
-        }
-      }
-      case (Some(ruleField), Create)
-          if rule.permissions.contains(SetOnCreate) => {
-        op.opArguments
-          .find(_.name == op.targetModel.id.small)
-          .map(_.value) match {
-          case Some(ObjectValue(fields, _, _)) =>
-            fields.exists(_.name == ruleField.id)
-          case _ =>
-            throw InternalException(
-              s"Argument `${op.targetModel.id.small}` must be passed to `CREATE` and it must be an object"
-            )
-        }
-      }
+      case (Some(ruleField), op: CreateOperation)
+          if rule.permissions.contains(SetOnCreate) =>
+        op.opArguments.obj.fields.contains(ruleField.id)
       case _ => false
     }
     println(
@@ -184,7 +146,7 @@ class Authorizer[S, M[_]: Monad](
     else {
       val results = for {
         innerOp <- op.innerReadOps
-        rules = relevantRules(innerOp.operation)
+        rules = relevantRules(innerOp)
         (allows, denies) = rules.partition(_.ruleKind == Allow)
         allowExists = allows.exists { allow =>
           relevantRuleMatchesInnerReadOp(allow, innerOp) &&
@@ -211,11 +173,11 @@ class Authorizer[S, M[_]: Monad](
       lazy val errors = results.collect {
         case (innerOp, false, false) =>
           AuthorizationError(
-            s"No `allow` rule exists to allow `${innerOp.operation.event}` operations on `${innerOp.displayTargetResource}`"
+            s"No `allow` rule exists to allow `${innerOp.event}` operations on `${innerOp.displayTargetResource}`"
           )
         case (innerOp, _, true) =>
           AuthorizationError(
-            s"`deny` rule exists that prohibits `${innerOp.operation.event}` operations on `${innerOp.displayTargetResource}`",
+            s"`deny` rule exists that prohibits `${innerOp.event}` operations on `${innerOp.displayTargetResource}`",
             Some(
               "Try removing this rule if you would like this operation to be allowed"
             )
@@ -223,7 +185,7 @@ class Authorizer[S, M[_]: Monad](
       }
 
       val innerResults = op.innerReadOps.map { innerOp =>
-        innerReadResults(innerOp.operation, predicateArg)
+        innerReadResults(innerOp, predicateArg)
       }
 
       if (!devModeOn) Right {
@@ -245,7 +207,7 @@ class Authorizer[S, M[_]: Monad](
       rule: AccessRule,
       innerOp: InnerOperation
   ): Boolean =
-    rule.resourcePath._1.id == innerOp.operation.targetModel.id &&
+    rule.resourcePath._1.id == innerOp.targetModel.id &&
       (rule.resourcePath._2 match {
         case None            => true
         case Some(ruleField) => ruleField.id == innerOp.targetField.field.id
@@ -297,64 +259,20 @@ object Authorizer {
       case _                      => Right(false)
     }
 
-  def userReadOperation(role: PModel, jwt: JwtPaylod) =
-    Operation(
-      opKind = ReadOperation,
-      gqlOpKind = sangria.ast.OperationType.Query,
-      opArguments =
-        Vector(Argument(role.primaryField.id, StringValue(jwt.userId))),
-      directives = Vector.empty,
-      event = Read,
-      targetModel = role,
-      role = Some(role),
-      user = Some(jwt),
-      crudHooks = Nil,
-      alias = None,
-      innerReadOps = Vector.empty
-    )
-
-  /** Construct the query to get the user to be authorized from storage */
-  def userQuery(role: PModel, userId: String) =
-    Document(
-      Vector(
-        OperationDefinition(
-          OperationType.Query,
-          None,
-          Vector.empty,
-          Vector.empty,
-          Vector(
-            Field(
-              None,
-              role.id,
-              Vector.empty,
-              Vector.empty,
-              Vector(
-                Field(
-                  None,
-                  "read",
-                  Vector(
-                    Argument(
-                      role.primaryField.id,
-                      StringValue(userId)
-                    )
-                  ),
-                  Vector.empty,
-                  role.fields.map { pfield =>
-                    Field(
-                      None,
-                      pfield.id,
-                      Vector.empty,
-                      Vector.empty,
-                      Vector.empty
-                    )
-                  }.toVector,
-                  Vector.empty,
-                  Vector.empty
-                )
-              )
-            )
-          )
-        )
+  private def userReadOpsMap(
+      userModel: PModel,
+      userId: JsValue
+  ): Operations.OperationsMap = Map(
+    None -> Vector {
+      ReadOperation(
+        opArguments = ReadArgs(userId),
+        targetModel = userModel,
+        user = None,
+        crudHooks = Vector.empty,
+        alias = None,
+        innerReadOps = Vector.empty
       )
-    )
+    }
+  )
+
 }

@@ -1,4 +1,4 @@
-package setup.storage
+package running.storage
 
 import spray.json._
 import domain._

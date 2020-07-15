@@ -1,4 +1,4 @@
-package setup.storage.postgres
+package running.storage.postgres
 
 import cats.effect.IO
 import instances._

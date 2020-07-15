@@ -1,7 +1,7 @@
-package setup.storage.postgres
+package running.storage.postgres
 
 import domain.SyntaxTree
-import setup.storage.postgres.PostgresQueryEngine
+import running.storage.postgres.PostgresQueryEngine
 import org.scalatest._
 import doobie._
 import doobie.implicits._
@@ -10,8 +10,8 @@ import PostgresQueryEngine._
 import spray.json._
 import cats.effect._
 import sangria.macros._
-import running.pipeline._
-import setup.storage.QueryWhere
+import running._
+import running.storage.QueryWhere
 import scala.util._
 
 /** NOTE: These tests may fail if executed out of oder
@@ -132,7 +132,10 @@ class PostgresQueryEngineSpec extends FlatSpec {
   def runGql(gqlQuery: sangria.ast.Document) = {
     val req = bareReqFrom(gqlQuery)
     val reqOps = Operations.from(req)
-    queryEngine.run(reqOps).unsafeRunSync
+    reqOps.map(queryEngine.run(_).unsafeRunSync) match {
+      case Left(err)    => throw err
+      case Right(value) => value
+    }
   }
 
   "Array-field population" should "read array fields from join tables" taggedAs (dkr) in {
@@ -148,7 +151,9 @@ class PostgresQueryEngineSpec extends FlatSpec {
     }
     """
     val req = bareReqFrom(gqlQuery)
-    val ops = Operations.from(req)
+    val ops = Operations
+      .from(req)
+      .getOrElse(fail("Ops should be constructed successfully"))
 
     val resultUS = queryEngine
       .readOneRecord(
@@ -181,7 +186,13 @@ class PostgresQueryEngineSpec extends FlatSpec {
     }
     """
     val req = bareReqFrom(gqlQuery)
-    val iops = Operations.from(req).apply(None).head.innerReadOps
+    val iops = Operations
+      .from(req)
+      .getOrElse(fail("Ops should be constructed successfully"))
+      .apply(None)
+      .head
+      .innerReadOps
+
     val us = queryEngine.readOneRecord(
       syntaxTree.modelsById("Country"),
       JsString("US"),
@@ -207,7 +218,9 @@ class PostgresQueryEngineSpec extends FlatSpec {
     }
     """
     val req = bareReqFrom(gqlQuery)
-    val reqOps = Operations.from(req)
+    val reqOps = Operations
+      .from(req)
+      .getOrElse(fail("Ops should be constructed successfully"))
 
     val results = queryEngine
       .readManyRecords(

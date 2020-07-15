@@ -1,15 +1,14 @@
-package running.pipeline.functions
+package running
 
-import running.pipeline._
 import scala.util.Try
 import domain.SyntaxTree, domain.utils.typeCheckJson
 import sangria.ast._
 import sangria.validation.QueryValidator
 import sangria.schema.Schema
 import setup.schemaGenerator.ApiSchemaGenerator
-import setup.schemaGenerator.Implicits._
+import setup.schemaGenerator.SchemaGeneratorImplicits._
 import spray.json._
-import running.Implicits._
+import RunningImplicits._
 import running.utils.QueryError
 
 class RequestValidator(syntaxTree: SyntaxTree) {

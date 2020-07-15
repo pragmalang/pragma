@@ -1,7 +1,6 @@
 package running
 
 import org.scalatest._
-import pipeline._, functions._
 import sangria.ast._
 import sangria.macros._
 

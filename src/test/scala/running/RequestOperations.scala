@@ -2,9 +2,8 @@ package running
 
 import org.scalatest._
 import sangria.macros._
-import running.pipeline.Operations
 import domain._
-import running.pipeline._
+import running._
 import spray.json._
 import scala.collection.immutable._
 import scala.util._
@@ -34,8 +33,8 @@ class RequestOperations extends FlatSpec {
     val query = gql"""
         query user {
             User {
-                myself: read(_id: "123") @opLevel(arg1: 1) {
-                    username @fieldLevel(arg2: 2)
+                myself: read(username: "123") @opLevel(arg1: 1) {
+                    username
                     friend {
                         friend {
                             username
@@ -47,7 +46,7 @@ class RequestOperations extends FlatSpec {
         }
         mutation updateTodo {
             Todo {
-                update(id: "22234", data: {
+                update(title: "22234", data: {
                     content: "Clean the dishes"
                 }) {
                     content
@@ -67,16 +66,30 @@ class RequestOperations extends FlatSpec {
     )
     val ops = Operations.from(request)(syntaxTree)
 
-    assert(ops.values.flatten.size == 2)
+    ops match {
+      case Left(err) =>
+        fail(
+          s"Operations should be constructed successfully, instead they failed with $err"
+        )
+      case Right(ops) => {
+        assert(ops.values.flatten.size == 2)
 
-    assert(ops.flatMap(_._2.map(_.event)) == List(Read, Update))
+        assert(ops.flatMap(_._2.map(_.event)) == List(Read, Update))
 
-    assert(ops(Some("user")).head.opArguments.head.name == "_id")
+        assert(ops(Some("user")).head.opArguments == ReadArgs(JsString("123")))
 
-    assert(ops(Some("user"))(0).directives.head.arguments.head.name == "arg1")
+        assert(ops(Some("user")).head.innerReadOps.length == 2)
 
-    assert(
-      ops(Some("user"))(0).innerReadOps.head.operation.directives.head.arguments.head.name == "arg2"
-    )
+        assert(
+          ops(Some("updateTodo")).head.opArguments == UpdateArgs(
+            ObjectWithId(
+              JsObject(Map("content" -> JsString("Clean the dishes"))),
+              JsString("22234")
+            )
+          )
+        )
+      }
+    }
+
   }
 }

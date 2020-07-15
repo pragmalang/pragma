@@ -1,19 +1,16 @@
 package running
 
+import domain.SyntaxTree
+import domain.utils.AuthorizationError
+import running._, running.storage._
 import org.scalatest._
-import running.pipeline.functions.Authorizer
-import running.pipeline.Request
 import sangria.macros._
 import spray.json._
-import domain.SyntaxTree
-import setup.storage.MockStorage
 import scala.concurrent._
 import ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.util._
-import domain.utils.AuthorizationError
 import cats.implicits._
-import running.pipeline.Operations
 
 class Authorization extends FlatSpec {
   "Authorizer" should "authorize requests correctly" in {
@@ -40,7 +37,7 @@ class Authorization extends FlatSpec {
     val req = Request(
       None,
       None,
-      Some(JwtPaylod("John Doe", "User")),
+      Some(JwtPayload(JsString("John Doe"), "User")),
       gql"""
       mutation createUser {
         User {
@@ -68,7 +65,9 @@ class Authorization extends FlatSpec {
     )
     val reqOps = Operations.from(req)(syntaxTree)
 
-    val result = Await.result(authorizer(reqOps, req.user), Duration.Inf)
+    val result = reqOps.flatMap { ops =>
+      Await.result(authorizer(ops, req.user), Duration.Inf)
+    }
     assert(
       result == Left(
         Vector(
@@ -128,7 +127,7 @@ class Authorization extends FlatSpec {
     val reqWithRole = Request(
       hookData = None,
       body = None,
-      user = Some(JwtPaylod("John Doe", "User")),
+      user = Some(JwtPayload(JsString("John Doe"), "User")),
       query = gql"""
       mutation updateUsername {
         User {
@@ -146,13 +145,22 @@ class Authorization extends FlatSpec {
 
     val mockStorage = MockStorage.storage
     val authorizer = new Authorizer(syntaxTree, mockStorage, devModeOn = true)
-    val results = Await.result(
-      Future.sequence(
-        authorizer(Operations.from(reqWithoutRole), reqWithoutRole.user) ::
-          authorizer(Operations.from(reqWithRole), reqWithRole.user) :: Nil
-      ),
-      Duration.Inf
-    )
+
+    val withoutRoleOps = Operations.from(reqWithoutRole)
+    val withRoleOps = Operations.from(reqWithRole)
+
+    val results = for {
+      ops <- (withoutRoleOps, withRoleOps).bisequence
+      (withoutRole, withRole) = ops
+    } yield
+      Await.result(
+        Future.sequence(
+          authorizer(withoutRole, reqWithoutRole.user) ::
+            authorizer(withRole, reqWithRole.user) :: Nil
+        ),
+        Duration.Inf
+      )
+
     pprint.pprintln(results)
   }
 }

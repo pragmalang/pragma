@@ -20,6 +20,8 @@ package object utils {
   case class InternalException(message: String)
       extends Exception(s"Internal Exception: ${message}")
 
+  type InternalExceptionOr[A] = Either[InternalException, A]
+
   class InvalidRequestHasPassed(message: String)
       extends InternalException(message)
 

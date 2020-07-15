@@ -1,9 +1,9 @@
-package setup.storage.postgres
+package running.storage.postgres
 
 import SQLMigrationStep._
-import setup.storage.postgres.AlterTableAction._
-import domain.Implicits._
-import setup.storage.postgres.OnDeleteAction._
+import AlterTableAction._
+import domain.DomainImplicits._
+import OnDeleteAction._
 
 sealed trait SQLMigrationStep {
   def renderSQL: String = this match {

@@ -1,12 +1,12 @@
-package setup.storage.postgres
+package running.storage.postgres
 
-import setup._
-import setup.storage.postgres._
+import running.storage._
+import running.storage.postgres._
 import org.scalatest._
-import setup.storage.postgres.SQLMigrationStep._
+import SQLMigrationStep._
 import domain.SyntaxTree
-import setup.storage.postgres.AlterTableAction._
-import setup.storage.postgres.OnDeleteAction.Cascade
+import AlterTableAction._
+import OnDeleteAction.Cascade
 
 class PostgresMigrationEngineSpec extends FunSuite {
   val code = """
