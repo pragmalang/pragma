@@ -22,18 +22,18 @@ object DomainImplicits {
         throw new Error("Functions are not serializable")
       case PDateValue(value) => value.toString.toJson
       case PBoolValue(value) => value.toJson
-      case POptionValue(value, valueType) =>
+      case POptionValue(value, _) =>
         value match {
           case None        => JsNull
           case Some(value) => write(value)
         }
-      case PModelValue(value, ptype) =>
+      case PModelValue(value, _) =>
         value.map(field => field._1 -> write(field._2)).toMap.toJson
-      case PInterfaceValue(value, ptype) =>
+      case PInterfaceValue(value, _) =>
         value.map(field => field._1 -> write(field._2)).toMap.toJson
-      case PFileValue(value, ptype)         => value.toPath.toUri.toString.toJson
-      case PStringValue(value)              => value.toJson
-      case PArrayValue(values, elementType) => values.map(write).toJson
+      case PFileValue(value, _)   => value.toPath.toUri.toString.toJson
+      case PStringValue(value)    => value.toJson
+      case PArrayValue(values, _) => values.map(write).toJson
     }
   }
 
@@ -72,7 +72,7 @@ object DomainImplicits {
       // Array
       else if (Try(gval.getArraySize).isSuccess) JsArray {
         val jsElements = for (i <- 0 until gval.getArraySize.toInt)
-          yield write(gval.getArrayElement(i))
+          yield write(gval.getArrayElement(i.toLong))
         jsElements.toVector
       }
       // Date

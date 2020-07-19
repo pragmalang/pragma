@@ -1,26 +1,18 @@
 package domain
+
+import domain._
 import spray.json._
 import scala.util.{Try, Success, Failure}
 import java.time.ZonedDateTime
 
-package object utils {
+package utils {
 
-  type ID = String
-  type ModelId = String
-  type FieldId = String
-
-  type FieldPath = (ModelId, FieldId)
   trait Identifiable {
     val id: String
   }
 
-  type NamedArgs = Map[String, PType]
-  type Date = java.time.ZonedDateTime
-
   case class InternalException(message: String)
       extends Exception(s"Internal Exception: ${message}")
-
-  type InternalExceptionOr[A] = Either[InternalException, A]
 
   class InvalidRequestHasPassed(message: String)
       extends InternalException(message)
@@ -40,8 +32,6 @@ package object utils {
         else s"one of [${expected.map(displayPType(_)).mkString(", ")}]"}, but found ${displayPType(found)}"
       )
 
-  type ErrorMessage = (String, Option[PositionRange])
-
   case class UserError(val errors: Iterable[ErrorMessage])
       extends Exception(errors.map(_._1).mkString("\n"))
 
@@ -60,6 +50,22 @@ package object utils {
     def fromAuthErrors(authErrors: Iterable[AuthorizationError]): UserError =
       UserError(authErrors.map(_.message -> None))
   }
+
+}
+package object utils {
+
+  type ID = String
+  type ModelId = String
+  type FieldId = String
+
+  type FieldPath = (ModelId, FieldId)
+
+  type NamedArgs = Map[String, PType]
+  type Date = java.time.ZonedDateTime
+
+  type InternalExceptionOr[A] = Either[InternalException, A]
+
+  type ErrorMessage = (String, Option[PositionRange])
 
   def userErrorFrom[T](value: Try[T], exception: UserError): Try[T] =
     value match {
@@ -103,7 +109,7 @@ package object utils {
             s"${model.directives.map(displayDirective).mkString("\n")}\n$renderedModel"
           }
         } else model.id
-      case PInterface(id, fields, position) =>
+      case PInterface(id, fields, _) =>
         if (isVerbose)
           s"interface $id {\n${fields.map(displayField).mkString("\n")}\n}"
         else id
@@ -114,15 +120,15 @@ package object utils {
       case PReference(id) => id
       case PFunction(namedArgs, returnType) => {
         val args = namedArgs
-          .map(arg => displayPType(arg._2))
+          .map(arg => displayPType(arg._2, isVerbose))
           .mkString(", ")
-        s"($args) => ${displayPType(returnType)}"
+        s"($args) => ${displayPType(returnType, isVerbose)}"
       }
     }
 
   def displayField(field: PShapeField): String = field match {
-    case PInterfaceField(id, ptype, position) => s"$id: ${displayPType(ptype)}"
-    case PModelField(id, ptype, defaultValue, index, directives, position) =>
+    case PInterfaceField(id, ptype, _) => s"$id: ${displayPType(ptype)}"
+    case PModelField(id, ptype, _, _, directives, _) =>
       s"$id: ${displayPType(ptype, isVerbose = false)} ${directives.map(displayDirective).mkString(" ")}"
   }
 
@@ -138,16 +144,16 @@ package object utils {
   def displayPValue(value: PValue): String = value match {
     case PIntValue(value)   => value.toString
     case PFloatValue(value) => value.toString
-    case PFileValue(value, ptype) => {
+    case PFileValue(value, _) => {
       val name = value.getName()
       name match {
         case "" => "File {}"
         case _  => s"File { name: $name }"
       }
     }
-    case PModelValue(value, ptype) =>
+    case PModelValue(value, _) =>
       s"{\n${value.map(v => s" ${v._1}: ${displayPValue(v._2)}").mkString(",\n")}\n}"
-    case POptionValue(value, valueType) =>
+    case POptionValue(value, _) =>
       value.map(displayPValue) match {
         case Some(value) => value
         case None        => ""
@@ -159,9 +165,9 @@ package object utils {
       s"(${f.ptype.args.map(
         arg => s"${arg._1}: ${displayPType(arg._2, isVerbose = false)}"
       )}) => ${displayPType(f.ptype.returnType, isVerbose = false)}"
-    case PInterfaceValue(value, ptype) =>
+    case PInterfaceValue(value, _) =>
       s"{\n${value.map(v => s" ${v._1}: ${v._2}").mkString(",\n")}\n}"
-    case PArrayValue(values, elementType) =>
+    case PArrayValue(values, _) =>
       s"[${values.map(displayPValue).mkString(", ")}]"
   }
 
@@ -204,11 +210,11 @@ package object utils {
               } =>
           json
         case (PInt, JsNumber(v)) if v.isWhole => json
-        case (PBool, JsBoolean(v))            => json
-        case (POption(ptype), JsNull)         => json
+        case (PBool, JsBoolean(_))            => json
+        case (POption(_), JsNull)             => json
         case (POption(ptype), _)              => typeCheckJson(ptype, syntaxTree)(json).get
-        case (PString, JsString(v))           => json
-        case (PFloat, JsNumber(value))        => json
+        case (PString, JsString(_))           => json
+        case (PFloat, JsNumber(_))            => json
         case (shape: PShape, JsObject(fields))
             if fieldsRespectsShape(fields, shape.fields) =>
           json

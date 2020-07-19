@@ -514,7 +514,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
       runGql(readDeleted)
       fail("Should not have been able to read the deleted record")
     } catch {
-      case e: Exception => ()
+      case _: Exception => ()
     }
   }
 

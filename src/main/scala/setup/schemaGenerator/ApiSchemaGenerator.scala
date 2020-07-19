@@ -150,7 +150,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       )
 
       val modelListFields = model.fields.collect {
-        case f @ PModelField(_, ptype: PArray, _, _, _, _) => f
+        case f @ PModelField(_, _: PArray, _, _, _, _) => f
       }
 
       val modelListFieldOperations = modelListFields
@@ -181,7 +181,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
 
           val removeFrom = Some(
             graphQlField(
-              nameTransformer = fieldId => s"removeFrom${transformedFieldId}",
+              nameTransformer = _ => s"removeFrom${transformedFieldId}",
               Map(
                 model.primaryField.id -> fieldType(model.primaryField.ptype),
                 "item" -> fieldType(
@@ -199,7 +199,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
 
           val pushManyTo = Some(
             graphQlField(
-              nameTransformer = fieldId => s"pushManyTo${transformedFieldId}",
+              nameTransformer = _ => s"pushManyTo${transformedFieldId}",
               Map(
                 model.primaryField.id -> fieldType(model.primaryField.ptype),
                 "items" -> listFieldType(
@@ -215,8 +215,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
 
           val removeManyFrom = Some(
             graphQlField(
-              nameTransformer =
-                fieldId => s"removeManyFrom${transformedFieldId}",
+              nameTransformer = _ => s"removeManyFrom${transformedFieldId}",
               Map(
                 model.primaryField.id -> fieldType(model.primaryField.ptype),
                 "filter" -> builtinType(FilterInput, isOptional = true)
@@ -353,8 +352,8 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         (acc, rule) => acc ++ syntaxTree.models.map(rule)
       )
       .filter({
-        case Some(field) => true
-        case None        => false
+        case Some(_) => true
+        case None    => false
       })
       .map(_.get)
       .toVector
@@ -403,8 +402,8 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     ): PType =
       tpe match {
         case ListType(ofType, _) =>
-          PArray(fieldType(ofType, fieldPType))
-        case NamedType(name, _) =>
+          PArray(fieldType(ofType, fieldPType, true))
+        case NamedType(_, _) =>
           if (isOptional) POption(fieldPType) else fieldPType
         case NotNullType(ofType, _) => fieldType(ofType, fieldPType, false)
       }
@@ -532,8 +531,8 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       .get
 
     val isEmptyList = tpe match {
-      case ListType(ofType, _) => true
-      case _                   => false
+      case ListType(_, _) => true
+      case _              => false
     }
 
     val isNonEmptyList = tpe match {
@@ -542,8 +541,8 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     }
 
     val isOptional = tpe match {
-      case NotNullType(ofType, _) => false
-      case _                      => false
+      case NotNullType(_, _) => false
+      case _                 => false
     }
 
     TypeFromSchema(td, isEmptyList, isNonEmptyList, isOptional, tpe)
@@ -709,7 +708,7 @@ object ApiSchemaGenerator {
       case PReference(id) =>
         if (isOptional) NamedType(nameTransformer(id))
         else NotNullType(NamedType(nameTransformer(id)))
-      case PFunction(args, returnType) =>
+      case PFunction(_, _) =>
         throw new Exception("Function can't be used as a field type")
     }
 
@@ -727,8 +726,7 @@ object ApiSchemaGenerator {
     Vector.empty,
     s.fields.collect {
       case field: PInterfaceField => pshapeField(field)
-      case field: PModelField
-          if !field.isSecretCredential =>
+      case field: PModelField if !field.isSecretCredential =>
         pshapeField(field)
     }.toVector,
     directives

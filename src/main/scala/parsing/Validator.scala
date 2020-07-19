@@ -25,8 +25,7 @@ class Validator(constructs: List[PConstruct]) {
       checkRolesBelongToUserModels,
       checkCreateAccessRules,
       checkModelIndexUniqueness,
-      checkFieldIndexUniqueness,
-      checkRelations
+      checkFieldIndexUniqueness
     )
     val errors = results.flatMap {
       case Failure(err: UserError) => err.errors
@@ -60,18 +59,16 @@ class Validator(constructs: List[PConstruct]) {
             }
             if (typesMatch) errors
             else
-              errors :+ (
-                s"Invalid default value of type `${displayPType(v.ptype)}` for optional field `${field.id}` of type `${displayPType(field.ptype)}`",
-                field.position
-              )
+              errors :+
+                s"Invalid default value of type `${displayPType(v.ptype)}` for optional field `${field.id}` of type `${displayPType(field.ptype)}`" ->
+                  field.position
           }
           case Some(arr: PArrayValue)
               if !Validator.arrayIsHomogeneous(arr) ||
                 arr.ptype != field.ptype =>
-            errors :+ (
-              s"Invalid values for array field `${field.id}` (all array elements must have the same type)",
-              field.position
-            )
+            errors :+
+              s"Invalid values for array field `${field.id}` (all array elements must have the same type)" ->
+                field.position
           case Some(PStringValue(value))
               if field.ptype.isInstanceOf[PReference] => {
             val found = st.enumsById
@@ -80,16 +77,14 @@ class Validator(constructs: List[PConstruct]) {
               .isDefined
             if (found) errors
             else
-              errors :+ (
-                s"The default value given to field `${field.id}` is not a member of a defined ${field.ptype.asInstanceOf[Identifiable].id} enum",
-                field.position
-              )
+              errors :+
+                s"The default value given to field `${field.id}` is not a member of a defined ${field.ptype.asInstanceOf[Identifiable].id} enum" ->
+                  field.position
           }
           case Some(v: PValue) if v.ptype != field.ptype =>
-            errors :+ (
-              s"Invalid default value of type `${displayPType(v.ptype)}` for field `${field.id}` of type `${displayPType(field.ptype)}`",
-              field.position
-            )
+            errors :+
+              s"Invalid default value of type `${displayPType(v.ptype)}` for field `${field.id}` of type `${displayPType(field.ptype)}`" ->
+                field.position
           case _ => errors
         }
       }
@@ -107,10 +102,8 @@ class Validator(constructs: List[PConstruct]) {
           if (acc._1(construct.id))
             (
               acc._1,
-              acc._2 :+ (
-                s"`${construct.id}` is defined twice",
-                construct.position
-              )
+              acc._2 :+
+                s"`${construct.id}` is defined twice" -> construct.position
             )
           else (acc._1 + construct.id, acc._2)
       )
@@ -170,7 +163,7 @@ class Validator(constructs: List[PConstruct]) {
       model.publicCredentialFields
     val secretField = model.secretCredentialField
     val pcErrors = publicFields.collect {
-      case field @ PModelField(_, PString | PInt, _, _, _, _) => Nil
+      case PModelField(_, PString | PInt, _, _, _, _) => Nil
       case field =>
         (
           s"Invalid type `${utils.displayPType(field.ptype)}` for public credential `${field.id}` (must be either String or Integer)",
@@ -276,8 +269,7 @@ class Validator(constructs: List[PConstruct]) {
       model <- st.models
       field <- model.fields
       dir <- field.directives
-    } yield
-      checkDirectiveAgainst(BuiltInDefs.fieldDirectives(model, field), dir)
+    } yield checkDirectiveAgainst(BuiltInDefs.fieldDirectives(field), dir)
 
     val allErrors = (modelLevelErrors ++ fieldLevelErrors).flatten
     if (allErrors.isEmpty) Success(())
@@ -350,138 +342,6 @@ class Validator(constructs: List[PConstruct]) {
           )
         }
     }
-    if (errors.isEmpty) Success(())
-    else Failure(UserError(errors))
-  }
-
-  def checkRelations: Try[Unit] = {
-    val errors =
-      for {
-        model <- st.models
-        field <- model.fields
-        relationDirectives = field.directives.filter(_.id == "relation")
-        error <- if (relationDirectives.isEmpty) None
-        else if (relationDirectives.length > 1)
-          Some(
-            (
-              s"Fields can only have one or zero `@relation` directives",
-              field.position
-            )
-          )
-        else {
-          val relationName =
-            relationDirectives.head.args.value.get("name") match {
-              case Some(PStringValue(name)) => name
-              case _ =>
-                return Failure(
-                  UserError(
-                    "Argument `name` must be provided for `@relation` directive and it must be a `String`"
-                  )
-                )
-            }
-
-          val targetModel = field.ptype match {
-            case PReference(id)                  => st.modelsById.get(id)
-            case PArray(PReference(id))          => st.modelsById.get(id)
-            case POption(PReference(id))         => st.modelsById.get(id)
-            case POption(PArray(PReference(id))) => st.modelsById.get(id)
-            case _ =>
-              return Failure(
-                UserError(
-                  s"Model `${field.id}` must have a model type since it has an `@relation` directive",
-                  field.position
-                )
-              )
-          }
-
-          val targetField = targetModel match {
-            case Some(model) =>
-              model.fields.find { field =>
-                field.directives
-                  .find(_.id == "relation")
-                  .map(_.args.value("name")) match {
-                  case Some(value) =>
-                    value.asInstanceOf[PStringValue].value == relationName
-                  case None => false
-                }
-              }
-            case None =>
-              return Failure(
-                UserError(
-                  s"Model `${displayPType(field.ptype)}` is not defined",
-                  field.position
-                )
-              )
-          }
-
-          def errMsg(f1: String, f2: String, position: Option[PositionRange]) =
-            (
-              s"""The fields `${f1}` and `${f2}` must have opposite types because they are related by `@relation("$relationName")`.""",
-              position
-            )
-
-          targetField match {
-            case Some(targetField) =>
-              (field.ptype, targetField.ptype) match {
-                case (PReference(_), PReference(id)) if id == model.id => None
-                case (PReference(_), PReference(id)) if id != model.id =>
-                  Some(errMsg(field.id, targetField.id, field.position))
-                case (POption(PArray(_)), POption(PArray(PReference(id))))
-                    if model.id == id =>
-                  None
-                case (POption(PArray(_)), POption(PArray(PReference(id))))
-                    if model.id != id =>
-                  Some(errMsg(field.id, targetField.id, field.position))
-                case (PArray(_), POption(PArray(PReference(id))))
-                    if model.id == id =>
-                  None
-                case (PArray(_), POption(PArray(PReference(id))))
-                    if model.id != id =>
-                  Some(errMsg(field.id, targetField.id, field.position))
-                case (POption(PArray(_)), PArray(PReference(id)))
-                    if model.id == id =>
-                  None
-                case (POption(PArray(_)), PArray(PReference(id)))
-                    if model.id != id =>
-                  Some(errMsg(field.id, targetField.id, field.position))
-                case (PArray(_), PArray(PReference(id))) if id == model.id =>
-                  None
-                case (PArray(_), PArray(PReference(id))) if id != model.id =>
-                  Some(errMsg(field.id, targetField.id, field.position))
-                case (POption(_), POption(PReference(id))) if model.id == id =>
-                  None
-                case (POption(_), POption(PReference(id))) if model.id != id =>
-                  Some(errMsg(field.id, targetField.id, field.position))
-                case (PReference(_), POption(PReference(id)))
-                    if model.id == id =>
-                  None
-                case (PReference(_), POption(PReference(id)))
-                    if model.id != id =>
-                  Some(errMsg(field.id, targetField.id, field.position))
-                case (POption(_), PReference(id)) if model.id == id =>
-                  None
-                case (POption(_), PReference(id)) if model.id != id =>
-                  Some(errMsg(field.id, targetField.id, field.position))
-                case _ =>
-                  Some(
-                    (
-                      s"The fields `${field.id}` and `${targetField.id}` must both be arrays in case of many-to-many relations, or both non-arrays in case of one-to-one relations",
-                      field.position
-                    )
-                  )
-              }
-            case None =>
-              Some(
-                (
-                  s"""A field of type `${model.id}` must exist with `@relation("${relationName}")` on ${displayInnerType(
-                    field.ptype
-                  )}""",
-                  field.position
-                )
-              )
-          }
-        }
-      } yield error
     if (errors.isEmpty) Success(())
     else Failure(UserError(errors))
   }

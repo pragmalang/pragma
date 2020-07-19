@@ -2,7 +2,7 @@ package parsing
 
 import org.parboiled2._
 import domain._
-import domain.utils.`package`.Identifiable
+import domain.utils.Identifiable
 import spray.json.JsValue
 import scala.util.{Try, Failure}
 import domain.utils.UserError
@@ -22,7 +22,7 @@ object PragmaParser {
 
     override def execute(input: JsValue) =
       Failure(
-        throw new Exception(
+        new Exception(
           "Reference should not be executed before substitution"
         )
       )
@@ -418,7 +418,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
       wsWithEndline() ~ '{' ~ wsWithEndline() ~
       zeroOrMore(accessRuleDef).separatedBy(wsWithEndline()) ~
       wsWithEndline() ~ '}' ~> {
-      (start: Int, roleName: String, end: Int, rules: Seq[AccessRule]) =>
+      (_: Int, roleName: String, _: Int, rules: Seq[AccessRule]) =>
         Role(PReference(roleName), rules.toList)
     }
   }

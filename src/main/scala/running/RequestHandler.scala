@@ -12,12 +12,11 @@ class RequestHandler[S, M[_]: Monad](
     storage: Storage[S, M]
 ) {
   val reqValidator = new RequestValidator(syntaxTree)
-  val reqReducer = new RequestReducer(syntaxTree)
   val authorizer = new Authorizer[S, M](syntaxTree, storage)
 
   def handle(req: Request): M[Either[Throwable, JsObject]] = {
     val authResult = for {
-      validationResult <- reqValidator(reqReducer(req)).toEither
+      validationResult <- reqValidator(RequestReducer(req)).toEither
       ops <- Operations.from(validationResult)(syntaxTree)
       result = authorizer(ops, req.user)
     } yield

@@ -16,14 +16,14 @@ object RunningImplicits {
       case PFloatValue(value)  => JsNumber(value)
       case PBoolValue(value)   => JsBoolean(value)
       case PDateValue(value)   => JsString(value.toString())
-      case PArrayValue(values, elementType) =>
+      case PArrayValue(values, _) =>
         JsArray(values.map(PValueJsonWriter.write(_)).toVector)
-      case PFileValue(value, ptype) => JsString(value.toString())
-      case PModelValue(value, ptype) =>
+      case PFileValue(value, _) => JsString(value.toString())
+      case PModelValue(value, _) =>
         JsObject(value.map {
           case (key, value) => (key, PValueJsonWriter.write(value))
         })
-      case PInterfaceValue(value, ptype) =>
+      case PInterfaceValue(value, _) =>
         JsObject(value.map {
           case (key, value) => (key, PValueJsonWriter.write(value))
         })
@@ -31,7 +31,7 @@ object RunningImplicits {
         throw new SerializationException(
           "Pragma functions are not serializable"
         )
-      case POptionValue(value, valueType) =>
+      case POptionValue(value, _) =>
         value.map(PValueJsonWriter.write(_)).getOrElse(JsNull)
     }
   }
@@ -41,10 +41,10 @@ object RunningImplicits {
       case JsObject(fields) =>
         ObjectValue(
           fields
-            .map(field => ObjectField(field._1, field._2.convertTo[Value]))
+            .map(field => ObjectField(field._1, read(field._2)))
             .toVector
         )
-      case JsArray(elements)                 => ListValue(elements.map(_.convertTo[Value]))
+      case JsArray(elements)                 => ListValue(elements.map(read))
       case JsString(value)                   => StringValue(value)
       case JsNumber(value) if value.isWhole  => BigIntValue(value.toBigInt)
       case JsNumber(value) if !value.isWhole => BigDecimalValue(value)
@@ -53,23 +53,23 @@ object RunningImplicits {
       case JsNull                            => NullValue()
     }
     override def write(obj: Value): JsValue = obj match {
-      case ListValue(values, comments, location) =>
-        JsArray(values.map(_.toJson).toJson)
-      case ObjectValue(fields, comments, location) =>
-        JsObject(fields.map(field => field.name -> field.value.toJson).toMap)
-      case BigDecimalValue(value, comments, location) => value.toJson
-      case BigIntValue(value, comments, location)     => value.toJson
-      case IntValue(value, comments, location)        => value.toJson
-      case FloatValue(value, comments, location)      => value.toJson
-      case BooleanValue(value, comments, location)    => value.toJson
-      case StringValue(value, block, blockRawValue, comments, location) =>
+      case ListValue(values, _, _) =>
+        JsArray(values.map(write).toJson)
+      case ObjectValue(fields, _, _) =>
+        JsObject(fields.map(field => field.name -> write(field.value)).toMap)
+      case BigDecimalValue(value, _, _) => value.toJson
+      case BigIntValue(value, _, _)     => value.toJson
+      case IntValue(value, _, _)        => value.toJson
+      case FloatValue(value, _, _)      => value.toJson
+      case BooleanValue(value, _, _)    => value.toJson
+      case StringValue(value, _, _, _, _) =>
         value.toJson
-      case EnumValue(value, comments, location) => value.toJson
-      case VariableValue(name, comments, location) =>
+      case EnumValue(value, _, _) => value.toJson
+      case VariableValue(_, _, _) =>
         throw new InternalException(
           "GraphQL variable values cannot be serialized. They must be substituted first."
         )
-      case NullValue(comments, location) => JsNull
+      case NullValue(_, _) => JsNull
     }
   }
 

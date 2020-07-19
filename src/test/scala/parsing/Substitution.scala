@@ -38,7 +38,7 @@ class Substitution extends FlatSpec {
     val substituted = Substitutor.substitute(syntaxTree).get
     val directive = substituted.models.head.directives.head
     directive.args.value("function") match {
-      case GraalFunction(id, _, filePath, graalCtx, languageId) => {
+      case GraalFunction(id, _, filePath, _, _) => {
         assert(id == "validateCat")
         assert(filePath == "./src/test/scala/parsing/test-functions.js")
       }

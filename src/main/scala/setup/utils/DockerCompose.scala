@@ -30,7 +30,7 @@ case class DockerCompose(
   def +(that: DockerCompose): DockerCompose = DockerCompose(
     services = JsObject(that.services.fields ++ services.fields),
     volumes = (this.volumes, that.volumes) match {
-      case (Some(thisVolumes), Some(thatVolumes)) =>
+      case (Some(thisVolumes), Some(_)) =>
         Some(JsObject(thisVolumes.fields ++ thisVolumes.fields))
       case (Some(thisVolumes), None) => Some(thisVolumes)
       case (None, Some(thatVolumes)) => Some(thatVolumes)

@@ -183,7 +183,7 @@ class Server(st: SyntaxTree) extends IOApp {
     transactor.map(t => new PostgresQueryEngine[IO](t, st))
 
   val storage =
-    queryEngine.map(qe => new Postgres[IO](st, migrationEngine, qe))
+    queryEngine.map(qe => new Postgres[IO](migrationEngine, qe))
 
   val reqHandler =
     storage.map(s => new RequestHandler[Postgres[IO], IO](st, s))

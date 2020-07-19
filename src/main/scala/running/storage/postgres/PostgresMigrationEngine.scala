@@ -287,8 +287,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                         throw new InternalException(
                           s"Expected [T] or [T]?, found ${domain.utils.displayPType(t)}"
                         )
-                    },
-                    false
+                    }
                   )(syntaxTree).get,
                   isNotNull = true,
                   isAutoIncrement = false,
@@ -317,7 +316,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
             Some(
               Right(ForeignKey(id, syntaxTree.modelsById(id).primaryField.id))
             )
-          case t => None
+          case _ => None
         }
       val alterTableStatement = fieldPostgresType(field)(syntaxTree).map {
         postgresType =>
@@ -335,8 +334,8 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                 foreignKey = g match {
                   case Some(value) =>
                     value match {
-                      case Left(value) => None
-                      case Right(fk)   => Some(fk)
+                      case Left(_)   => None
+                      case Right(fk) => Some(fk)
                     }
                   case None => None
                 }
@@ -352,7 +351,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                 value match {
                   case Left(createArrayTableStatement) =>
                     Vector(createArrayTableStatement)
-                  case Right(value) => Vector.empty
+                  case Right(_) => Vector.empty
                 }
               case None => Vector.empty
             },
@@ -365,7 +364,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                 value match {
                   case Left(createArrayTableStatement) =>
                     Vector(alterTableStatement, createArrayTableStatement)
-                  case Right(value) => Vector(alterTableStatement)
+                  case Right(_) => Vector(alterTableStatement)
                 }
               case None => Vector(alterTableStatement)
             },
@@ -389,7 +388,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
       )
     case UndeleteField(field, model) =>
       migration(AddField(field, model))
-    case ChangeManyFieldTypes(model, changes) => {
+    case ChangeManyFieldTypes(_, _) => {
       // TODO: Implement this after finishing `PostgresQueryEngine` because it's eaiser to use it than plain SQL
       val tempTableName = "__migration__" + scala.util.Random.nextInt(99999)
       val columns: Vector[ColumnDefinition] = ???

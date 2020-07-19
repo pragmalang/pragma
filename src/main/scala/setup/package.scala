@@ -2,17 +2,18 @@ package setup
 
 import running.storage._, schemaGenerator.ApiSchemaGenerator
 import domain._, DomainImplicits._
-import setup.utils.DockerCompose
 import domain.utils.UserError
 import cats.Monad
 
-case class Setup[M[_] : Monad](syntaxTree: SyntaxTree) {
+case class Setup[M[_]: Monad](syntaxTree: SyntaxTree) {
 
-  def setup(migrationSteps: Vector[MigrationStep]): M[Vector[scala.util.Try[Unit]]] = {
+  def setup(
+      migrationSteps: Vector[MigrationStep]
+  ): M[Vector[scala.util.Try[Unit]]] = {
 
-    def supportedDbTypes[T[_]](dbType: String, dbUrl: String): Storage[_, M] =
+    def supportedDbTypes[T[_]](dbType: String): Storage[_, M] =
       dbType match {
-        case _         => throw UserError("Unsupported database type")
+        case _ => throw UserError("Unsupported database type")
       }
 
     val dbUrlIsNotSpecified =
@@ -37,10 +38,9 @@ case class Setup[M[_] : Monad](syntaxTree: SyntaxTree) {
     val storage = (dbType, dbUrl) match {
       case (None, None) =>
         throw UserError(dbTypeIsNotSpecified, dbUrlIsNotSpecified)
-      case (Some(_), None) => throw UserError(dbUrlIsNotSpecified)
-      case (None, Some(_)) => throw UserError(dbTypeIsNotSpecified)
-      case (Some(dbType), Some(dbUrl)) =>
-        supportedDbTypes(dbType, dbUrl)
+      case (Some(_), None)         => throw UserError(dbUrlIsNotSpecified)
+      case (None, Some(_))         => throw UserError(dbTypeIsNotSpecified)
+      case (Some(dbType), Some(_)) => supportedDbTypes(dbType)
     }
 
     storage.migrate(migrationSteps)
@@ -54,7 +54,7 @@ case class Setup[M[_] : Monad](syntaxTree: SyntaxTree) {
     "docker-compose -f ./.pragma/docker-compose.yml down" $
       "Error: Couldn't run docker-compose. Make sure docker and docker-compose are installed on your machine"
 
-  def writeDockerComposeYaml(dockerComposeFile: DockerCompose) =
+  def writeDockerComposeYaml() =
     "mkdir .pragma" $ "Filesystem Error: Couldn't create .pragma directory"
 
   def buildApiSchema(): SyntaxTree =

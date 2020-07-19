@@ -45,7 +45,7 @@ object Operations {
         case (name, op) => {
           val modelSelections = op.selections.flatTraverse {
             case f: FieldSelection =>
-              fromModelSelection(f, op.operationType, request.user, st)
+              fromModelSelection(f, request.user, st)
             case _ =>
               Left {
                 InternalException(
@@ -96,7 +96,6 @@ object Operations {
 
   private def fromModelSelection(
       modelSelection: FieldSelection,
-      gqlOpKind: GqlOperationType,
       user: Option[JwtPayload],
       st: SyntaxTree
   ): Either[Exception, Vector[Operation]] = {
@@ -114,11 +113,9 @@ object Operations {
       case opSelection: FieldSelection =>
         fromOperationSelection(
           targetModel,
-          gqlOpKind,
           opSelection,
           userRole,
           user,
-          modelSelection.directives,
           st
         )
       case _ =>
@@ -130,11 +127,9 @@ object Operations {
 
   private def fromOperationSelection(
       model: PModel,
-      gqlOpKind: GqlOperationType,
       opSelection: FieldSelection,
       role: Option[PModel],
       user: Option[JwtPayload],
-      modelLevelDirectives: Vector[sangria.ast.Directive],
       st: SyntaxTree
   ): Either[Exception, Operation] = {
     val event = opSelectionEvent(opSelection.name, model)
@@ -454,7 +449,7 @@ object Operations {
             )
         CreateManyArgs(records).asRight
       }
-      case PushTo(listField) => {
+      case PushTo(_) => {
         val item = opSelection.arguments
           .find(_.name == "item")
           .map(arg => sangriaToJson(arg.value))
@@ -473,7 +468,7 @@ object Operations {
           )
         PushToArgs(sourceId, item).asRight
       }
-      case PushManyTo(listField) => {
+      case PushManyTo(_) => {
         val items = opSelection.arguments
           .find(_.name == "items")
           .map(_.value)
@@ -524,7 +519,7 @@ object Operations {
             ).asLeft
         }
       }
-      case RemoveFrom(arrayField) => {
+      case RemoveFrom(_) => {
         val sourceId = opSelection.arguments
           .collectFirst {
             case arg if arg.name == opTargetModel.primaryField.id =>
@@ -547,7 +542,7 @@ object Operations {
           }
         RemoveFromArgs(sourceId, targetId).asRight
       }
-      case RemoveManyFrom(arrayField) => ???
+      case RemoveManyFrom(_) => ???
       case domain.Update => {
         val objId = opSelection.arguments.collectFirst {
           case arg if arg.name == opTargetModel.primaryField.id =>
@@ -587,7 +582,7 @@ object Operations {
         new Exception(
           s"`${fieldSelection.name}` is not field of model `${opTargetModel.id}`"
         ).asLeft
-      case Some(field @ PModelField(_, PArray(PReference(refId)), _, _, _, _))
+      case Some(PModelField(_, PArray(PReference(refId)), _, _, _, _))
           if st.modelsById.contains(refId) =>
         InnerListArgs(None).asRight // TODO: Parse `QueryWhere` from JSON
       case _ => InnerOpNoArgs.asRight

@@ -165,7 +165,7 @@ object PermissionsSubstitutor {
           if (field.ptype.isInstanceOf[PrimitiveType] ||
             field.ptype.isInstanceOf[PEnum]) && permissions == Set(All) =>
         Right(allowedPrimitiveFieldPermissions)
-      case AccessRule(_, (_, Some(field)), permissions, _, _)
+      case AccessRule(_, (_, Some(_)), permissions, _, _)
           if permissions == Set(All) =>
         Right(allowedModelPermissions)
       case AccessRule(_, (_, Some(field)), permissions, _, _)

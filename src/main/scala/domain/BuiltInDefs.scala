@@ -36,7 +36,6 @@ object BuiltInDefs {
   )
 
   def fieldDirectives(
-      model: PModel,
       field: PModelField,
       newFieldType: Option[PType] = None
   ) = {

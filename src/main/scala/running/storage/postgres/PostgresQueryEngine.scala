@@ -98,8 +98,8 @@ class PostgresQueryEngine[M[_]: Monad](
               op.opArguments.items,
               op.innerReadOps
             ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
-          case op: UpdateOperation     => ???
-          case op: UpdateManyOperation => ???
+          case _: UpdateOperation     => ???
+          case _: UpdateManyOperation => ???
           case otherOp =>
             throw InternalException(
               s"Unsupported operation of event ${otherOp.event}"
@@ -191,7 +191,7 @@ class PostgresQueryEngine[M[_]: Monad](
       arrays <- refArrayInserts
       id <- insertedRecordId
       _ <- arrays.flatTraverse {
-        case (field, values, primaryKey) =>
+        case (field, values, _) =>
           values.traverse(joinInsert(model, field, id, _))
       }
       _ <- fieldTypeMap(PrimArray).traverse {
@@ -389,7 +389,7 @@ class PostgresQueryEngine[M[_]: Monad](
     val newObjFields: Query[Vector[(String, JsValue)]] = innerOps
       .zip(innerOps.map(iop => model.fieldsById(iop.targetField.field.id)))
       .traverse {
-        case (iop, PModelField(id, PReference(refId), _, _, _, _)) =>
+        case (iop, PModelField(_, PReference(_), _, _, _, _)) =>
           populateId(
             iop.targetModel,
             unpopulated.fields(iop.nameOrAlias),
@@ -397,7 +397,7 @@ class PostgresQueryEngine[M[_]: Monad](
           ).map(obj => iop.nameOrAlias -> obj)
         case (
             iop,
-            arrayField @ PModelField(id, PArray(_), _, _, _, _)
+            arrayField @ PModelField(_, PArray(_), _, _, _, _)
             ) =>
           populateArray(
             model,
@@ -407,7 +407,7 @@ class PostgresQueryEngine[M[_]: Monad](
           ).map(vec => iop.nameOrAlias -> JsArray(vec))
         case (
             iop,
-            PModelField(id, POption(PReference(refId)), _, _, _, _)
+            PModelField(_, POption(PReference(_)), _, _, _, _)
             ) =>
           populateId(
             iop.targetModel,
@@ -555,9 +555,9 @@ object PostgresQueryEngine {
     case d: Double => JsNumber(d)
     case s: String => JsString(s)
     case d: Date   => JsString(d.toString)
-    case s: Short  => JsNumber(s)
+    case s: Short  => JsNumber(s.toDouble)
     case l: Long   => JsNumber(l)
-    case f: Float  => JsNumber(f)
+    case f: Float  => JsNumber(f.toDouble)
     case _         => JsNull
   }
 

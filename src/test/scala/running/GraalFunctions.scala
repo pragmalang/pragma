@@ -41,8 +41,8 @@ class GraalFunctions extends FlatSpec {
     assert(json == expected)
 
     val originalGraalValue = GraalValueJsonFormater.read(json)
-    val originalAsMap = originalGraalValue.asHostObject
-      .asInstanceOf[java.util.HashMap[String, Value]]
+    val originalAsMap =
+      originalGraalValue.asHostObject[java.util.HashMap[String, Value]]
     json match {
       case JsObject(fields) => {
         fields("name") match {
@@ -58,8 +58,8 @@ class GraalFunctions extends FlatSpec {
             assert(
               originalAsMap
                 .get("pets")
-                .asHostObject
-                .asInstanceOf[Array[Value]](1)
+                .asHostObject[Array[Value]]
+                .apply(1)
                 .asString
                 .contains(
                   values(1)

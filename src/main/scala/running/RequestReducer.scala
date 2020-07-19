@@ -1,29 +1,16 @@
 package running
 
-import domain.SyntaxTree
 import sangria._, ast._
-import spray.json._
 
-class RequestReducer(syntaxTree: SyntaxTree) {
+object RequestReducer {
 
   def apply(input: Request): Request =
     input.copy(
       query = RequestReducer
-        .reduceQuery(
-          syntaxTree,
-          input.query,
-          Some(input.queryVariables)
-        )
+        .reduceQuery(input.query)
     )
-}
 
-object RequestReducer {
-
-  def reduceQuery(
-      syntaxTree: SyntaxTree,
-      queryAst: Document,
-      variables: Option[Either[JsObject, Seq[JsObject]]]
-  ): Document =
+  def reduceQuery(queryAst: Document): Document =
     Document(queryAst.definitions.collect {
       case operationDefinition: OperationDefinition =>
         RequestReducer

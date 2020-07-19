@@ -15,7 +15,20 @@ lazy val root = (project in file("."))
     )
   )
 
-scalacOptions ++= Seq("-feature", "-deprecation", "-Xlint:unused")
+scalacOptions ++= Seq(
+  "-feature",
+  "-deprecation",
+  "-Wunused:imports,patvars,privates,locals,explicits,implicits,params",
+  "-Xlint",
+  "-explaintypes",
+  "-Wdead-code",
+  "-Wextra-implicit",
+  "-Wnumeric-widen",
+  "-Wself-implicit"
+)
+
+// To suppress warnings in `sbt console`
+scalacOptions in (Compile, console) := Seq.empty
 
 libraryDependencies ++= Seq(
   "org.parboiled" %% "parboiled" % "2.2.0",

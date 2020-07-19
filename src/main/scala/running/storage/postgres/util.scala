@@ -31,34 +31,30 @@ package object utils {
         fieldPostgresType(syntaxTree.modelsById(id).primaryField)
       case model: PModel =>
         fieldPostgresType(model.primaryField)
-      case PEnum(id, values, position) =>
-        Some(PostgresType.TEXT)
-      case PInterface(id, fields, position) => None
-      case PArray(ptype)                    => None
-      case PFunction(args, returnType)      => None
+      case PEnum(_, _, _)      => Some(PostgresType.TEXT)
+      case PInterface(_, _, _) => None
+      case PArray(_)           => None
+      case PFunction(_, _)     => None
     }
 
   def toPostgresType(
-      t: PType,
-      isOptional: Boolean
+      t: PType
   )(implicit syntaxTree: SyntaxTree): Option[PostgresType] =
     t match {
-      case PAny => Some(PostgresType.ANY)
-      case PEnum(id, values, position) =>
-        Some(PostgresType.TEXT)
-      case PString => Some(PostgresType.TEXT)
-      case PInt    => Some(PostgresType.INT8)
-      case PFloat  => Some(PostgresType.FLOAT8)
-      case PBool   => Some(PostgresType.BOOL)
-      case PDate   => Some(PostgresType.DATE)
-      case PFile(sizeInBytes, extensions) =>
-        Some(PostgresType.TEXT)
-      case POption(ptype)                   => toPostgresType(ptype, true)
-      case PReference(id)                   => None
-      case _: PModel                        => None
-      case PInterface(id, fields, position) => None
-      case PArray(ptype)                    => None
-      case PFunction(args, returnType)      => None
+      case PAny                => Some(PostgresType.ANY)
+      case PEnum(_, _, _)      => Some(PostgresType.TEXT)
+      case PString             => Some(PostgresType.TEXT)
+      case PInt                => Some(PostgresType.INT8)
+      case PFloat              => Some(PostgresType.FLOAT8)
+      case PBool               => Some(PostgresType.BOOL)
+      case PDate               => Some(PostgresType.DATE)
+      case PFile(_, _)         => Some(PostgresType.TEXT)
+      case POption(ptype)      => toPostgresType(ptype)
+      case PReference(_)       => None
+      case _: PModel           => None
+      case PInterface(_, _, _) => None
+      case PArray(_)           => None
+      case PFunction(_, _)     => None
     }
 
 }

@@ -56,7 +56,7 @@ class RequestValidator(syntaxTree: SyntaxTree) {
     }
   }
 
-  def isInputType(tpe: Type, syntaxTree: SyntaxTree): Try[Unit] = Try {
+  def isInputType(tpe: Type): Try[Unit] = Try {
     val typeFromSchema = apiSchemaGenerator.getTypeFromSchema(tpe).get.typeDef
     typeFromSchema match {
       case _: InputObjectTypeDefinition => ()
@@ -80,7 +80,7 @@ class RequestValidator(syntaxTree: SyntaxTree) {
     } {
       val variableName = variableDefinition.name
       val variableType = variableDefinition.tpe
-      isInputType(variableType, syntaxTree).get
+      isInputType(variableType).get
       val defaultValue = variableDefinition.defaultValue
       val hasValue =
         variables.fields.exists(f => f._1 == variableName)

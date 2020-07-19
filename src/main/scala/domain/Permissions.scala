@@ -209,10 +209,10 @@ case class AccessRule(
     if (!permissions.contains(permission)) Nil
     else
       (resourcePath, permission) match {
-        case ((_, None), Create)             => List(Create, CreateMany)
-        case ((_, Some(field)), SetOnCreate) => List(Create, CreateMany)
-        case (_, Read)                       => List(Read, ReadMany)
-        case ((_, None), Update)             => List(Update, UpdateMany)
+        case ((_, None), Create)         => List(Create, CreateMany)
+        case ((_, Some(_)), SetOnCreate) => List(Create, CreateMany)
+        case (_, Read)                   => List(Read, ReadMany)
+        case ((_, None), Update)         => List(Update, UpdateMany)
         case ((_, Some(field)), Mutate)
             if field.ptype.isInstanceOf[PReference] =>
           List(Update, UpdateMany)
