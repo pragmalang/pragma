@@ -90,10 +90,16 @@ class PostgresQueryEngine[M[_]: Monad](
               op.opArguments.item,
               op.innerReadOps
             ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
-          case op: RemoveManyFromOperation => ???
-          case op: UpdateOperation         => ???
-          case op: UpdateManyOperation     => ???
-          case op: LoginOperation          => ???
+          case op: RemoveManyFromOperation =>
+            removeManyFrom(
+              op.targetModel,
+              op.arrayField,
+              op.opArguments.id,
+              op.opArguments.items,
+              op.innerReadOps
+            ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
+          case op: UpdateOperation     => ???
+          case op: UpdateManyOperation => ???
           case otherOp =>
             throw InternalException(
               s"Unsupported operation of event ${otherOp.event}"
@@ -270,7 +276,7 @@ class PostgresQueryEngine[M[_]: Monad](
       items: Vector[JsValue],
       primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[JsObject] =
+  ): Query[JsObject] =
     for {
       _ <- items.traverse { item =>
         pushOneTo(model, field, item, primaryKeyValue, Vector.empty)
@@ -305,12 +311,13 @@ class PostgresQueryEngine[M[_]: Monad](
       sourcePkValue: JsValue,
       targetPkValues: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsArray] =
-    targetPkValues
-      .traverse { targetPk =>
-        removeOneFrom(model, arrayField, sourcePkValue, targetPk, innerReadOps)
+  ): Query[JsObject] =
+    for {
+      _ <- targetPkValues.traverse { targetPk =>
+        removeOneFrom(model, arrayField, sourcePkValue, targetPk, Vector.empty)
       }
-      .map(JsArray(_))
+      result <- readOneRecord(model, sourcePkValue, innerReadOps)
+    } yield result
 
   override def removeOneFrom(
       model: PModel,

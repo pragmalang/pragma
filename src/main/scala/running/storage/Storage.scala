@@ -92,7 +92,7 @@ abstract class QueryEngine[S, M[_]: Monad] {
       sourcePkValue: JsValue,
       targetPkValues: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsArray]
+  ): Query[JsObject]
 
   def removeOneFrom(
       model: PModel,
