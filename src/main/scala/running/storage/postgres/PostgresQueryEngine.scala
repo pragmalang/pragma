@@ -212,7 +212,7 @@ class PostgresQueryEngine[M[_]: Monad](
       primaryKeyValue: Either[Long, String],
       newRecord: JsObject,
       innerReadOps: Vector[InnerOperation]
-  ): ConnectionIO[JsObject] = ???
+  ): Query[JsObject] = ???
 
   override def deleteManyRecords(
       model: PModel,
@@ -371,7 +371,13 @@ class PostgresQueryEngine[M[_]: Monad](
       .head
       .compile
       .toList
-      .map(_.head)
+      .map(
+        _.headOption.getOrElse(
+          throw new Exception(
+            s"${model.id} of ID $primaryKeyValue does not exist"
+          )
+        )
+      )
       .flatMap(populateObject(model, _, innerReadOps))
   }
 
@@ -514,7 +520,7 @@ object PostgresQueryEngine {
   type Query[A] = ConnectionIO[A]
 
   /** To be used in `INSERT` statement classification */
-  private trait FieldKind
+  private sealed trait FieldKind
   private object Ref extends FieldKind
   private object Prim extends FieldKind
   private object RefArray extends FieldKind
@@ -572,7 +578,10 @@ object PostgresQueryEngine {
 
   def selectColumnsSql(innerReadOps: Vector[InnerOperation]): String =
     innerReadOps
-      .filterNot(_.targetField.field.ptype.isInstanceOf[PArray])
+      .filter {
+        case _: InnerReadOperation => true
+        case _                     => false
+      }
       .map { iop =>
         val fieldId = iop.targetField.field.id.withQuotes
         val alias = iop.targetField.alias

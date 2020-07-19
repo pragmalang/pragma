@@ -108,7 +108,7 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
       sourcePkValue: JsValue,
       targetPkValues: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
-  ): JsArray = ???
+  ): JsObject = ???
 
   def removeOneFrom(
       model: PModel,
