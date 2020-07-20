@@ -101,7 +101,8 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
         newFields = currentIndexedModel.indexedFields
           .filter(
             indexedField =>
-              !prevIndexedModel.indexedFields.exists(_.index == indexedField.index)
+              !prevIndexedModel.indexedFields
+                .exists(_.index == indexedField.index)
           )
           .map { indexedField =>
             val field = currentModel.fieldsById(indexedField.id)
@@ -111,7 +112,8 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
         deletedFields = prevIndexedModel.indexedFields
           .filter(
             indexedField =>
-              !currentIndexedModel.indexedFields.exists(_.index == indexedField.index)
+              !currentIndexedModel.indexedFields
+                .exists(_.index == indexedField.index)
           )
           .map { indexedField =>
             val field = prevModel.fieldsById(indexedField.id)
@@ -139,12 +141,21 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
           currentField = currentModel.fieldsById(currentIndexedField.id)
           prevField = prevModel.fieldsById(prevIndexedField.id)
           if currentField.ptype != prevField.ptype
+          if (prevField.ptype match {
+            case _ if prevField.ptype.innerPReference.isDefined =>
+              prevField.ptype.innerPReference
+                .filter(
+                  ref => !renamedModels.exists(_.prevModelId == ref.id)
+                )
+                .isDefined
+            case _ => true
+          })
         } yield
           ChangeManyFieldTypes(
             prevModel,
             Vector(
               ChangeFieldType(
-                currentField,
+                prevField,
                 currentField.ptype,
                 currentField.directives.find(_.id == "typeTransformer") match {
                   case Some(typeTransformerDir) =>
@@ -432,12 +443,12 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
       migration(AddField(field, model))
     case ChangeManyFieldTypes(_, _) => {
       // TODO: Implement this after finishing `PostgresQueryEngine` because it's eaiser to use it than plain SQL
-      val tempTableName = "__migration__" + scala.util.Random.nextInt(99999)
-      val columns: Vector[ColumnDefinition] = ???
-      val createTempTable = s"""
-      CREATE TABLE $tempTableName (${columns.mkString(", \n")})
-      """
-      println(createTempTable)
+      // val tempTableName = "__migration__" + scala.util.Random.nextInt(99999)
+      // val columns: Vector[ColumnDefinition] = ???
+      // val createTempTable = s"""
+      // CREATE TABLE $tempTableName (${columns.mkString(", \n")})
+      // """
+      // println(createTempTable)
       ???
     }
   }

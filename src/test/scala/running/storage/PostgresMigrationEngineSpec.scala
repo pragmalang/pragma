@@ -548,4 +548,218 @@ class PostgresMigrationEngineSpec extends FunSuite {
         .migration(prevSyntaxTree, (_, _) => false) == expected
     )
   }
+
+  test(
+    "Renaming models that are dependency to other models in a migration works"
+  ) {
+
+    val prevCode = """
+    @user
+    @1 model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin {
+      @1 username: String @primary @publicCredential
+      @2 password: String @secretCredential
+    }
+    """
+    val prevSyntaxTree = SyntaxTree.from(prevCode).get
+
+    val code = """
+    @user
+    @1 model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo1]
+    }
+
+    @2 model Todo1 {
+      @1 title: String @primary
+    }
+
+    @3 model Admin {
+      @1 username: String @primary @publicCredential
+      @2 password: String @secretCredential
+    }
+    """
+    val newSyntaxTree = SyntaxTree.from(code).get
+
+    val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
+
+    val expected = Vector(RenameModel("Todo", "Todo1"))
+
+    assert(
+      migrationEngine
+        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false) == expected
+    )
+  }
+
+  test(
+    "Changing field types in a migration works"
+  ) {
+
+    val prevCode = """
+    @user
+    @1 model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin {
+      @1 username: String @primary @publicCredential
+      @2 password: String @secretCredential
+    }
+    """
+    val prevSyntaxTree = SyntaxTree.from(prevCode).get
+
+    val code = """
+    @user
+    @1 model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Int = 0
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin {
+      @1 username: String @primary @publicCredential
+      @2 password: String @secretCredential
+    }
+    """
+    val newSyntaxTree = SyntaxTree.from(code).get
+
+    val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
+
+    val expected = Vector(
+      ChangeManyFieldTypes(
+        PModel(
+          "User",
+          List(
+            PModelField(
+              "id",
+              PString,
+              None,
+              1,
+              List(
+                Directive(
+                  "uuid",
+                  PInterfaceValue(Map(), PInterface("", List(), None)),
+                  FieldDirective,
+                  Some(PositionRange(Position(51, 4, 21), Position(56, 4, 26)))
+                )
+              ),
+              Some(PositionRange(Position(40, 4, 10), Position(42, 4, 12)))
+            ),
+            PModelField(
+              "username",
+              PString,
+              None,
+              2,
+              List(
+                Directive(
+                  "primary",
+                  PInterfaceValue(Map(), PInterface("", List(), None)),
+                  FieldDirective,
+                  Some(PositionRange(Position(83, 5, 27), Position(91, 5, 35)))
+                ),
+                Directive(
+                  "publicCredential",
+                  PInterfaceValue(Map(), PInterface("", List(), None)),
+                  FieldDirective,
+                  Some(PositionRange(Position(92, 5, 36), Position(109, 5, 53)))
+                )
+              ),
+              Some(PositionRange(Position(66, 5, 10), Position(74, 5, 18)))
+            ),
+            PModelField(
+              "password",
+              PString,
+              None,
+              3,
+              List(
+                Directive(
+                  "secretCredential",
+                  PInterfaceValue(Map(), PInterface("", List(), None)),
+                  FieldDirective,
+                  Some(
+                    PositionRange(Position(136, 6, 27), Position(153, 6, 44))
+                  )
+                )
+              ),
+              Some(PositionRange(Position(119, 6, 10), Position(127, 6, 18)))
+            ),
+            PModelField(
+              "isVerified",
+              PBool,
+              Some(PBoolValue(false)),
+              4,
+              List(),
+              Some(PositionRange(Position(163, 7, 10), Position(173, 7, 20)))
+            ),
+            PModelField(
+              "todos",
+              PArray(PReference("Todo")),
+              None,
+              5,
+              List(),
+              Some(PositionRange(Position(200, 8, 10), Position(205, 8, 15)))
+            )
+          ),
+          List(
+            Directive(
+              "user",
+              PInterfaceValue(Map(), PInterface("", List(), None)),
+              ModelDirective,
+              Some(PositionRange(Position(5, 2, 5), Position(10, 2, 10)))
+            )
+          ),
+          1,
+          Some(PositionRange(Position(24, 3, 14), Position(28, 3, 18)))
+        ),
+        Vector(
+          ChangeFieldType(
+            PModelField(
+              "isVerified",
+              PBool,
+              Some(PBoolValue(false)),
+              4,
+              List(),
+              Some(PositionRange(Position(163, 7, 10), Position(173, 7, 20)))
+            ),
+            PInt,
+            None,
+            None
+          )
+        )
+      )
+    )
+
+    assert(
+      migrationEngine
+        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false) == expected
+    )
+  }
 }

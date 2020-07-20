@@ -5,7 +5,23 @@ import domain.utils._
 /**
   * A PType is a data representation (models, enums, and primitive types)
   */
-sealed trait PType
+sealed trait PType {
+  def innerPReference: Option[PReference] = this match {
+    case ref: PReference                  => Some(ref)
+    case PArray(ref: PReference)          => Some(ref)
+    case POption(ref: PReference)         => Some(ref)
+    case POption(PArray(ref: PReference)) => Some(ref)
+    case _                                => None
+  }
+
+  def innerPModel: Option[PModel] = this match {
+    case model: PModel                  => Some(model)
+    case PArray(model: PModel)          => Some(model)
+    case POption(model: PModel)         => Some(model)
+    case POption(PArray(model: PModel)) => Some(model)
+    case _                              => None
+  }
+}
 
 case object PAny extends PType
 
