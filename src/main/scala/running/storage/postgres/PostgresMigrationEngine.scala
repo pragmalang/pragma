@@ -37,40 +37,82 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     else {
       val currentIndexedModels =
         currentTree.models.map(IndexedModel(_)).toVector
-      val prevIndexedModel = prevTree.models.map(IndexedModel(_)).toVector
-
-      val newModels = currentIndexedModels
-        .diff(prevIndexedModel)
-        .map(
-          indexedModel => CreateModel(currentTree.modelsById(indexedModel.id))
-        )
-
-      val deletedModels = prevIndexedModel
-        .diff(currentIndexedModels)
-        .map(indexedModel => DeleteModel(prevTree.modelsById(indexedModel.id)))
+      val prevIndexedModels = prevTree.models.map(IndexedModel(_)).toVector
 
       val renamedModels = for {
         currentModel <- currentIndexedModels
-        prevModel <- prevIndexedModel.find(_.index == currentModel.index)
+        prevModel <- prevIndexedModels.find(_.index == currentModel.index)
         if currentModel.id != prevModel.id
       } yield RenameModel(prevModel.id, currentModel.id)
 
+      val newModels = currentIndexedModels
+        .filter(
+          indexedModel =>
+            !prevIndexedModels.exists(_.index == indexedModel.index)
+        )
+        .map(
+          indexedModel => CreateModel(currentTree.modelsById(indexedModel.id))
+        )
+        .filter(
+          createModel =>
+            !renamedModels
+              .exists(_.newId == createModel.model.id)
+        )
+
+      val deletedModels = prevIndexedModels
+        .filter(
+          indexedModel =>
+            !currentIndexedModels.exists(_.index == indexedModel.index)
+        )
+        .map(indexedModel => DeleteModel(prevTree.modelsById(indexedModel.id)))
+        .filter(
+          deleteModel =>
+            !renamedModels
+              .exists(
+                _.prevModelId == deleteModel.prevModel.id
+              )
+        )
+
+      // Models that are not deleted, not renamed, not new, and their fields may have changed
+      val unrenamedUndeletedPreviousIndexedModels =
+        currentIndexedModels.filter { currentIndexedModel =>
+          !renamedModels
+            .exists(
+              _.prevModelId == prevIndexedModels
+                .find(_.index == currentIndexedModel.index)
+                .get
+                .id
+            ) && !deletedModels
+            .exists(
+              _.prevModel.id == currentIndexedModel.id
+            ) && !newModels
+            .exists(
+              _.model.id == currentIndexedModel.id
+            )
+        }
+
       val fieldMigrationSteps = for {
-        currentIndexedModel <- currentIndexedModels
-        prevIndexedModel <- prevIndexedModel.find(
+        currentIndexedModel <- unrenamedUndeletedPreviousIndexedModels
+        prevIndexedModel <- prevIndexedModels.find(
           _.index == currentIndexedModel.index
         )
         currentModel = currentTree.modelsById(currentIndexedModel.id)
         prevModel = prevTree.modelsById(prevIndexedModel.id)
         newFields = currentIndexedModel.indexedFields
-          .diff(prevIndexedModel.indexedFields)
+          .filter(
+            indexedField =>
+              !prevIndexedModel.indexedFields.exists(_.index == indexedField.index)
+          )
           .map { indexedField =>
             val field = currentModel.fieldsById(indexedField.id)
             AddField(field, prevModel)
           }
 
         deletedFields = prevIndexedModel.indexedFields
-          .diff(currentIndexedModel.indexedFields)
+          .filter(
+            indexedField =>
+              !currentIndexedModel.indexedFields.exists(_.index == indexedField.index)
+          )
           .map { indexedField =>
             val field = prevModel.fieldsById(indexedField.id)
             DeleteField(field, prevModel)

@@ -8,6 +8,9 @@ import domain.SyntaxTree
 import AlterTableAction._
 import OnDeleteAction.Cascade
 
+import domain._
+import org.parboiled2.Position
+
 class PostgresMigrationEngineSpec extends FunSuite {
   val code = """
     @1 @user
@@ -181,5 +184,368 @@ class PostgresMigrationEngineSpec extends FunSuite {
     // pprint.pprintln(postgresMigration)
 
     assert(postgresMigration == expected)
+  }
+
+  test("Adding new models in a migration works") {
+
+    val prevCode = """
+    @1 @user
+    model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+    """
+    val prevSyntaxTree = SyntaxTree.from(prevCode).get
+
+    val code = """
+    @1 @user
+    model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin {
+      @1 username: String @primary
+    }
+    """
+    val newSyntaxTree = SyntaxTree.from(code).get
+
+    val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
+
+    val expected = Vector(
+      CreateModel(
+        PModel(
+          "Admin",
+          List(
+            PModelField(
+              "username",
+              PString,
+              None,
+              1,
+              List(
+                Directive(
+                  "primary",
+                  PInterfaceValue(Map(), PInterface("", List(), None)),
+                  FieldDirective,
+                  Some(
+                    PositionRange(
+                      Position(327, 16, 27),
+                      Position(335, 16, 35)
+                    )
+                  )
+                )
+              ),
+              Some(
+                PositionRange(Position(310, 16, 10), Position(318, 16, 18))
+              )
+            )
+          ),
+          List(),
+          3,
+          Some(PositionRange(Position(293, 15, 14), Position(298, 15, 19)))
+        )
+      )
+    )
+
+    assert(
+      migrationEngine
+        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false) == expected
+    )
+  }
+
+  test("Deleting models in a migration works") {
+
+    val prevCode = """
+    @1 @user
+    model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin {
+      @1 username: String @primary
+    }
+    """
+    val prevSyntaxTree = SyntaxTree.from(prevCode).get
+
+    val code = """
+    @1 @user
+    model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+    """
+    val newSyntaxTree = SyntaxTree.from(code).get
+
+    val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
+
+    val expected = PostgresMigration(Vector(DropTable("Admin")), Vector.empty)
+    assert(
+      migrationEngine
+        .migration(prevSyntaxTree, (_, _) => false) == expected
+    )
+  }
+
+  test("Renaming models in a migration works") {
+
+    val prevCode = """
+    @user
+    @1 model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin {
+      @1 username: String @primary
+    }
+    """
+    val prevSyntaxTree = SyntaxTree.from(prevCode).get
+
+    val code = """
+    @user
+    @1 model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin1 {
+      @1 username: String @primary
+    }
+    """
+    val newSyntaxTree = SyntaxTree.from(code).get
+
+    val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
+
+    val expected =
+      PostgresMigration(Vector(RenameTable("Admin", "Admin1")), Vector.empty)
+    assert(
+      migrationEngine
+        .migration(prevSyntaxTree, (_, _) => false) == expected
+    )
+  }
+
+  test("Adding fields to models in a migration works") {
+
+    val prevCode = """
+    @user
+    @1 model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin {
+      @1 username: String @primary
+    }
+    """
+    val prevSyntaxTree = SyntaxTree.from(prevCode).get
+
+    val code = """
+    @user
+    @1 model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin {
+      @1 username: String @primary @publicCredential
+      @2 password: String @secretCredential
+    }
+    """
+    val newSyntaxTree = SyntaxTree.from(code).get
+
+    val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
+
+    val expected = PostgresMigration(
+      Vector(
+        AlterTable(
+          "Admin",
+          AddColumn(
+            ColumnDefinition(
+              "password",
+              PostgresType.TEXT,
+              true,
+              false,
+              false,
+              false,
+              false,
+              None
+            )
+          )
+        )
+      ),
+      Vector()
+    )
+    assert(
+      migrationEngine
+        .migration(prevSyntaxTree, (_, _) => false) == expected
+      // .renderSQL(prevSyntaxTree)
+    )
+  }
+
+  test("Deleting fields from models in a migration works") {
+
+    val prevCode = """
+    @user
+    @1 model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin {
+      @1 username: String @primary @publicCredential
+      @2 password: String @secretCredential
+    }
+    """
+    val prevSyntaxTree = SyntaxTree.from(prevCode).get
+
+    val code = """
+    @user
+    @1 model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin {
+      @1 username: String @primary
+    }
+    """
+    val newSyntaxTree = SyntaxTree.from(code).get
+
+    val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
+
+    val expected = PostgresMigration(
+      Vector(AlterTable("Admin", DropColumn("password", true))),
+      Vector()
+    )
+    assert(
+      migrationEngine
+        .migration(prevSyntaxTree, (_, _) => false) == expected
+    )
+  }
+
+  test("Renaming model fields in a migration works") {
+
+    val prevCode = """
+    @user
+    @1 model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin {
+      @1 username: String @primary @publicCredential
+      @2 password: String @secretCredential
+    }
+    """
+    val prevSyntaxTree = SyntaxTree.from(prevCode).get
+
+    val code = """
+    @user
+    @1 model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin {
+      @1 username: String @primary @publicCredential
+      @2 passcode: String @secretCredential
+    }
+    """
+    val newSyntaxTree = SyntaxTree.from(code).get
+
+    val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
+
+    val expected = PostgresMigration(
+      Vector(AlterTable("Admin", RenameColumn("password", "passcode"))),
+      Vector()
+    )
+    assert(
+      migrationEngine
+        .migration(prevSyntaxTree, (_, _) => false) == expected
+    )
   }
 }

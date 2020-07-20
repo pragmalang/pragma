@@ -122,12 +122,12 @@ sealed trait PostgresType {
   }
 }
 object PostgresType {
-  object ANY extends PostgresType
-  object UUID extends PostgresType
-  object SERIAL8 extends PostgresType
-  object TEXT extends PostgresType
-  object INT8 extends PostgresType
-  object FLOAT8 extends PostgresType
-  object BOOL extends PostgresType
-  object DATE extends PostgresType
+  case object ANY extends PostgresType
+  case object UUID extends PostgresType
+  case object SERIAL8 extends PostgresType
+  case object TEXT extends PostgresType
+  case object INT8 extends PostgresType
+  case object FLOAT8 extends PostgresType
+  case object BOOL extends PostgresType
+  case object DATE extends PostgresType
 }
