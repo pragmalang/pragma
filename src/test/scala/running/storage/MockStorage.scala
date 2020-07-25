@@ -11,6 +11,7 @@ import concurrent.ExecutionContext.Implicits.global
 import domain.{PModel, PShapeField}
 import running.InnerOperation
 import scala.util.Try
+import running.ObjectWithId
 
 object MockMigrationEngine extends MigrationEngine[MockStorage.type, Future] {
   def migrate(
@@ -62,13 +63,13 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
 
   def updateManyRecords(
       model: PModel,
-      recordsWithIds: Vector[JsObject],
+      recordsWithIds: Vector[ObjectWithId],
       innerReadOps: Vector[InnerOperation]
   ): JsArray = ???
 
   def updateOneRecord(
       model: PModel,
-      primaryKeyValue: Either[Long, String],
+      primaryKeyValue: JsValue,
       newRecord: JsObject,
       innerReadOps: Vector[InnerOperation]
   ): JsObject = ???

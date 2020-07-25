@@ -46,13 +46,13 @@ abstract class QueryEngine[S, M[_]: Monad] {
 
   def updateManyRecords(
       model: PModel,
-      recordsWithIds: Vector[JsObject],
+      recordsWithIds: Vector[ObjectWithId],
       innerReadOps: Vector[InnerOperation]
   ): Query[JsArray]
 
   def updateOneRecord(
       model: PModel,
-      primaryKeyValue: Either[Long, String],
+      primaryKeyValue: JsValue,
       newRecord: JsObject,
       innerReadOps: Vector[InnerOperation]
   ): Query[JsObject]

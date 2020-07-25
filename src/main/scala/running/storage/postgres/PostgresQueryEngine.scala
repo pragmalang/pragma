@@ -98,12 +98,25 @@ class PostgresQueryEngine[M[_]: Monad](
               op.opArguments.items,
               op.innerReadOps
             ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
-          case _: UpdateOperation     => ???
-          case _: UpdateManyOperation => ???
+          case op: UpdateOperation =>
+            updateOneRecord(
+              op.targetModel,
+              op.opArguments.obj.objId,
+              op.opArguments.obj.obj,
+              op.innerReadOps
+            ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
+          case op: UpdateManyOperation =>
+            updateManyRecords(
+              op.targetModel,
+              op.opArguments.items.toVector,
+              op.innerReadOps
+            ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
           case otherOp =>
-            throw InternalException(
-              s"Unsupported operation of event ${otherOp.event}"
-            )
+            queryError[(String, JsValue)] {
+              InternalException(
+                s"Unsupported operation of event ${otherOp.event}"
+              )
+            }
         }
       }
       .sequence
@@ -172,10 +185,7 @@ class PostgresQueryEngine[M[_]: Monad](
     val insertedRecordId = for {
       columns <- primFields
       columnSql = columns.map(_._1.id.withQuotes).mkString(", ")
-      set = columns.zipWithIndex.foldLeft(HPS.set(())) {
-        case (acc, ((_, value), index)) =>
-          acc *> setJsValue(value, index + 1)
-      }
+      set = setJsValues(columns.map(_._2))
       insertSql = s"INSERT INTO ${model.id.withQuotes} (${columnSql}) VALUES (" +
         List.fill(columns.length)("?").mkString(", ") +
         s") RETURNING ${model.primaryField.id.withQuotes};"
@@ -203,16 +213,132 @@ class PostgresQueryEngine[M[_]: Monad](
 
   override def updateManyRecords(
       model: PModel,
-      recordsWithIds: Vector[JsObject],
+      recordsWithIds: Vector[ObjectWithId],
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsArray] = ???
+  ): Query[JsArray] =
+    for {
+      newRecords <- recordsWithIds.traverse { obj =>
+        updateOneRecord(
+          model,
+          obj.objId,
+          obj.obj,
+          innerReadOps
+        )
+      }
+    } yield JsArray(newRecords)
 
   override def updateOneRecord(
       model: PModel,
-      primaryKeyValue: Either[Long, String],
+      primaryKeyValue: JsValue,
       newRecord: JsObject,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject] = ???
+  ): Query[JsObject] = {
+    val fieldTypeMap = fieldTypeMapFrom(newRecord, model)
+
+    val refUpdates = fieldTypeMap(Ref).traverse {
+      case (
+          PModelField(_, (PReference(modelRef)), _, _, _, _),
+          obj: JsObject
+          ) => {
+        val refModel = st.modelsById(modelRef)
+        if (obj.fields.contains(refModel.primaryField.id))
+          updateOneRecord(
+            refModel,
+            obj.fields(refModel.primaryField.id),
+            obj,
+            Vector.empty
+          )
+        else
+          queryError[JsObject] {
+            InternalException(
+              "Nested object in UPDATE arguments must be an object containing an ID"
+            )
+          }
+      }
+      case _ =>
+        queryError[JsObject] {
+          InternalException("Invalid reference field update")
+        }
+    }
+
+    val refArrayUpdates = fieldTypeMap(RefArray).traverse {
+      case (
+          PModelField(_, PArray(PReference(modelRef)), _, _, _, _),
+          JsArray(values)
+          ) if st.modelsById.contains(modelRef) => {
+        val refModel = st.modelsById(modelRef)
+        values.traverse {
+          case obj: JsObject =>
+            updateOneRecord(
+              refModel,
+              obj.fields(refModel.primaryField.id),
+              obj,
+              Vector.empty
+            )
+          case otherVal =>
+            queryError[JsObject] {
+              UserError(
+                s"Invalid value `$otherVal` in nested UPDATE_MANY `${refModel.id}` operation"
+              )
+            }
+        }
+      }
+    }
+
+    val primArrayUpdates = fieldTypeMap(PrimArray).traverse {
+      case (
+          arrayField @ PModelField(_, PArray(PReference(enumRef)), _, _, _, _),
+          JsArray(values)
+          ) if st.enumsById.contains(enumRef) => {
+        val refEnum = st.enumsById(enumRef)
+        values.collectFirst {
+          case JsString(value) if !refEnum.values.contains(value) =>
+            queryError[JsObject] {
+              UserError(s"Value `$value` is not a member of `${refEnum.id}`")
+            }
+          case _: JsNumber | JsNull | _: JsObject | _: JsArray =>
+            queryError[JsObject] {
+              UserError("Illegal non-string value in enum array field update")
+            }
+        } getOrElse {
+          deleteAllJoinRecords(model, arrayField, primaryKeyValue) *>
+            pushManyTo(model, arrayField, values, primaryKeyValue, Vector.empty)
+        }
+      }
+      case (arrayField, JsArray(values)) =>
+        deleteAllJoinRecords(model, arrayField, primaryKeyValue) *>
+          pushManyTo(model, arrayField, values, primaryKeyValue, Vector.empty)
+    }
+
+    val primUpdateSql = s"UPDATE ${model.id.withQuotes} SET " +
+      fieldTypeMap(Prim)
+        .map {
+          case (field, _) => s"${field.id.withQuotes} = ?"
+        }
+        .mkString(", ") +
+      s"WHERE ${model.primaryField.id.withQuotes} = ?;"
+    val primUpdatePrep =
+      setJsValues(fieldTypeMap(Prim).map(_._2)) *>
+        setJsValue(primaryKeyValue, fieldTypeMap(Prim).length + 1)
+    val primUpdate = HC
+      .updateWithGeneratedKeys(model.id.withQuotes :: Nil)(
+        primUpdateSql,
+        primUpdatePrep,
+        1
+      )
+      .head
+      .compile
+      .toList
+      .map(_.head.fields(model.primaryField.id))
+
+    for {
+      _ <- refArrayUpdates
+      _ <- refUpdates
+      _ <- primArrayUpdates
+      newId <- primUpdate
+      newRecord <- readOneRecord(model, newId, innerReadOps)
+    } yield newRecord
+  }
 
   override def deleteManyRecords(
       model: PModel,
@@ -564,7 +690,7 @@ object PostgresQueryEngine {
   /** Utility function to get a `PreparedStatementIO`
     * from a JSON value.
     */
-  def setJsValue(jsVal: JsValue, paramIndex: Int = 1) =
+  private def setJsValue(jsVal: JsValue, paramIndex: Int = 1) =
     jsVal match {
       case JsString(s)  => HPS.set(paramIndex, s)
       case JsNumber(n)  => HPS.set(paramIndex, n.toDouble)
@@ -576,7 +702,13 @@ object PostgresQueryEngine {
         )
     }
 
-  def selectColumnsSql(innerReadOps: Vector[InnerOperation]): String =
+  /** Sets all the given values based on their index in the sequence */
+  private def setJsValues(values: Seq[JsValue]): PreparedStatementIO[Unit] =
+    values.zipWithIndex.foldLeft(HPS.set(())) {
+      case (set, (value, index)) => set *> setJsValue(value, index + 1)
+    }
+
+  private def selectColumnsSql(innerReadOps: Vector[InnerOperation]): String =
     innerReadOps
       .filter {
         case _: InnerReadOperation => true
@@ -589,13 +721,13 @@ object PostgresQueryEngine {
       }
       .mkString(", ")
 
-  def selectAllById(model: PModel, id: JsValue): Query[JsObject] = {
+  private def selectAllById(model: PModel, id: JsValue): Query[JsObject] = {
     val sql =
       s"SELECT * FROM ${model.id.withQuotes} WHERE ${model.primaryField.id} = ?;"
     HC.stream(sql, setJsValue(id), 1).head.compile.toList.map(_.head)
   }
 
-  def joinInsert(
+  private def joinInsert(
       model: PModel,
       field: PShapeField,
       sourceValue: JsValue,
@@ -607,6 +739,23 @@ object PostgresQueryEngine {
       s"INSERT INTO $joinTable VALUES (?, ?) RETURNING $sourceField;"
     val set = setJsValue(sourceValue) *> setJsValue(targetValue, 2)
     HC.stream(sql, set, 1).compile.toVector.as(())
+  }
+
+  private def queryError[Result](err: Throwable): Query[Result] =
+    MonadError[Query, Throwable].raiseError[Result](err)
+
+  /** Deletes all records in the array field join table
+    * where the source equals `sourcePkValue`
+    */
+  private def deleteAllJoinRecords(
+      sourceModel: PModel,
+      arrayField: PModelField,
+      sourcePkVlaue: JsValue
+  ): Query[Unit] = {
+    val sql =
+      s"DELETE FROM ${sourceModel.id.concat("_").concat(arrayField.id).withQuotes} WHERE ${"source_".concat(sourceModel.id).withQuotes} = ?;"
+    val prep = setJsValue(sourcePkVlaue)
+    HC.updateWithGeneratedKeys(Nil)(sql, prep, 0).compile.drain
   }
 
 }
