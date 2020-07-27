@@ -542,7 +542,31 @@ object Operations {
           }
         RemoveFromArgs(sourceId, targetId).asRight
       }
-      case RemoveManyFrom(_) => ???
+      case RemoveManyFrom(arrayField) => {
+        val id = opSelection.arguments.collectFirst {
+          case arg if arg.name == opTargetModel.primaryField.id =>
+            sangriaToJson(arg.value)
+        }
+        val items = opSelection.arguments.collectFirst {
+          case arg if arg.name == "items" => sangriaToJson(arg.value)
+        }
+        (id, items) match {
+          case (Some(id), Some(JsArray(items))) =>
+            RemoveManyFromArgs(id, items).asRight
+          case (None, Some(_)) =>
+            UserError(
+              s"REMOVE_MANY_FROM operation on field `${arrayField.id}` of model `${opTargetModel.id}` takes a `${opTargetModel.primaryField.id}` argument"
+            ).asLeft
+          case (Some(_), None) =>
+            UserError(
+              s"REMOVE_MANY_FROM operation on field `${arrayField.id}` of model `${opTargetModel.id}` takes an `items` array argument"
+            ).asLeft
+          case _ =>
+            UserError(
+              s"REMOVE_MANY_FROM operation on field `${arrayField.id}` of model `${opTargetModel.id}` takes `${opTargetModel.primaryField.id}` and `items` arguments"
+            ).asLeft
+        }
+      }
       case domain.Update => {
         val objId = opSelection.arguments.collectFirst {
           case arg if arg.name == opTargetModel.primaryField.id =>
@@ -568,8 +592,37 @@ object Operations {
             ).asLeft
         }
       }
-      case UpdateMany => ???
-      case Login      => ???
+      case UpdateMany => {
+        val items = opSelection.arguments.collectFirst {
+          case arg if arg.name == "items" => sangriaToJson(arg.value)
+        } match {
+          case Some(items) => items.asRight
+          case None =>
+            UserError("UPDATE_MANY operation takes an `items` argument").asLeft
+        }
+        val objectsWithIds = items.flatMap {
+          case JsArray(items) =>
+            items.traverse {
+              case JsObject(fields)
+                  if !fields.contains(opTargetModel.primaryField.id) =>
+                UserError(
+                  s"Objects in `items` array argument of UPDATE_MANY operation on model `${opTargetModel.id}` must contain a `${opTargetModel.primaryField.id}`"
+                ).asLeft
+              case _: JsNumber | JsNull | _: JsBoolean | _: JsArray =>
+                UserError(
+                  s"Values in `items` array argument of UPDATE_MANY operation must be objects containing `${opTargetModel.primaryField.id}`"
+                ).asLeft
+              case validObject @ JsObject(fields) =>
+                ObjectWithId(validObject, fields(opTargetModel.primaryField.id)).asRight
+            }
+          case _ =>
+            UserError(
+              "`items` argument of UPDATE_MANY operation must be an array"
+            ).asLeft
+        }
+        objectsWithIds.map(UpdateManyArgs(_))
+      }
+      case Login => ???
     }
 
   private def parseInnerOpArgs(
