@@ -91,7 +91,7 @@ class Server(st: SyntaxTree) extends IOApp {
   def run(args: List[String]): IO[ExitCode] = {
     try {
       transactor.use { t =>
-        Fragment(migrationEngine.initialMigration.renderSQL(st), Nil).update.run
+        Fragment(migrationEngine.initialMigration.renderSQL, Nil).update.run
           .transact(t)
       }.unsafeRunSync
     } catch {

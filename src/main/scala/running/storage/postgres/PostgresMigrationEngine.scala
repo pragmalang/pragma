@@ -11,10 +11,17 @@ import SQLMigrationStep._
 
 import domain._
 import domain.utils.UserError
+import domain.DomainImplicits._
 import OnDeleteAction.Cascade
+
+import doobie._
+
+import running.storage.postgres.instances._
+import spray.json.JsObject
 
 class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     extends MigrationEngine[Postgres[M], M] {
+  implicit val st = syntaxTree
   override def migrate(
       migrationSteps: Vector[MigrationStep]
   ): M[Vector[Try[Unit]]] = Monad[M].pure(Vector(Try(())))
@@ -247,7 +254,14 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
   private[postgres] def migration(
       steps: Iterable[MigrationStep]
   ): PostgresMigration =
-    steps.map(migration).foldLeft(PostgresMigration.empty)(_ ++ _)
+    steps
+      .map(migration(_))
+      .foldLeft(PostgresMigration(Vector.empty)(syntaxTree))(
+        (acc, migration) =>
+          PostgresMigration(acc.unorderedSteps ++ migration.unorderedSteps)(
+            syntaxTree
+          )
+      )
 
   private[postgres] def migration(
       step: MigrationStep
@@ -255,17 +269,16 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     case CreateModel(model) => {
       val createTableStatement = CreateTable(model.id, Vector.empty)
       val addColumnStatements = model.fields.flatMap { field =>
-        migration(AddField(field, model)).steps(syntaxTree)
+        migration(AddField(field, model)).steps
       }
       PostgresMigration(
-        Vector(Vector(createTableStatement), addColumnStatements).flatten,
-        Vector.empty
+        Vector(Vector(createTableStatement), addColumnStatements).flatten
       )
     }
     case RenameModel(modelId, newId) =>
-      PostgresMigration(Vector(RenameTable(modelId, newId)), Vector.empty)
+      PostgresMigration(Vector(RenameTable(modelId, newId)))
     case DeleteModel(model) =>
-      PostgresMigration(Vector(DropTable(model.id)), Vector.empty)
+      PostgresMigration(Vector(DropTable(model.id)))
     case UndeleteModel(model) => migration(CreateModel(model))
     case AddField(field, model) => {
       val g: Option[Either[CreateTable, ForeignKey]] =
@@ -407,8 +420,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                   case Right(_) => Vector.empty
                 }
               case None => Vector.empty
-            },
-            Vector.empty
+            }
           )
         case Some(alterTableStatement) =>
           PostgresMigration(
@@ -420,8 +432,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                   case Right(_) => Vector(alterTableStatement)
                 }
               case None => Vector(alterTableStatement)
-            },
-            Vector.empty
+            }
           )
       }
     }
@@ -429,26 +440,52 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
       PostgresMigration(
         Vector(
           AlterTable(model.id, AlterTableAction.RenameColumn(fieldId, newId))
-        ),
-        Vector.empty
+        )
       )
     case DeleteField(field, model) =>
       PostgresMigration(
         Vector(
           AlterTable(model.id, AlterTableAction.DropColumn(field.id, true))
-        ),
-        Vector.empty
+        )
       )
     case UndeleteField(field, model) =>
       migration(AddField(field, model))
-    case ChangeManyFieldTypes(_, _) => {
+    case ChangeManyFieldTypes(prevModel, changes) => {
       // TODO: Implement this after finishing `PostgresQueryEngine` because it's eaiser to use it than plain SQL
-      // val tempTableName = "__migration__" + scala.util.Random.nextInt(99999)
-      // val columns: Vector[ColumnDefinition] = ???
-      // val createTempTable = s"""
-      // CREATE TABLE $tempTableName (${columns.mkString(", \n")})
-      // """
-      // println(createTempTable)
+      val newTableTempName = "__temp_table__" + prevModel.id
+      val newModelTempDef = prevModel.copy(
+        id = newTableTempName,
+        fields =
+          changes.map(change => change.field.copy(ptype = change.newType)).toSeq
+      )
+      val createNewTable = migration(CreateModel(newModelTempDef))
+
+      val dropPrevTable = migration(DeleteModel(prevModel))
+
+      val renameNewTable = migration(
+        RenameModel(newTableTempName, prevModel.id)
+      )
+
+      val stream =
+        HC.stream[JsObject](
+          s"SELECT * FROM ${prevModel.id.withQuotes};",
+          HPS.set(()),
+          200
+        )
+
+      val streamIO = stream.compile.toVector
+
+      /** TODO:
+        *   1) Create the new table with a temp name:
+        *   2) Load rows of prev table as a stream in memory:
+        *     a) pass the data in each type-changed column to the correct
+        *        type transformer if any
+        *     b) Type check the value/s returned from the transformer
+        *     c) try re-inserting this row in the new table
+        *       i) Beware that Postgres auto-generated values don't get regenerated after
+        *          this insert. This is merely just copying, make sure that no data is
+        *          getting changed without getting passed to the correct transformer.
+        */
       ???
     }
   }

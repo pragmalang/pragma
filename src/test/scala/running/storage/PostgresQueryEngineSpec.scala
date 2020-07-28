@@ -6,13 +6,13 @@ import org.scalatest._
 import doobie._
 import doobie.implicits._
 import cats._
-import PostgresQueryEngine._
 import spray.json._
 import cats.effect._
 import sangria.macros._
 import running._
 import running.storage.QueryWhere
 import scala.util._
+import running.storage.postgres.instances._
 
 /** NOTE: These tests may fail if executed out of oder
   * They also require a running Postgress instance
@@ -56,7 +56,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
   val queryEngine = new PostgresQueryEngine(t, syntaxTree)
   val migrationEngine = new PostgresMigrationEngine[Id](syntaxTree)
 
-  val initSql = migrationEngine.initialMigration.renderSQL(syntaxTree)
+  val initSql = migrationEngine.initialMigration.renderSQL
 
   Fragment(initSql, Nil, None).update.run
     .transact(t)

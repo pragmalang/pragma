@@ -1,45 +1,40 @@
 package running.storage.postgres
 
 import cats.Monoid
-import domain.SyntaxTree
-import scala.language.implicitConversions
+import domain.utils._ 
+import cats._
+import spray.json._
 
 package object instances {
-  import SQLMigrationStep._
 
-  implicit val postgresMigrationMonoid = new Monoid[PostgresMigration] {
-    override def combine(
-        x: PostgresMigration,
-        y: PostgresMigration
-    ): PostgresMigration =
-      PostgresMigration(
-        x.unorderedSteps ++ y.unorderedSteps,
-        x.preScripts ++ y.preScripts
-      )
-    override def empty: PostgresMigration =
-      PostgresMigration(Vector.empty, Vector.empty)
+  implicit val jsObjectRead: doobie.Read[JsObject] =
+    new doobie.Read[JsObject](Nil, (resultSet, _) => {
+      val rsMetadata = resultSet.getMetaData
+      val columnCount = rsMetadata.getColumnCount
+      val keys = (1 to columnCount).map(rsMetadata.getColumnLabel).toVector
+      val mapBuilder = Map.newBuilder[String, JsValue]
+      for (columnIndex <- 1 to columnCount) {
+        val key = keys(columnIndex - 1)
+        val value = columnValueToJson(resultSet.getObject(columnIndex))
+        mapBuilder += (key -> value)
+      }
+      JsObject(mapBuilder.result)
+    })
+
+  /** Used to get table columns as JSON
+    * CAUTION: Returns JsNull if the input value's type
+    * doesn't match any case.
+    */
+  private def columnValueToJson(value: Any): JsValue = value match {
+    case null      => JsNull
+    case i: Int    => JsNumber(i)
+    case d: Double => JsNumber(d)
+    case s: String => JsString(s)
+    case d: Date   => JsString(d.toString)
+    case s: Short  => JsNumber(s.toDouble)
+    case l: Long   => JsNumber(l)
+    case f: Float  => JsNumber(f.toDouble)
+    case _         => JsNull
   }
-
-  implicit def sqlMigrationStepOrdering(st: SyntaxTree) =
-    new Ordering[SQLMigrationStep] {
-      override def compare(x: SQLMigrationStep, y: SQLMigrationStep): Int =
-        (x, y) match {
-          case (
-              AlterTable(_, action: AlterTableAction.AddColumn),
-              _: CreateTable
-              ) if action.definition.isPrimaryKey =>
-            -1
-          case (statement: CreateTable, _)
-              if st.modelsById.get(statement.name).isDefined =>
-            1
-          case (statement: CreateTable, _)
-              if !st.modelsById.get(statement.name).isDefined =>
-            -1
-          case (AlterTable(_, action: AlterTableAction.AddColumn), _)
-              if action.definition.isPrimaryKey =>
-            1
-          case (_, _) => 0
-        }
-    }
 
 }

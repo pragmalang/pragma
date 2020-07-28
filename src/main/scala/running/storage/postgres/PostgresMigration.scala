@@ -1,27 +1,41 @@
 package running.storage.postgres
 
 import cats.effect.IO
-import instances._
-import cats.implicits._
-import cats.kernel.Monoid
-import instances.sqlMigrationStepOrdering
+
 import domain.SyntaxTree
+import SQLMigrationStep._
 
 case class PostgresMigration(
     unorderedSteps: Vector[SQLMigrationStep],
-    preScripts: Vector[IO[Unit]]
-) {
-  def steps(st: SyntaxTree): Vector[SQLMigrationStep] =
-    unorderedSteps.sortWith((x, y) => sqlMigrationStepOrdering(st).gt(x, y))
+)(implicit st: SyntaxTree) {
+  def steps: Vector[SQLMigrationStep] = {
+    val sqlMigrationStepOrdering = new Ordering[SQLMigrationStep] {
+      override def compare(x: SQLMigrationStep, y: SQLMigrationStep): Int =
+        (x, y) match {
+          case (
+              AlterTable(_, action: AlterTableAction.AddColumn),
+              _: CreateTable
+              ) if action.definition.isPrimaryKey =>
+            -1
+          case (statement: CreateTable, _)
+              if st.modelsById.get(statement.name).isDefined =>
+            1
+          case (statement: CreateTable, _)
+              if !st.modelsById.get(statement.name).isDefined =>
+            -1
+          case (AlterTable(_, action: AlterTableAction.AddColumn), _)
+              if action.definition.isPrimaryKey =>
+            1
+          case (_, _) => 0
+        }
+      }
+      unorderedSteps.sortWith((x, y) => sqlMigrationStepOrdering.gt(x, y))
+  }
 
   def run: IO[Unit] = ???
-  def ++(that: PostgresMigration): PostgresMigration = this.combine(that)
-  def concat(that: PostgresMigration): PostgresMigration = this.combine(that)
-  def renderSQL(st: SyntaxTree): String =
-    "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";\n\n" + steps(st)
+
+  def renderSQL: String =
+    "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";\n\n" + steps
       .map(_.renderSQL)
       .mkString("\n\n")
-}
-object PostgresMigration {
-  def empty: PostgresMigration = Monoid[PostgresMigration].empty
 }
