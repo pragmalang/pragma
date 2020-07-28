@@ -316,12 +316,12 @@ class PostgresQueryEngine[M[_]: Monad](
           case (field, _) => s"${field.id.withQuotes} = ?"
         }
         .mkString(", ") +
-      s"WHERE ${model.primaryField.id.withQuotes} = ?;"
+      s" WHERE ${model.primaryField.id.withQuotes} = ?;"
     val primUpdatePrep =
       setJsValues(fieldTypeMap(Prim).map(_._2)) *>
         setJsValue(primaryKeyValue, fieldTypeMap(Prim).length + 1)
     val primUpdate = HC
-      .updateWithGeneratedKeys(model.id.withQuotes :: Nil)(
+      .updateWithGeneratedKeys(model.primaryField.id :: Nil)(
         primUpdateSql,
         primUpdatePrep,
         1
@@ -614,9 +614,9 @@ class PostgresQueryEngine[M[_]: Monad](
     fieldKindMap
       .map {
         case (kind, fields) =>
-          kind -> fields
-            .map(f => (f, record.fields.get(f.id).getOrElse(JsNull)))
-            .toVector
+          kind -> fields.collect {
+            case f if record.fields.contains(f.id) => (f, record.fields(f.id))
+          }.toVector
       }
       .withDefaultValue(Vector.empty)
   }

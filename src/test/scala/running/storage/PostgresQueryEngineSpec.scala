@@ -64,28 +64,18 @@ class PostgresQueryEngineSpec extends FlatSpec {
 
   sql"""
     INSERT INTO  "Country" ("code", "name", "population", "gnp") 
-      VALUES ('SY', 'Syria', 6000, 10);
-
-    INSERT INTO  "Country" ("code", "name", "population", "gnp") 
-      VALUES ('US', 'America', 100000, 999999);
-
-    INSERT INTO  "Country" ("code", "name", "population", "gnp") 
-      VALUES ('JO', 'Jordan', 5505, 12343);
-
-    INSERT INTO  "Country" ("code", "name", "population", "gnp") 
-      VALUES ('SE', 'Sweden', 20, 300);
+      VALUES ('SY', 'Syria', 6000, 10),
+             ('US', 'America', 100000, 999999),
+             ('JO', 'Jordan', 5505, 12343),
+             ('SE', 'Sweden', 20, 300);
     
     INSERT INTO "Citizen" ("name") 
-      VALUES ('John');
-    
-    INSERT INTO "Citizen" ("name") 
-      VALUES ('Ali');
+      VALUES ('John'),
+             ('Ali');
 
     INSERT INTO "Country_citizens" ("source_Country", "target_Citizen")
-      VALUES ('US', 'John');
-
-    INSERT INTO "Country_citizens" ("source_Country", "target_Citizen")
-      VALUES ('SY', 'Ali');
+      VALUES ('US', 'John'),
+             ('SY', 'Ali');
   """.update.run.transact(t).unsafeRunSync
 
   "Query engine" should "connect to the database and run queries" in {
@@ -543,6 +533,27 @@ class PostgresQueryEngineSpec extends FlatSpec {
     )
 
     assert(resultAfterDelete == expected)
+  }
+
+  "PostgresQueryEngine#updateOneRecord" should "successfully patch a given row" taggedAs (dkr) in {
+    val gqlQuery = gql"""
+    mutation {
+      Country {
+        update(code: "US", data: {
+          name: "United States"
+        }) {
+          code
+          name
+        }
+      }
+    }
+    """
+    val updateResult = runGql(gqlQuery)
+    val expected = JsObject(
+      Map("name" -> JsString("United States"), "code" -> JsString("US"))
+    )
+
+    assert(updateResult.fields("data") == expected)
   }
 
 }
