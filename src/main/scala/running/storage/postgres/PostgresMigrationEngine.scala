@@ -2,24 +2,18 @@ package running.storage.postgres
 
 import running.storage._
 import cats._
-import scala.util.Try
 import domain.SyntaxTree
-import postgres.utils._
 import domain.utils._
-
-import SQLMigrationStep._
 
 import domain._
 import domain.utils.UserError
-import OnDeleteAction.Cascade
-
 
 class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     extends MigrationEngine[Postgres[M], M] {
   implicit val st = syntaxTree
   override def migrate(
       migrationSteps: Vector[MigrationStep]
-  ): M[Vector[Try[Unit]]] = Monad[M].pure(Vector(Try(())))
+  ): M[Vector[Either[MigrationError, Unit]]] = ???
 
   def initialMigration = migration(SyntaxTree.empty, (_, _) => false)
 
@@ -27,7 +21,9 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
       prevTree: SyntaxTree = SyntaxTree.empty,
       thereExistData: (ModelId, FieldId) => Boolean
   ): PostgresMigration =
-    migration(inferedMigrationSteps(syntaxTree, prevTree, thereExistData))
+    PostgresMigration(
+      inferedMigrationSteps(syntaxTree, prevTree, thereExistData)
+    )
 
   private[postgres] def inferedMigrationSteps(
       currentTree: SyntaxTree,
@@ -236,218 +232,16 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     }
 
   /**
-    * CAUTION: This function does not sort `steps` based on
-    * the dependency graph of the syntax tree models which
-    * means that if `steps` are not sorted correctly, this
-    * function might return a `PostgresMigration` that when
-    * it's `renderSQL` method is called, the method will return
-    * an out-of-order (invalid) SQL statements.
-    *
-    * This is why it's private. And it's private to the `postgres`
-    * package so it can be tested.
-    */
-  private[postgres] def migration(
-      steps: Iterable[MigrationStep]
-  ): PostgresMigration =
-    steps
-      .map(migration(_))
-      .foldLeft(PostgresMigration(Vector.empty)(syntaxTree))(
-        (acc, migration) =>
-          PostgresMigration(acc.unorderedSteps ++ migration.unorderedSteps)(
-            syntaxTree
-          )
-      )
-
-  private[postgres] def migration(
-      step: MigrationStep
-  ): PostgresMigration = step match {
-    case CreateModel(model) => {
-      val createTableStatement = CreateTable(model.id, Vector.empty)
-      val addColumnStatements = model.fields.flatMap { field =>
-        migration(AddField(field, model)).steps
-      }
-      PostgresMigration(
-        Vector(Vector(createTableStatement), addColumnStatements).flatten
-      )
-    }
-    case RenameModel(modelId, newId) =>
-      PostgresMigration(Vector(RenameTable(modelId, newId)))
-    case DeleteModel(model) =>
-      PostgresMigration(Vector(DropTable(model.id)))
-    case UndeleteModel(model) => migration(CreateModel(model))
-    case AddField(field, model) => {
-      val g: Option[Either[CreateTable, ForeignKey]] =
-        field.ptype match {
-          case POption(PArray(_)) | PArray(_) => {
-            val innerModel = field.ptype match {
-              case PArray(model: PModel)          => Some(model)
-              case PArray(PReference(id))         => syntaxTree.modelsById.get(id)
-              case POption(PArray(model: PModel)) => Some(model)
-              case POption(PArray(PReference(id))) =>
-                syntaxTree.modelsById.get(id)
-              case _ => None
-            }
-
-            val thisModelReferenceColumn = ColumnDefinition(
-              s"source_${model.id}",
-              model.primaryField.ptype match {
-                case PString => PostgresType.TEXT
-                case PInt    => PostgresType.INT8
-                case t =>
-                  throw new InternalException(
-                    s"Primary field in model `${model.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."
-                  )
-              },
-              isNotNull = true,
-              isAutoIncrement = false,
-              isPrimaryKey = false,
-              isUUID = false,
-              isUnique = false,
-              foreignKey = Some(
-                ForeignKey(
-                  model.id,
-                  model.primaryField.id,
-                  onDelete = Cascade
-                )
-              )
-            )
-
-            val valueOrReferenceColumn = innerModel match {
-              case Some(otherModel) =>
-                ColumnDefinition(
-                  s"target_${otherModel.id}",
-                  otherModel.primaryField.ptype match {
-                    case PString => PostgresType.TEXT
-                    case PInt    => PostgresType.INT8
-                    case t =>
-                      throw new InternalException(
-                        s"Primary field in model `${otherModel.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."
-                      )
-                  },
-                  isNotNull = true,
-                  isAutoIncrement = false,
-                  isPrimaryKey = false,
-                  isUUID = false,
-                  isUnique = false,
-                  foreignKey = Some(
-                    ForeignKey(
-                      otherModel.id,
-                      otherModel.primaryField.id,
-                      onDelete = Cascade
-                    )
-                  )
-                )
-              case None =>
-                ColumnDefinition(
-                  name = s"${field.id}",
-                  dataType = toPostgresType(
-                    field.ptype match {
-                      case POption(PArray(t)) => t
-                      case PArray(t)          => t
-                      case t =>
-                        throw new InternalException(
-                          s"Expected [T] or [T]?, found ${domain.utils.displayPType(t)}"
-                        )
-                    }
-                  )(syntaxTree).get,
-                  isNotNull = true,
-                  isAutoIncrement = false,
-                  isPrimaryKey = false,
-                  isUUID = false,
-                  isUnique = false,
-                  foreignKey = None
-                )
-            }
-
-            val columns =
-              Vector(thisModelReferenceColumn, valueOrReferenceColumn)
-
-            Some(Left(CreateTable(s"${model.id}_${field.id}", columns)))
-          }
-          case model: PModel =>
-            Some(Right(ForeignKey(model.id, model.primaryField.id)))
-          case POption(model: PModel) =>
-            Some(Right(ForeignKey(model.id, model.primaryField.id)))
-          case POption(PReference(id))
-              if syntaxTree.modelsById.get(id).isDefined =>
-            Some(
-              Right(ForeignKey(id, syntaxTree.modelsById(id).primaryField.id))
-            )
-          case PReference(id) if syntaxTree.modelsById.get(id).isDefined =>
-            Some(
-              Right(ForeignKey(id, syntaxTree.modelsById(id).primaryField.id))
-            )
-          case _ => None
-        }
-      val alterTableStatement = fieldPostgresType(field)(syntaxTree).map {
-        postgresType =>
-          AlterTable(
-            model.id,
-            AlterTableAction.AddColumn(
-              ColumnDefinition(
-                name = field.id,
-                dataType = postgresType,
-                isNotNull = !field.isOptional,
-                isUnique = field.isUnique,
-                isPrimaryKey = field.isPrimary,
-                isAutoIncrement = field.isAutoIncrement,
-                isUUID = field.isUUID,
-                foreignKey = g match {
-                  case Some(value) =>
-                    value match {
-                      case Left(_)   => None
-                      case Right(fk) => Some(fk)
-                    }
-                  case None => None
-                }
-              )
-            )
-          )
-      }
-      alterTableStatement match {
-        case None =>
-          PostgresMigration(
-            g match {
-              case Some(value) =>
-                value match {
-                  case Left(createArrayTableStatement) =>
-                    Vector(createArrayTableStatement)
-                  case Right(_) => Vector.empty
-                }
-              case None => Vector.empty
-            }
-          )
-        case Some(alterTableStatement) =>
-          PostgresMigration(
-            g match {
-              case Some(value) =>
-                value match {
-                  case Left(createArrayTableStatement) =>
-                    Vector(alterTableStatement, createArrayTableStatement)
-                  case Right(_) => Vector(alterTableStatement)
-                }
-              case None => Vector(alterTableStatement)
-            }
-          )
-      }
-    }
-    case RenameField(fieldId, newId, model) =>
-      PostgresMigration(
-        Vector(
-          AlterTable(model.id, AlterTableAction.RenameColumn(fieldId, newId))
-        )
-      )
-    case DeleteField(field, model) =>
-      PostgresMigration(
-        Vector(
-          AlterTable(model.id, AlterTableAction.DropColumn(field.id, true))
-        )
-      )
-    case UndeleteField(field, model) =>
-      migration(AddField(field, model))
-    case ChangeManyFieldTypes(prevModel, changes) =>
-      PostgresMigration(Vector(AlterManyFieldTypes(prevModel, changes)))
-  }
+  * CAUTION: This function does not sort `steps` based on
+  * the dependency graph of the syntax tree models which
+  * means that if `steps` are not sorted correctly, this
+  * function might return a `PostgresMigration` that when
+  * it's `renderSQL` method is called, the method will return
+  * an out-of-order (invalid) SQL statements.
+  *
+  * This is why it's private. And it's private to the `postgres`
+  * package so it can be tested.
+  */
 }
 
 // `IndexedModel#equals` and `IndexedField#equals` assumes that the `Validator` has validated

@@ -67,7 +67,6 @@ class PostgresMigrationEngineSpec extends FunSuite {
 
     val createTodoModel = CreateModel(syntaxTree.modelsById("Todo"))
     val createUserModel = CreateModel(syntaxTree.modelsById("User"))
-    val migrationEngine = new PostgresMigrationEngine(syntaxTree)
 
     val expected = PostgresMigration(
       Vector(
@@ -176,11 +175,11 @@ class PostgresMigrationEngineSpec extends FunSuite {
       )
     )(syntaxTree)
 
-    val postgresMigration = migrationEngine.migration(
+    val postgresMigration = PostgresMigration(
       createTodoModel
         :: createUserModel
         :: Nil
-    )
+    )(syntaxTree)
 
     // pprint.pprintln(postgresMigration)
 

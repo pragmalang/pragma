@@ -14,7 +14,7 @@ class Storage[S, M[_]: Monad](
   def run(operations: Operations.OperationsMap): M[JsObject] =
     queryEngine.run(operations)
 
-  def migrate(migrationSteps: Vector[MigrationStep]): M[Vector[Try[Unit]]] =
+  def migrate(migrationSteps: Vector[MigrationStep]): M[Vector[Either[MigrationError, Unit]]] =
     migrationEngine.migrate(migrationSteps)
 
 }
@@ -22,8 +22,10 @@ class Storage[S, M[_]: Monad](
 trait MigrationEngine[S, M[_]] {
   def migrate(
       migrationSteps: Vector[MigrationStep]
-  ): M[Vector[Try[Unit]]]
+  ): M[Vector[Either[MigrationError, Unit]]]
 }
+
+case class MigrationError(step: MigrationStep) extends Exception
 
 abstract class QueryEngine[S, M[_]: Monad] {
   type Query[_]

@@ -10,13 +10,12 @@ import concurrent.Future
 import concurrent.ExecutionContext.Implicits.global
 import domain.{PModel, PShapeField}
 import running.InnerOperation
-import scala.util.Try
 import running.ObjectWithId
 
 object MockMigrationEngine extends MigrationEngine[MockStorage.type, Future] {
   def migrate(
       migrationSteps: Vector[MigrationStep]
-  ): Future[Vector[Try[Unit]]] = Future(Vector.empty)
+  ): Future[Vector[Either[MigrationError, Unit]]] = Future(Vector.empty)
 }
 
 object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
