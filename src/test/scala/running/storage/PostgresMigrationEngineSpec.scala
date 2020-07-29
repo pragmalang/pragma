@@ -33,7 +33,8 @@ class PostgresMigrationEngineSpec extends FunSuite {
     val migrationEngine = new PostgresMigrationEngine(syntaxTree)
 
     val expected =
-      """|CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+      Some(
+        """|CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
        |
        |CREATE TABLE IF NOT EXISTS "Todo"(
        |);
@@ -57,6 +58,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
        |"source_User" TEXT NOT NULL REFERENCES "User"("username") ON DELETE CASCADE,
        |"target_Todo" TEXT NOT NULL REFERENCES "Todo"("title") ON DELETE CASCADE);
        |""".stripMargin
+      )
 
     assert(expected == migrationEngine.initialMigration.renderSQL)
   }

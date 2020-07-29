@@ -91,9 +91,8 @@ class Server(st: SyntaxTree) extends IOApp {
   def run(args: List[String]): IO[ExitCode] = {
     try {
       transactor.use { t =>
-        Fragment(migrationEngine.initialMigration.renderSQL, Nil).update.run
-          .transact(t)
-      }.unsafeRunSync
+        migrationEngine.initialMigration.run.transact(t)
+      }.unsafeRunSync()
     } catch {
       case err: Throwable => {
         println("Failed to initialize database")

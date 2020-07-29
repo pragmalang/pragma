@@ -11,13 +11,8 @@ import SQLMigrationStep._
 
 import domain._
 import domain.utils.UserError
-import domain.DomainImplicits._
 import OnDeleteAction.Cascade
 
-import doobie._
-
-import running.storage.postgres.instances._
-import spray.json.JsObject
 
 class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     extends MigrationEngine[Postgres[M], M] {
@@ -450,44 +445,8 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
       )
     case UndeleteField(field, model) =>
       migration(AddField(field, model))
-    case ChangeManyFieldTypes(prevModel, changes) => {
-      // TODO: Implement this after finishing `PostgresQueryEngine` because it's eaiser to use it than plain SQL
-      val newTableTempName = "__temp_table__" + prevModel.id
-      val newModelTempDef = prevModel.copy(
-        id = newTableTempName,
-        fields =
-          changes.map(change => change.field.copy(ptype = change.newType)).toSeq
-      )
-      val createNewTable = migration(CreateModel(newModelTempDef))
-
-      val dropPrevTable = migration(DeleteModel(prevModel))
-
-      val renameNewTable = migration(
-        RenameModel(newTableTempName, prevModel.id)
-      )
-
-      val stream =
-        HC.stream[JsObject](
-          s"SELECT * FROM ${prevModel.id.withQuotes};",
-          HPS.set(()),
-          200
-        )
-
-      val streamIO = stream.compile.toVector
-
-      /** TODO:
-        *   1) Create the new table with a temp name:
-        *   2) Load rows of prev table as a stream in memory:
-        *     a) pass the data in each type-changed column to the correct
-        *        type transformer if any
-        *     b) Type check the value/s returned from the transformer
-        *     c) try re-inserting this row in the new table
-        *       i) Beware that Postgres auto-generated values don't get regenerated after
-        *          this insert. This is merely just copying, make sure that no data is
-        *          getting changed without getting passed to the correct transformer.
-        */
-      ???
-    }
+    case ChangeManyFieldTypes(prevModel, changes) =>
+      PostgresMigration(Vector(AlterManyFieldTypes(prevModel, changes)))
   }
 }
 
