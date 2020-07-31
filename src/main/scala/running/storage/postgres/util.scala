@@ -39,7 +39,7 @@ package object utils {
 
   def toPostgresType(
       t: PType
-  )(implicit syntaxTree: SyntaxTree): Option[PostgresType] =
+  ): Option[PostgresType] =
     t match {
       case PAny                => Some(PostgresType.ANY)
       case PEnum(_, _, _)      => Some(PostgresType.TEXT)

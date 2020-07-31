@@ -22,7 +22,9 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
       thereExistData: (ModelId, FieldId) => Boolean
   ): PostgresMigration =
     PostgresMigration(
-      inferedMigrationSteps(syntaxTree, prevTree, thereExistData)
+      inferedMigrationSteps(syntaxTree, prevTree, thereExistData),
+      prevTree,
+      syntaxTree
     )
 
   private[postgres] def inferedMigrationSteps(

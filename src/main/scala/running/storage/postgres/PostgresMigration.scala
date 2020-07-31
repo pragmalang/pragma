@@ -20,10 +20,18 @@ import domain.SyntaxTree
 import domain.utils._
 
 import domain._
+import scala.util.Success
+import scala.util.Failure
+import spray.json.JsValue
+import scala.util.Try
+import domain.utils.typeCheckJson
+import cats.Monad
 
 case class PostgresMigration(
-    unorderedSteps: Vector[SQLMigrationStep]
-)(implicit st: SyntaxTree) {
+    unorderedSteps: Vector[SQLMigrationStep],
+    prevSyntaxTree: SyntaxTree,
+    currentSyntaxTree: SyntaxTree
+) {
   def steps: Vector[SQLMigrationStep] = {
     val sqlMigrationStepOrdering = new Ordering[SQLMigrationStep] {
       override def compare(x: SQLMigrationStep, y: SQLMigrationStep): Int =
@@ -34,10 +42,10 @@ case class PostgresMigration(
               ) if action.definition.isPrimaryKey =>
             -1
           case (statement: CreateTable, _)
-              if st.modelsById.get(statement.name).isDefined =>
+              if currentSyntaxTree.modelsById.get(statement.name).isDefined =>
             1
           case (statement: CreateTable, _)
-              if !st.modelsById.get(statement.name).isDefined =>
+              if !currentSyntaxTree.modelsById.get(statement.name).isDefined =>
             -1
           case (AlterTable(_, action: AlterTableAction.AddColumn), _)
               if action.definition.isPrimaryKey =>
@@ -49,6 +57,7 @@ case class PostgresMigration(
   }
 
   def run: ConnectionIO[Unit] = {
+    // val queryEngine = new PostgresQueryEngine(transactor, st)
     renderSQL match {
       case Some(sql) =>
         Fragment(sql, Nil).update.run.map(_ => ())
@@ -68,20 +77,75 @@ case class PostgresMigration(
                   .toSeq
               )
               val createNewTable =
-                PostgresMigration(CreateModel(newModelTempDef)).run
+                PostgresMigration(
+                  CreateModel(newModelTempDef),
+                  prevSyntaxTree,
+                  currentSyntaxTree
+                ).run
 
               val stream =
                 HC.stream[JsObject](
-                  s"SELECT * FROM ${prevModel.id.withQuotes};",
-                  HPS.set(()),
-                  200
-                )
+                    s"SELECT * FROM ${prevModel.id.withQuotes};",
+                    HPS.set(()),
+                    200
+                  )
+                  .map { row =>
+                    val transformedColumns = changes
+                      .map { change =>
+                        change.transformer match {
+                          case Some(transformer) =>
+                            change.field.id -> transformer(
+                              row.fields(change.field.id)
+                            )
+                          case None =>
+                            change.field.id -> Success(
+                              row.fields(change.field.id)
+                            )
+                        }
+                      }
+                      .foldLeft(Try(Map.empty[String, JsValue])) {
+                        case (acc, transformedValue) =>
+                          transformedValue._2 match {
+                            case Failure(exception) =>
+                              Failure(exception)
+                            case Success(value) =>
+                              acc.map(_ + (transformedValue._1 -> value))
+                          }
+                      }
+                    transformedColumns.map(
+                      cols => row.copy(fields = row.fields.++(cols))
+                    )
+                  }
+                  .flatMap {
+                    case Failure(exception) =>
+                      fs2.Stream.raiseError[ConnectionIO](exception)
+                    case Success(value) => fs2.Stream(value)
+                  }
+                  .flatMap { row =>
+                    val typeCheckingResult =
+                      typeCheckJson(newModelTempDef, currentSyntaxTree)(row)
+                    typeCheckingResult match {
+                      case Failure(exception) =>
+                        fs2.Stream.raiseError[ConnectionIO](exception)
+                      case Success(_) => fs2.Stream(row)
+                    }
+                  }
+                  .flatMap { row =>
+                    // insert the row
+                    ???
+                  }
 
               val streamIO = stream.compile.toVector
 
-              val dropPrevTable = PostgresMigration(DeleteModel(prevModel)).run
+              val dropPrevTable = PostgresMigration(
+                DeleteModel(prevModel),
+                prevSyntaxTree,
+                currentSyntaxTree
+              ).run
               val renameNewTable = PostgresMigration(
-                RenameModel(newTableTempName, prevModel.id)
+                RenameModel(newTableTempName, prevModel.id),
+                prevSyntaxTree,
+                currentSyntaxTree
               ).run
 
               /** TODO:
@@ -124,44 +188,72 @@ case class PostgresMigration(
 
 object PostgresMigration {
   def apply(
-      steps: Iterable[MigrationStep]
-  )(implicit syntaxTree: SyntaxTree): PostgresMigration =
+      steps: Iterable[MigrationStep],
+      prevSyntaxTree: SyntaxTree,
+      currentSyntaxTree: SyntaxTree
+  ): PostgresMigration =
     steps
-      .map(PostgresMigration(_))
-      .foldLeft(PostgresMigration(Vector.empty[SQLMigrationStep])(syntaxTree))(
+      .map(PostgresMigration(_, prevSyntaxTree, currentSyntaxTree))
+      .foldLeft(
+        PostgresMigration(
+          Vector.empty[SQLMigrationStep],
+          prevSyntaxTree,
+          currentSyntaxTree
+        )
+      )(
         (acc, migration) =>
-          PostgresMigration(acc.unorderedSteps ++ migration.unorderedSteps)(
-            syntaxTree
+          PostgresMigration(
+            acc.unorderedSteps ++ migration.unorderedSteps,
+            prevSyntaxTree,
+            currentSyntaxTree
           )
       )
 
   def apply(
-      step: MigrationStep
-  )(implicit syntaxTree: SyntaxTree): PostgresMigration = step match {
+      step: MigrationStep,
+      prevSyntaxTree: SyntaxTree,
+      currentSyntaxTree: SyntaxTree
+  ): PostgresMigration = step match {
     case CreateModel(model) => {
       val createTableStatement = CreateTable(model.id, Vector.empty)
       val addColumnStatements = model.fields.flatMap { field =>
-        PostgresMigration(AddField(field, model)).steps
+        PostgresMigration(
+          AddField(field, model),
+          prevSyntaxTree,
+          currentSyntaxTree
+        ).steps
       }
       PostgresMigration(
-        Vector(Vector(createTableStatement), addColumnStatements).flatten
+        Vector(Vector(createTableStatement), addColumnStatements).flatten,
+        prevSyntaxTree,
+        currentSyntaxTree
       )
     }
     case RenameModel(modelId, newId) =>
-      PostgresMigration(Vector(RenameTable(modelId, newId)))
+      PostgresMigration(
+        Vector(RenameTable(modelId, newId)),
+        prevSyntaxTree,
+        currentSyntaxTree
+      )
     case DeleteModel(model) =>
-      PostgresMigration(Vector(DropTable(model.id)))
-    case UndeleteModel(model) => PostgresMigration(CreateModel(model))
+      PostgresMigration(
+        Vector(DropTable(model.id)),
+        prevSyntaxTree,
+        currentSyntaxTree
+      )
+    case UndeleteModel(model) =>
+      PostgresMigration(CreateModel(model), prevSyntaxTree, currentSyntaxTree)
     case AddField(field, model) => {
       val g: Option[Either[CreateTable, ForeignKey]] =
         field.ptype match {
           case POption(PArray(_)) | PArray(_) => {
             val innerModel = field.ptype match {
-              case PArray(model: PModel)          => Some(model)
-              case PArray(PReference(id))         => syntaxTree.modelsById.get(id)
+              case PArray(model: PModel) => Some(model)
+              case PArray(PReference(id)) =>
+                currentSyntaxTree.modelsById.get(id)
               case POption(PArray(model: PModel)) => Some(model)
               case POption(PArray(PReference(id))) =>
-                syntaxTree.modelsById.get(id)
+                currentSyntaxTree.modelsById.get(id)
               case _ => None
             }
 
@@ -226,7 +318,7 @@ object PostgresMigration {
                           s"Expected [T] or [T]?, found ${domain.utils.displayPType(t)}"
                         )
                     }
-                  )(syntaxTree).get,
+                  ).get,
                   isNotNull = true,
                   isAutoIncrement = false,
                   isPrimaryKey = false,
@@ -246,17 +338,17 @@ object PostgresMigration {
           case POption(model: PModel) =>
             Some(Right(ForeignKey(model.id, model.primaryField.id)))
           case POption(PReference(id))
-              if syntaxTree.modelsById.get(id).isDefined =>
+              if currentSyntaxTree.modelsById.get(id).isDefined =>
             Some(
-              Right(ForeignKey(id, syntaxTree.modelsById(id).primaryField.id))
+              Right(ForeignKey(id, currentSyntaxTree.modelsById(id).primaryField.id))
             )
-          case PReference(id) if syntaxTree.modelsById.get(id).isDefined =>
+          case PReference(id) if currentSyntaxTree.modelsById.get(id).isDefined =>
             Some(
-              Right(ForeignKey(id, syntaxTree.modelsById(id).primaryField.id))
+              Right(ForeignKey(id, currentSyntaxTree.modelsById(id).primaryField.id))
             )
           case _ => None
         }
-      val alterTableStatement = fieldPostgresType(field)(syntaxTree).map {
+      val alterTableStatement = fieldPostgresType(field)(currentSyntaxTree).map {
         postgresType =>
           AlterTable(
             model.id,
@@ -292,7 +384,9 @@ object PostgresMigration {
                   case Right(_) => Vector.empty
                 }
               case None => Vector.empty
-            }
+            },
+            prevSyntaxTree,
+            currentSyntaxTree
           )
         case Some(alterTableStatement) =>
           PostgresMigration(
@@ -304,7 +398,9 @@ object PostgresMigration {
                   case Right(_) => Vector(alterTableStatement)
                 }
               case None => Vector(alterTableStatement)
-            }
+            },
+            prevSyntaxTree,
+            currentSyntaxTree
           )
       }
     }
@@ -312,17 +408,29 @@ object PostgresMigration {
       PostgresMigration(
         Vector(
           AlterTable(model.id, AlterTableAction.RenameColumn(fieldId, newId))
-        )
+        ),
+        prevSyntaxTree,
+        currentSyntaxTree
       )
     case DeleteField(field, model) =>
       PostgresMigration(
         Vector(
           AlterTable(model.id, AlterTableAction.DropColumn(field.id, true))
-        )
+        ),
+        prevSyntaxTree,
+        currentSyntaxTree
       )
     case UndeleteField(field, model) =>
-      PostgresMigration(AddField(field, model))
+      PostgresMigration(
+        AddField(field, model),
+        prevSyntaxTree,
+        currentSyntaxTree
+      )
     case ChangeManyFieldTypes(prevModel, changes) =>
-      PostgresMigration(Vector(AlterManyFieldTypes(prevModel, changes)))
+      PostgresMigration(
+        Vector(AlterManyFieldTypes(prevModel, changes)),
+        prevSyntaxTree,
+        currentSyntaxTree
+      )
   }
 }

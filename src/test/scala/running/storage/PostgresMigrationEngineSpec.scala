@@ -172,14 +172,18 @@ class PostgresMigrationEngineSpec extends FunSuite {
             )
           )
         )
-      )
-    )(syntaxTree)
+      ),
+      prevSyntaxTree = SyntaxTree.empty,
+      currentSyntaxTree = syntaxTree
+    )
 
     val postgresMigration = PostgresMigration(
       createTodoModel
         :: createUserModel
-        :: Nil
-    )(syntaxTree)
+        :: Nil,
+      prevSyntaxTree = SyntaxTree.empty,
+      currentSyntaxTree = syntaxTree
+    )
 
     // pprint.pprintln(postgresMigration)
 
@@ -307,7 +311,11 @@ class PostgresMigrationEngineSpec extends FunSuite {
 
     val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
 
-    val expected = PostgresMigration(Vector(DropTable("Admin")))(prevSyntaxTree)
+    val expected = PostgresMigration(
+      Vector(DropTable("Admin")),
+      prevSyntaxTree = prevSyntaxTree,
+      currentSyntaxTree = newSyntaxTree
+    )
     assert(
       migrationEngine
         .migration(prevSyntaxTree, (_, _) => false) == expected
@@ -359,7 +367,11 @@ class PostgresMigrationEngineSpec extends FunSuite {
     val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
 
     val expected =
-      PostgresMigration(Vector(RenameTable("Admin", "Admin1")))(prevSyntaxTree)
+      PostgresMigration(
+        Vector(RenameTable("Admin", "Admin1")),
+        prevSyntaxTree = prevSyntaxTree,
+        currentSyntaxTree = newSyntaxTree
+      )
     assert(
       migrationEngine
         .migration(prevSyntaxTree, (_, _) => false) == expected
@@ -428,8 +440,10 @@ class PostgresMigrationEngineSpec extends FunSuite {
             )
           )
         )
-      )
-    )(prevSyntaxTree)
+      ),
+      prevSyntaxTree = prevSyntaxTree,
+      currentSyntaxTree = newSyntaxTree
+    )
     assert(
       migrationEngine
         .migration(prevSyntaxTree, (_, _) => false) == expected
@@ -483,8 +497,10 @@ class PostgresMigrationEngineSpec extends FunSuite {
     val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
 
     val expected = PostgresMigration(
-      Vector(AlterTable("Admin", DropColumn("password", true)))
-    )(prevSyntaxTree)
+      Vector(AlterTable("Admin", DropColumn("password", true))),
+      prevSyntaxTree = prevSyntaxTree,
+      currentSyntaxTree = newSyntaxTree
+    )
     assert(
       migrationEngine
         .migration(prevSyntaxTree, (_, _) => false) == expected
@@ -538,8 +554,10 @@ class PostgresMigrationEngineSpec extends FunSuite {
     val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
 
     val expected = PostgresMigration(
-      Vector(AlterTable("Admin", RenameColumn("password", "passcode")))
-    )(prevSyntaxTree)
+      Vector(AlterTable("Admin", RenameColumn("password", "passcode"))),
+      prevSyntaxTree = prevSyntaxTree,
+      currentSyntaxTree = newSyntaxTree
+    )
     assert(
       migrationEngine
         .migration(prevSyntaxTree, (_, _) => false) == expected
