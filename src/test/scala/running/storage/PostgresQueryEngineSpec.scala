@@ -56,7 +56,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
   val queryEngine = new PostgresQueryEngine(t, syntaxTree)
   val migrationEngine = new PostgresMigrationEngine[Id](syntaxTree)
   
-  migrationEngine.initialMigration.run.transact(t).unsafeRunSync()
+  migrationEngine.initialMigration.run(t).transact(t).unsafeRunSync()
 
   sql"""
     INSERT INTO  "Country" ("code", "name", "population", "gnp") 

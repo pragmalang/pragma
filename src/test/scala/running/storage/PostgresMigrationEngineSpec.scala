@@ -2,7 +2,7 @@ package running.storage.postgres
 
 import running.storage._
 import running.storage.postgres._
-import org.scalatest._
+import org.scalatest._, funsuite.AnyFunSuite, matchers.should.Matchers
 import SQLMigrationStep._
 import domain.SyntaxTree
 import AlterTableAction._
@@ -11,7 +11,28 @@ import OnDeleteAction.Cascade
 import domain._
 import org.parboiled2.Position
 
-class PostgresMigrationEngineSpec extends FunSuite {
+import doobie._
+import doobie.implicits._
+import cats._
+import cats.data._
+import cats.effect._
+import cats.implicits._
+
+class PostgresMigrationEngineSpec
+    extends AnyFunSuite
+    with Matchers
+    with doobie.scalatest.IOChecker {
+
+  implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
+
+  def transactor = Transactor.fromDriverManager[IO](
+    "org.postgresql.Driver",
+    "jdbc:postgresql://localhost:5433/test",
+    "test",
+    "test",
+    Blocker.liftExecutionContext(ExecutionContexts.synchronous)
+  )
+
   val code = """
     @1 @user
     model User {
@@ -30,7 +51,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
 
   test("`PostgresMigration#renderSQL` works") {
 
-    val migrationEngine = new PostgresMigrationEngine(syntaxTree)
+    val migrationEngine = new PostgresMigrationEngine[Id](syntaxTree)
 
     val expected =
       Some(
@@ -228,7 +249,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
+    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
 
     val expected = Vector(
       CreateModel(
@@ -309,7 +330,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
+    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
 
     val expected = PostgresMigration(
       Vector(DropTable("Admin")),
@@ -364,7 +385,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
+    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
 
     val expected =
       PostgresMigration(
@@ -421,7 +442,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
+    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
 
     val expected = PostgresMigration(
       Vector(
@@ -494,7 +515,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
+    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
 
     val expected = PostgresMigration(
       Vector(AlterTable("Admin", DropColumn("password", true))),
@@ -551,7 +572,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
+    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
 
     val expected = PostgresMigration(
       Vector(AlterTable("Admin", RenameColumn("password", "passcode"))),
@@ -610,7 +631,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
+    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
 
     val expected = Vector(RenameModel("Todo", "Todo1"))
 
@@ -666,7 +687,7 @@ class PostgresMigrationEngineSpec extends FunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine(newSyntaxTree)
+    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
 
     val expected = Vector(
       ChangeManyFieldTypes(
