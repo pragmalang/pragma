@@ -1,14 +1,14 @@
 package parsing
 
-import org.scalatest.FlatSpec
 import parsing.substitution.Substitutor
 import domain.{PImport, GraalFunction, SyntaxTree}
 import spray.json._
 import scala.util.Success
 import org.graalvm.polyglot.Context
 import domain._
+import org.scalatest.flatspec.AnyFlatSpec
 
-class Substitution extends FlatSpec {
+class Substitution extends AnyFlatSpec {
 
   "Substitutor" should "return an object containing all defined functions in a file as GraalFunctionValues using readGraalFunctions" in {
     val pImport =

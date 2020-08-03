@@ -1,10 +1,10 @@
-import org.scalatest._
 import domain._
 import parsing._
 import scala.util._
 import org.parboiled2.Position
+import org.scalatest.flatspec.AnyFlatSpec
 
-class ImportParsing extends FlatSpec {
+class ImportParsing extends AnyFlatSpec {
   "An import statement" should "be parsed correctly" in {
     val code = """
         import "./somefile.js" as f

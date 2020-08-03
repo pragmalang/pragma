@@ -2,14 +2,14 @@ package running
 
 import org.graalvm.polyglot._
 import domain.DomainImplicits.GraalValueJsonFormater
-import org.scalatest.FlatSpec
 import spray.json._
 import domain.SyntaxTree
 import parsing.substitution.Substitutor
 import domain._
 import domain.PInterfaceValue
+import org.scalatest.flatspec.AnyFlatSpec
 
-class GraalFunctions extends FlatSpec {
+class GraalFunctions extends AnyFlatSpec {
   "GraalValueJsonFormater" should "read and write Graal values correctly" in {
     val ctx = Context.create()
 

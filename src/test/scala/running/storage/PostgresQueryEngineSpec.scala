@@ -13,11 +13,12 @@ import running._
 import running.storage.QueryWhere
 import scala.util._
 import running.storage.postgres.instances._
+import org.scalatest.flatspec.AnyFlatSpec
 
 /** NOTE: These tests may fail if executed out of oder
   * They also require a running Postgress instance
   */
-class PostgresQueryEngineSpec extends FlatSpec {
+class PostgresQueryEngineSpec extends AnyFlatSpec {
   val dkr = Tag("Docker")
 
   implicit val cs = IO.contextShift(ExecutionContexts.synchronous)

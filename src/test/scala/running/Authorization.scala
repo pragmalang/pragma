@@ -3,7 +3,6 @@ package running
 import domain.SyntaxTree
 import domain.utils.AuthorizationError
 import running._, running.storage._
-import org.scalatest._
 import sangria.macros._
 import spray.json._
 import scala.concurrent._
@@ -11,8 +10,9 @@ import ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.util._
 import cats.implicits._
+import org.scalatest.flatspec.AnyFlatSpec
 
-class Authorization extends FlatSpec {
+class Authorization extends AnyFlatSpec {
   "Authorizer" should "authorize requests correctly" in {
     val code = """
     @1 @user

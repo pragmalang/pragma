@@ -1,7 +1,7 @@
-import org.scalatest._
 import domain._
+import org.scalatest.flatspec.AnyFlatSpec
 
-class ConfigParsing extends FlatSpec {
+class ConfigParsing extends AnyFlatSpec {
   "Config block" should "be parsed correctly" in {
     val code = """
         config {

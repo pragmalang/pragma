@@ -1,8 +1,8 @@
-import org.scalatest._
 import domain._
 import parsing._
+import org.scalatest.flatspec.AnyFlatSpec
 
-class ModelParsing extends FlatSpec {
+class ModelParsing extends AnyFlatSpec {
   "Model parser" should "successfully return a model" in {
     val code =
       """@1 model User {

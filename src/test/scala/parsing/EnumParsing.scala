@@ -1,10 +1,10 @@
-import org.scalatest._
 import domain._
 import parsing._
 import scala.util._
 import org.parboiled2.Position
+import org.scalatest.flatspec.AnyFlatSpec
 
-class EnumParsing extends FlatSpec {
+class EnumParsing extends AnyFlatSpec {
   "An enum" should "be parsed correctly" in {
     val code = """
         enum WeekDay {

@@ -1,11 +1,11 @@
 package parsing
 
-import org.scalatest._
 import domain.SyntaxTree
 import util._
 import domain._, utils._
+import org.scalatest.flatspec.AnyFlatSpec
 
-class PermissionsValidation extends FlatSpec {
+class PermissionsValidation extends AnyFlatSpec {
   "Substitutor" should "give correct errors for invalid permission use" in {
     val code = """
     @1 model Tweet {

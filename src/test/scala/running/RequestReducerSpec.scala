@@ -1,10 +1,10 @@
 package running
 
-import org.scalatest._
 import sangria.ast._
 import sangria.macros._
+import org.scalatest.funsuite.AnyFunSuite
 
-class RequestReducerSpec extends FunSuite {
+class RequestReducerSpec extends AnyFunSuite {
   test("spreadFragmentSpreads function works") {
     val validQuery = gql"""
       mutation {
