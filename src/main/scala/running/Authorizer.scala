@@ -39,8 +39,7 @@ class Authorizer[S, M[_]: Monad](
             )
         }
 
-        val user =
-          storage.run(userReadOpsMap(userModel, jwt.userId))
+        val user = userReadQuery(userModel, jwt.userId)
 
         user.map {
           case userJson: JsObject =>
@@ -247,6 +246,18 @@ class Authorizer[S, M[_]: Monad](
       }
     }
 
+  private def userReadQuery(
+      userModel: PModel,
+      userId: JsValue
+  ): M[JsObject] =
+    storage.queryEngine.runQuery(
+      storage.queryEngine.readOneRecord(
+        userModel,
+        userId,
+        Vector(Operations.primaryFieldInnerOp(userModel))
+      )
+    )
+
 }
 object Authorizer {
 
@@ -258,21 +269,5 @@ object Authorizer {
       case (Left(e1), Left(e2))   => Left(e1.concat(e2).distinctBy(_.message))
       case _                      => Right(false)
     }
-
-  private def userReadOpsMap(
-      userModel: PModel,
-      userId: JsValue
-  ): Operations.OperationsMap = Map(
-    None -> Vector {
-      ReadOperation(
-        opArguments = ReadArgs(userId),
-        targetModel = userModel,
-        user = None,
-        crudHooks = Vector.empty,
-        alias = None,
-        innerReadOps = Vector.empty
-      )
-    }
-  )
 
 }

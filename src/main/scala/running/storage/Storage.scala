@@ -11,7 +11,9 @@ class Storage[S, M[_]: Monad](
     val migrationEngine: MigrationEngine[S, M]
 ) {
 
-  def run(operations: Operations.OperationsMap): M[JsObject] =
+  def run(
+      operations: Operations.OperationsMap
+  ): M[queryEngine.TransactionResultMap] =
     queryEngine.run(operations)
 
   def migrate(migrationSteps: Vector[MigrationStep]): M[Vector[Try[Unit]]] =
@@ -28,9 +30,17 @@ trait MigrationEngine[S, M[_]] {
 abstract class QueryEngine[S, M[_]: Monad] {
   type Query[_]
 
+  /** Succeeds only if all operations do */
+  final type TransactionResultMap =
+    Map[Option[String], Vector[(Operation, JsValue)]]
+
   def run(
       operations: Map[Option[String], Vector[Operation]]
-  ): M[JsObject]
+  ): M[TransactionResultMap]
+
+  def query(op: Operation): Query[JsValue]
+
+  def runQuery[A](query: Query[A]): M[A]
 
   def createManyRecords(
       model: PModel,
@@ -113,40 +123,4 @@ abstract class QueryEngine[S, M[_]: Monad] {
       primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
   ): Query[JsObject]
-}
-
-object Storage {
-  def select(obj: JsObject, innerReadOps: Vector[InnerOperation]): JsObject = {
-    val selectedFields = obj.fields
-      .filter(
-        field => innerReadOps.map(_.targetField.field.id).contains(field._1)
-      )
-    JsObject(
-      selectedFields
-        .map(
-          field => {
-            val op = innerReadOps
-              .find(_.targetField.field.id == field._1)
-              .get
-            val fieldKey = op.alias.getOrElse(field._1)
-
-            field._2 match {
-              case obj: JsObject =>
-                fieldKey -> select(
-                  obj,
-                  op.innerReadOps
-                )
-              case JsArray(elements) if elements.forall {
-                    case _: JsObject => true
-                    case _           => false
-                  } =>
-                fieldKey -> JsArray(
-                  elements.map(e => select(e.asJsObject, op.innerReadOps))
-                )
-              case value => (fieldKey -> value)
-            }
-          }
-        )
-    )
-  }
 }

@@ -11,7 +11,8 @@ sealed trait Operation {
   val user: Option[(JwtPayload, PModel)]
   // Contains hooks used in @onRead, @onWrite, and @onDelete directives
   val crudHooks: Seq[PFunctionValue[_, _]]
-  val alias: Option[String]
+  val name: String
+  val groupName: String
   val innerReadOps: Vector[InnerOperation]
 }
 
@@ -20,7 +21,8 @@ case class ReadOperation(
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
     crudHooks: Seq[PFunctionValue[_, _]],
-    alias: Option[String],
+    name: String,
+    groupName: String,
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = Read
@@ -31,7 +33,8 @@ case class ReadManyOperation(
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
     crudHooks: Seq[PFunctionValue[_, _]],
-    alias: Option[String],
+    name: String,
+    groupName: String,
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = ReadMany
@@ -42,7 +45,8 @@ case class CreateOperation(
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
     crudHooks: Seq[PFunctionValue[_, _]],
-    alias: Option[String],
+    name: String,
+    groupName: String,
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = Create
@@ -53,7 +57,8 @@ case class CreateManyOperation(
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
     crudHooks: Seq[PFunctionValue[_, _]],
-    alias: Option[String],
+    name: String,
+    groupName: String,
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = CreateMany
@@ -64,7 +69,8 @@ case class UpdateOperation(
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
     crudHooks: Seq[PFunctionValue[_, _]],
-    alias: Option[String],
+    name: String,
+    groupName: String,
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = Update
@@ -75,7 +81,8 @@ case class UpdateManyOperation(
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
     crudHooks: Seq[PFunctionValue[_, _]],
-    alias: Option[String],
+    name: String,
+    groupName: String,
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = UpdateMany
@@ -86,7 +93,8 @@ case class DeleteOperation(
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
     crudHooks: Seq[PFunctionValue[_, _]],
-    alias: Option[String],
+    name: String,
+    groupName: String,
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = Delete
@@ -97,7 +105,8 @@ case class DeleteManyOperation(
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
     crudHooks: Seq[PFunctionValue[_, _]],
-    alias: Option[String],
+    name: String,
+    groupName: String,
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = DeleteMany
@@ -108,7 +117,8 @@ case class PushToOperation(
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
     crudHooks: Seq[PFunctionValue[_, _]],
-    alias: Option[String],
+    name: String,
+    groupName: String,
     innerReadOps: Vector[InnerOperation],
     arrayField: PShapeField
 ) extends Operation {
@@ -120,7 +130,8 @@ case class PushManyToOperation(
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
     crudHooks: Seq[PFunctionValue[_, _]],
-    alias: Option[String],
+    name: String,
+    groupName: String,
     innerReadOps: Vector[InnerOperation],
     arrayField: PShapeField
 ) extends Operation {
@@ -132,7 +143,8 @@ case class RemoveFromOperation(
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
     crudHooks: Seq[PFunctionValue[_, _]],
-    alias: Option[String],
+    name: String,
+    groupName: String,
     innerReadOps: Vector[InnerOperation],
     arrayField: PShapeField
 ) extends Operation {
@@ -144,7 +156,8 @@ case class RemoveManyFromOperation(
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
     crudHooks: Seq[PFunctionValue[_, _]],
-    alias: Option[String],
+    name: String,
+    groupName: String,
     innerReadOps: Vector[InnerOperation],
     arrayField: PShapeField
 ) extends Operation {
@@ -156,7 +169,8 @@ case class LoginOperation(
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
     crudHooks: Seq[PFunctionValue[_, _]],
-    alias: Option[String],
+    name: String,
+    groupName: String,
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = Login
@@ -183,7 +197,8 @@ case class InnerReadOperation(
 ) extends InnerOperation {
   override val event = Read
   override val opArguments = InnerOpNoArgs
-  override val alias = targetField.alias
+  override val name = targetField.alias.getOrElse(targetField.field.id)
+  override val groupName = "InnerReadOps"
 }
 
 case class InnerReadManyOperation(
@@ -195,7 +210,8 @@ case class InnerReadManyOperation(
     innerReadOps: Vector[InnerOperation]
 ) extends InnerOperation {
   override val event = ReadMany
-  override val alias = targetField.alias
+  override val name = targetField.alias.getOrElse(targetField.field.id)
+  override val groupName = "InnerReadManyOps"
 }
 
 sealed trait OpArgs[+E <: PEvent]

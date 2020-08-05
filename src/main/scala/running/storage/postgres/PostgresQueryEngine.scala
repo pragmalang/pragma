@@ -20,111 +20,103 @@ class PostgresQueryEngine[M[_]: Monad](
 
   override type Query[A] = PostgresQueryEngine.Query[A]
 
-  override def run(operations: Operations.OperationsMap): M[JsObject] = {
-    val results = operations.toVector
-      .flatMap { pair =>
-        pair._2.map {
-          case op: ReadOperation => {
-            val record = readOneRecord(
-              op.targetModel,
-              op.opArguments.id,
-              op.innerReadOps
-            )
-            (pair._1.getOrElse("data") -> record.widen[JsValue]).sequence
-          }
-          case op: ReadManyOperation => {
-            val where = QueryWhere(None, None, None)
-            val records =
-              readManyRecords(op.targetModel, where, op.innerReadOps)
-            (pair._1.getOrElse("data") -> records.widen[JsValue]).sequence
-          }
-          case op: CreateOperation => {
-            val result = createOneRecord(
-              op.targetModel,
-              op.opArguments.obj,
-              op.innerReadOps
-            )
-            (pair._1.getOrElse("data") -> result.widen[JsValue]).sequence
-          }
-          case op: CreateManyOperation => {
-            val created =
-              createManyRecords(
-                op.targetModel,
-                op.opArguments.items.toVector,
-                op.innerReadOps
-              ).map(JsArray(_))
-            (pair._1.getOrElse("data") -> created.widen[JsValue]).sequence
-          }
-          case op: PushToOperation =>
-            pushOneTo(
-              op.targetModel,
-              op.arrayField,
-              op.opArguments.item,
-              op.opArguments.id,
-              op.innerReadOps
-            ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
-          case op: PushManyToOperation =>
-            pushManyTo(
-              op.targetModel,
-              op.arrayField,
-              op.opArguments.items.toVector,
-              op.opArguments.id,
-              op.innerReadOps
-            ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
-
-          case op: DeleteOperation =>
-            deleteOneRecord(op.targetModel, op.opArguments.id, op.innerReadOps)
-              .widen[JsValue]
-              .map(pair._1.getOrElse("data") -> _)
-          case op: DeleteManyOperation =>
-            deleteManyRecords(
-              op.targetModel,
-              op.opArguments.ids.toVector,
-              op.innerReadOps
-            ).widen[JsValue]
-              .map(pair._1.getOrElse("data") -> _)
-          case op: RemoveFromOperation =>
-            removeOneFrom(
-              op.targetModel,
-              op.arrayField,
-              op.opArguments.id,
-              op.opArguments.item,
-              op.innerReadOps
-            ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
-          case op: RemoveManyFromOperation =>
-            removeManyFrom(
-              op.targetModel,
-              op.arrayField,
-              op.opArguments.id,
-              op.opArguments.items,
-              op.innerReadOps
-            ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
-          case op: UpdateOperation =>
-            updateOneRecord(
-              op.targetModel,
-              op.opArguments.obj.objId,
-              op.opArguments.obj.obj,
-              op.innerReadOps
-            ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
-          case op: UpdateManyOperation =>
-            updateManyRecords(
-              op.targetModel,
-              op.opArguments.items.toVector,
-              op.innerReadOps
-            ).widen[JsValue].map(pair._1.getOrElse("data") -> _)
-          case otherOp =>
-            queryError[(String, JsValue)] {
-              InternalException(
-                s"Unsupported operation of event ${otherOp.event}"
-              )
-            }
-        }
+  override def run(
+      operations: Operations.OperationsMap
+  ): M[TransactionResultMap] =
+    operations.toVector
+      .traverse {
+        case (name, ops) =>
+          (name -> ops.traverse(op => query(op).map(op -> _))).sequence
+            .transact(transactor)
       }
-      .sequence
-      .map(fields => JsObject(fields.toMap))
+      .map(_.toMap)
 
-    results.transact(transactor)
+  def query(op: Operation): Query[JsValue] = op match {
+    case op: ReadOperation =>
+      readOneRecord(
+        op.targetModel,
+        op.opArguments.id,
+        op.innerReadOps
+      ).widen[JsValue]
+    case op: ReadManyOperation => {
+      val where = QueryWhere(None, None, None)
+      readManyRecords(op.targetModel, where, op.innerReadOps).widen[JsValue]
+    }
+    case op: CreateOperation =>
+      createOneRecord(
+        op.targetModel,
+        op.opArguments.obj,
+        op.innerReadOps
+      ).widen[JsValue]
+    case op: CreateManyOperation =>
+      createManyRecords(
+        op.targetModel,
+        op.opArguments.items.toVector,
+        op.innerReadOps
+      ).map(JsArray(_))
+    case op: PushToOperation =>
+      pushOneTo(
+        op.targetModel,
+        op.arrayField,
+        op.opArguments.item,
+        op.opArguments.id,
+        op.innerReadOps
+      ).widen[JsValue]
+    case op: PushManyToOperation =>
+      pushManyTo(
+        op.targetModel,
+        op.arrayField,
+        op.opArguments.items.toVector,
+        op.opArguments.id,
+        op.innerReadOps
+      ).widen[JsValue]
+    case op: DeleteOperation =>
+      deleteOneRecord(op.targetModel, op.opArguments.id, op.innerReadOps)
+        .widen[JsValue]
+    case op: DeleteManyOperation =>
+      deleteManyRecords(
+        op.targetModel,
+        op.opArguments.ids.toVector,
+        op.innerReadOps
+      ).widen[JsValue]
+    case op: RemoveFromOperation =>
+      removeOneFrom(
+        op.targetModel,
+        op.arrayField,
+        op.opArguments.id,
+        op.opArguments.item,
+        op.innerReadOps
+      ).widen[JsValue]
+    case op: RemoveManyFromOperation =>
+      removeManyFrom(
+        op.targetModel,
+        op.arrayField,
+        op.opArguments.id,
+        op.opArguments.items,
+        op.innerReadOps
+      ).widen[JsValue]
+    case op: UpdateOperation =>
+      updateOneRecord(
+        op.targetModel,
+        op.opArguments.obj.objId,
+        op.opArguments.obj.obj,
+        op.innerReadOps
+      ).widen[JsValue]
+    case op: UpdateManyOperation =>
+      updateManyRecords(
+        op.targetModel,
+        op.opArguments.items.toVector,
+        op.innerReadOps
+      ).widen[JsValue]
+    case otherOp =>
+      queryError[JsValue] {
+        InternalException(
+          s"Unsupported operation of event ${otherOp.event}"
+        )
+      }
   }
+
+  override def runQuery[A](query: Query[A]): M[A] = query.transact(transactor)
 
   override def createManyRecords(
       model: PModel,
@@ -472,7 +464,7 @@ class PostgresQueryEngine[M[_]: Monad](
       innerReadOps: Vector[InnerOperation]
   ): Query[JsArray] = {
     val aliasedColumns =
-      selectColumnsSql(Operations.primaryFieldInnerOp(model) +: innerReadOps)
+      commaSepColumnNames(Operations.primaryFieldInnerOp(model) +: innerReadOps)
 
     Fragment(s"SELECT $aliasedColumns FROM ${model.id.withQuotes};", Nil, None)
       .query[JsObject]
@@ -487,7 +479,7 @@ class PostgresQueryEngine[M[_]: Monad](
       innerReadOps: Vector[InnerOperation]
   ): Query[JsObject] = {
     val innerOpsWithPK = innerReadOps :+ Operations.primaryFieldInnerOp(model)
-    val aliasedColumns = selectColumnsSql(innerOpsWithPK)
+    val aliasedColumns = commaSepColumnNames(innerOpsWithPK)
 
     val sql =
       s"""SELECT $aliasedColumns FROM ${model.id.withQuotes} WHERE ${model.primaryField.id.withQuotes} = ?;"""
@@ -679,17 +671,15 @@ object PostgresQueryEngine {
       case (set, (value, index)) => set *> setJsValue(value, index + 1)
     }
 
-  private def selectColumnsSql(innerReadOps: Vector[InnerOperation]): String =
+  private def commaSepColumnNames(
+      innerReadOps: Vector[InnerOperation]
+  ): String =
     innerReadOps
       .filter {
         case _: InnerReadOperation => true
         case _                     => false
       }
-      .map { iop =>
-        val fieldId = iop.targetField.field.id.withQuotes
-        val alias = iop.targetField.alias
-        fieldId + alias.map(alias => s" AS ${alias.withQuotes}").getOrElse("")
-      }
+      .map(_.targetField.field.id.withQuotes)
       .mkString(", ")
 
   private def selectAllById(model: PModel, id: JsValue): Query[JsObject] = {
@@ -712,6 +702,7 @@ object PostgresQueryEngine {
     HC.stream(sql, set, 1).compile.toVector.as(())
   }
 
+  /** Returns a `Query` resulting in the given error */
   private def queryError[Result](err: Throwable): Query[Result] =
     MonadError[Query, Throwable].raiseError[Result](err)
 

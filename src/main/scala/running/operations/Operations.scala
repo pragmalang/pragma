@@ -17,25 +17,31 @@ object Operations {
   type FieldSelection = Field
   type GqlOperationType = OperationType
 
-  /**
-  This GraphQL query example can help explain how operations are generated:
-  ```gql
-  mutation {
-    User { # This is a model-level directive
-      create(...) { # This is an operation selection
-        #     ^   Arguments are parsed into `OpArgs` and stored in `Operation#opArguments`
-        username # 1
-        name # 2
-        # 1, 2, and `todos` are model field selections
-        # Model field selections are converted to `InnerOperation`s
-        todos {
-          title
-          content
-        }
-      }
-    }
-  }
-  ```
+  /** This GraphQL query example can help explain how operations are generated:
+    * ```gql
+    * mutation {
+    *   User { # This is a model-level selection.
+    *          # `User` is the `groupName` of the operations within its scope 
+    *          #  (the alias becomes the `groupName` if defined.)
+    *     create(...) { # This is an operation selection
+    *       #     ^   Arguments are parsed into `OpArgs` and stored in `Operation#opArguments`
+    *       # `create` is the operation's `name` (if an alias is defined, it becomes the `name`.)
+    *       username # 1
+    *       name # 2
+    *       # 1, 2, and `todos` are model field selections
+    *       # Model field selections are converted to `InnerOperation`s
+    *       todos {
+    *         title
+    *         content
+    *       }
+    *     }
+    *   }
+    * }
+    * ```
+    *
+    * See these links for GraphQL spec conformance:
+    * - https://spec.graphql.org/June2018/#sec-Response-Format
+    * - https://spec.graphql.org/June2018/#sec-Field-Alias
     */
   def from(
       request: Request
@@ -109,10 +115,12 @@ object Operations {
     val userRole = user.flatMap { jwt =>
       st.modelsById.get(jwt.role)
     }
+    val opsGroupName = modelSelection.alias.getOrElse(targetModel.id)
     modelSelection.selections.traverse {
       case opSelection: FieldSelection =>
         fromOperationSelection(
           targetModel,
+          opsGroupName,
           opSelection,
           userRole,
           user,
@@ -127,6 +135,7 @@ object Operations {
 
   private def fromOperationSelection(
       model: PModel,
+      opGroupName: String,
       opSelection: FieldSelection,
       role: Option[PModel],
       user: Option[JwtPayload],
@@ -147,162 +156,148 @@ object Operations {
           s"Selection `${s.renderCompact}` is not a field selection. All selections inside a model selection must all be field selections. Something must've went wrong during query reduction"
         ).asLeft
     }
+    val opName = opSelection.alias.getOrElse(opSelection.name)
     val opArgs = parseArgs(event, model, opSelection)
     for {
       args <- opArgs
       iops <- innerOps
       op <- (event, args) match {
         case (Read, as: ReadArgs) =>
-          Right {
-            ReadOperation(
-              as,
-              model,
-              user zip role,
-              model.readHooks,
-              opSelection.alias,
-              iops
-            )
-          }
+          ReadOperation(
+            as,
+            model,
+            user zip role,
+            model.readHooks,
+            opName,
+            opGroupName,
+            iops
+          ).asRight
         case (ReadMany, as: ReadManyArgs) =>
-          Right {
-            ReadManyOperation(
-              as,
-              model,
-              user zip role,
-              model.readHooks,
-              opSelection.alias,
-              iops
-            )
-          }
+          ReadManyOperation(
+            as,
+            model,
+            user zip role,
+            model.readHooks,
+            opName,
+            opGroupName,
+            iops
+          ).asRight
         case (Create, as: CreateArgs) =>
-          Right {
-            CreateOperation(
-              as,
-              model,
-              user zip role,
-              model.writeHooks,
-              opSelection.alias,
-              iops
-            )
-          }
+          CreateOperation(
+            as,
+            model,
+            user zip role,
+            model.writeHooks,
+            opName,
+            opGroupName,
+            iops
+          ).asRight
         case (CreateMany, as: CreateManyArgs) =>
-          Right {
-            CreateManyOperation(
-              as,
-              model,
-              user zip role,
-              model.writeHooks,
-              opSelection.alias,
-              iops
-            )
-          }
+          CreateManyOperation(
+            as,
+            model,
+            user zip role,
+            model.writeHooks,
+            opName,
+            opGroupName,
+            iops
+          ).asRight
         case (Update, as: UpdateArgs) =>
-          Right {
-            UpdateOperation(
-              as,
-              model,
-              user zip role,
-              model.writeHooks,
-              opSelection.alias,
-              iops
-            )
-          }
+          UpdateOperation(
+            as,
+            model,
+            user zip role,
+            model.writeHooks,
+            opName,
+            opGroupName,
+            iops
+          ).asRight
         case (UpdateMany, as: UpdateManyArgs) =>
-          Right {
-            UpdateManyOperation(
-              as,
-              model,
-              user zip role,
-              model.writeHooks,
-              opSelection.alias,
-              iops
-            )
-          }
+          UpdateManyOperation(
+            as,
+            model,
+            user zip role,
+            model.writeHooks,
+            opName,
+            opGroupName,
+            iops
+          ).asRight
         case (domain.Delete, as: DeleteArgs) =>
-          Right {
-            DeleteOperation(
-              as,
-              model,
-              user zip role,
-              model.writeHooks,
-              opSelection.alias,
-              iops
-            )
-          }
+          DeleteOperation(
+            as,
+            model,
+            user zip role,
+            model.writeHooks,
+            opName,
+            opGroupName,
+            iops
+          ).asRight
         case (DeleteMany, as: DeleteManyArgs) =>
-          Right {
-            DeleteManyOperation(
-              as,
-              model,
-              user zip role,
-              model.writeHooks,
-              opSelection.alias,
-              iops
-            )
-          }
+          DeleteManyOperation(
+            as,
+            model,
+            user zip role,
+            model.writeHooks,
+            opName,
+            opGroupName,
+            iops
+          ).asRight
         case (PushTo(arrayField), as: PushToArgs) =>
-          Right {
-            PushToOperation(
-              as,
-              model,
-              user zip role,
-              model.writeHooks,
-              opSelection.alias,
-              iops,
-              arrayField
-            )
-          }
+          PushToOperation(
+            as,
+            model,
+            user zip role,
+            model.writeHooks,
+            opName,
+            opGroupName,
+            iops,
+            arrayField
+          ).asRight
         case (PushManyTo(arrayField), as: PushManyToArgs) =>
-          Right {
-            PushManyToOperation(
-              as,
-              model,
-              user zip role,
-              model.writeHooks,
-              opSelection.alias,
-              iops,
-              arrayField
-            )
-          }
+          PushManyToOperation(
+            as,
+            model,
+            user zip role,
+            model.writeHooks,
+            opName,
+            opGroupName,
+            iops,
+            arrayField
+          ).asRight
         case (RemoveFrom(arrayField), as: RemoveFromArgs) =>
-          Right {
-            RemoveFromOperation(
-              as,
-              model,
-              user zip role,
-              model.writeHooks,
-              opSelection.alias,
-              iops,
-              arrayField
-            )
-          }
+          RemoveFromOperation(
+            as,
+            model,
+            user zip role,
+            model.writeHooks,
+            opName,
+            opGroupName,
+            iops,
+            arrayField
+          ).asRight
         case (RemoveManyFrom(arrayField), as: RemoveManyFromArgs) =>
-          Right {
-            RemoveManyFromOperation(
-              as,
-              model,
-              user zip role,
-              model.writeHooks,
-              opSelection.alias,
-              iops,
-              arrayField
-            )
-          }
+          RemoveManyFromOperation(
+            as,
+            model,
+            user zip role,
+            model.writeHooks,
+            opName,
+            opGroupName,
+            iops,
+            arrayField
+          ).asRight
         case (Login, as: LoginArgs) =>
-          Right {
-            LoginOperation(
-              as,
-              model,
-              user zip role,
-              model.writeHooks,
-              opSelection.alias,
-              iops
-            )
-          }
+          LoginOperation(
+            as,
+            model,
+            user zip role,
+            model.writeHooks,
+            opName,
+            opGroupName,
+            iops
+          ).asRight
         case (ev, _) =>
-          Left {
-            InternalException(s"Invalid `$ev` operation arguments")
-          }
+          InternalException(s"Invalid `$ev` operation arguments").asLeft
       }
     } yield op
   }

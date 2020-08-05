@@ -1,34 +1,22 @@
 package running.storage.postgres
 
 import domain.SyntaxTree
-import running.storage.postgres.PostgresQueryEngine
 import org.scalatest._
-import doobie._
 import doobie.implicits._
-import cats._
 import spray.json._
-import cats.effect._
 import sangria.macros._
 import running._
 import running.storage.QueryWhere
 import scala.util._
 import running.storage.postgres.instances._
+import running.storage.TestStorage
+import cats.implicits._
 
 /** NOTE: These tests may fail if executed out of oder
   * They also require a running Postgress instance
   */
 class PostgresQueryEngineSpec extends FlatSpec {
   val dkr = Tag("Docker")
-
-  implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
-
-  val t = Transactor.fromDriverManager[IO](
-    "org.postgresql.Driver",
-    "jdbc:postgresql://localhost:5433/test",
-    "test",
-    "test",
-    Blocker.liftExecutionContext(ExecutionContexts.synchronous)
-  )
 
   case class Country(
       code: String,
@@ -53,9 +41,9 @@ class PostgresQueryEngineSpec extends FlatSpec {
   """
 
   implicit val syntaxTree = SyntaxTree.from(code).get
-  val queryEngine = new PostgresQueryEngine(t, syntaxTree)
-  val migrationEngine = new PostgresMigrationEngine[Id](syntaxTree)
-  
+  val testStorage = new TestStorage(syntaxTree)
+  import testStorage._
+
   migrationEngine.initialMigration.run.transact(t).unsafeRunSync()
 
   sql"""
@@ -119,8 +107,11 @@ class PostgresQueryEngineSpec extends FlatSpec {
     val req = bareReqFrom(gqlQuery)
     val reqOps = Operations.from(req)
     reqOps.map(queryEngine.run(_).unsafeRunSync) match {
-      case Left(err)    => throw err
-      case Right(value) => value
+      case Left(err) => throw err
+      case Right(values) =>
+        values.map {
+          case (alias, vec) => alias -> vec.map(_._2)
+        }
     }
   }
 
@@ -157,7 +148,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
       )
     )
 
-    assert(resultUS == expectedUS)
+    assert(resultUS === expectedUS)
   }
 
   "PostgresQueryEngine#readOneRecord" should "read all selected fields recursively" in {
@@ -281,9 +272,9 @@ class PostgresQueryEngineSpec extends FlatSpec {
     }
     """
     val inserted = runGql(gqlQuery)
-    val expected = JsObject(
-      Map(
-        "data" -> JsObject(
+    val expected = Map(
+      None -> Vector(
+        JsObject(
           Map(
             "code" -> JsString("JP"),
             "name" -> JsString("Japan"),
@@ -294,7 +285,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
       )
     )
 
-    assert(inserted == expected)
+    assert(inserted === expected)
   }
 
   "PostgresQueryEngine#run" should "populate results of inserts correctly" taggedAs (dkr) in {
@@ -322,9 +313,9 @@ class PostgresQueryEngineSpec extends FlatSpec {
     }
     """
     val result = runGql(gqlQuery)
-    val expected = JsObject(
-      Map(
-        "createDenmark" -> JsObject(
+    val expected = Map(
+      Some("createDenmark") -> Vector(
+        JsObject(
           Map(
             "gnp" -> JsNumber(9940934.542),
             "name" -> JsString("Denmark"),
@@ -338,7 +329,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
       )
     )
 
-    assert(result == expected)
+    assert(result === expected)
   }
 
   "PostgresQueryEngine#createOneRecord" should "handle nested inserts correctly" taggedAs (dkr) in {
@@ -365,9 +356,9 @@ class PostgresQueryEngineSpec extends FlatSpec {
     }
     """
     val result = runGql(gqlQuery)
-    val expected = JsObject(
-      Map(
-        "createJeff" -> JsObject(
+    val expected = Map(
+      Some("createJeff") -> Vector(
+        JsObject(
           Map(
             "name" -> JsString("Jeff"),
             "home" -> JsObject(
@@ -381,7 +372,8 @@ class PostgresQueryEngineSpec extends FlatSpec {
         )
       )
     )
-    assert(result == expected)
+
+    assert(result === expected)
   }
 
   "PostgresQueryEngine#createOneRecord" should "handle referencing an existing record by ID" taggedAs (dkr) in {
@@ -405,9 +397,9 @@ class PostgresQueryEngineSpec extends FlatSpec {
     }
     """
     val result = runGql(gqlQuery)
-    val expected = JsObject(
-      Map(
-        "createJackson" -> JsObject(
+    val expected = Map(
+      Some("createJackson") -> Vector(
+        JsObject(
           Map(
             "name" -> JsString("Jackson"),
             "home" -> JsObject(
@@ -422,7 +414,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
       )
     )
 
-    assert(result == expected)
+    assert(result === expected)
   }
 
   "PostgresQueryEngine#pushTo" should "push references and full objects to array fields" taggedAs (dkr) in {
@@ -440,9 +432,9 @@ class PostgresQueryEngineSpec extends FlatSpec {
     }
     """
     val result = runGql(gqlQuery)
-    val expected = JsObject(
-      Map(
-        "data" -> JsObject(
+    val expected = Map(
+      None -> Vector(
+        JsObject(
           Map(
             "code" -> JsString("US"),
             "name" -> JsString("America"),
@@ -457,7 +449,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
       )
     )
 
-    assert(result == expected)
+    assert(result === expected)
   }
 
   "PostgresQueryEngine#deleteOneRecord" should "delete records successfully" taggedAs (dkr) in {
@@ -474,9 +466,9 @@ class PostgresQueryEngineSpec extends FlatSpec {
     }
     """
     val deleteResult = runGql(gqlQuery)
-    val expectedDeleteResult = JsObject(
-      Map(
-        "data" -> JsObject(
+    val expectedDeleteResult = Map(
+      None -> Vector(
+        JsObject(
           Map(
             "name" -> JsString("Jackson"),
             "home" -> JsObject(Map("code" -> JsString("US")))
@@ -485,7 +477,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
       )
     )
 
-    assert(deleteResult == expectedDeleteResult)
+    assert(deleteResult === expectedDeleteResult)
 
     try {
       val readDeleted = gql"""
@@ -517,18 +509,13 @@ class PostgresQueryEngineSpec extends FlatSpec {
     }
     """
     val resultAfterDelete = runGql(gqlQuery)
-    val expected = JsObject(
-      Map(
-        "data" -> JsObject(
-          Map(
-            "code" -> JsString("US"),
-            "citizens" -> JsArray()
-          )
-        )
+    val expected = Map(
+      None -> Vector(
+        JsObject(Map("code" -> JsString("US"), "citizens" -> JsArray(Vector())))
       )
     )
 
-    assert(resultAfterDelete == expected)
+    assert(resultAfterDelete === expected)
   }
 
   "PostgresQueryEngine#updateOneRecord" should "successfully patch a given row" taggedAs (dkr) in {
@@ -545,11 +532,15 @@ class PostgresQueryEngineSpec extends FlatSpec {
     }
     """
     val updateResult = runGql(gqlQuery)
-    val expected = JsObject(
-      Map("name" -> JsString("United States"), "code" -> JsString("US"))
+    val expected = Map(
+      None -> Vector(
+        JsObject(
+          Map("code" -> JsString("US"), "name" -> JsString("United States"))
+        )
+      )
     )
 
-    assert(updateResult.fields("data") == expected)
+    assert(updateResult === expected)
   }
 
 }

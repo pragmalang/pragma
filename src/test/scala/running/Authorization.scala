@@ -6,13 +6,12 @@ import running._, running.storage._
 import org.scalatest._
 import sangria.macros._
 import spray.json._
-import scala.concurrent._
-import ExecutionContext.Implicits.global
-import scala.concurrent.duration.Duration
 import scala.util._
 import cats.implicits._
+import doobie.implicits._
 
 class Authorization extends FlatSpec {
+
   "Authorizer" should "authorize requests correctly" in {
     val code = """
     @1 @user
@@ -31,8 +30,25 @@ class Authorization extends FlatSpec {
     """
 
     val syntaxTree = SyntaxTree.from(code).get
-    val mockStorage = MockStorage.storage
-    val authorizer = new Authorizer(syntaxTree, mockStorage, devModeOn = true)
+    val testStorage = new TestStorage(syntaxTree)
+    import testStorage._
+    migrationEngine.initialMigration.run.transact(t).unsafeRunSync()
+    val authorizer =
+      new Authorizer(syntaxTree, testStorage.storage, devModeOn = true)
+
+    val johnDoe = JsObject(
+      Map(
+        "username" -> JsString("John Doe"),
+        "password" -> JsString("123"),
+        "isVerified" -> JsFalse
+      )
+    )
+    queryEngine
+      .runQuery(
+        queryEngine
+          .createOneRecord(syntaxTree.modelsById("User"), johnDoe, Vector.empty)
+      )
+      .unsafeRunSync()
 
     val req = Request(
       None,
@@ -66,7 +82,7 @@ class Authorization extends FlatSpec {
     val reqOps = Operations.from(req)(syntaxTree)
 
     val result = reqOps.flatMap { ops =>
-      Await.result(authorizer(ops, req.user), Duration.Inf)
+      authorizer(ops, req.user).unsafeRunSync
     }
     assert(
       result == Left(
@@ -87,16 +103,16 @@ class Authorization extends FlatSpec {
       @2 id: String @primary
     }
 
-    @2 @user model User {
+    @2 @user model User2 {
       @1 username: String @primary @publicCredential
       @2 password: String @secretCredential
       @3 todos: [Todo]
     }
 
-    allow CREATE User
-    allow READ User.todos
+    allow CREATE User2
+    allow READ User2.todos
 
-    role User {
+    role User2 {
       allow READ self
       deny UPDATE self.username # Like Twitter
       allow [REMOVE_FROM, PUSH_TO] self.todos
@@ -104,13 +120,17 @@ class Authorization extends FlatSpec {
     """
 
     implicit val syntaxTree = SyntaxTree.from(code).get
+    val testStorage = new TestStorage(syntaxTree)
+    import testStorage._
+    migrationEngine.initialMigration.run.transact(t).unsafeRunSync()
+
     val reqWithoutRole = Request(
       hookData = None,
       body = None,
       user = None,
       query = gql"""
       mutation createUser {
-        User {
+        User2 {
           create(user: {
             username: "John Doe",
             password: "password",
@@ -124,13 +144,30 @@ class Authorization extends FlatSpec {
       url = "",
       hostname = ""
     )
+    val johnDoe = JsObject(
+      Map(
+        "username" -> JsString("John Doe"),
+        "password" -> JsString("123"),
+        "todos" -> JsArray.empty
+      )
+    )
+    queryEngine
+      .runQuery(
+        queryEngine
+          .createOneRecord(
+            syntaxTree.modelsById("User2"),
+            johnDoe,
+            Vector.empty
+          )
+      )
+      .unsafeRunSync()
     val reqWithRole = Request(
       hookData = None,
       body = None,
       user = Some(JwtPayload(JsString("John Doe"), "User")),
       query = gql"""
       mutation updateUsername {
-        User {
+        User2 {
           update(username: "John Doe", user: {username: "Jane Doe"}) {
             username
           }
@@ -143,8 +180,8 @@ class Authorization extends FlatSpec {
       hostname = ""
     )
 
-    val mockStorage = MockStorage.storage
-    val authorizer = new Authorizer(syntaxTree, mockStorage, devModeOn = true)
+    val authorizer =
+      new Authorizer(syntaxTree, testStorage.storage, devModeOn = true)
 
     val withoutRoleOps = Operations.from(reqWithoutRole)
     val withRoleOps = Operations.from(reqWithRole)
@@ -153,13 +190,10 @@ class Authorization extends FlatSpec {
       ops <- (withoutRoleOps, withRoleOps).bisequence
       (withoutRole, withRole) = ops
     } yield
-      Await.result(
-        Future.sequence(
-          authorizer(withoutRole, reqWithoutRole.user) ::
-            authorizer(withRole, reqWithRole.user) :: Nil
-        ),
-        Duration.Inf
-      )
+      (
+        authorizer(withoutRole, reqWithoutRole.user) ::
+          authorizer(withRole, reqWithRole.user) :: Nil
+      ).sequence
 
     pprint.pprintln(results)
   }

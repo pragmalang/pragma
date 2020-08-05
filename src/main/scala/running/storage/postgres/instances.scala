@@ -1,6 +1,5 @@
 package running.storage.postgres
 
-import cats.Monoid
 import domain.utils._ 
 import cats._
 import spray.json._
