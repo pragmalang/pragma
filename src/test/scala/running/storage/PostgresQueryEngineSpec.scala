@@ -11,11 +11,12 @@ import scala.util._
 import running.storage.postgres.instances._
 import running.storage.TestStorage
 import cats.implicits._
+import org.scalatest.flatspec.AnyFlatSpec
 
 /** NOTE: These tests may fail if executed out of oder
   * They also require a running Postgress instance
   */
-class PostgresQueryEngineSpec extends FlatSpec {
+class PostgresQueryEngineSpec extends AnyFlatSpec {
   val dkr = Tag("Docker")
 
   case class Country(
@@ -44,7 +45,7 @@ class PostgresQueryEngineSpec extends FlatSpec {
   val testStorage = new TestStorage(syntaxTree)
   import testStorage._
 
-  migrationEngine.initialMigration.run.transact(t).unsafeRunSync()
+  migrationEngine.initialMigration.run(t).transact(t).unsafeRunSync()
 
   sql"""
     INSERT INTO  "Country" ("code", "name", "population", "gnp") 

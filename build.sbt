@@ -43,6 +43,7 @@ libraryDependencies ++= Seq(
   "org.typelevel" %% "cats-core" % "2.1.1",
   "org.tpolecat" %% "doobie-core" % "0.9.0",
   "org.tpolecat" %% "doobie-hikari" % "0.9.0",
+  "org.tpolecat" %% "doobie-scalatest" % "0.9.0",
   "org.postgresql" % "postgresql" % "42.2.14"
 )
 

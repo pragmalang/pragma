@@ -1,9 +1,9 @@
 package running
 
-import org.scalatest.FlatSpec
 import domain._
+import org.scalatest.flatspec.AnyFlatSpec
 
-class PermissionTree extends FlatSpec {
+class PermissionTree extends AnyFlatSpec {
   "Permission tree" should "be generated correctly" in {
     val code = """
     @1 @user model User {

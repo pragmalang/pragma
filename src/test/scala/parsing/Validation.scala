@@ -1,9 +1,9 @@
-import org.scalatest._
 import domain._, utils._
 import parsing._
 import scala.util._
+import org.scalatest.flatspec.AnyFlatSpec
 
-class Validation extends FlatSpec {
+class Validation extends AnyFlatSpec {
   "Default field value checker" should "fail in case of type mismatch" in {
     val code = """
       @1 model User {

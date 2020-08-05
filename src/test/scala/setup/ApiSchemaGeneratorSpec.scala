@@ -1,11 +1,11 @@
 package setup
 
-import org.scalatest._
 import setup.schemaGenerator._
 import sangria.macros._
 import sangria.schema.Schema
+import org.scalatest.funsuite.AnyFunSuite
 
-class ApiSchemaGeneratorSpec extends FunSuite {
+class ApiSchemaGeneratorSpec extends AnyFunSuite {
   val generator = ApiSchemaGenerator(MockSyntaxTree.syntaxTree)
 
   test("buildApiSchema method works") {

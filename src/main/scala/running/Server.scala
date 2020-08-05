@@ -91,7 +91,7 @@ class Server(st: SyntaxTree) extends IOApp {
   def run(args: List[String]): IO[ExitCode] = {
     try {
       transactor.use { t =>
-        migrationEngine.initialMigration.run.transact(t)
+        migrationEngine.initialMigration.run(t).transact(t)
       }.unsafeRunSync()
     } catch {
       case err: Throwable => {

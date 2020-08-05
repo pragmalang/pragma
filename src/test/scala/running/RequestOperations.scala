@@ -1,14 +1,14 @@
 package running
 
-import org.scalatest._
 import sangria.macros._
 import domain._
 import running._
 import spray.json._
 import scala.collection.immutable._
 import scala.util._
+import org.scalatest.flatspec.AnyFlatSpec
 
-class RequestOperations extends FlatSpec {
+class RequestOperations extends AnyFlatSpec {
   "Request operations" should "be computed from user GraphQL query" in {
     val code = """
     import "./src/test/scala/parsing/test-functions.js" as fns

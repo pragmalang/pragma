@@ -1,86 +1,71 @@
 package running.storage
 
-import running._
+import running.Operation
 import spray.json._
-import scala.util._
-import domain._
-import cats.Monad
+import running.storage.MigrationStep
+import cats._
+import cats.implicits._
 
-class Storage[S, M[_]: Monad](
-    val queryEngine: QueryEngine[S, M],
-    val migrationEngine: MigrationEngine[S, M]
-) {
+import concurrent.Future
+import concurrent.ExecutionContext.Implicits.global
+import domain.{PModel, PShapeField}
+import running.InnerOperation
+import running.ObjectWithId
 
-  def run(
-      operations: Operations.OperationsMap
-  ): M[queryEngine.TransactionResultMap] =
-    queryEngine.run(operations)
-
-  def migrate(migrationSteps: Vector[MigrationStep]): M[Vector[Either[MigrationError, Unit]]] =
-    migrationEngine.migrate(migrationSteps)
-
-}
-
-trait MigrationEngine[S, M[_]] {
+object MockMigrationEngine extends MigrationEngine[MockStorage.type, Future] {
   def migrate(
       migrationSteps: Vector[MigrationStep]
-  ): M[Vector[Either[MigrationError, Unit]]]
+  ): Future[Vector[Either[MigrationError, Unit]]] = Future(Vector.empty)
 }
 
-case class MigrationError(step: MigrationStep) extends Exception
+object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
+  override type Query[A] = Id[A]
 
-abstract class QueryEngine[S, M[_]: Monad] {
-  type Query[_]
+  override def query(op: Operation): JsValue = ???
 
-  /** Succeeds only if all operations do */
-  final type TransactionResultMap =
-    Map[Option[String], Vector[(Operation, JsValue)]]
+  override def runQuery[A](query: A): Future[A] = ???
 
   def run(
       operations: Map[Option[String], Vector[Operation]]
-  ): M[TransactionResultMap]
-
-  def query(op: Operation): Query[JsValue]
-
-  def runQuery[A](query: Query[A]): M[A]
+  ) = ???
 
   def createManyRecords(
       model: PModel,
       records: Vector[JsObject],
       innerReadOps: Vector[InnerOperation]
-  ): Query[Vector[JsObject]]
+  ): Vector[JsObject] = ???
 
   def createOneRecord(
       model: PModel,
       record: JsObject,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject]
+  ): JsObject = ???
 
   def updateManyRecords(
       model: PModel,
       recordsWithIds: Vector[ObjectWithId],
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsArray]
+  ): JsArray = ???
 
   def updateOneRecord(
       model: PModel,
       primaryKeyValue: JsValue,
       newRecord: JsObject,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject]
+  ): JsObject = ???
 
   def deleteManyRecords(
       model: PModel,
       primaryKeyValues: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsArray]
+  ): JsArray = ???
 
   def deleteOneRecord(
       model: PModel,
       primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation],
       cascade: Boolean
-  ): Query[JsObject]
+  ): JsObject = ???
 
   def pushManyTo(
       model: PModel,
@@ -88,15 +73,15 @@ abstract class QueryEngine[S, M[_]: Monad] {
       items: Vector[JsValue],
       primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject]
+  ): JsObject = ???
 
   def pushOneTo(
       model: PModel,
       field: PShapeField,
       item: JsValue,
-      sourceId: JsValue,
+      primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject]
+  ): JsObject = ???
 
   def removeManyFrom(
       model: PModel,
@@ -104,25 +89,29 @@ abstract class QueryEngine[S, M[_]: Monad] {
       sourcePkValue: JsValue,
       targetPkValues: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject]
+  ): JsObject = ???
 
   def removeOneFrom(
       model: PModel,
-      arrayField: PShapeField,
-      sourcePkValue: JsValue,
-      targetPkValue: JsValue,
+      field: PShapeField,
+      item: JsValue,
+      primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject]
+  ): JsObject = ???
 
   def readManyRecords(
       model: PModel,
       where: QueryWhere,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsArray]
+  ): JsArray = ???
 
   def readOneRecord(
       model: PModel,
       primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject]
+  ): JsObject = ???
+}
+
+object MockStorage {
+  val storage = new Storage(MockQueryEngine, MockMigrationEngine)
 }

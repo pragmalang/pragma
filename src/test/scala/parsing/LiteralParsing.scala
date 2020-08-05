@@ -1,9 +1,9 @@
-import org.scalatest._
 import domain._
 import parsing._
 import scala.util._
+import org.scalatest.flatspec.AnyFlatSpec
 
-class LiteralParsing extends FlatSpec {
+class LiteralParsing extends AnyFlatSpec {
   "The literal: 123" should "be parsed as an PIntValue(123)" in {
     val result = new PragmaParser("123").literal.run()
     assert(result == Success(PIntValue(123)))

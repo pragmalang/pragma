@@ -3,15 +3,14 @@ package running
 import domain.SyntaxTree
 import domain.utils.AuthorizationError
 import running._, running.storage._
-import org.scalatest._
 import sangria.macros._
 import spray.json._
 import scala.util._
 import cats.implicits._
 import doobie.implicits._
+import org.scalatest.flatspec.AnyFlatSpec
 
-class Authorization extends FlatSpec {
-
+class Authorization extends AnyFlatSpec {
   "Authorizer" should "authorize requests correctly" in {
     val code = """
     @1 @user
@@ -32,7 +31,7 @@ class Authorization extends FlatSpec {
     val syntaxTree = SyntaxTree.from(code).get
     val testStorage = new TestStorage(syntaxTree)
     import testStorage._
-    migrationEngine.initialMigration.run.transact(t).unsafeRunSync()
+    migrationEngine.initialMigration.run(t).transact(t).unsafeRunSync()
     val authorizer =
       new Authorizer(syntaxTree, testStorage.storage, devModeOn = true)
 
@@ -122,7 +121,7 @@ class Authorization extends FlatSpec {
     implicit val syntaxTree = SyntaxTree.from(code).get
     val testStorage = new TestStorage(syntaxTree)
     import testStorage._
-    migrationEngine.initialMigration.run.transact(t).unsafeRunSync()
+    migrationEngine.initialMigration.run(t).transact(t).unsafeRunSync()
 
     val reqWithoutRole = Request(
       hookData = None,

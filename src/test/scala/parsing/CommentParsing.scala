@@ -1,10 +1,10 @@
 package parsing
 
-import org.scalatest._
 import parsing._
 import scala.util._
+import org.scalatest.flatspec.AnyFlatSpec
 
-class CommentParsing extends FlatSpec {
+class CommentParsing extends AnyFlatSpec {
 
   "Comments" should "be allowed anywhere in code" in {
     val code = """

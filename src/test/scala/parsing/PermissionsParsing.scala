@@ -1,9 +1,9 @@
-import org.scalatest._
 import domain._
 import parsing._, PragmaParser._
 import org.parboiled2.Position
+import org.scalatest.flatspec.AnyFlatSpec
 
-class PermissionsParsing extends FlatSpec {
+class PermissionsParsing extends AnyFlatSpec {
   "Permissions" should "be parsed correctly" in {
     val code = """
         allow ALL Book if authorizors.f
