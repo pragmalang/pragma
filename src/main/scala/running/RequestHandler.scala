@@ -53,11 +53,34 @@ class RequestHandler[S, M[_]: Monad](
     val opGroupResults = for {
       (groupName, groupResults) <- resultMap
       groupResultFields = groupResults.map {
-        case (op, result) => op.name -> result
+        case (op, result) => op.name -> withInnerOpsAliases(op, result)
       }.toMap
       groupResultJson = JsObject(groupResultFields)
     } yield (groupName.getOrElse("data"), groupResultJson)
     JsObject(opGroupResults.toMap)
   }
+
+  /** To be used in functions that convert storage results to JSON */
+  private def withInnerOpsAliases(
+      op: Operation,
+      storageResult: JsValue
+  ): JsValue =
+    storageResult match {
+      case JsObject(fields) => {
+        val newFields = op.innerReadOps.map { iop =>
+          val fieldWithAliasedInnards = fields(iop.targetField.field.id) match {
+            case obj: JsObject => withInnerOpsAliases(iop, obj)
+            case JsArray(elements) =>
+              JsArray(elements.map(withInnerOpsAliases(iop, _)))
+            case otherValue => otherValue
+          }
+          iop.name -> fieldWithAliasedInnards
+        }
+        JsObject(newFields.toMap)
+      }
+      case JsArray(elements) =>
+        JsArray(elements.map(withInnerOpsAliases(op, _)))
+      case _ => storageResult
+    }
 
 }

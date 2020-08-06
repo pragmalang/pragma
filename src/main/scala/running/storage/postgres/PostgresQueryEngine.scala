@@ -506,14 +506,14 @@ class PostgresQueryEngine[M[_]: Monad](
       innerOps: Vector[InnerOperation]
   ): Query[JsObject] = {
     val newObjFields: Query[Vector[(String, JsValue)]] = innerOps
-      .zip(innerOps.map(iop => model.fieldsById(iop.targetField.field.id)))
+      .map(iop => iop -> iop.targetField.field)
       .traverse {
         case (iop, PModelField(_, PReference(_), _, _, _, _)) =>
           populateId(
             iop.targetModel,
-            unpopulated.fields(iop.nameOrAlias),
+            unpopulated.fields(iop.targetField.field.id),
             iop.innerReadOps
-          ).map(obj => iop.nameOrAlias -> obj)
+          ).map(obj => iop.targetField.field.id -> obj)
         case (
             iop,
             arrayField @ PModelField(_, PArray(_), _, _, _, _)
@@ -523,7 +523,7 @@ class PostgresQueryEngine[M[_]: Monad](
             unpopulated.fields(model.primaryField.id),
             arrayField,
             iop
-          ).map(vec => iop.nameOrAlias -> JsArray(vec))
+          ).map(vec => iop.targetField.field.id -> JsArray(vec))
         case (
             iop,
             PModelField(_, POption(PReference(_)), _, _, _, _)
@@ -534,11 +534,11 @@ class PostgresQueryEngine[M[_]: Monad](
             iop.innerReadOps
           ).map(obj => iop.nameOrAlias -> obj)
             .recover {
-              case _ => iop.nameOrAlias -> JsNull
+              case _ => iop.targetField.field.id -> JsNull
             }
         case (iop, _) =>
           Monad[Query].pure {
-            iop.nameOrAlias -> unpopulated.fields(iop.nameOrAlias)
+            iop.nameOrAlias -> unpopulated.fields(iop.targetField.field.id)
           }
       }
 
