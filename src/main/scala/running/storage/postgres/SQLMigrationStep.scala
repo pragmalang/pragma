@@ -1,56 +1,54 @@
 package running.storage.postgres
 
-import SQLMigrationStep._
 import AlterTableAction._
-import domain.DomainImplicits._
+import domain._, DomainImplicits._
 import OnDeleteAction._
-import domain.PModel
-import running.storage.ChangeFieldType
+import running.storage._
+import domain.utils.InternalException
+import running.storage.postgres.utils._
 
-sealed trait SQLMigrationStep {
-  def renderSQL: Option[String] = this match {
-    case CreateTable(name, columns) => {
-      val prefix = s"CREATE TABLE IF NOT EXISTS ${name.withQuotes}"
-      val cols = "(\n" + columns.map(_.render).mkString(",\n") + ");\n"
-      Some(prefix + cols)
-    }
-    case RenameTable(name, newName) =>
-      Some(s"ALTER TABLE ${name.withQuotes} RENAME TO ${newName.withQuotes};")
-    case DropTable(name) => Some(s"DROP TABLE IF EXISTS ${name.withQuotes};")
-    case AlterTable(tableName, action) =>
-      action match {
-        case AddColumn(definition) =>
-          Some(
-            s"ALTER TABLE ${tableName.withQuotes} ADD COLUMN ${definition.render};"
-          )
-        case DropColumn(name, ifExists) => {
-          val ifExistsStr = if (ifExists) "IF EXISTS" else ""
-          Some(
-            s"ALTER TABLE ${tableName.withQuotes} DROP COLUMN $ifExistsStr ${name.withQuotes};"
-          )
-        }
-        case RenameColumn(name, newName) =>
-          Some(
-            s"ALTER TABLE ${tableName.withQuotes} RENAME COLUMN ${name.withQuotes} TO ${newName.withQuotes};"
-          )
-        case AddForeignKey(otherTableName, otherColumnName, thisColumnName) =>
-          Some(
-            s"ALTER TABLE ${tableName.withQuotes} ADD FOREIGN KEY (${thisColumnName.withQuotes}) REFERENCES ${otherTableName.withQuotes}(${otherColumnName.withQuotes});"
-          )
-      }
-    case _: AlterManyFieldTypes => None
-  }
-}
+sealed trait SQLMigrationStep
+
 object SQLMigrationStep {
+  sealed trait DirectSQLMigrationStep extends SQLMigrationStep {
+    def renderSQL: String = this match {
+      case CreateTable(name, columns) => {
+        val prefix = s"CREATE TABLE IF NOT EXISTS ${name.withQuotes}"
+        val cols = "(\n" + columns.map(_.render).mkString(",\n") + ");\n"
+        prefix + cols
+      }
+      case RenameTable(name, newName) =>
+        s"ALTER TABLE ${name.withQuotes} RENAME TO ${newName.withQuotes};"
+      case DropTable(name) => s"DROP TABLE IF EXISTS ${name.withQuotes};"
+      case AlterTable(tableName, action) =>
+        action match {
+          case AddColumn(definition) =>
+            s"ALTER TABLE ${tableName.withQuotes} ADD COLUMN ${definition.render};"
+
+          case DropColumn(name, ifExists) => {
+            val ifExistsStr = if (ifExists) "IF EXISTS" else ""
+
+            s"ALTER TABLE ${tableName.withQuotes} DROP COLUMN $ifExistsStr ${name.withQuotes};"
+
+          }
+          case RenameColumn(name, newName) =>
+            s"ALTER TABLE ${tableName.withQuotes} RENAME COLUMN ${name.withQuotes} TO ${newName.withQuotes};"
+
+          case AddForeignKey(otherTableName, otherColumnName, thisColumnName) =>
+            s"ALTER TABLE ${tableName.withQuotes} ADD FOREIGN KEY (${thisColumnName.withQuotes}) REFERENCES ${otherTableName.withQuotes}(${otherColumnName.withQuotes});"
+        }
+    }
+  }
   final case class CreateTable(
       name: String,
       columns: Vector[ColumnDefinition] = Vector.empty
-  ) extends SQLMigrationStep
+  ) extends DirectSQLMigrationStep
 
   case class AlterTable(tableName: String, action: AlterTableAction)
-      extends SQLMigrationStep
-  case class RenameTable(name: String, newName: String) extends SQLMigrationStep
-  case class DropTable(name: String) extends SQLMigrationStep
+      extends DirectSQLMigrationStep
+  case class RenameTable(name: String, newName: String)
+      extends DirectSQLMigrationStep
+  case class DropTable(name: String) extends DirectSQLMigrationStep
   case class AlterManyFieldTypes(
       prevModel: PModel,
       changes: Vector[ChangeFieldType]

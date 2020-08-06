@@ -2,7 +2,6 @@ package running.storage
 
 import running.Operation
 import spray.json._
-import running.storage.MigrationStep
 import cats._
 import cats.implicits._
 
@@ -11,11 +10,12 @@ import concurrent.ExecutionContext.Implicits.global
 import domain.{PModel, PShapeField}
 import running.InnerOperation
 import running.ObjectWithId
+import domain.SyntaxTree
 
 object MockMigrationEngine extends MigrationEngine[MockStorage.type, Future] {
   def migrate(
-      migrationSteps: Vector[MigrationStep]
-  ): Future[Vector[Either[MigrationError, Unit]]] = Future(Vector.empty)
+      prevTree: SyntaxTree
+  ): Future[Either[MigrationError, Unit]] = Future(Right(()))
 }
 
 object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {

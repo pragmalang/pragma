@@ -26,16 +26,20 @@ import spray.json.JsValue
 import scala.util.Try
 import domain.utils.typeCheckJson
 import cats.effect.Bracket
-import fs2.Stream
 import cats.effect.IO
 import cats.effect.ContextShift
 
 case class PostgresMigration(
-    unorderedSteps: Vector[SQLMigrationStep],
-    prevSyntaxTree: SyntaxTree,
-    currentSyntaxTree: SyntaxTree
+    private val unorderedSteps: Vector[MigrationStep],
+    private val prevSyntaxTree: SyntaxTree,
+    private val currentSyntaxTree: SyntaxTree
 ) {
-  def steps: Vector[SQLMigrationStep] = {
+
+  lazy val unorderedSQLSteps =
+    unorderedSteps.flatMap(fromMigrationStepToSqlMigrationSteps)
+
+  lazy val sqlSteps: Vector[SQLMigrationStep] = {
+    val dependencyGraph = ModelsDependencyGraph(currentSyntaxTree)
     val sqlMigrationStepOrdering = new Ordering[SQLMigrationStep] {
       override def compare(x: SQLMigrationStep, y: SQLMigrationStep): Int =
         (x, y) match {
@@ -53,13 +57,22 @@ case class PostgresMigration(
           case (AlterTable(_, action: AlterTableAction.AddColumn), _)
               if action.definition.isPrimaryKey =>
             1
+          case (DropTable(a), DropTable(b))
+              if dependencyGraph.depsOf(a).contains(b) =>
+            1
           case (_, _) => 0
         }
     }
-    unorderedSteps.sortWith((x, y) => sqlMigrationStepOrdering.gt(x, y))
+    unorderedSQLSteps.sortWith((x, y) => sqlMigrationStepOrdering.gt(x, y))
   }
 
-  type StreamConnectionIO[A] = Stream[ConnectionIO, A]
+  def reverse: PostgresMigration =
+    PostgresMigration(
+      unorderedSteps
+        .map(_.reverse),
+      currentSyntaxTree,
+      prevSyntaxTree
+    )
 
   def run(
       transactor: Transactor[IO]
@@ -73,7 +86,7 @@ case class PostgresMigration(
       case Some(sql) =>
         Fragment(sql, Nil).update.run.map(_ => ())
       case None => {
-        val effectfulSteps: Vector[Option[ConnectionIO[Unit]]] = steps
+        val effectfulSteps: Vector[ConnectionIO[Unit]] = sqlSteps
           .map {
             case AlterManyFieldTypes(prevModel, changes) => {
               val newTableTempName = "__temp_table__" + prevModel.id
@@ -169,7 +182,7 @@ case class PostgresMigration(
                     }
                   }
 
-              val transformFieldValues = stream.compile.drain
+              val transformFieldValuesAndMoveToNewTable = stream.compile.drain
 
               val dropPrevTable = PostgresMigration(
                 DeleteModel(prevModel),
@@ -182,233 +195,209 @@ case class PostgresMigration(
                 currentSyntaxTree
               ).run(transactor)
 
-              val result: ConnectionIO[Unit] = for {
+              for {
                 _ <- createNewTable
-                _ <- transformFieldValues
+                _ <- transformFieldValuesAndMoveToNewTable
                 _ <- dropPrevTable
                 _ <- renameNewTable
               } yield ()
-              Some(result)
             }
-            case step =>
-              step.renderSQL.map(
-                sql => Fragment(sql, Nil).update.run.map(_ => ())
-              )
+            case step: DirectSQLMigrationStep =>
+              Fragment(step.renderSQL, Nil).update.run.map(_ => ())
           }
 
-        effectfulSteps.sequence
-          .map(_.sequence)
-          .sequence
-          .map(_ => ())
+        effectfulSteps.sequence.map(_ => ())
       }
     }
   }
 
-  private[postgres] def renderSQL: Option[String] = {
+  private[postgres] lazy val renderSQL: Option[String] = {
     val prefix = "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";\n\n"
-    val query = steps
-      .map(_.renderSQL)
+    val query = sqlSteps
+      .map {
+        case step: DirectSQLMigrationStep => Some(step.renderSQL)
+        case _                            => None
+      }
       .sequence
       .map(_.mkString("\n\n"))
     query.map(prefix + _)
   }
-}
 
-object PostgresMigration {
-  def apply(
-      steps: Iterable[MigrationStep],
-      prevSyntaxTree: SyntaxTree,
-      currentSyntaxTree: SyntaxTree
-  ): PostgresMigration =
-    steps
-      .map(PostgresMigration(_, prevSyntaxTree, currentSyntaxTree))
-      .foldLeft(
-        PostgresMigration(
-          Vector.empty[SQLMigrationStep],
-          prevSyntaxTree,
-          currentSyntaxTree
-        )
-      )(
-        (acc, migration) =>
-          PostgresMigration(
-            acc.unorderedSteps ++ migration.unorderedSteps,
-            prevSyntaxTree,
-            currentSyntaxTree
-          )
-      )
-
-  def apply(
-      step: MigrationStep,
-      prevSyntaxTree: SyntaxTree,
-      currentSyntaxTree: SyntaxTree
-  ): PostgresMigration = step match {
-    case CreateModel(model) => {
-      val createTableStatement = CreateTable(model.id, Vector.empty)
-      val addColumnStatements = model.fields.flatMap { field =>
-        PostgresMigration(
-          AddField(field, model),
-          prevSyntaxTree,
-          currentSyntaxTree
-        ).steps
+  private def fromMigrationStepToSqlMigrationSteps(
+      migrationStep: MigrationStep
+  ): Vector[SQLMigrationStep] =
+    migrationStep match {
+      case CreateModel(model) => {
+        val createTableStatement = CreateTable(model.id, Vector.empty)
+        val addColumnStatements =
+          model.fields
+            .flatMap(
+              field =>
+                fromMigrationStepToSqlMigrationSteps(AddField(field, model))
+            )
+            .toVector
+        Vector(Vector(createTableStatement), addColumnStatements).flatten
       }
-      PostgresMigration(
-        Vector(Vector(createTableStatement), addColumnStatements).flatten,
-        prevSyntaxTree,
-        currentSyntaxTree
-      )
-    }
-    case RenameModel(modelId, newId) =>
-      PostgresMigration(
-        Vector(RenameTable(modelId, newId)),
-        prevSyntaxTree,
-        currentSyntaxTree
-      )
-    case DeleteModel(model) =>
-      PostgresMigration(
-        Vector(DropTable(model.id)),
-        prevSyntaxTree,
-        currentSyntaxTree
-      )
-    case UndeleteModel(model) =>
-      PostgresMigration(CreateModel(model), prevSyntaxTree, currentSyntaxTree)
-    case AddField(field, model) => {
-      val g: Option[Either[CreateTable, ForeignKey]] =
-        field.ptype match {
-          case POption(PArray(_)) | PArray(_) => {
-            val innerModel = field.ptype match {
-              case PArray(model: PModel) => Some(model)
-              case PArray(PReference(id)) =>
-                currentSyntaxTree.modelsById.get(id)
-              case POption(PArray(model: PModel)) => Some(model)
-              case POption(PArray(PReference(id))) =>
-                currentSyntaxTree.modelsById.get(id)
-              case _ => None
+      case RenameModel(modelId, newId) =>
+        Vector(RenameTable(modelId, newId))
+      case DeleteModel(model) => {
+        val dropModelTable = DropTable(model.id)
+        val dropJoinTables = model.fields
+          .collect { f =>
+            f.ptype match {
+              case PArray(PReference(_))          => model.id + "_" + f.id
+              case POption(PArray(PReference(_))) => model.id + "_" + f.id
             }
+          }
+          .map(DropTable(_))
+          .toVector
+        dropJoinTables :+ dropModelTable
+      }
+      case UndeleteModel(model) =>
+        fromMigrationStepToSqlMigrationSteps(CreateModel(model))
+      case AddField(field, model) => {
+        val g: Option[Either[CreateTable, ForeignKey]] =
+          field.ptype match {
+            case POption(PArray(_)) | PArray(_) => {
+              val innerModel = field.ptype match {
+                case PArray(model: PModel) => Some(model)
+                case PArray(PReference(id)) =>
+                  currentSyntaxTree.modelsById.get(id)
+                case POption(PArray(model: PModel)) => Some(model)
+                case POption(PArray(PReference(id))) =>
+                  currentSyntaxTree.modelsById.get(id)
+                case _ => None
+              }
 
-            val thisModelReferenceColumn = ColumnDefinition(
-              s"source_${model.id}",
-              model.primaryField.ptype match {
-                case PString => PostgresType.TEXT
-                case PInt    => PostgresType.INT8
-                case t =>
-                  throw new InternalException(
-                    s"Primary field in model `${model.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."
+              val thisModelReferenceColumn = ColumnDefinition(
+                s"source_${model.id}",
+                model.primaryField.ptype match {
+                  case PString => PostgresType.TEXT
+                  case PInt    => PostgresType.INT8
+                  case t =>
+                    throw new InternalException(
+                      s"Primary field in model `${model.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."
+                    )
+                },
+                isNotNull = true,
+                isAutoIncrement = false,
+                isPrimaryKey = false,
+                isUUID = false,
+                isUnique = false,
+                foreignKey = Some(
+                  ForeignKey(
+                    model.id,
+                    model.primaryField.id,
+                    onDelete = Cascade
                   )
-              },
-              isNotNull = true,
-              isAutoIncrement = false,
-              isPrimaryKey = false,
-              isUUID = false,
-              isUnique = false,
-              foreignKey = Some(
-                ForeignKey(
-                  model.id,
-                  model.primaryField.id,
-                  onDelete = Cascade
                 )
               )
-            )
 
-            val valueOrReferenceColumn = innerModel match {
-              case Some(otherModel) =>
-                ColumnDefinition(
-                  s"target_${otherModel.id}",
-                  otherModel.primaryField.ptype match {
-                    case PString => PostgresType.TEXT
-                    case PInt    => PostgresType.INT8
-                    case t =>
-                      throw new InternalException(
-                        s"Primary field in model `${otherModel.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."
-                      )
-                  },
-                  isNotNull = true,
-                  isAutoIncrement = false,
-                  isPrimaryKey = false,
-                  isUUID = false,
-                  isUnique = false,
-                  foreignKey = Some(
-                    ForeignKey(
-                      otherModel.id,
-                      otherModel.primaryField.id,
-                      onDelete = Cascade
-                    )
-                  )
-                )
-              case None =>
-                ColumnDefinition(
-                  name = s"${field.id}",
-                  dataType = toPostgresType(
-                    field.ptype match {
-                      case POption(PArray(t)) => t
-                      case PArray(t)          => t
+              val valueOrReferenceColumn = innerModel match {
+                case Some(otherModel) =>
+                  ColumnDefinition(
+                    s"target_${otherModel.id}",
+                    otherModel.primaryField.ptype match {
+                      case PString => PostgresType.TEXT
+                      case PInt    => PostgresType.INT8
                       case t =>
                         throw new InternalException(
-                          s"Expected [T] or [T]?, found ${domain.utils.displayPType(t)}"
+                          s"Primary field in model `${otherModel.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."
                         )
-                    }
-                  ).get,
-                  isNotNull = true,
-                  isAutoIncrement = false,
-                  isPrimaryKey = false,
-                  isUUID = false,
-                  isUnique = false,
-                  foreignKey = None
-                )
+                    },
+                    isNotNull = true,
+                    isAutoIncrement = false,
+                    isPrimaryKey = false,
+                    isUUID = false,
+                    isUnique = false,
+                    foreignKey = Some(
+                      ForeignKey(
+                        otherModel.id,
+                        otherModel.primaryField.id,
+                        onDelete = Cascade
+                      )
+                    )
+                  )
+                case None =>
+                  ColumnDefinition(
+                    name = s"${field.id}",
+                    dataType = toPostgresType(
+                      field.ptype match {
+                        case POption(PArray(t)) => t
+                        case PArray(t)          => t
+                        case t =>
+                          throw new InternalException(
+                            s"Expected [T] or [T]?, found ${domain.utils.displayPType(t)}"
+                          )
+                      }
+                    ).get,
+                    isNotNull = true,
+                    isAutoIncrement = false,
+                    isPrimaryKey = false,
+                    isUUID = false,
+                    isUnique = false,
+                    foreignKey = None
+                  )
+              }
+
+              val columns =
+                Vector(thisModelReferenceColumn, valueOrReferenceColumn)
+
+              Some(Left(CreateTable(s"${model.id}_${field.id}", columns)))
             }
-
-            val columns =
-              Vector(thisModelReferenceColumn, valueOrReferenceColumn)
-
-            Some(Left(CreateTable(s"${model.id}_${field.id}", columns)))
+            case model: PModel =>
+              Some(Right(ForeignKey(model.id, model.primaryField.id)))
+            case POption(model: PModel) =>
+              Some(Right(ForeignKey(model.id, model.primaryField.id)))
+            case POption(PReference(id))
+                if currentSyntaxTree.modelsById.get(id).isDefined =>
+              Some(
+                Right(
+                  ForeignKey(
+                    id,
+                    currentSyntaxTree.modelsById(id).primaryField.id
+                  )
+                )
+              )
+            case PReference(id)
+                if currentSyntaxTree.modelsById.get(id).isDefined =>
+              Some(
+                Right(
+                  ForeignKey(
+                    id,
+                    currentSyntaxTree.modelsById(id).primaryField.id
+                  )
+                )
+              )
+            case _ => None
           }
-          case model: PModel =>
-            Some(Right(ForeignKey(model.id, model.primaryField.id)))
-          case POption(model: PModel) =>
-            Some(Right(ForeignKey(model.id, model.primaryField.id)))
-          case POption(PReference(id))
-              if currentSyntaxTree.modelsById.get(id).isDefined =>
-            Some(
-              Right(
-                ForeignKey(id, currentSyntaxTree.modelsById(id).primaryField.id)
+        val alterTableStatement =
+          fieldPostgresType(field)(currentSyntaxTree).map { postgresType =>
+            AlterTable(
+              model.id,
+              AlterTableAction.AddColumn(
+                ColumnDefinition(
+                  name = field.id,
+                  dataType = postgresType,
+                  isNotNull = !field.isOptional,
+                  isUnique = field.isUnique,
+                  isPrimaryKey = field.isPrimary,
+                  isAutoIncrement = field.isAutoIncrement,
+                  isUUID = field.isUUID,
+                  foreignKey = g match {
+                    case Some(value) =>
+                      value match {
+                        case Left(_)   => None
+                        case Right(fk) => Some(fk)
+                      }
+                    case None => None
+                  }
+                )
               )
             )
-          case PReference(id)
-              if currentSyntaxTree.modelsById.get(id).isDefined =>
-            Some(
-              Right(
-                ForeignKey(id, currentSyntaxTree.modelsById(id).primaryField.id)
-              )
-            )
-          case _ => None
-        }
-      val alterTableStatement =
-        fieldPostgresType(field)(currentSyntaxTree).map { postgresType =>
-          AlterTable(
-            model.id,
-            AlterTableAction.AddColumn(
-              ColumnDefinition(
-                name = field.id,
-                dataType = postgresType,
-                isNotNull = !field.isOptional,
-                isUnique = field.isUnique,
-                isPrimaryKey = field.isPrimary,
-                isAutoIncrement = field.isAutoIncrement,
-                isUUID = field.isUUID,
-                foreignKey = g match {
-                  case Some(value) =>
-                    value match {
-                      case Left(_)   => None
-                      case Right(fk) => Some(fk)
-                    }
-                  case None => None
-                }
-              )
-            )
-          )
-        }
-      alterTableStatement match {
-        case None =>
-          PostgresMigration(
+          }
+        alterTableStatement match {
+          case None =>
             g match {
               case Some(value) =>
                 value match {
@@ -417,12 +406,8 @@ object PostgresMigration {
                   case Right(_) => Vector.empty
                 }
               case None => Vector.empty
-            },
-            prevSyntaxTree,
-            currentSyntaxTree
-          )
-        case Some(alterTableStatement) =>
-          PostgresMigration(
+            }
+          case Some(alterTableStatement) =>
             g match {
               case Some(value) =>
                 value match {
@@ -431,39 +416,55 @@ object PostgresMigration {
                   case Right(_) => Vector(alterTableStatement)
                 }
               case None => Vector(alterTableStatement)
-            },
-            prevSyntaxTree,
-            currentSyntaxTree
-          )
+            }
+        }
       }
-    }
-    case RenameField(fieldId, newId, model) =>
-      PostgresMigration(
+      case RenameField(fieldId, newId, model) =>
         Vector(
           AlterTable(model.id, AlterTableAction.RenameColumn(fieldId, newId))
-        ),
-        prevSyntaxTree,
-        currentSyntaxTree
-      )
-    case DeleteField(field, model) =>
-      PostgresMigration(
+        )
+      case DeleteField(field, model) =>
         Vector(
           AlterTable(model.id, AlterTableAction.DropColumn(field.id, true))
-        ),
-        prevSyntaxTree,
-        currentSyntaxTree
-      )
-    case UndeleteField(field, model) =>
-      PostgresMigration(
-        AddField(field, model),
-        prevSyntaxTree,
-        currentSyntaxTree
-      )
-    case ChangeManyFieldTypes(prevModel, changes) =>
-      PostgresMigration(
-        Vector(AlterManyFieldTypes(prevModel, changes)),
-        prevSyntaxTree,
-        currentSyntaxTree
-      )
+        )
+      case UndeleteField(field, model) =>
+        fromMigrationStepToSqlMigrationSteps(AddField(field, model))
+      case ChangeManyFieldTypes(prevModel, _, changes) =>
+        Vector(AlterManyFieldTypes(prevModel, changes))
+    }
+}
+
+object PostgresMigration {
+  def apply(
+      step: MigrationStep,
+      prevSyntaxTree: SyntaxTree,
+      currentSyntaxTree: SyntaxTree
+  ): PostgresMigration =
+    PostgresMigration(Vector(step), prevSyntaxTree, currentSyntaxTree)
+}
+
+case class ModelsDependencyGraph(st: SyntaxTree) {
+
+  val pairs: List[(PModel, PType)] = {
+    for {
+      model <- st.models.toList
+      field <- model.fields
+    } yield
+      field.ptype match {
+        case t @ PReference(_)                  => Some((model, t))
+        case t @ PArray(PReference(_))          => Some((model, t))
+        case t @ POption(PReference(_))         => Some((model, t))
+        case t @ POption(PArray(PReference(_))) => Some((model, t))
+        case _                                  => None
+      }
+  } collect {
+    case Some(value) => value
+  }
+
+  def depsOf(modelId: String) = pairs collect {
+    case (model, PReference(ref)) if modelId == model.id                  => ref
+    case (model, PArray(PReference(ref))) if modelId == model.id          => ref
+    case (model, POption(PReference(ref))) if modelId == model.id         => ref
+    case (model, POption(PArray(PReference(ref)))) if modelId == model.id => ref
   }
 }
