@@ -11,9 +11,10 @@ import domain.utils.UserError
 class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     extends MigrationEngine[Postgres[M], M] {
   implicit val st = syntaxTree
+
   override def migrate(
-      migrationSteps: Vector[MigrationStep]
-  ): M[Vector[Either[MigrationError, Unit]]] = ???
+      prevTree: SyntaxTree
+  ): M[Either[MigrationError, Unit]] = ???
 
   def initialMigration = migration(SyntaxTree.empty, (_, _) => false)
 
@@ -153,6 +154,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
         } yield
           ChangeManyFieldTypes(
             prevModel,
+            currentModel,
             Vector(
               ChangeFieldType(
                 prevField,
@@ -213,6 +215,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
             Some(
               ChangeManyFieldTypes(
                 value.prevModel,
+                value.newModel,
                 value.changes ++ e.changes
               )
             )
@@ -232,18 +235,6 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
 
       newModels ++ renamedModels ++ deletedModels ++ fieldMigrationSteps.flatten
     }
-
-  /**
-  * CAUTION: This function does not sort `steps` based on
-  * the dependency graph of the syntax tree models which
-  * means that if `steps` are not sorted correctly, this
-  * function might return a `PostgresMigration` that when
-  * it's `renderSQL` method is called, the method will return
-  * an out-of-order (invalid) SQL statements.
-  *
-  * This is why it's private. And it's private to the `postgres`
-  * package so it can be tested.
-  */
 }
 
 // `IndexedModel#equals` and `IndexedField#equals` assumes that the `Validator` has validated
