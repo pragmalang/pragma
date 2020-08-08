@@ -162,27 +162,20 @@ case class PostgresMigration(
                       case Success(_) => fs2.Stream(row)
                     }
                   }
-                  .flatMap { row =>
+                  .map { row =>
                     /**
                       * Try re-inserting this row in the new table
                       */
-                    Try {
-                      val insertQuery = queryEngine.createOneRecord(
-                        newModelTempDef,
-                        row,
-                        Vector.empty
-                      )
-                      insertQuery.void
-                        .transact(transactor)
-                        .unsafeRunSync()
-                    } match {
-                      case Failure(exception) =>
-                        fs2.Stream.raiseError[ConnectionIO](exception)
-                      case Success(_) => fs2.Stream(())
-                    }
+                    val insertQuery = queryEngine.createOneRecord(
+                      newModelTempDef,
+                      row,
+                      Vector.empty
+                    )
+                    insertQuery.void
                   }
 
-              val transformFieldValuesAndMoveToNewTable = stream.compile.drain
+              val transformFieldValuesAndMoveToNewTable: ConnectionIO[Unit] =
+                stream.compile.toList.map(_.head).flatten
 
               val dropPrevTable = PostgresMigration(
                 DeleteModel(prevModel),

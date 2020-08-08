@@ -4,8 +4,6 @@ import AlterTableAction._
 import domain._, DomainImplicits._
 import OnDeleteAction._
 import running.storage._
-import domain.utils.InternalException
-import running.storage.postgres.utils._
 
 sealed trait SQLMigrationStep
 

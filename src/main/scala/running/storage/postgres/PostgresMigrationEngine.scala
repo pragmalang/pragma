@@ -7,6 +7,7 @@ import domain.utils._
 
 import domain._
 import domain.utils.UserError
+import scala.util.Try
 
 class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     extends MigrationEngine[Postgres[M], M] {
@@ -21,18 +22,20 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
   def migration(
       prevTree: SyntaxTree = SyntaxTree.empty,
       thereExistData: (ModelId, FieldId) => Boolean
-  ): PostgresMigration =
-    PostgresMigration(
-      inferedMigrationSteps(syntaxTree, prevTree, thereExistData),
-      prevTree,
-      syntaxTree
+  ): Try[PostgresMigration] =
+    inferedMigrationSteps(syntaxTree, prevTree, thereExistData).map(
+      PostgresMigration(
+        _,
+        prevTree,
+        syntaxTree
+      )
     )
 
   private[postgres] def inferedMigrationSteps(
       currentTree: SyntaxTree,
       prevTree: SyntaxTree,
       thereExistData: (ModelId, FieldId) => Boolean
-  ): Vector[MigrationStep] =
+  ): Try[Vector[MigrationStep]] = Try {
     if (prevTree.models.isEmpty)
       currentTree.models.map(CreateModel(_)).toVector
     else {
@@ -235,6 +238,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
 
       newModels ++ renamedModels ++ deletedModels ++ fieldMigrationSteps.flatten
     }
+  }
 }
 
 // `IndexedModel#equals` and `IndexedField#equals` assumes that the `Validator` has validated

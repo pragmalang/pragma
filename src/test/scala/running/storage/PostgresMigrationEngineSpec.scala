@@ -2,7 +2,7 @@ package running.storage.postgres
 
 import running.storage._
 import running.storage.postgres._
-import org.scalatest._, funsuite.AnyFunSuite, matchers.should.Matchers
+import org.scalatest._, funsuite.AnyFunSuite
 import SQLMigrationStep._
 import domain.SyntaxTree
 import AlterTableAction._
@@ -14,87 +14,112 @@ import org.parboiled2.Position
 import doobie._
 import doobie.implicits._
 import cats._
-import cats.data._
 import cats.effect._
 import cats.implicits._
 
-class PostgresMigrationEngineSpec
-    extends AnyFunSuite
-    with Matchers
-    with doobie.scalatest.IOChecker {
+class PostgresMigrationEngineSpec extends AnyFunSuite {
 
   implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
 
-  def transactor = Transactor.fromDriverManager[IO](
-    "org.postgresql.Driver",
-    "jdbc:postgresql://localhost:5433/test",
-    "test",
-    "test",
-    Blocker.liftExecutionContext(ExecutionContexts.synchronous)
-  )
+  def transactorFromDbName(dbName: String) =
+    Transactor.fromDriverManager[IO](
+      "org.postgresql.Driver",
+      s"jdbc:postgresql://localhost:5433/${dbName}",
+      "test",
+      "test",
+      Blocker.liftExecutionContext(ExecutionContexts.synchronous)
+    )
 
-  val code = """
-    @1 @user
-    model User {
-      @1 id: String @uuid
-      @2 username: String @primary @publicCredential
-      @3 password: String @secretCredential
-      @4 isVerified: Boolean = false
-      @5 todos: [Todo]
-    }
+  def createDatabase(dbName: String) =
+    Fragment(s"""CREATE DATABASE ${dbName} OWNER test;""", Nil, None).update
 
-    @2 model Todo {
-      @1 title: String @primary
-    }
-    """
-  val syntaxTree = SyntaxTree.from(code).get
+  def removeAllTablesFromDb(dbName: String): IO[Unit] =
+    sql"""
+      DROP SCHEMA public CASCADE;
+      CREATE SCHEMA public;
+      GRANT ALL ON SCHEMA public TO test;
+      GRANT ALL ON SCHEMA public TO public;
+    """.update.run.void.transact(transactorFromDbName(dbName))
 
   test("`PostgresMigration#renderSQL` works") {
+    val code = """
+        @1 @user
+        model User_renderSQL {
+          @1 id: String @uuid
+          @2 username: String @primary @publicCredential
+          @3 password: String @secretCredential
+          @4 isVerified: Boolean = false
+          @5 todos: [Todo_renderSQL]
+        }
+    
+        @2 model Todo_renderSQL {
+          @1 title: String @primary
+        }
+        """
+    val syntaxTree = SyntaxTree.from(code).get
 
     val migrationEngine = new PostgresMigrationEngine[IO](syntaxTree)
+
+    val transactor = transactorFromDbName("test")
 
     val expected =
       Some(
         """|CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
        |
-       |CREATE TABLE IF NOT EXISTS "Todo"(
+       |CREATE TABLE IF NOT EXISTS "Todo_renderSQL"(
        |);
        |
        |
-       |CREATE TABLE IF NOT EXISTS "User"(
+       |CREATE TABLE IF NOT EXISTS "User_renderSQL"(
        |);
        |
        |
-       |ALTER TABLE "Todo" ADD COLUMN "title" TEXT NOT NULL PRIMARY KEY;
+       |ALTER TABLE "Todo_renderSQL" ADD COLUMN "title" TEXT NOT NULL PRIMARY KEY;
        |
-       |ALTER TABLE "User" ADD COLUMN "username" TEXT NOT NULL PRIMARY KEY;
+       |ALTER TABLE "User_renderSQL" ADD COLUMN "username" TEXT NOT NULL PRIMARY KEY;
        |
-       |ALTER TABLE "User" ADD COLUMN "id" UUID NOT NULL DEFAULT uuid_generate_v4 ();
+       |ALTER TABLE "User_renderSQL" ADD COLUMN "id" UUID NOT NULL DEFAULT uuid_generate_v4 ();
        |
-       |ALTER TABLE "User" ADD COLUMN "password" TEXT NOT NULL;
+       |ALTER TABLE "User_renderSQL" ADD COLUMN "password" TEXT NOT NULL;
        |
-       |ALTER TABLE "User" ADD COLUMN "isVerified" BOOL NOT NULL;
+       |ALTER TABLE "User_renderSQL" ADD COLUMN "isVerified" BOOL NOT NULL;
        |
-       |CREATE TABLE IF NOT EXISTS "User_todos"(
-       |"source_User" TEXT NOT NULL REFERENCES "User"("username") ON DELETE CASCADE,
-       |"target_Todo" TEXT NOT NULL REFERENCES "Todo"("title") ON DELETE CASCADE);
+       |CREATE TABLE IF NOT EXISTS "User_renderSQL_todos"(
+       |"source_User_renderSQL" TEXT NOT NULL REFERENCES "User_renderSQL"("username") ON DELETE CASCADE,
+       |"target_Todo_renderSQL" TEXT NOT NULL REFERENCES "Todo_renderSQL"("title") ON DELETE CASCADE);
        |""".stripMargin
       )
 
-    assert(expected == migrationEngine.initialMigration.renderSQL)
+    assert(expected == migrationEngine.initialMigration.get.renderSQL)
 
-    migrationEngine.initialMigration
+    migrationEngine.initialMigration.get
       .run(transactor)
       .transact(transactor)
       .unsafeRunSync()
 
-    migrationEngine.initialMigration.reverse
+    migrationEngine.initialMigration.get.reverse
       .run(transactor)
       .transact(transactor)
       .unsafeRunSync()
   }
 
   test("PostgresMigrationEngine#migration works") {
+
+    val code = """
+        @1 @user
+        model User {
+          @1 id: String @uuid
+          @2 username: String @primary @publicCredential
+          @3 password: String @secretCredential
+          @4 isVerified: Boolean = false
+          @5 todos: [Todo]
+        }
+    
+        @2 model Todo {
+          @1 title: String @primary
+        }
+        """
+    val syntaxTree = SyntaxTree.from(code).get
 
     val createTodoModel = CreateModel(syntaxTree.modelsById("Todo"))
     val createUserModel = CreateModel(syntaxTree.modelsById("User"))
@@ -292,7 +317,7 @@ class PostgresMigrationEngineSpec
 
     assert(
       migrationEngine
-        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false) == expected
+        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false).get == expected
     )
   }
 
@@ -340,6 +365,7 @@ class PostgresMigrationEngineSpec
     assert(
       migrationEngine
         .migration(prevSyntaxTree, (_, _) => false)
+        .get
         .sqlSteps == expected
     )
   }
@@ -392,6 +418,7 @@ class PostgresMigrationEngineSpec
     assert(
       migrationEngine
         .migration(prevSyntaxTree, (_, _) => false)
+        .get
         .sqlSteps == expected
     )
   }
@@ -463,6 +490,7 @@ class PostgresMigrationEngineSpec
     assert(
       migrationEngine
         .migration(prevSyntaxTree, (_, _) => false)
+        .get
         .sqlSteps == expected
     )
   }
@@ -516,6 +544,7 @@ class PostgresMigrationEngineSpec
     assert(
       migrationEngine
         .migration(prevSyntaxTree, (_, _) => false)
+        .get
         .sqlSteps == expected
     )
   }
@@ -571,6 +600,7 @@ class PostgresMigrationEngineSpec
     assert(
       migrationEngine
         .migration(prevSyntaxTree, (_, _) => false)
+        .get
         .sqlSteps == expected
     )
   }
@@ -627,12 +657,12 @@ class PostgresMigrationEngineSpec
 
     assert(
       migrationEngine
-        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false) == expected
+        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false).get == expected
     )
   }
 
   test(
-    "Changing field types in a migration works"
+    "Changing field types without type transformer hooks nor existing data in a migration works"
   ) {
 
     val prevCode = """
@@ -679,117 +709,102 @@ class PostgresMigrationEngineSpec
 
     val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
 
-    // val expected = Vector(
-    //   ChangeManyFieldTypes(
-    //     PModel(
-    //       "User",
-    //       List(
-    //         PModelField(
-    //           "id",
-    //           PString,
-    //           None,
-    //           1,
-    //           List(
-    //             Directive(
-    //               "uuid",
-    //               PInterfaceValue(Map(), PInterface("", List(), None)),
-    //               FieldDirective,
-    //               Some(PositionRange(Position(51, 4, 21), Position(56, 4, 26)))
-    //             )
-    //           ),
-    //           Some(PositionRange(Position(40, 4, 10), Position(42, 4, 12)))
-    //         ),
-    //         PModelField(
-    //           "username",
-    //           PString,
-    //           None,
-    //           2,
-    //           List(
-    //             Directive(
-    //               "primary",
-    //               PInterfaceValue(Map(), PInterface("", List(), None)),
-    //               FieldDirective,
-    //               Some(PositionRange(Position(83, 5, 27), Position(91, 5, 35)))
-    //             ),
-    //             Directive(
-    //               "publicCredential",
-    //               PInterfaceValue(Map(), PInterface("", List(), None)),
-    //               FieldDirective,
-    //               Some(PositionRange(Position(92, 5, 36), Position(109, 5, 53)))
-    //             )
-    //           ),
-    //           Some(PositionRange(Position(66, 5, 10), Position(74, 5, 18)))
-    //         ),
-    //         PModelField(
-    //           "password",
-    //           PString,
-    //           None,
-    //           3,
-    //           List(
-    //             Directive(
-    //               "secretCredential",
-    //               PInterfaceValue(Map(), PInterface("", List(), None)),
-    //               FieldDirective,
-    //               Some(
-    //                 PositionRange(Position(136, 6, 27), Position(153, 6, 44))
-    //               )
-    //             )
-    //           ),
-    //           Some(PositionRange(Position(119, 6, 10), Position(127, 6, 18)))
-    //         ),
-    //         PModelField(
-    //           "isVerified",
-    //           PBool,
-    //           Some(PBoolValue(false)),
-    //           4,
-    //           List(),
-    //           Some(PositionRange(Position(163, 7, 10), Position(173, 7, 20)))
-    //         ),
-    //         PModelField(
-    //           "todos",
-    //           PArray(PReference("Todo")),
-    //           None,
-    //           5,
-    //           List(),
-    //           Some(PositionRange(Position(200, 8, 10), Position(205, 8, 15)))
-    //         )
-    //       ),
-    //       List(
-    //         Directive(
-    //           "user",
-    //           PInterfaceValue(Map(), PInterface("", List(), None)),
-    //           ModelDirective,
-    //           Some(PositionRange(Position(5, 2, 5), Position(10, 2, 10)))
-    //         )
-    //       ),
-    //       1,
-    //       Some(PositionRange(Position(24, 3, 14), Position(28, 3, 18)))
-    //     ),
-    //     Vector(
-    //       ChangeFieldType(
-    //         PModelField(
-    //           "isVerified",
-    //           PBool,
-    //           Some(PBoolValue(false)),
-    //           4,
-    //           List(),
-    //           Some(PositionRange(Position(163, 7, 10), Position(173, 7, 20)))
-    //         ),
-    //         PInt,
-    //         None,
-    //         None
-    //       )
-    //     )
-    //   )
-    // )
+    val expected = ChangeFieldType(
+      PModelField(
+        "isVerified",
+        PBool,
+        Some(PBoolValue(false)),
+        4,
+        List(),
+        Some(PositionRange(Position(163, 7, 10), Position(173, 7, 20)))
+      ),
+      PInt,
+      None,
+      None
+    )
 
-    // assert(
-    //   migrationEngine
-    //     .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false) == expected
-    // )
-    // println(
-    //   migrationEngine
-    //     .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false)
-    // )
+    assert(
+      migrationEngine
+        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false)
+        .get
+        .head
+        .asInstanceOf[ChangeManyFieldTypes]
+        .changes
+        .head == expected
+    )
+  }
+
+  test(
+    "Changing field types with type transformer hooks in a migration works"
+  ) {
+
+    val prevCode = """
+    @user
+    @1 model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin {
+      @1 username: String @primary @publicCredential
+      @2 password: String @secretCredential
+    }
+    """
+    val prevSyntaxTree = SyntaxTree.from(prevCode).get
+
+    val code = """
+
+    @user
+    @1 model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Int = 0
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin {
+      @1 username: String @primary @publicCredential
+      @2 password: String @secretCredential
+    }
+    """
+    val newSyntaxTree = SyntaxTree.from(code).get
+
+    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
+
+    val expected = ChangeFieldType(
+      PModelField(
+        "isVerified",
+        PBool,
+        Some(PBoolValue(false)),
+        4,
+        List(),
+        Some(PositionRange(Position(163, 7, 10), Position(173, 7, 20)))
+      ),
+      PInt,
+      None,
+      None
+    )
+
+    assert(
+      migrationEngine
+        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false)
+        .get
+        .head
+        .asInstanceOf[ChangeManyFieldTypes]
+        .changes
+        .head == expected
+    )
   }
 }
