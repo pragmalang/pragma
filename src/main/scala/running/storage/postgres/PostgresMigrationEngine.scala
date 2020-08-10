@@ -180,6 +180,34 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                         )
                       }
                     }
+                  // If there is no data, then there is no need for a transformation function
+                  case None if !thereExistData(prevModel.id, prevField.id) =>
+                    None
+                  // If from A to A? then there is no need for a transformation function
+                  case None
+                      if currentField.ptype
+                        .isInstanceOf[POption] && (prevField.ptype == currentField.ptype
+                        .asInstanceOf[POption]
+                        .ptype) =>
+                    None
+                  // If from A to [A] then there is no need for a transformation function, the current value will be the first element of the array
+                  case None
+                      if currentField.ptype
+                        .isInstanceOf[PArray] && (prevField.ptype == currentField.ptype
+                        .asInstanceOf[PArray]
+                        .ptype) =>
+                    None
+                  // If from A? to [A] then there is no need for a transformation function, the current value, if not null,
+                  // will be the first element in the array, and if it's null then the array is empty
+                  case None
+                      if (currentField.ptype
+                        .isInstanceOf[PArray] && prevField.ptype
+                        .isInstanceOf[POption]) && (prevField.ptype
+                        .asInstanceOf[POption]
+                        .ptype == currentField.ptype
+                        .asInstanceOf[PArray]
+                        .ptype) =>
+                    None
                   case None if thereExistData(prevModel.id, prevField.id) => {
                     val requiredFunctionType =
                       s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
