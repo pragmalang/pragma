@@ -96,11 +96,6 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       .run(transactor)
       .transact(transactor)
       .unsafeRunSync()
-
-    migrationEngine.initialMigration.get.reverse
-      .run(transactor)
-      .transact(transactor)
-      .unsafeRunSync()
   }
 
   test("PostgresMigrationEngine#migration works") {
@@ -317,7 +312,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     assert(
       migrationEngine
-        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false).get == expected
+        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false)
+        .get == expected
     )
   }
 
@@ -657,7 +653,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     assert(
       migrationEngine
-        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false).get == expected
+        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false)
+        .get == expected
     )
   }
 
@@ -719,7 +716,6 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
         Some(PositionRange(Position(163, 7, 10), Position(173, 7, 20)))
       ),
       PInt,
-      None,
       None
     )
 
@@ -793,7 +789,6 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
         Some(PositionRange(Position(163, 7, 10), Position(173, 7, 20)))
       ),
       PInt,
-      None,
       None
     )
 

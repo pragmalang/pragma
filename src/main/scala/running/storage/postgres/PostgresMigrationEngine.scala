@@ -216,28 +216,6 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                     )
                   }
                   case None => None
-                },
-                currentField.directives
-                  .find(_.id == "reverseTypeTransformer") match {
-                  case Some(typeTransformerDir) =>
-                    typeTransformerDir.args
-                      .value("reverseTypeTransformer") match {
-                      case func: ExternalFunction => Some(func)
-                      case func: BuiltinFunction  => Some(func)
-                      case pvalue => {
-                        val found = displayPType(pvalue.ptype)
-                        val required =
-                          s"${displayPType(currentField.ptype)} => ${displayPType(prevField.ptype)}"
-                        throw new InternalException(
-                          s"""
-                          |Type mismatch on directive `reverseTypeTransformer` on field `${currentModel}.${currentField}`
-                          |found: `${found}`
-                          |required: `${required}`
-                          """.tail.stripMargin
-                        )
-                      }
-                    }
-                  case None => None
                 }
               )
             )

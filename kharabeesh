@@ -1,0 +1,45 @@
+# Migration #1
+
+model User {
+  username: String @publicCredential
+  password: String @secretCredential
+  followers: User
+}
+
+
+# Migration #2
+
+model User {
+  username: String @publicCredential
+  password: String @secretCredential
+  followers: [Follower]
+}
+
+model Follower {
+  user: User
+  following: [User]
+}
+
+NDNTN: No Data No Transformers Needed
+NTN  : No Transformers Needed
+
+- A   -> [A]            # NTN  
+- A   -> A?             # NTN
+- A   -> B
+  * A   -> B            # NDNTN
+  * A   -> [B]          # NDNTN
+  * A   -> B?           # NDNTN
+
+- [A] -> A              # NDNTN
+- [A] -> A?             # NDNTN
+- [A] -> B
+  * [A] -> B            # NDNTN 
+  * [A] -> [B]          # NDNTN
+  * [A] -> B?           # NDNTN
+
+- A?  -> A              # NDNTN
+- A?  -> [A]            # NTN : If previous value is `null` then an empty array, if there is a value then array with that value
+- A?  -> B              # NDNTN
+  * A?  -> B            # NDNTN
+  * A?  -> [B]          # NDNTN
+  * A?  -> B?           # NDNTN
