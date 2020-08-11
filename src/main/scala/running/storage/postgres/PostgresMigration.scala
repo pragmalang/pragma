@@ -66,14 +66,6 @@ case class PostgresMigration(
     unorderedSQLSteps.sortWith((x, y) => sqlMigrationStepOrdering.gt(x, y))
   }
 
-  def reverse: PostgresMigration =
-    PostgresMigration(
-      unorderedSteps
-        .map(_.reverse),
-      currentSyntaxTree,
-      prevSyntaxTree
-    )
-
   def run(
       transactor: Transactor[IO]
   )(
@@ -117,14 +109,10 @@ case class PostgresMigration(
                      * to the correct type transformer if any
                      */
                     val transformedColumns = changes
-                      .map { change =>
+                      .collect { change =>
                         change.transformer match {
                           case Some(transformer) =>
                             change.field.id -> transformer(
-                              row.fields(change.field.id)
-                            )
-                          case None =>
-                            change.field.id -> Success(
                               row.fields(change.field.id)
                             )
                         }
@@ -139,7 +127,7 @@ case class PostgresMigration(
                           }
                       }
                     transformedColumns.map(
-                      cols => row.copy(fields = row.fields.++(cols))
+                      cols => row.copy(fields = row.fields ++ cols)
                     )
                   }
                   .flatMap {

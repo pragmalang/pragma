@@ -180,6 +180,34 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                         )
                       }
                     }
+                  // If there is no data, then there is no need for a transformation function
+                  case None if !thereExistData(prevModel.id, prevField.id) =>
+                    None
+                  // If from A to A? then there is no need for a transformation function
+                  case None
+                      if currentField.ptype
+                        .isInstanceOf[POption] && (prevField.ptype == currentField.ptype
+                        .asInstanceOf[POption]
+                        .ptype) =>
+                    None
+                  // If from A to [A] then there is no need for a transformation function, the current value will be the first element of the array
+                  case None
+                      if currentField.ptype
+                        .isInstanceOf[PArray] && (prevField.ptype == currentField.ptype
+                        .asInstanceOf[PArray]
+                        .ptype) =>
+                    None
+                  // If from A? to [A] then there is no need for a transformation function, the current value, if not null,
+                  // will be the first element in the array, and if it's null then the array is empty
+                  case None
+                      if (currentField.ptype
+                        .isInstanceOf[PArray] && prevField.ptype
+                        .isInstanceOf[POption]) && (prevField.ptype
+                        .asInstanceOf[POption]
+                        .ptype == currentField.ptype
+                        .asInstanceOf[PArray]
+                        .ptype) =>
+                    None
                   case None if thereExistData(prevModel.id, prevField.id) => {
                     val requiredFunctionType =
                       s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
@@ -187,28 +215,6 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                       s"Field `${currentModel}.${currentField}` type has changed, and Pragma needs a transformation function `${requiredFunctionType}` to transform existing data to the new type"
                     )
                   }
-                  case None => None
-                },
-                currentField.directives
-                  .find(_.id == "reverseTypeTransformer") match {
-                  case Some(typeTransformerDir) =>
-                    typeTransformerDir.args
-                      .value("reverseTypeTransformer") match {
-                      case func: ExternalFunction => Some(func)
-                      case func: BuiltinFunction  => Some(func)
-                      case pvalue => {
-                        val found = displayPType(pvalue.ptype)
-                        val required =
-                          s"${displayPType(currentField.ptype)} => ${displayPType(prevField.ptype)}"
-                        throw new InternalException(
-                          s"""
-                          |Type mismatch on directive `reverseTypeTransformer` on field `${currentModel}.${currentField}`
-                          |found: `${found}`
-                          |required: `${required}`
-                          """.tail.stripMargin
-                        )
-                      }
-                    }
                   case None => None
                 }
               )
