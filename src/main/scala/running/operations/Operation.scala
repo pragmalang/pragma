@@ -3,6 +3,7 @@ package running
 import domain._
 import running.storage.QueryWhere
 import spray.json._
+import scala.util.Try
 
 sealed trait Operation {
   val event: PEvent
@@ -10,7 +11,7 @@ sealed trait Operation {
   val targetModel: PModel
   val user: Option[(JwtPayload, PModel)]
   // Contains hooks used in @onRead, @onWrite, and @onDelete directives
-  val crudHooks: Seq[PFunctionValue[_, _]]
+  val crudHooks: Seq[PFunctionValue[JsValue, Try[JsValue]]]
   val name: String
   val groupName: String
   val innerReadOps: Vector[InnerOperation]
@@ -20,7 +21,7 @@ case class ReadOperation(
     opArguments: ReadArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    crudHooks: Seq[PFunctionValue[_, _]],
+    crudHooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -32,7 +33,7 @@ case class ReadManyOperation(
     opArguments: ReadManyArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    crudHooks: Seq[PFunctionValue[_, _]],
+    crudHooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -44,7 +45,7 @@ case class CreateOperation(
     opArguments: CreateArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    crudHooks: Seq[PFunctionValue[_, _]],
+    crudHooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -56,7 +57,7 @@ case class CreateManyOperation(
     opArguments: CreateManyArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    crudHooks: Seq[PFunctionValue[_, _]],
+    crudHooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -68,7 +69,7 @@ case class UpdateOperation(
     opArguments: UpdateArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    crudHooks: Seq[PFunctionValue[_, _]],
+    crudHooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -80,7 +81,7 @@ case class UpdateManyOperation(
     opArguments: UpdateManyArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    crudHooks: Seq[PFunctionValue[_, _]],
+    crudHooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -92,7 +93,7 @@ case class DeleteOperation(
     opArguments: DeleteArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    crudHooks: Seq[PFunctionValue[_, _]],
+    crudHooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -104,7 +105,7 @@ case class DeleteManyOperation(
     opArguments: DeleteManyArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    crudHooks: Seq[PFunctionValue[_, _]],
+    crudHooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -116,7 +117,7 @@ case class PushToOperation(
     opArguments: PushToArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    crudHooks: Seq[PFunctionValue[_, _]],
+    crudHooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation],
@@ -129,7 +130,7 @@ case class PushManyToOperation(
     opArguments: PushManyToArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    crudHooks: Seq[PFunctionValue[_, _]],
+    crudHooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation],
@@ -142,7 +143,7 @@ case class RemoveFromOperation(
     opArguments: RemoveFromArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    crudHooks: Seq[PFunctionValue[_, _]],
+    crudHooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation],
@@ -155,7 +156,7 @@ case class RemoveManyFromOperation(
     opArguments: RemoveManyFromArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    crudHooks: Seq[PFunctionValue[_, _]],
+    crudHooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation],
@@ -168,7 +169,7 @@ case class LoginOperation(
     opArguments: LoginArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    crudHooks: Seq[PFunctionValue[_, _]],
+    crudHooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -192,7 +193,7 @@ case class InnerReadOperation(
     targetField: Operations.AliasedField,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    crudHooks: Seq[PFunctionValue[_, _]],
+    crudHooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
     innerReadOps: Vector[InnerOperation]
 ) extends InnerOperation {
   override val event = Read
@@ -206,7 +207,7 @@ case class InnerReadManyOperation(
     opArguments: InnerListArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    crudHooks: Seq[PFunctionValue[_, _]],
+    crudHooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
     innerReadOps: Vector[InnerOperation]
 ) extends InnerOperation {
   override val event = ReadMany

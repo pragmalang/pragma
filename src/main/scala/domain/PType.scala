@@ -76,7 +76,7 @@ object PModel {
       .filter(_.id == directiveName)
       .map { dir =>
         dir.args.value.get("function") match {
-          case Some(fn: PFunctionValue[_, _]) => fn
+          case Some(fn: ExternalFunction) => fn
           case None =>
             throw new InternalException(
               s"`$directiveName` directive of model `${model.id}` must have one function argument. Something must've went wrong during validation"
