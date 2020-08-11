@@ -106,19 +106,16 @@ case class PostgresMigration(
                 ).run(transactor)
 
               val stream =
-                /**
-                  *  Load rows of prev table as a stream in memory
-                  */
+                // Load rows of prev table as a stream in memory
                 HC.stream[JsObject](
                     s"SELECT * FROM ${prevModel.id.withQuotes};",
                     HPS.set(()),
                     200
                   )
                   .map { row =>
-                    /**
-                      * Pass the data in each type-changed column
-                      * to the correct type transformer if any
-                      */
+                    /* Pass the data in each type-changed column
+                     * to the correct type transformer if any
+                     */
                     val transformedColumns = changes
                       .map { change =>
                         change.transformer match {
@@ -151,9 +148,7 @@ case class PostgresMigration(
                     case Success(value) => fs2.Stream(value)
                   }
                   .flatMap { row =>
-                    /**
-                      * Type check the value/s returned from the transformer
-                      */
+                    // Type check the value/s returned from the transformer
                     val typeCheckingResult =
                       typeCheckJson(newModelTempDef, currentSyntaxTree)(row)
                     typeCheckingResult match {
@@ -163,9 +158,7 @@ case class PostgresMigration(
                     }
                   }
                   .map { row =>
-                    /**
-                      * Try re-inserting this row in the new table
-                      */
+                    // Try re-inserting this row in the new table
                     val insertQuery = queryEngine.createOneRecord(
                       newModelTempDef,
                       row,
