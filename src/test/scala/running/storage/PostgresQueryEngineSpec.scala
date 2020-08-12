@@ -45,7 +45,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
   val testStorage = new TestStorage(syntaxTree)
   import testStorage._
 
-  migrationEngine.initialMigration.get.run(t).transact(t).unsafeRunSync()
+  migrationEngine.initialMigration.getOrElse(fail()).run(t).transact(t).unsafeRunSync()
 
   sql"""
     INSERT INTO  "Country" ("code", "name", "population", "gnp") 

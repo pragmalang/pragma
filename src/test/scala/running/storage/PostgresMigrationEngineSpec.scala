@@ -90,9 +90,14 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
        |""".stripMargin
       )
 
-    assert(expected == migrationEngine.initialMigration.get.renderSQL)
+    assert(
+      expected == (migrationEngine.initialMigration match {
+        case Left(e) => throw e
+        case Right(migration) => migration.renderSQL
+      }) 
+    )
 
-    migrationEngine.initialMigration.get
+    migrationEngine.initialMigration.getOrElse(fail())
       .run(transactor)
       .transact(transactor)
       .unsafeRunSync()
@@ -312,8 +317,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     assert(
       migrationEngine
-        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false)
-        .get == expected
+        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, Map.empty)
+        .getOrElse(fail()) == expected
     )
   }
 
@@ -360,8 +365,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     val expected = Vector(DropTable("Admin"))
     assert(
       migrationEngine
-        .migration(prevSyntaxTree, (_, _) => false)
-        .get
+        .migration(prevSyntaxTree, Map.empty)
+        .getOrElse(fail())
         .sqlSteps == expected
     )
   }
@@ -413,8 +418,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     val expected = Vector(RenameTable("Admin", "Admin1"))
     assert(
       migrationEngine
-        .migration(prevSyntaxTree, (_, _) => false)
-        .get
+        .migration(prevSyntaxTree, Map.empty)
+        .getOrElse(fail())
         .sqlSteps == expected
     )
   }
@@ -485,8 +490,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     assert(
       migrationEngine
-        .migration(prevSyntaxTree, (_, _) => false)
-        .get
+        .migration(prevSyntaxTree, Map.empty)
+        .getOrElse(fail())
         .sqlSteps == expected
     )
   }
@@ -539,8 +544,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     val expected = Vector(AlterTable("Admin", DropColumn("password", true)))
     assert(
       migrationEngine
-        .migration(prevSyntaxTree, (_, _) => false)
-        .get
+        .migration(prevSyntaxTree, Map.empty)
+        .getOrElse(fail())
         .sqlSteps == expected
     )
   }
@@ -595,8 +600,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       Vector(AlterTable("Admin", RenameColumn("password", "passcode")))
     assert(
       migrationEngine
-        .migration(prevSyntaxTree, (_, _) => false)
-        .get
+        .migration(prevSyntaxTree, Map.empty)
+        .getOrElse(fail())
         .sqlSteps == expected
     )
   }
@@ -653,8 +658,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     assert(
       migrationEngine
-        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false)
-        .get == expected
+        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, Map.empty)
+        .getOrElse(fail()) == expected
     )
   }
 
@@ -721,8 +726,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     assert(
       migrationEngine
-        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false)
-        .get
+        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, Map.empty)
+        .getOrElse(fail())
         .head
         .asInstanceOf[ChangeManyFieldTypes]
         .changes
@@ -794,8 +799,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     assert(
       migrationEngine
-        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, (_, _) => false)
-        .get
+        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, Map.empty)
+        .getOrElse(fail())
         .head
         .asInstanceOf[ChangeManyFieldTypes]
         .changes

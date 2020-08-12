@@ -4,6 +4,7 @@ import running.storage._
 import cats._
 import domain.SyntaxTree
 import domain.utils._
+import running.storage.postgres.utils._
 
 import domain._
 import domain.utils.UserError
@@ -13,243 +14,249 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     extends MigrationEngine[Postgres[M], M] {
   implicit val st = syntaxTree
 
+  // for using `PostgresQueryEngine#runQuery` in PostgresMigrationEngine#migrate
+  // for constructing the `thereExistData: Map[(ModelId, FieldId), Boolean]`
+  def queryEngine: PostgresQueryEngine[M] = ???
+
   override def migrate(
       prevTree: SyntaxTree
   ): M[Either[MigrationError, Unit]] = ???
 
-  def initialMigration = migration(SyntaxTree.empty, (_, _) => false)
+  def initialMigration =
+    migration(SyntaxTree.empty, Map.empty)
 
   def migration(
       prevTree: SyntaxTree = SyntaxTree.empty,
-      thereExistData: (ModelId, FieldId) => Boolean
-  ): Try[PostgresMigration] =
-    inferedMigrationSteps(syntaxTree, prevTree, thereExistData).map(
+      thereExistData: Map[(ModelId, FieldId), Boolean]
+  ): Either[Throwable, PostgresMigration] =
+    inferedMigrationSteps(syntaxTree, prevTree, thereExistData) map {
       PostgresMigration(
         _,
         prevTree,
         syntaxTree
       )
-    )
+    }
 
   private[postgres] def inferedMigrationSteps(
       currentTree: SyntaxTree,
       prevTree: SyntaxTree,
-      thereExistData: (ModelId, FieldId) => Boolean
-  ): Try[Vector[MigrationStep]] = Try {
-    if (prevTree.models.isEmpty)
-      currentTree.models.map(CreateModel(_)).toVector
-    else {
-      val currentIndexedModels =
-        currentTree.models.map(IndexedModel(_)).toVector
-      val prevIndexedModels = prevTree.models.map(IndexedModel(_)).toVector
+      thereExistData: Map[(ModelId, FieldId), Boolean]
+  ): Either[Throwable, Vector[MigrationStep]] =
+    Try {
+      if (prevTree.models.isEmpty)
+        currentTree.models.map(CreateModel(_)).toVector
+      else {
+        val currentIndexedModels =
+          currentTree.models.map(IndexedModel(_)).toVector
+        val prevIndexedModels = prevTree.models.map(IndexedModel(_)).toVector
 
-      val renamedModels = for {
-        currentModel <- currentIndexedModels
-        prevModel <- prevIndexedModels.find(_.index == currentModel.index)
-        if currentModel.id != prevModel.id
-      } yield RenameModel(prevModel.id, currentModel.id)
+        val renamedModels = for {
+          currentModel <- currentIndexedModels
+          prevModel <- prevIndexedModels.find(_.index == currentModel.index)
+          if currentModel.id != prevModel.id
+        } yield RenameModel(prevModel.id, currentModel.id)
 
-      val newModels = currentIndexedModels
-        .filter(
-          indexedModel =>
-            !prevIndexedModels.exists(_.index == indexedModel.index)
-        )
-        .map(
-          indexedModel => CreateModel(currentTree.modelsById(indexedModel.id))
-        )
-        .filter(
-          createModel =>
-            !renamedModels
-              .exists(_.newId == createModel.model.id)
-        )
+        val newModels = currentIndexedModels
+          .filter(
+            indexedModel =>
+              !prevIndexedModels.exists(_.index == indexedModel.index)
+          )
+          .map(
+            indexedModel => CreateModel(currentTree.modelsById(indexedModel.id))
+          )
+          .filter(
+            createModel =>
+              !renamedModels
+                .exists(_.newId == createModel.model.id)
+          )
 
-      val deletedModels = prevIndexedModels
-        .filter(
-          indexedModel =>
-            !currentIndexedModels.exists(_.index == indexedModel.index)
-        )
-        .map(indexedModel => DeleteModel(prevTree.modelsById(indexedModel.id)))
-        .filter(
-          deleteModel =>
+        val deletedModels = prevIndexedModels
+          .filter(
+            indexedModel =>
+              !currentIndexedModels.exists(_.index == indexedModel.index)
+          )
+          .map(
+            indexedModel => DeleteModel(prevTree.modelsById(indexedModel.id))
+          )
+          .filter(
+            deleteModel =>
+              !renamedModels
+                .exists(
+                  _.prevModelId == deleteModel.prevModel.id
+                )
+          )
+
+        // Models that are not deleted, not renamed, not new, and their fields may have changed
+        val unrenamedUndeletedPreviousIndexedModels =
+          currentIndexedModels.filter { currentIndexedModel =>
             !renamedModels
               .exists(
-                _.prevModelId == deleteModel.prevModel.id
+                _.prevModelId == prevIndexedModels
+                  .find(_.index == currentIndexedModel.index)
+                  .get
+                  .id
+              ) && !deletedModels
+              .exists(
+                _.prevModel.id == currentIndexedModel.id
+              ) && !newModels
+              .exists(
+                _.model.id == currentIndexedModel.id
               )
-        )
+          }
 
-      // Models that are not deleted, not renamed, not new, and their fields may have changed
-      val unrenamedUndeletedPreviousIndexedModels =
-        currentIndexedModels.filter { currentIndexedModel =>
-          !renamedModels
-            .exists(
-              _.prevModelId == prevIndexedModels
-                .find(_.index == currentIndexedModel.index)
-                .get
-                .id
-            ) && !deletedModels
-            .exists(
-              _.prevModel.id == currentIndexedModel.id
-            ) && !newModels
-            .exists(
-              _.model.id == currentIndexedModel.id
+        val fieldMigrationSteps = for {
+          currentIndexedModel <- unrenamedUndeletedPreviousIndexedModels
+          prevIndexedModel <- prevIndexedModels.find(
+            _.index == currentIndexedModel.index
+          )
+          currentModel = currentTree.modelsById(currentIndexedModel.id)
+          prevModel = prevTree.modelsById(prevIndexedModel.id)
+          newFields = currentIndexedModel.indexedFields
+            .filter(
+              indexedField =>
+                !prevIndexedModel.indexedFields
+                  .exists(_.index == indexedField.index)
             )
-        }
+            .map { indexedField =>
+              val field = currentModel.fieldsById(indexedField.id)
+              AddField(field, prevModel)
+            }
 
-      val fieldMigrationSteps = for {
-        currentIndexedModel <- unrenamedUndeletedPreviousIndexedModels
-        prevIndexedModel <- prevIndexedModels.find(
-          _.index == currentIndexedModel.index
-        )
-        currentModel = currentTree.modelsById(currentIndexedModel.id)
-        prevModel = prevTree.modelsById(prevIndexedModel.id)
-        newFields = currentIndexedModel.indexedFields
-          .filter(
-            indexedField =>
-              !prevIndexedModel.indexedFields
-                .exists(_.index == indexedField.index)
-          )
-          .map { indexedField =>
-            val field = currentModel.fieldsById(indexedField.id)
-            AddField(field, prevModel)
-          }
+          deletedFields = prevIndexedModel.indexedFields
+            .filter(
+              indexedField =>
+                !currentIndexedModel.indexedFields
+                  .exists(_.index == indexedField.index)
+            )
+            .map { indexedField =>
+              val field = prevModel.fieldsById(indexedField.id)
+              DeleteField(field, prevModel)
+            }
 
-        deletedFields = prevIndexedModel.indexedFields
-          .filter(
-            indexedField =>
-              !currentIndexedModel.indexedFields
-                .exists(_.index == indexedField.index)
-          )
-          .map { indexedField =>
-            val field = prevModel.fieldsById(indexedField.id)
-            DeleteField(field, prevModel)
-          }
+          renamedFields = for {
+            currentIndexedField <- currentIndexedModel.indexedFields
+            prevIndexedField <- prevIndexedModel.indexedFields.find(
+              _.index == currentIndexedField.index
+            )
+            if currentIndexedField.id != prevIndexedField.id
+          } yield
+            RenameField(
+              prevIndexedField.id,
+              currentIndexedField.id,
+              prevModel
+            )
 
-        renamedFields = for {
-          currentIndexedField <- currentIndexedModel.indexedFields
-          prevIndexedField <- prevIndexedModel.indexedFields.find(
-            _.index == currentIndexedField.index
-          )
-          if currentIndexedField.id != prevIndexedField.id
-        } yield
-          RenameField(
-            prevIndexedField.id,
-            currentIndexedField.id,
-            prevModel
-          )
-
-        changeTypeFields = (for {
-          currentIndexedField <- currentIndexedModel.indexedFields
-          prevIndexedField <- prevIndexedModel.indexedFields.find(
-            _.index == currentIndexedField.index
-          )
-          currentField = currentModel.fieldsById(currentIndexedField.id)
-          prevField = prevModel.fieldsById(prevIndexedField.id)
-          if currentField.ptype != prevField.ptype
-          if (prevField.ptype match {
-            case _ if prevField.ptype.innerPReference.isDefined =>
-              prevField.ptype.innerPReference
-                .filter(
-                  ref => !renamedModels.exists(_.prevModelId == ref.id)
-                )
-                .isDefined
-            case _ => true
-          })
-        } yield
-          ChangeManyFieldTypes(
-            prevModel,
-            currentModel,
-            Vector(
-              ChangeFieldType(
-                prevField,
-                currentField.ptype,
-                currentField.directives.find(_.id == "typeTransformer") match {
-                  case Some(typeTransformerDir) =>
-                    typeTransformerDir.args.value("typeTransformer") match {
-                      case func: ExternalFunction => Some(func)
-                      case func: BuiltinFunction  => Some(func)
-                      case pvalue => {
-                        val found = displayPType(pvalue.ptype)
-                        val required =
-                          s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
-                        throw new InternalException(
-                          s"""
+          changeTypeFields = (for {
+            currentIndexedField <- currentIndexedModel.indexedFields
+            prevIndexedField <- prevIndexedModel.indexedFields.find(
+              _.index == currentIndexedField.index
+            )
+            currentField = currentModel.fieldsById(currentIndexedField.id)
+            prevField = prevModel.fieldsById(prevIndexedField.id)
+            if currentField.ptype != prevField.ptype
+            if (prevField.ptype match {
+              case _ if prevField.ptype.innerPReference.isDefined =>
+                prevField.ptype.innerPReference
+                  .filter(
+                    ref => !renamedModels.exists(_.prevModelId == ref.id)
+                  )
+                  .isDefined
+              case _ => true
+            })
+          } yield
+            ChangeManyFieldTypes(
+              prevModel,
+              currentModel,
+              Vector(
+                ChangeFieldType(
+                  prevField,
+                  currentField.ptype,
+                  currentField.directives
+                    .find(_.id == "typeTransformer") match {
+                    case Some(typeTransformerDir) =>
+                      typeTransformerDir.args.value("typeTransformer") match {
+                        case func: ExternalFunction => Some(func)
+                        case func: BuiltinFunction  => Some(func)
+                        case pvalue => {
+                          val found = displayPType(pvalue.ptype)
+                          val required =
+                            s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
+                          throw new InternalException(
+                            s"""
                           |Type mismatch on directive `typeTransformer` on field `${currentModel}.${currentField}`
                           |found: `${found}`
                           |required: `${required}`
                           """.tail.stripMargin
-                        )
+                          )
+                        }
                       }
+                    /*
+                    No need for a transformation function, a `NOT NULL` constraint will be
+                    added.
+                     */
+                    case None
+                        if `Field type has changed` `from A to A?` (prevField, currentField) =>
+                      None
+                    /*
+                    No need for a transformation function, the current value,
+                    will be the first element of the array.
+                     */
+                    case None
+                        if `Field type has changed` `from A to [A]` (prevField, currentField) =>
+                      None
+                    /*
+                      No need for a transformation function, the current value, if not null,
+                      will be the first element in the array, and if it's null then the array
+                      is empty.
+                     */
+                    case None
+                        if `Field type has changed` `from A? to [A]` (prevField, currentField) =>
+                      None
+                    case None if thereExistData.withDefault(_ => false) {
+                          (prevModel.id, prevField.id)
+                        } => {
+                      val requiredFunctionType =
+                        s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
+                      throw UserError(
+                        s"Field `${currentModel}.${currentField}` type has changed, and Pragma needs a transformation function `${requiredFunctionType}` to transform existing data to the new type"
+                      )
                     }
-                  // If there is no data, then there is no need for a transformation function
-                  case None if !thereExistData(prevModel.id, prevField.id) =>
-                    None
-                  // If from A to A? then there is no need for a transformation function
-                  case None
-                      if currentField.ptype
-                        .isInstanceOf[POption] && (prevField.ptype == currentField.ptype
-                        .asInstanceOf[POption]
-                        .ptype) =>
-                    None
-                  // If from A to [A] then there is no need for a transformation function, the current value will be the first element of the array
-                  case None
-                      if currentField.ptype
-                        .isInstanceOf[PArray] && (prevField.ptype == currentField.ptype
-                        .asInstanceOf[PArray]
-                        .ptype) =>
-                    None
-                  // If from A? to [A] then there is no need for a transformation function, the current value, if not null,
-                  // will be the first element in the array, and if it's null then the array is empty
-                  case None
-                      if (currentField.ptype
-                        .isInstanceOf[PArray] && prevField.ptype
-                        .isInstanceOf[POption]) && (prevField.ptype
-                        .asInstanceOf[POption]
-                        .ptype == currentField.ptype
-                        .asInstanceOf[PArray]
-                        .ptype) =>
-                    None
-                  case None if thereExistData(prevModel.id, prevField.id) => {
-                    val requiredFunctionType =
-                      s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
-                    throw UserError(
-                      s"Field `${currentModel}.${currentField}` type has changed, and Pragma needs a transformation function `${requiredFunctionType}` to transform existing data to the new type"
-                    )
+                    case _ => None
                   }
-                  case None => None
-                }
+                )
               )
-            )
-          )).foldLeft[Option[ChangeManyFieldTypes]](None) {
-          case (Some(value), e) if value.prevModel == e.prevModel =>
-            Some(
-              ChangeManyFieldTypes(
-                value.prevModel,
-                value.newModel,
-                value.changes ++ e.changes
+            )).foldLeft[Option[ChangeManyFieldTypes]](None) {
+            case (Some(value), e) if value.prevModel == e.prevModel =>
+              Some(
+                ChangeManyFieldTypes(
+                  value.prevModel,
+                  value.newModel,
+                  value.changes ++ e.changes
+                )
               )
-            )
-          case (None, e) => Some(e)
-          case _         => None
-        }
+            case (None, e) => Some(e)
+            case _         => None
+          }
 
-        fieldMigrationSteps: Vector[MigrationStep] = changeTypeFields match {
-          case Some(changeTypeFields) =>
-            Vector(
-              newFields ++ deletedFields ++ renamedFields,
-              Vector(changeTypeFields)
-            ).flatten
-          case None => newFields ++ deletedFields ++ renamedFields
-        }
-      } yield fieldMigrationSteps
+          fieldMigrationSteps: Vector[MigrationStep] = changeTypeFields match {
+            case Some(changeTypeFields) =>
+              Vector(
+                newFields ++ deletedFields ++ renamedFields,
+                Vector(changeTypeFields)
+              ).flatten
+            case None => newFields ++ deletedFields ++ renamedFields
+          }
+        } yield fieldMigrationSteps
 
-      newModels ++ renamedModels ++ deletedModels ++ fieldMigrationSteps.flatten
-    }
-  }
+        newModels ++ renamedModels ++ deletedModels ++ fieldMigrationSteps.flatten
+      }
+    }.toEither
 }
 
-// `IndexedModel#equals` and `IndexedField#equals` assumes that the `Validator` has validated
-// that no model or field has the same name in the same scope nor the same index
-
+/**
+  * `IndexedModel#equals` and `IndexedField#equals` assume that the `Validator` has validated
+  * that no model or field has the same name in the same scope nor the same index
+  */
 case class IndexedModel(
     id: String,
     index: Int,

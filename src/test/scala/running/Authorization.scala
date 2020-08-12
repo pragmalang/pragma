@@ -31,7 +31,11 @@ class Authorization extends AnyFlatSpec {
     val syntaxTree = SyntaxTree.from(code).get
     val testStorage = new TestStorage(syntaxTree)
     import testStorage._
-    migrationEngine.initialMigration.get.run(t).transact(t).unsafeRunSync()
+    migrationEngine.initialMigration
+      .getOrElse(fail())
+      .run(t)
+      .transact(t)
+      .unsafeRunSync()
     val authorizer =
       new Authorizer(syntaxTree, testStorage.storage, devModeOn = true)
 
@@ -121,7 +125,7 @@ class Authorization extends AnyFlatSpec {
     implicit val syntaxTree = SyntaxTree.from(code).get
     val testStorage = new TestStorage(syntaxTree)
     import testStorage._
-    migrationEngine.initialMigration.get.run(t).transact(t).unsafeRunSync()
+    migrationEngine.initialMigration.getOrElse(fail()).run(t).transact(t).unsafeRunSync()
 
     val reqWithoutRole = Request(
       hookData = None,

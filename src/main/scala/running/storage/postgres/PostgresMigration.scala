@@ -14,10 +14,8 @@ import spray.json.JsObject
 import utils._
 import running.storage._
 import SQLMigrationStep._
-import OnDeleteAction.Cascade
 
 import domain.SyntaxTree
-import domain.utils._
 
 import domain._
 import scala.util.Success
@@ -28,6 +26,7 @@ import domain.utils.typeCheckJson
 import cats.effect.Bracket
 import cats.effect.IO
 import cats.effect.ContextShift
+import spray.json._
 
 case class PostgresMigration(
     private val unorderedSteps: Vector[MigrationStep],
@@ -81,18 +80,18 @@ case class PostgresMigration(
         val effectfulSteps: Vector[ConnectionIO[Unit]] = sqlSteps
           .map {
             case AlterManyFieldTypes(prevModel, changes) => {
-              val newTableTempName = "__temp_table__" + prevModel.id
-              val newModelTempDef = prevModel.copy(
-                id = newTableTempName,
+              val tempTableName = "__temp_table__" + prevModel.id
+              val tempTableModelDef = prevModel.copy(
+                id = tempTableName,
                 fields = changes
                   .map(change => change.field.copy(ptype = change.newType))
                   .toSeq
               )
 
               // Create the new table with a temp name:
-              val createNewTable =
+              val createTempTable =
                 PostgresMigration(
-                  CreateModel(newModelTempDef),
+                  CreateModel(tempTableModelDef),
                   prevSyntaxTree,
                   currentSyntaxTree
                 ).run(transactor)
@@ -112,12 +111,32 @@ case class PostgresMigration(
                       .collect { change =>
                         change.transformer match {
                           case Some(transformer) =>
-                            change.field.id -> transformer(
+                            change -> transformer(
                               row.fields(change.field.id)
                             )
+                          /*
+                            No need for a transformation function, the current value,
+                            will be the first element of the array.
+                           */
+                          case None
+                              if `Field type has changed` `from A to [A]` (change.field.ptype, change.newType) =>
+                            change -> Success {
+                              JsArray(row.fields(change.field.id))
+                            }
+                          /*
+                            No need for a transformation function, the current value, if not null,
+                            will be the first element in the array, and if it's null then the array
+                            is empty.
+                           */
+                          case None
+                              if `Field type has changed` `from A? to [A]` (change.field.ptype, change.newType) =>
+                            change -> (row.fields(change.field.id) match {
+                              case JsNull => Success(JsArray.empty)
+                              case value  => Success(JsArray(value))
+                            })
                         }
                       }
-                      .foldLeft(Try(Map.empty[String, JsValue])) {
+                      .foldLeft(Try(Map.empty[ChangeFieldType, JsValue])) {
                         case (acc, transformedValue) =>
                           transformedValue._2 match {
                             case Failure(exception) =>
@@ -126,9 +145,12 @@ case class PostgresMigration(
                               acc.map(_ + (transformedValue._1 -> value))
                           }
                       }
-                    transformedColumns.map(
-                      cols => row.copy(fields = row.fields ++ cols)
-                    )
+                    transformedColumns.map { cols =>
+                      row.copy(
+                        fields = row.fields ++ cols
+                          .map(col => col._1.field.id -> col._2)
+                      )
+                    }
                   }
                   .flatMap {
                     case Failure(exception) =>
@@ -138,7 +160,7 @@ case class PostgresMigration(
                   .flatMap { row =>
                     // Type check the value/s returned from the transformer
                     val typeCheckingResult =
-                      typeCheckJson(newModelTempDef, currentSyntaxTree)(row)
+                      typeCheckJson(tempTableModelDef, currentSyntaxTree)(row)
                     typeCheckingResult match {
                       case Failure(exception) =>
                         fs2.Stream.raiseError[ConnectionIO](exception)
@@ -148,7 +170,7 @@ case class PostgresMigration(
                   .map { row =>
                     // Try re-inserting this row in the new table
                     val insertQuery = queryEngine.createOneRecord(
-                      newModelTempDef,
+                      tempTableModelDef,
                       row,
                       Vector.empty
                     )
@@ -164,13 +186,13 @@ case class PostgresMigration(
                 currentSyntaxTree
               ).run(transactor)
               val renameNewTable = PostgresMigration(
-                RenameModel(newTableTempName, prevModel.id),
+                RenameModel(tempTableName, prevModel.id),
                 prevSyntaxTree,
                 currentSyntaxTree
               ).run(transactor)
 
               for {
-                _ <- createNewTable
+                _ <- createTempTable
                 _ <- transformFieldValuesAndMoveToNewTable
                 _ <- dropPrevTable
                 _ <- renameNewTable
@@ -230,119 +252,27 @@ case class PostgresMigration(
       case UndeleteModel(model) =>
         fromMigrationStepToSqlMigrationSteps(CreateModel(model))
       case AddField(field, model) => {
-        val g: Option[Either[CreateTable, ForeignKey]] =
+        val fieldCreationInstruction: Option[Either[CreateTable, ForeignKey]] =
           field.ptype match {
-            case POption(PArray(_)) | PArray(_) => {
-              val innerModel = field.ptype match {
-                case PArray(model: PModel) => Some(model)
-                case PArray(PReference(id)) =>
-                  currentSyntaxTree.modelsById.get(id)
-                case POption(PArray(model: PModel)) => Some(model)
-                case POption(PArray(PReference(id))) =>
-                  currentSyntaxTree.modelsById.get(id)
-                case _ => None
-              }
-
-              val thisModelReferenceColumn = ColumnDefinition(
-                s"source_${model.id}",
-                model.primaryField.ptype match {
-                  case PString => PostgresType.TEXT
-                  case PInt    => PostgresType.INT8
-                  case t =>
-                    throw new InternalException(
-                      s"Primary field in model `${model.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."
-                    )
-                },
-                isNotNull = true,
-                isAutoIncrement = false,
-                isPrimaryKey = false,
-                isUUID = false,
-                isUnique = false,
-                foreignKey = Some(
-                  ForeignKey(
-                    model.id,
-                    model.primaryField.id,
-                    onDelete = Cascade
-                  )
-                )
-              )
-
-              val valueOrReferenceColumn = innerModel match {
-                case Some(otherModel) =>
-                  ColumnDefinition(
-                    s"target_${otherModel.id}",
-                    otherModel.primaryField.ptype match {
-                      case PString => PostgresType.TEXT
-                      case PInt    => PostgresType.INT8
-                      case t =>
-                        throw new InternalException(
-                          s"Primary field in model `${otherModel.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."
-                        )
-                    },
-                    isNotNull = true,
-                    isAutoIncrement = false,
-                    isPrimaryKey = false,
-                    isUUID = false,
-                    isUnique = false,
-                    foreignKey = Some(
-                      ForeignKey(
-                        otherModel.id,
-                        otherModel.primaryField.id,
-                        onDelete = Cascade
-                      )
-                    )
-                  )
-                case None =>
-                  ColumnDefinition(
-                    name = s"${field.id}",
-                    dataType = toPostgresType(
-                      field.ptype match {
-                        case POption(PArray(t)) => t
-                        case PArray(t)          => t
-                        case t =>
-                          throw new InternalException(
-                            s"Expected [T] or [T]?, found ${domain.utils.displayPType(t)}"
-                          )
-                      }
-                    ).get,
-                    isNotNull = true,
-                    isAutoIncrement = false,
-                    isPrimaryKey = false,
-                    isUUID = false,
-                    isUnique = false,
-                    foreignKey = None
-                  )
-              }
-
-              val columns =
-                Vector(thisModelReferenceColumn, valueOrReferenceColumn)
-
-              Some(Left(CreateTable(s"${model.id}_${field.id}", columns)))
-            }
+            case POption(PArray(_)) | PArray(_) =>
+              createArrayFieldTable(model, field, currentSyntaxTree)
+                .map(_.asLeft)
             case model: PModel =>
-              Some(Right(ForeignKey(model.id, model.primaryField.id)))
+              ForeignKey(model.id, model.primaryField.id).asRight.some
             case POption(model: PModel) =>
-              Some(Right(ForeignKey(model.id, model.primaryField.id)))
+              ForeignKey(model.id, model.primaryField.id).asRight.some
             case POption(PReference(id))
                 if currentSyntaxTree.modelsById.get(id).isDefined =>
-              Some(
-                Right(
-                  ForeignKey(
-                    id,
-                    currentSyntaxTree.modelsById(id).primaryField.id
-                  )
-                )
-              )
+              ForeignKey(
+                id,
+                currentSyntaxTree.modelsById(id).primaryField.id
+              ).asRight.some
             case PReference(id)
                 if currentSyntaxTree.modelsById.get(id).isDefined =>
-              Some(
-                Right(
-                  ForeignKey(
-                    id,
-                    currentSyntaxTree.modelsById(id).primaryField.id
-                  )
-                )
-              )
+              ForeignKey(
+                id,
+                currentSyntaxTree.modelsById(id).primaryField.id
+              ).asRight.some
             case _ => None
           }
         val alterTableStatement =
@@ -358,7 +288,7 @@ case class PostgresMigration(
                   isPrimaryKey = field.isPrimary,
                   isAutoIncrement = field.isAutoIncrement,
                   isUUID = field.isUUID,
-                  foreignKey = g match {
+                  foreignKey = fieldCreationInstruction match {
                     case Some(value) =>
                       value match {
                         case Left(_)   => None
@@ -372,7 +302,7 @@ case class PostgresMigration(
           }
         alterTableStatement match {
           case None =>
-            g match {
+            fieldCreationInstruction match {
               case Some(value) =>
                 value match {
                   case Left(createArrayTableStatement) =>
@@ -382,7 +312,7 @@ case class PostgresMigration(
               case None => Vector.empty
             }
           case Some(alterTableStatement) =>
-            g match {
+            fieldCreationInstruction match {
               case Some(value) =>
                 value match {
                   case Left(createArrayTableStatement) =>

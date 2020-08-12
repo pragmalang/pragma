@@ -92,7 +92,10 @@ class Server(st: SyntaxTree) extends IOApp {
     try {
       transactor
         .use { t =>
-          migrationEngine.initialMigration.get.run(t).transact(t)
+          migrationEngine.initialMigration match {
+            case Left(exception) => throw exception
+            case Right(value)    => value.run(t).transact(t)
+          }
         }
         .unsafeRunSync()
     } catch {

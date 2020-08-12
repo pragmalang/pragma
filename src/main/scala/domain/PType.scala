@@ -1,6 +1,7 @@
 package domain
 
 import domain.utils._
+import cats.implicits._
 
 /**
   * A PType is a data representation (models, enums, and primitive types)
@@ -132,6 +133,14 @@ case class PModelField(
   lazy val isAutoIncrement = directives.exists(_.id == "autoIncrement")
 
   lazy val isUnique = directives.exists(_.id == "unique")
+
+  lazy val innerModelId: Option[String] = ptype match {
+    case PArray(model: PModel)           => model.id.some
+    case PArray(PReference(id))          => id.some
+    case POption(PArray(model: PModel))  => model.id.some
+    case POption(PArray(PReference(id))) => id.some
+    case _                               => None
+  }
 }
 
 case class PInterfaceField(
