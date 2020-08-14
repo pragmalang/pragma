@@ -99,7 +99,6 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     migrationEngine.initialMigration.getOrElse(fail())
       .run(transactor)
-      .transact(transactor)
       .unsafeRunSync()
   }
 

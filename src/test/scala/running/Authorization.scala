@@ -7,7 +7,6 @@ import sangria.macros._
 import spray.json._
 import scala.util._
 import cats.implicits._
-import doobie.implicits._
 import org.scalatest.flatspec.AnyFlatSpec
 
 class Authorization extends AnyFlatSpec {
@@ -34,7 +33,6 @@ class Authorization extends AnyFlatSpec {
     migrationEngine.initialMigration
       .getOrElse(fail())
       .run(t)
-      .transact(t)
       .unsafeRunSync()
     val authorizer =
       new Authorizer(syntaxTree, testStorage.storage, devModeOn = true)
@@ -125,7 +123,7 @@ class Authorization extends AnyFlatSpec {
     implicit val syntaxTree = SyntaxTree.from(code).get
     val testStorage = new TestStorage(syntaxTree)
     import testStorage._
-    migrationEngine.initialMigration.getOrElse(fail()).run(t).transact(t).unsafeRunSync()
+    migrationEngine.initialMigration.getOrElse(fail()).run(t).unsafeRunSync()
 
     val reqWithoutRole = Request(
       hookData = None,

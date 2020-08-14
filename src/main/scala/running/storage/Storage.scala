@@ -18,7 +18,7 @@ class Storage[S, M[_]: Monad](
 
   def migrate(
       prevTree: SyntaxTree,
-  ): M[Either[MigrationError, Unit]] =
+  ): M[Either[Throwable, Unit]] =
     migrationEngine.migrate(prevTree)
 
 }
@@ -26,7 +26,7 @@ class Storage[S, M[_]: Monad](
 trait MigrationEngine[S, M[_]] {
   def migrate(
       prevTree: SyntaxTree,
-  ): M[Either[MigrationError, Unit]]
+  ): M[Either[Throwable, Unit]]
 }
 
 case class MigrationError(step: MigrationStep) extends Exception

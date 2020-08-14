@@ -22,7 +22,7 @@ import setup.schemaGenerator.ApiSchemaGenerator
 import org.http4s.util._
 import running.RequestHandler
 import storage.postgres._
-import doobie._, doobie.implicits._, doobie.hikari._
+import doobie._, doobie.hikari._
 
 class Server(st: SyntaxTree) extends IOApp {
 
@@ -94,7 +94,7 @@ class Server(st: SyntaxTree) extends IOApp {
         .use { t =>
           migrationEngine.initialMigration match {
             case Left(exception) => throw exception
-            case Right(value)    => value.run(t).transact(t)
+            case Right(value)    => value.run(t)
           }
         }
         .unsafeRunSync()

@@ -9,7 +9,7 @@ case class Setup[M[_]: Monad](syntaxTree: SyntaxTree) {
 
   def setup(
       prevTree: SyntaxTree
-  ): M[Either[MigrationError, Unit]] = {
+  ): M[Either[Throwable, Unit]] = {
 
     def supportedDbTypes[T[_]](dbType: String): Storage[_, M] =
       dbType match {

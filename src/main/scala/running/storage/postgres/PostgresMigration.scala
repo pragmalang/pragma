@@ -15,8 +15,6 @@ import utils._
 import running.storage._
 import SQLMigrationStep._
 
-import domain.SyntaxTree
-
 import domain._
 import scala.util.Success
 import scala.util.Failure
@@ -24,9 +22,9 @@ import spray.json.JsValue
 import scala.util.Try
 import domain.utils.typeCheckJson
 import cats.effect.Bracket
-import cats.effect.IO
 import cats.effect.ContextShift
 import spray.json._
+import cats.Monad
 
 case class PostgresMigration(
     private val unorderedSteps: Vector[MigrationStep],
@@ -59,25 +57,31 @@ case class PostgresMigration(
           case (DropTable(a), DropTable(b))
               if dependencyGraph.depsOf(a).contains(b) =>
             1
-          case (_, _) => 0
+          case (
+              _: AlterManyFieldTypes,
+              AlterTable(_, _: AlterTableAction.RenameColumn)
+              ) =>
+            1
+          case (_: AlterManyFieldTypes, _: RenameTable) => 1
+          case (_, _)                                   => 0
         }
     }
     unorderedSQLSteps.sortWith((x, y) => sqlMigrationStepOrdering.gt(x, y))
   }
 
-  def run(
-      transactor: Transactor[IO]
+  def run[M[_]: Monad](
+      transactor: Transactor[M]
   )(
-      implicit bracket: Bracket[IO, Throwable],
-      cs: ContextShift[IO]
-  ): ConnectionIO[Unit] = {
+      implicit bracket: Bracket[M, Throwable],
+      cs: ContextShift[M]
+  ): M[Unit] = {
     val queryEngine = new PostgresQueryEngine(transactor, prevSyntaxTree)
 
     renderSQL match {
       case Some(sql) =>
-        Fragment(sql, Nil).update.run.map(_ => ())
+        Fragment(sql, Nil).update.run.map(_ => ()).transact(transactor)
       case None => {
-        val effectfulSteps: Vector[ConnectionIO[Unit]] = sqlSteps
+        val effectfulSteps: Vector[M[Unit]] = sqlSteps
           .map {
             case AlterManyFieldTypes(prevModel, changes) => {
               val tempTableName = "__temp_table__" + prevModel.id
@@ -94,7 +98,7 @@ case class PostgresMigration(
                   CreateModel(tempTableModelDef),
                   prevSyntaxTree,
                   currentSyntaxTree
-                ).run(transactor)
+                )
 
               val stream =
                 // Load rows of prev table as a stream in memory
@@ -177,29 +181,31 @@ case class PostgresMigration(
                     insertQuery.void
                   }
 
-              val transformFieldValuesAndMoveToNewTable: ConnectionIO[Unit] =
+              val transformFieldValuesAndMoveToNewTable =
                 stream.compile.toList.map(_.head).flatten
 
               val dropPrevTable = PostgresMigration(
                 DeleteModel(prevModel),
                 prevSyntaxTree,
                 currentSyntaxTree
-              ).run(transactor)
+              )
               val renameNewTable = PostgresMigration(
                 RenameModel(tempTableName, prevModel.id),
                 prevSyntaxTree,
                 currentSyntaxTree
-              ).run(transactor)
+              )
 
               for {
-                _ <- createTempTable
-                _ <- transformFieldValuesAndMoveToNewTable
-                _ <- dropPrevTable
-                _ <- renameNewTable
+                _ <- createTempTable.run(transactor)
+                _ <- transformFieldValuesAndMoveToNewTable.transact(transactor)
+                _ <- dropPrevTable.run(transactor)
+                _ <- renameNewTable.run(transactor)
               } yield ()
             }
             case step: DirectSQLMigrationStep =>
-              Fragment(step.renderSQL, Nil).update.run.map(_ => ())
+              Fragment(step.renderSQL, Nil).update.run
+                .map(_ => ())
+                .transact(transactor)
           }
 
         effectfulSteps.sequence.map(_ => ())

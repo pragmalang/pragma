@@ -1,33 +1,64 @@
 package running.storage.postgres
 
 import running.storage._
-import cats._
+import cats._, implicits._
 import domain.SyntaxTree
 import domain.utils._
 import running.storage.postgres.utils._
 
-import domain._
+import domain._, DomainImplicits._
 import domain.utils.UserError
 import scala.util.Try
+import doobie.util.transactor.Transactor
+import cats.effect._
+import doobie.implicits._
+import doobie.util.fragment.Fragment
 
 class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
     extends MigrationEngine[Postgres[M], M] {
   implicit val st = syntaxTree
 
-  // for using `PostgresQueryEngine#runQuery` in PostgresMigrationEngine#migrate
-  // for constructing the `thereExistData: Map[(ModelId, FieldId), Boolean]`
-  def queryEngine: PostgresQueryEngine[M] = ???
+  implicit def bracket: Bracket[M, Throwable] = ???
+  implicit def cs: ContextShift[M] = ???
+  def t: Transactor[M] = ???
 
   override def migrate(
       prevTree: SyntaxTree
-  ): M[Either[MigrationError, Unit]] = ???
+  ): M[Either[Throwable, Unit]] = {
+    val thereExistDataM: M[Map[ModelId, Boolean]] =
+      (
+        for {
+          model <- prevTree.models
+        } yield
+          Fragment(
+            s"SELECT COUNT(*) FROM ${model.id.withQuotes};",
+            Nil,
+            None
+          ).query[Int]
+            .stream
+            .compile
+            .toList
+            .map(count => model.id -> (count.head > 0))
+      ).map(d => d.transact(t))
+        .toVector
+        .sequence
+        .map(_.toMap)
+
+    for {
+      thereExistData <- thereExistDataM
+      result <- migration(prevTree, thereExistData) match {
+        case Left(e)          => Monad[M].pure(e.asLeft)
+        case Right(migration) => migration.run[M](t).map(_.asRight)
+      }
+    } yield result
+  }
 
   def initialMigration =
     migration(SyntaxTree.empty, Map.empty)
 
   def migration(
       prevTree: SyntaxTree = SyntaxTree.empty,
-      thereExistData: Map[(ModelId, FieldId), Boolean]
+      thereExistData: Map[ModelId, Boolean]
   ): Either[Throwable, PostgresMigration] =
     inferedMigrationSteps(syntaxTree, prevTree, thereExistData) map {
       PostgresMigration(
@@ -40,7 +71,7 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
   private[postgres] def inferedMigrationSteps(
       currentTree: SyntaxTree,
       prevTree: SyntaxTree,
-      thereExistData: Map[(ModelId, FieldId), Boolean]
+      thereExistData: Map[ModelId, Boolean]
   ): Either[Throwable, Vector[MigrationStep]] =
     Try {
       if (prevTree.models.isEmpty)
@@ -212,9 +243,9 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
                     case None
                         if `Field type has changed` `from A? to [A]` (prevField, currentField) =>
                       None
-                    case None if thereExistData.withDefault(_ => false) {
-                          (prevModel.id, prevField.id)
-                        } => {
+                    case None
+                        if thereExistData
+                          .withDefault(_ => false)(prevModel.id) => {
                       val requiredFunctionType =
                         s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
                       throw UserError(
