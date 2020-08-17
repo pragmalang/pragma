@@ -13,7 +13,6 @@ import org.parboiled2.Position
 
 import doobie._
 import doobie.implicits._
-import cats._
 import cats.effect._
 import cats.implicits._
 
@@ -30,8 +29,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       Blocker.liftExecutionContext(ExecutionContexts.synchronous)
     )
 
-  def createDatabase(dbName: String) =
-    Fragment(s"""CREATE DATABASE ${dbName} OWNER test;""", Nil, None).update
+  val transactor = transactorFromDbName("test")
 
   def removeAllTablesFromDb(dbName: String): IO[Unit] =
     sql"""
@@ -58,9 +56,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
         """
     val syntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine[IO](syntaxTree)
-
-    val transactor = transactorFromDbName("test")
+    val migrationEngine =
+      PostgresMigrationEngine.initialMigration[IO](transactor, syntaxTree)
 
     val expected =
       Some(
@@ -92,12 +89,13 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     assert(
       expected == (migrationEngine.initialMigration match {
-        case Left(e) => throw e
+        case Left(e)          => throw e
         case Right(migration) => migration.renderSQL
-      }) 
+      })
     )
 
-    migrationEngine.initialMigration.getOrElse(fail())
+    migrationEngine.initialMigration
+      .getOrElse(fail())
       .run(transactor)
       .unsafeRunSync()
   }
@@ -277,7 +275,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
+    val migrationEngine =
+      PostgresMigrationEngine.initialMigration[IO](transactor, newSyntaxTree)
 
     val expected = Vector(
       CreateModel(
@@ -359,7 +358,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
+    val migrationEngine =
+      PostgresMigrationEngine.initialMigration[IO](transactor, newSyntaxTree)
 
     val expected = Vector(DropTable("Admin"))
     assert(
@@ -412,7 +412,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
+    val migrationEngine =
+      PostgresMigrationEngine.initialMigration[IO](transactor, newSyntaxTree)
 
     val expected = Vector(RenameTable("Admin", "Admin1"))
     assert(
@@ -466,7 +467,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
+    val migrationEngine =
+      PostgresMigrationEngine.initialMigration[IO](transactor, newSyntaxTree)
 
     val expected =
       Vector(
@@ -538,7 +540,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
+    val migrationEngine =
+      PostgresMigrationEngine.initialMigration[IO](transactor, newSyntaxTree)
 
     val expected = Vector(AlterTable("Admin", DropColumn("password", true)))
     assert(
@@ -593,7 +596,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
+    val migrationEngine =
+      PostgresMigrationEngine.initialMigration[IO](transactor, newSyntaxTree)
 
     val expected =
       Vector(AlterTable("Admin", RenameColumn("password", "passcode")))
@@ -651,7 +655,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
+    val migrationEngine =
+      PostgresMigrationEngine.initialMigration[IO](transactor, newSyntaxTree)
 
     val expected = Vector(RenameModel("Todo", "Todo1"))
 
@@ -708,7 +713,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
+    val migrationEngine =
+      PostgresMigrationEngine.initialMigration[IO](transactor, newSyntaxTree)
 
     val expected = ChangeFieldType(
       PModelField(
@@ -781,7 +787,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
-    val migrationEngine = new PostgresMigrationEngine[Id](newSyntaxTree)
+    val migrationEngine =
+      PostgresMigrationEngine.initialMigration[IO](transactor, newSyntaxTree)
 
     val expected = ChangeFieldType(
       PModelField(

@@ -17,6 +17,6 @@ class TestStorage(st: SyntaxTree) {
   )
 
   val queryEngine = new PostgresQueryEngine(t, st)
-  val migrationEngine = new PostgresMigrationEngine[IO](st)
+  val migrationEngine = PostgresMigrationEngine.initialMigration[IO](t, st)
   val storage = new Postgres[IO](migrationEngine, queryEngine)
 }

@@ -14,21 +14,20 @@ import cats.effect._
 import doobie.implicits._
 import doobie.util.fragment.Fragment
 
-class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
-    extends MigrationEngine[Postgres[M], M] {
-  implicit val st = syntaxTree
+class PostgresMigrationEngine[M[_]: Monad](
+    transactor: Transactor[M],
+    prevSyntaxTree: SyntaxTree,
+    currentSyntaxTree: SyntaxTree
+) extends MigrationEngine[Postgres[M], M] {
 
   implicit def bracket: Bracket[M, Throwable] = ???
   implicit def cs: ContextShift[M] = ???
-  def t: Transactor[M] = ???
 
-  override def migrate(
-      prevTree: SyntaxTree
-  ): M[Either[Throwable, Unit]] = {
+  override def migrate: M[Either[Throwable, Unit]] = {
     val thereExistDataM: M[Map[ModelId, Boolean]] =
       (
         for {
-          model <- prevTree.models
+          model <- prevSyntaxTree.models
         } yield
           Fragment(
             s"SELECT COUNT(*) FROM ${model.id.withQuotes};",
@@ -39,16 +38,16 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
             .compile
             .toList
             .map(count => model.id -> (count.head > 0))
-      ).map(d => d.transact(t))
+      ).map(d => d.transact(transactor))
         .toVector
         .sequence
         .map(_.toMap)
 
     for {
       thereExistData <- thereExistDataM
-      result <- migration(prevTree, thereExistData) match {
+      result <- migration(prevSyntaxTree, thereExistData) match {
         case Left(e)          => Monad[M].pure(e.asLeft)
-        case Right(migration) => migration.run[M](t).map(_.asRight)
+        case Right(migration) => migration.run[M](transactor).map(_.asRight)
       }
     } yield result
   }
@@ -60,11 +59,11 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
       prevTree: SyntaxTree = SyntaxTree.empty,
       thereExistData: Map[ModelId, Boolean]
   ): Either[Throwable, PostgresMigration] =
-    inferedMigrationSteps(syntaxTree, prevTree, thereExistData) map {
+    inferedMigrationSteps(currentSyntaxTree, prevTree, thereExistData) map {
       PostgresMigration(
         _,
         prevTree,
-        syntaxTree
+        currentSyntaxTree
       )
     }
 
@@ -282,6 +281,11 @@ class PostgresMigrationEngine[M[_]: Monad](syntaxTree: SyntaxTree)
         newModels ++ renamedModels ++ deletedModels ++ fieldMigrationSteps.flatten
       }
     }.toEither
+}
+
+object PostgresMigrationEngine {
+  def initialMigration[M[_]: Monad](t: Transactor[M], st: SyntaxTree) =
+    new PostgresMigrationEngine[M](t, SyntaxTree.empty, st)
 }
 
 /**

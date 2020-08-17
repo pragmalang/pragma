@@ -7,9 +7,7 @@ import cats.Monad
 
 case class Setup[M[_]: Monad](syntaxTree: SyntaxTree) {
 
-  def setup(
-      prevTree: SyntaxTree
-  ): M[Either[Throwable, Unit]] = {
+  def setup: M[Either[Throwable, Unit]] = {
 
     def supportedDbTypes[T[_]](dbType: String): Storage[_, M] =
       dbType match {
@@ -43,7 +41,7 @@ case class Setup[M[_]: Monad](syntaxTree: SyntaxTree) {
       case (Some(dbType), Some(_)) => supportedDbTypes(dbType)
     }
 
-    storage.migrate(prevTree)
+    storage.migrate
   }
 
   def dockerComposeUp() =

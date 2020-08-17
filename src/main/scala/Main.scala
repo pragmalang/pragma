@@ -21,6 +21,7 @@ object Main {
       text
     }
     val syntaxTree = code.flatMap(SyntaxTree.from _)
+    val prevSyntaxTree: SyntaxTree = ???
 
     syntaxTree match {
       case Failure(userErr: UserError) =>
@@ -31,7 +32,7 @@ object Main {
 
       case Failure(otherErr) => printError(otherErr.getMessage, None)
 
-      case Success(st) => new Server(st).main(args)
+      case Success(st) => new Server(prevSyntaxTree, st).main(args)
     }
   }
 

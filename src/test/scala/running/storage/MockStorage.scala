@@ -10,12 +10,9 @@ import concurrent.ExecutionContext.Implicits.global
 import domain.{PModel, PShapeField}
 import running.InnerOperation
 import running.ObjectWithId
-import domain.SyntaxTree
 
 object MockMigrationEngine extends MigrationEngine[MockStorage.type, Future] {
-  def migrate(
-      prevTree: SyntaxTree
-  ): Future[Either[MigrationError, Unit]] = Future(Right(()))
+  def migrate: Future[Either[MigrationError, Unit]] = Future(Right(()))
 }
 
 object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {

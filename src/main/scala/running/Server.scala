@@ -24,10 +24,42 @@ import running.RequestHandler
 import storage.postgres._
 import doobie._, doobie.hikari._
 
-class Server(st: SyntaxTree) extends IOApp {
+class Server(prevSyntaxTree: SyntaxTree, currentSyntaxTree: SyntaxTree)
+    extends IOApp {
 
   val gqlSchema =
-    Schema.buildFromAst(ApiSchemaGenerator(st).buildApiSchemaAsDocument)
+    Schema.buildFromAst(
+      ApiSchemaGenerator(currentSyntaxTree).buildApiSchemaAsDocument
+    )
+
+  val transactor: Resource[IO, HikariTransactor[IO]] =
+    for {
+      ce <- ExecutionContexts.fixedThreadPool[IO](32)
+      be <- Blocker[IO]
+      t <- HikariTransactor.newHikariTransactor[IO](
+        "org.postgresql.Driver",
+        "jdbc:postgresql://localhost:5433/test",
+        "test",
+        "test",
+        ce,
+        be
+      )
+    } yield t
+
+  val migrationEngine = transactor.map(
+    t => new PostgresMigrationEngine[IO](t, prevSyntaxTree, currentSyntaxTree)
+  )
+
+  val queryEngine =
+    transactor.map(t => new PostgresQueryEngine[IO](t, currentSyntaxTree))
+
+  val storage =
+    queryEngine.flatMap(
+      qe => migrationEngine.map(me => new Postgres[IO](me, qe))
+    )
+
+  val reqHandler =
+    storage.map(s => new RequestHandler[Postgres[IO], IO](currentSyntaxTree, s))
 
   val routes = HttpRoutes.of[IO] {
     case req @ POST -> Root => {
@@ -89,22 +121,19 @@ class Server(st: SyntaxTree) extends IOApp {
   }
 
   def run(args: List[String]): IO[ExitCode] = {
-    try {
-      transactor
-        .use { t =>
-          migrationEngine.initialMigration match {
-            case Left(exception) => throw exception
-            case Right(value)    => value.run(t)
-          }
-        }
-        .unsafeRunSync()
-    } catch {
-      case err: Throwable => {
+    migrationEngine
+      .use(
+        me => me.migrate
+      )
+      .unsafeRunSync() match {
+      case Left(err) => {
         println("Failed to initialize database")
         println(err.getMessage)
         return ExitCode.Error.pure[IO]
       }
+      case Right(_) => ()
     }
+
     BlazeServerBuilder[IO](global)
       .bindHttp(3030, "localhost")
       .withHttpApp(Router("/graphql" -> routes).orNotFound)
@@ -166,30 +195,5 @@ class Server(st: SyntaxTree) extends IOApp {
       .map(_.compactPrint.getBytes.iterator),
     10.seconds
   )
-
-  val migrationEngine = new PostgresMigrationEngine[IO](st)
-
-  val transactor: Resource[IO, HikariTransactor[IO]] =
-    for {
-      ce <- ExecutionContexts.fixedThreadPool[IO](32)
-      be <- Blocker[IO]
-      t <- HikariTransactor.newHikariTransactor[IO](
-        "org.postgresql.Driver",
-        "jdbc:postgresql://localhost:5433/test",
-        "test",
-        "test",
-        ce,
-        be
-      )
-    } yield t
-
-  val queryEngine =
-    transactor.map(t => new PostgresQueryEngine[IO](t, st))
-
-  val storage =
-    queryEngine.map(qe => new Postgres[IO](migrationEngine, qe))
-
-  val reqHandler =
-    storage.map(s => new RequestHandler[Postgres[IO], IO](st, s))
 
 }
