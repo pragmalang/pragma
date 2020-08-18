@@ -91,24 +91,23 @@ class RequestHandler[S, M[_]: Monad](
   private def withInnerOpsAliases(
       op: Operation,
       storageResult: JsValue
-  ): JsValue =
-    storageResult match {
-      case JsObject(fields) => {
-        val newFields = op.innerReadOps.map { iop =>
-          val fieldWithAliasedInnards = fields(iop.targetField.field.id) match {
-            case obj: JsObject => withInnerOpsAliases(iop, obj)
-            case JsArray(elements) =>
-              JsArray(elements.map(withInnerOpsAliases(iop, _)))
-            case otherValue => otherValue
-          }
-          iop.name -> fieldWithAliasedInnards
+  ): JsValue = storageResult match {
+    case JsObject(fields) => {
+      val newFields = op.innerReadOps.map { iop =>
+        val fieldWithAliasedInnards = fields(iop.targetField.field.id) match {
+          case obj: JsObject => withInnerOpsAliases(iop, obj)
+          case JsArray(elements) =>
+            JsArray(elements.map(withInnerOpsAliases(iop, _)))
+          case otherValue => otherValue
         }
-        JsObject(newFields.toMap)
+        iop.name -> fieldWithAliasedInnards
       }
-      case JsArray(elements) =>
-        JsArray(elements.map(withInnerOpsAliases(op, _)))
-      case _ => storageResult
+      JsObject(newFields.toMap)
     }
+    case JsArray(elements) =>
+      JsArray(elements.map(withInnerOpsAliases(op, _)))
+    case _ => storageResult
+  }
 
   private def applyHooks(
       hooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
@@ -119,7 +118,7 @@ class RequestHandler[S, M[_]: Monad](
     }
 
   /** Apples crud hooks to operation arguments */
-  def applyWriteHooks(op: Operation): Either[Throwable, Operation] =
+  private def applyWriteHooks(op: Operation): Either[Throwable, Operation] =
     op match {
       case createOp: CreateOperation =>
         applyHooks(createOp.crudHooks, createOp.opArguments.obj)
@@ -183,7 +182,7 @@ class RequestHandler[S, M[_]: Monad](
     }
 
   /** Applies read hooks to operation results */
-  def applyReadHooks(
+  private def applyReadHooks(
       op: Operation,
       opResult: JsValue
   ): Either[Throwable, JsValue] =
@@ -207,10 +206,11 @@ class RequestHandler[S, M[_]: Monad](
         ).asLeft
     }
 
-  def applyInnerOpHooks(
+  protected def applyInnerOpHooks(
       iop: InnerOperation,
       iopResult: JsValue
   ): Either[Throwable, JsValue] = iop match {
+    case _: InnerReadOperation if iopResult == JsNull => JsNull.asRight
     case innerReadOp: InnerReadOperation => {
       val iopFieldIsRef = innerReadOp.targetField.field.ptype match {
         case PReference(refId) if syntaxTree.modelsById.contains(refId) => true
@@ -222,9 +222,9 @@ class RequestHandler[S, M[_]: Monad](
       if (iopFieldIsRef) for {
         oldFields <- iopResult match {
           case JsObject(fields) => fields.asRight
-          case _ =>
+          case nonObj =>
             InternalException(
-              "Result of inner read operation must be an object"
+              s"Result of inner read operation must be an object, but $nonObj was passed to inner operation hook application function"
             ).asLeft
         }
         newFields <- innerReadOp.innerReadOps

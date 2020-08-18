@@ -5,7 +5,7 @@ import org.scalatest._
 import doobie.implicits._
 import spray.json._
 import sangria.macros._
-import running._
+import running._, running.TestUtils._
 import running.storage.QueryWhere
 import scala.util._
 import running.storage.postgres.instances._
@@ -45,7 +45,11 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
   val testStorage = new TestStorage(syntaxTree)
   import testStorage._
 
-  migrationEngine.initialMigration.getOrElse(fail()).run(t).transact(t).unsafeRunSync()
+  migrationEngine.initialMigration
+    .getOrElse(fail())
+    .run(t)
+    .transact(t)
+    .unsafeRunSync()
 
   sql"""
     INSERT INTO  "Country" ("code", "name", "population", "gnp") 
@@ -89,19 +93,6 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
       assert(gnp == JsNull || gnp.isInstanceOf[JsNumber])
     }
   }
-
-  /** Helper to construct simple `Request`s */
-  def bareReqFrom(gqlQuery: sangria.ast.Document) =
-    Request(
-      hookData = None,
-      body = None,
-      user = None,
-      query = gqlQuery,
-      queryVariables = Left(JsObject.empty),
-      cookies = Map.empty,
-      url = "",
-      hostname = ""
-    )
 
   /** Helper to run GQL queryies agains the `queryEngine` */
   def runGql(gqlQuery: sangria.ast.Document) = {
