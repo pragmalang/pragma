@@ -117,7 +117,7 @@ object Main extends IOApp {
                 IO { os.write.over(prevFilePath, currentCode) }
               case Success(_) if !prevTreeExists =>
                 IO {
-                  os.makeDir(os.pwd / ".pragma" / "prev")
+                  os.makeDir(os.pwd / ".pragma")
                   os.write(prevFilePath, currentCode)
                 }
             }
