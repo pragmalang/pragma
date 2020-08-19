@@ -122,6 +122,8 @@ package object utils {
                 ColumnDefinition(
                   name = tableMetadata.targetColumnName,
                   dataType = otherModel.primaryField.ptype match {
+                    case PString if otherModel.primaryField.isUUID =>
+                      PostgresType.UUID
                     case PString => PostgresType.TEXT
                     case PInt    => PostgresType.INT8
                     case t =>
