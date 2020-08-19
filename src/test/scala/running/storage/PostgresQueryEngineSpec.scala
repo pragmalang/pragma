@@ -35,7 +35,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
   @2 model Country {
     @1 code: String @primary
     @2 name: String
-    @3 population: Int
+    @3 population: Int = 0
     @4 gnp: Float?
     @5 citizens: [Citizen]
   }
@@ -244,14 +244,13 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
     assert(results == expectedRecords)
   }
 
-  "PostgresQueryEngine#createOneRecord" should "insert a record into the database" taggedAs (dkr) in {
+  "PostgresQueryEngine#createOneRecord" should "insert a record into the database and handle default values" taggedAs (dkr) in {
     val gqlQuery = gql"""
     mutation {
       Country {
         create(country: {
           code: "JP",
           name: "Japan",
-          population: 2523,
           gnp: 9254.542,
           citizens: []
         }) {
@@ -271,7 +270,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
             "code" -> JsString("JP"),
             "name" -> JsString("Japan"),
             "gnp" -> JsNumber(9254.542),
-            "population" -> JsNumber(2523)
+            "population" -> JsNumber(0)
           )
         )
       )

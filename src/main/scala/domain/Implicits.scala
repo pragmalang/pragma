@@ -10,16 +10,15 @@ object DomainImplicits {
   import domain.utils.InternalException
 
   import running.JwtPaylod
-  implicit object HvalueJsonFormater extends JsonWriter[PValue] {
-
-    @throws[Error]
+  implicit object PvalueJsonFormater extends JsonWriter[PValue] {
+    @throws[InternalException]
     def write(value: PValue): JsValue = value match {
       case f: ExternalFunction =>
         JsObject("id" -> JsString(f.id), "filePath" -> JsString(f.filePath))
       case PIntValue(value)   => value.toJson
       case PFloatValue(value) => value.toJson
       case _: PFunctionValue[_, _] =>
-        throw new Error("Functions are not serializable")
+        throw InternalException("Functions are not serializable")
       case PDateValue(value) => value.toString.toJson
       case PBoolValue(value) => value.toJson
       case POptionValue(value, _) =>
@@ -59,7 +58,7 @@ object DomainImplicits {
 
     import polyglot._
 
-    @throws[Error]
+    @throws[InternalException]
     def write(gval: polyglot.Value): JsValue = {
       // Number
       if (gval.isNumber) JsNumber(gval.asDouble)
@@ -85,12 +84,11 @@ object DomainImplicits {
       }
       // Other
       else
-        throw new InternalException(
+        throw InternalException(
           s"Invalid value `$gval` of type `${gval.getClass.getCanonicalName}` received from Graal"
         )
     }
 
-    @throws[Error]
     def read(json: JsValue): polyglot.Value = json match {
       case JsArray(elements) => Value.asValue(elements.map(read).toArray)
       case JsTrue            => Value.asValue(true)
