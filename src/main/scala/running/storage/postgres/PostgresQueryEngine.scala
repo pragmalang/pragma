@@ -10,6 +10,7 @@ import cats.implicits._
 import cats.effect._
 import spray.json._
 import domain.DomainImplicits._
+import running.RunningImplicits.PValueJsonWriter
 
 class PostgresQueryEngine[M[_]: Monad](
     transactor: Transactor[M],
@@ -130,7 +131,7 @@ class PostgresQueryEngine[M[_]: Monad](
       record: JsObject,
       innerReadOps: Vector[InnerOperation]
   ): ConnectionIO[JsObject] = {
-    val fieldTypeMap = fieldTypeMapFrom(record, model)
+    val fieldTypeMap = fieldTypeMapFrom(record, model, withFieldDefaults = true)
 
     val refArrayInserts = fieldTypeMap(RefArray)
       .traverse {
@@ -601,14 +602,19 @@ class PostgresQueryEngine[M[_]: Monad](
   /** Use to get the kind of a field, paired to the field and its value in the record */
   private def fieldTypeMapFrom(
       record: JsObject,
-      recordModel: PModel
+      recordModel: PModel,
+      withFieldDefaults: Boolean = false
   ): FieldKindValueMap = {
     val fieldKindMap = modelFieldKindMap(recordModel.id)
     fieldKindMap
       .map {
         case (kind, fields) =>
           kind -> fields.collect {
-            case f if record.fields.contains(f.id) => (f, record.fields(f.id))
+            case field if record.fields.contains(field.id) =>
+              (field, record.fields(field.id))
+            case field @ PModelField(_, _, Some(default), _, _, _)
+                if withFieldDefaults =>
+              (field, PValueJsonWriter.write(default))
           }.toVector
       }
       .withDefaultValue(Vector.empty)
