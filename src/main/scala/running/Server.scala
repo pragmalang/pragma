@@ -22,40 +22,13 @@ import setup.schemaGenerator.ApiSchemaGenerator
 import org.http4s.util._
 import running.RequestHandler
 import storage.postgres._
-import doobie._, doobie.hikari._
 
-class Server(prevSyntaxTree: SyntaxTree, currentSyntaxTree: SyntaxTree)
+class Server(storage: Resource[IO, Postgres[IO]], currentSyntaxTree: SyntaxTree)
     extends IOApp {
 
   val gqlSchema =
     Schema.buildFromAst(
       ApiSchemaGenerator(currentSyntaxTree).buildApiSchemaAsDocument
-    )
-
-  val transactor: Resource[IO, HikariTransactor[IO]] =
-    for {
-      ce <- ExecutionContexts.fixedThreadPool[IO](32)
-      be <- Blocker[IO]
-      t <- HikariTransactor.newHikariTransactor[IO](
-        "org.postgresql.Driver",
-        "jdbc:postgresql://localhost:5433/test",
-        "test",
-        "test",
-        ce,
-        be
-      )
-    } yield t
-
-  val migrationEngine = transactor.map(
-    t => new PostgresMigrationEngine[IO](t, prevSyntaxTree, currentSyntaxTree)
-  )
-
-  val queryEngine =
-    transactor.map(t => new PostgresQueryEngine[IO](t, currentSyntaxTree))
-
-  val storage =
-    queryEngine.flatMap(
-      qe => migrationEngine.map(me => new Postgres[IO](me, qe))
     )
 
   val reqHandler =
@@ -121,19 +94,6 @@ class Server(prevSyntaxTree: SyntaxTree, currentSyntaxTree: SyntaxTree)
   }
 
   def run(args: List[String]): IO[ExitCode] = {
-    migrationEngine
-      .use(
-        me => me.migrate
-      )
-      .unsafeRunSync() match {
-      case Left(err) => {
-        println("Failed to initialize database")
-        println(err.getMessage)
-        return ExitCode.Error.pure[IO]
-      }
-      case Right(_) => ()
-    }
-
     BlazeServerBuilder[IO](global)
       .bindHttp(3030, "localhost")
       .withHttpApp(Router("/graphql" -> routes).orNotFound)

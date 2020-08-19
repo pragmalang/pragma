@@ -44,7 +44,9 @@ libraryDependencies ++= Seq(
   "org.tpolecat" %% "doobie-core" % "0.9.0",
   "org.tpolecat" %% "doobie-hikari" % "0.9.0",
   "org.tpolecat" %% "doobie-scalatest" % "0.9.0",
-  "org.postgresql" % "postgresql" % "42.2.14"
+  "org.postgresql" % "postgresql" % "42.2.14",
+  "com.lihaoyi" %% "os-lib" % "0.7.1",
+  "com.github.scopt" %% "scopt" % "3.7.1"
 )
 
 enablePlugins(GraalVMNativeImagePlugin, DockerComposePlugin)

@@ -1,38 +1,133 @@
-import java.io.File
-import scala.io.Source
 import scala.util._
 import domain.utils._
 import org.parboiled2.Position
 import domain._
 import running.Server
 import org.parboiled2.ParseError
+import cats.effect._
+import os.Path
+import doobie._, doobie.hikari._
+import running.storage.postgres.PostgresMigrationEngine
+import running.storage.postgres.PostgresQueryEngine
+import running.storage.postgres.Postgres
 
-object Main {
-  def main(args: Array[String]): Unit = {
-    val inputFile =
-      if (args.length > 0)
-        Try(Source.fromFile(new File(args(0))))
-      else
-        Try(Source.fromFile(new File("Pragmafile")))
+object Main extends IOApp {
+  val transactor: Resource[IO, HikariTransactor[IO]] =
+    for {
+      ce <- ExecutionContexts.fixedThreadPool[IO](32)
+      be <- Blocker[IO]
+      t <- HikariTransactor.newHikariTransactor[IO](
+        "org.postgresql.Driver",
+        "jdbc:postgresql://localhost:5433/test",
+        "test",
+        "test",
+        ce,
+        be
+      )
+    } yield t
 
-    val code = inputFile.map { file =>
-      val text = file.getLines.mkString("\n")
-      file.close
-      text
+  def migrationEngine(
+      prevTree: SyntaxTree,
+      currentTree: SyntaxTree
+  ): Resource[IO, PostgresMigrationEngine[IO]] =
+    transactor map { t =>
+      new PostgresMigrationEngine[IO](t, prevTree, currentTree)
     }
-    val syntaxTree = code.flatMap(SyntaxTree.from _)
-    val prevSyntaxTree: SyntaxTree = ???
 
-    syntaxTree match {
+  def queryEngine(
+      currentTree: SyntaxTree
+  ): Resource[IO, PostgresQueryEngine[IO]] =
+    transactor map { t =>
+      new PostgresQueryEngine[IO](t, currentTree)
+    }
+
+  def storage(
+      prevTree: SyntaxTree,
+      currentTree: SyntaxTree
+  ): Resource[IO, Postgres[IO]] =
+    for {
+      qe <- queryEngine(currentTree)
+      me <- migrationEngine(prevTree, currentTree)
+    } yield new Postgres[IO](me, qe)
+
+  override def run(args: List[String]): IO[ExitCode] = {
+    val defaultFilePath = os.pwd / "Pragmafile"
+    val filePath: IO[Try[Path]] = IO {
+      if (!args.isEmpty && os.exists(os.pwd / args(0)))
+        Success(os.pwd / args(0))
+      else if (os.exists(defaultFilePath))
+        Success(defaultFilePath)
+      else if (!args.isEmpty && !os.exists(os.pwd / args(0)))
+        Failure(
+          UserError(s"File ${(os.pwd / args(0)).wrapped.toUri()} doesn't exist")
+        )
+      else
+        Failure(
+          UserError(s"""
+            |File `Pragmafile` was not found in working directory, please create one, or pass the path
+            |of another file as an argument. Ex:
+            |
+            |
+            |       pragma run ${(os.pwd / "myfile.pragma").wrapped.toUri()}
+            |
+            |
+            """.stripMargin)
+        )
+    }
+
+    val code = filePath.map(_.map(os.read))
+
+    val currentSyntaxTree = code.map(_.flatMap(SyntaxTree.from))
+
+    currentSyntaxTree.flatMap {
       case Failure(userErr: UserError) =>
-        userErr.errors foreach (err => printError(err._1, err._2))
-
+        IO {
+          userErr.errors foreach (err => printError(err._1, err._2))
+          ExitCode.Error
+        }
       case Failure(ParseError(pos, _, _)) =>
-        printError("Parse error", Some(PositionRange(pos, pos)))
+        IO {
+          printError("Parse error", Some(PositionRange(pos, pos)))
+          ExitCode.Error
+        }
+      case Failure(otherErr) =>
+        IO {
+          printError(otherErr.getMessage, None)
+          ExitCode.Error
+        }
 
-      case Failure(otherErr) => printError(otherErr.getMessage, None)
+      case Success(st) => {
+        val prevFilePath = os.pwd / ".pragma" / "prev"
+        val prevTreeExists = os.exists(prevFilePath)
 
-      case Success(st) => new Server(prevSyntaxTree, st).main(args)
+        val prevSyntaxTree: IO[SyntaxTree] =
+          for {
+            currentCode <- code.map(_.get)
+            prevTree = if (prevTreeExists)
+              SyntaxTree.from(os.read(prevFilePath)).get
+            else
+              SyntaxTree.empty
+            migrationResult = migrationEngine(prevTree, st)
+              .use(_.migrate)
+              .map(_.toTry)
+            _ <- migrationResult flatMap {
+              case Failure(exception) =>
+                IO { printError(exception.getMessage(), None) }
+              case Success(_) if prevTreeExists =>
+                IO { os.write.over(prevFilePath, currentCode) }
+              case Success(_) if !prevTreeExists =>
+                IO {
+                  os.makeDir(os.pwd / ".pragma" / "prev")
+                  os.write(prevFilePath, currentCode)
+                }
+            }
+          } yield prevTree
+
+        val storageIO = prevSyntaxTree.map(ptree => storage(ptree, st))
+        val server = storageIO.map(s => new Server(s, st))
+
+        server.flatMap(_.run(args))
+      }
     }
   }
 

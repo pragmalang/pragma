@@ -18,10 +18,8 @@ class PostgresMigrationEngine[M[_]: Monad](
     transactor: Transactor[M],
     prevSyntaxTree: SyntaxTree,
     currentSyntaxTree: SyntaxTree
-) extends MigrationEngine[Postgres[M], M] {
-
-  implicit def bracket: Bracket[M, Throwable] = ???
-  implicit def cs: ContextShift[M] = ???
+)(implicit bracket: Bracket[M, Throwable], cs: ContextShift[M])
+    extends MigrationEngine[Postgres[M], M] {
 
   override def migrate: M[Either[Throwable, Unit]] = {
     val thereExistDataM: M[Map[ModelId, Boolean]] =
@@ -56,7 +54,7 @@ class PostgresMigrationEngine[M[_]: Monad](
     migration(SyntaxTree.empty, Map.empty)
 
   def migration(
-      prevTree: SyntaxTree = SyntaxTree.empty,
+      prevTree: SyntaxTree,
       thereExistData: Map[ModelId, Boolean]
   ): Either[Throwable, PostgresMigration] =
     inferedMigrationSteps(currentSyntaxTree, prevTree, thereExistData) map {
@@ -284,7 +282,10 @@ class PostgresMigrationEngine[M[_]: Monad](
 }
 
 object PostgresMigrationEngine {
-  def initialMigration[M[_]: Monad](t: Transactor[M], st: SyntaxTree) =
+  def initialMigration[M[_]: Monad](
+      t: Transactor[M],
+      st: SyntaxTree
+  )(implicit bracket: Bracket[M, Throwable], cs: ContextShift[M]) =
     new PostgresMigrationEngine[M](t, SyntaxTree.empty, st)
 }
 
