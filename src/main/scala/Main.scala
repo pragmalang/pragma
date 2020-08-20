@@ -7,9 +7,7 @@ import org.parboiled2.ParseError
 import cats.effect._
 import os.Path
 import doobie._, doobie.hikari._
-import running.storage.postgres.PostgresMigrationEngine
-import running.storage.postgres.PostgresQueryEngine
-import running.storage.postgres.Postgres
+import running.storage.postgres._
 
 object Main extends IOApp {
   val transactor: Resource[IO, HikariTransactor[IO]] =
@@ -53,13 +51,13 @@ object Main extends IOApp {
   override def run(args: List[String]): IO[ExitCode] = {
     val defaultFilePath = os.pwd / "Pragmafile"
     val filePath: IO[Try[Path]] = IO {
-      if (!args.isEmpty && os.exists(os.pwd / args(0)))
-        Success(os.pwd / args(0))
+      if (!args.isEmpty && os.exists(os.Path(args(0))))
+        Success(os.Path(args(0)))
       else if (os.exists(defaultFilePath))
         Success(defaultFilePath)
-      else if (!args.isEmpty && !os.exists(os.pwd / args(0)))
+      else if (!args.isEmpty && !os.exists(os.Path(args(0))))
         Failure(
-          UserError(s"File ${(os.pwd / args(0)).wrapped.toUri()} doesn't exist")
+          UserError(s"File ${(os.Path(args(0)))} doesn't exist")
         )
       else
         Failure(
@@ -68,7 +66,7 @@ object Main extends IOApp {
             |of another file as an argument. Ex:
             |
             |
-            |       pragma run ${(os.pwd / "myfile.pragma").wrapped.toUri()}
+            |       pragma run ${os.pwd / "myfile.pragma"}
             |
             |
             """.stripMargin)
