@@ -5,3 +5,4 @@ target
 docs/book
 output.gql
 todos.md
+project/metals.sbt
