@@ -76,24 +76,26 @@ object Main extends IOApp {
 
     val transactor = (POSTGRES_URL, POSTGRES_USER, POSTGRES_PASSWORD) match {
       case (Some(url), Some(username), Some(password)) =>
-        buildTransactor(url, username, password)
-      case _ => {
-        val isPlural = missingEnvVars.length > 1
-        val `variable or variables` = if (isPlural) "variables" else "variable"
-        val `is or are` = if (isPlural) "are" else "is"
-        val missingEnvVarNames = missingEnvVars map (_._1)
-        val renderedEnvVars =
-          missingEnvVars.map(v => s"${v._1}=<${v._2}>").mkString(" ")
-        val errMsg =
-          s"""
+        IO(buildTransactor(url, username, password))
+      case _ =>
+        IO {
+          val isPlural = missingEnvVars.length > 1
+          val `variable or variables` =
+            if (isPlural) "variables" else "variable"
+          val `is or are` = if (isPlural) "are" else "is"
+          val missingEnvVarNames = missingEnvVars map (_._1)
+          val renderedEnvVars =
+            missingEnvVars.map(v => s"${v._1}=<${v._2}>").mkString(" ")
+          val errMsg =
+            s"""
        |Environment ${`variable or variables`} ${missingEnvVarNames.mkString(
-               ", "
-             )} ${`is or are`} not specified.
+                 ", "
+               )} ${`is or are`} not specified.
        |Try: $renderedEnvVars pragma ${args.mkString(" ")}
        """.stripMargin
-        printError(errMsg, None)
-        sys.exit(1)
-      }
+          printError(errMsg, None)
+          sys.exit(1)
+        }
     }
 
     val cliConfigs = CLIConfigs.parse(args)
@@ -141,11 +143,14 @@ object Main extends IOApp {
           else
             SyntaxTree.empty
 
-        val storage = buildStorage(prevTree, currentTree, transactor)
+        val storage =
+          transactor.map(t => buildStorage(prevTree, currentTree, t))
 
         val migrationResult = storage
-          .use(_.migrate)
-          .map(_.toTry)
+          .flatMap(
+            _.use(_.migrate)
+              .map(_.toTry)
+          )
 
         val writePrevTree: IO[Unit] = migrationResult flatMap {
           case Failure(exception) =>
@@ -159,9 +164,9 @@ object Main extends IOApp {
             }
         }
 
-        val server = new Server(storage, currentTree)
+        val server = storage.map(new Server(_, currentTree))
 
-        writePrevTree *> server.run(args)
+        writePrevTree *> server.flatMap(_.run(args))
       }
     }
   }
