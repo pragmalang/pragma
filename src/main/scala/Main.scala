@@ -66,6 +66,12 @@ object Main extends IOApp {
         case Some(value) => value
         case None        => sys.exit(1)
       }
+
+      if (config.isHelp) {
+        println(CLIConfig.usage)
+        sys.exit(0)
+      }
+
       val POSTGRES_URL = sys.env.get("POSTGRES_URL")
       val POSTGRES_USER = sys.env.get("POSTGRES_USER")
       val POSTGRES_PASSWORD = sys.env.get("POSTGRES_PASSWORD")
@@ -101,13 +107,14 @@ object Main extends IOApp {
               val renderedCliArgs = args.mkString(" ")
               val errMsg =
                 s"""
-              |Environment ${`variable/s`} $renderedVarNames ${`is/are`} not specified.
+              |Environment ${`variable/s`} $renderedVarNames ${`is/are`} must be specified when in production mode.
               |Try: $renderedVarsWithDescription pragma $renderedCliArgs
               """.stripMargin
 
               printError(errMsg, None)
               sys.exit(1)
             }
+          case _ => IO(sys.exit(1))
         }
 
       val currentCode = Try(os.read(config.filePath))
