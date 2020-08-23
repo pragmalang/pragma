@@ -5,16 +5,16 @@ import os._
 import cats.effect._
 import java.io.File
 
-case class CLIConfigs(
-    mode: RunMode,
-    filePath: Path
+case class CLIConfig(
+    command: CLICommand = CLICommand.Dev(false),
+    filePath: Path = os.pwd / "Pragmafile"
 )
 
-object CLIConfigs {
-  def empty = CLIConfigs(RunMode.Dev(false), os.pwd / "Pragmafile")
+object CLIConfig {
+  def default = CLIConfig()
 
-  val parser: OptionParser[CLIConfigs] =
-    new OptionParser[CLIConfigs]("pragma") {
+  val parser: OptionParser[CLIConfig] =
+    new OptionParser[CLIConfig]("pragma") {
       head {
         s"""
         |              ${Console.WHITE_B}${Console.BLACK}${Console.BOLD}Pragma${Console.RESET}
@@ -22,12 +22,12 @@ object CLIConfigs {
       }
 
       cmd("prod")
-        .action((_, configs) => configs.copy(mode = RunMode.Prod))
+        .action((_, configs) => configs.copy(command = CLICommand.Prod))
         .text("Run app in production mode.")
         .children(fileArg)
 
       cmd("dev")
-        .action((_, configs) => configs.copy(mode = RunMode.Dev()))
+        .action((_, configs) => configs.copy(command = CLICommand.Dev()))
         .text("Run app in development mode.")
         .children(fileArg, watchOpt)
 
@@ -36,9 +36,9 @@ object CLIConfigs {
           .optional()
           .action { (_, configs) =>
             configs
-              .copy(mode = configs.mode match {
-                case RunMode.Dev(_) => RunMode.Dev(true)
-                case RunMode.Prod   => RunMode.Prod
+              .copy(command = configs.command match {
+                case CLICommand.Dev(_) => CLICommand.Dev(true)
+                case CLICommand.Prod   => CLICommand.Prod
               })
           }
 
@@ -63,14 +63,21 @@ object CLIConfigs {
       }
     }
 
-  def parse(args: List[String]): IO[Option[CLIConfigs]] =
-    IO(parser.parse(args, CLIConfigs.empty))
+  def parse(args: List[String]): IO[Option[CLIConfig]] =
+    IO(parser.parse(args, CLIConfig.default))
 
   def usage: String = parser.renderOneColumnUsage
 }
 
-sealed trait RunMode
-object RunMode {
-  case class Dev(watch: Boolean = false) extends RunMode
-  case object Prod extends RunMode
+sealed trait CLICommand {
+  def run(config: CLIConfig): IO[ExitCode]
+}
+object CLICommand {
+  case class Dev(watch: Boolean = false) extends CLICommand {
+    override def run(config: CLIConfig): IO[ExitCode] = ???
+  }
+
+  case object Prod extends CLICommand {
+    override def run(config: CLIConfig): IO[ExitCode] = ???
+  }
 }

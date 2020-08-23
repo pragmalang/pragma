@@ -7,8 +7,8 @@ import org.parboiled2.ParseError
 import cats.effect._
 import doobie._, doobie.hikari._
 import running.storage.postgres._
-import cli.CLIConfigs
-import cats.implicits._
+import cli.CLIConfig
+import cli.CLICommand._
 
 object Main extends IOApp {
 
@@ -22,10 +22,10 @@ object Main extends IOApp {
       be <- Blocker[IO]
       t <- HikariTransactor.newHikariTransactor[IO](
         "org.postgresql.Driver",
-        if (!uri.startsWith("postgresql://"))
-          s"jdbc:postgresql://$uri"
+        if (uri.startsWith("postgresql://"))
+          s"jdbc:$uri"
         else
-          s"jdbc:$uri",
+          s"jdbc:postgresql://$uri",
         username,
         password,
         ce,
@@ -61,7 +61,11 @@ object Main extends IOApp {
     } yield new Postgres[IO](me, qe)
 
   override def run(args: List[String]): IO[ExitCode] =
-    CLIConfigs.parse(args) flatMap { cliConfigs =>
+    CLIConfig.parse(args) flatMap { cliConfigOption =>
+      val config = cliConfigOption match {
+        case Some(value) => value
+        case None        => sys.exit(1)
+      }
       val POSTGRES_URL = sys.env.get("POSTGRES_URL")
       val POSTGRES_USER = sys.env.get("POSTGRES_USER")
       val POSTGRES_PASSWORD = sys.env.get("POSTGRES_PASSWORD")
@@ -75,41 +79,41 @@ object Main extends IOApp {
             POSTGRES_PASSWORD,
             "Your PostgreSQL DB password"
           )
-        ).filter(_._2.isDefined)
+        ).filter(!_._2.isDefined)
           .map(v => v._1 -> v._3)
           .toList
 
-      val transactor = (POSTGRES_URL, POSTGRES_USER, POSTGRES_PASSWORD) match {
-        case (Some(url), Some(username), Some(password)) =>
-          IO(buildTransactor(url, username, password))
-        case _ =>
-          IO {
-            val isPlural = missingEnvVars.length > 1
-            val `variable/s` = if (isPlural) "variables" else "variable"
-            val `is/are` = if (isPlural) "are" else "is"
-            val missingVarNames = missingEnvVars map (_._1)
-            val renderedVarsWithDescription =
-              missingEnvVars.map(v => s"${v._1}=<${v._2}>").mkString(" ")
-            val renderedVarNames = missingVarNames.mkString(", ")
-            val renderedCliArgs = args.mkString(" ")
-            val errMsg =
-              s"""
+      val transactor =
+        (config.command, POSTGRES_URL, POSTGRES_USER, POSTGRES_PASSWORD) match {
+          case (_, Some(url), Some(username), Some(password)) =>
+            IO(buildTransactor(url, username, password))
+          case (Dev(_), _, _, _) =>
+            IO(buildTransactor("localhost:5433/test", "test", "test"))
+          case (Prod, _, _, _) =>
+            IO {
+              val isPlural = missingEnvVars.length > 1
+              val `variable/s` = if (isPlural) "variables" else "variable"
+              val `is/are` = if (isPlural) "are" else "is"
+              val missingVarNames = missingEnvVars map (_._1)
+              val renderedVarsWithDescription =
+                missingEnvVars.map(v => s"${v._1}=<${v._2}>").mkString(" ")
+              val renderedVarNames = missingVarNames.mkString(", ")
+              val renderedCliArgs = args.mkString(" ")
+              val errMsg =
+                s"""
               |Environment ${`variable/s`} $renderedVarNames ${`is/are`} not specified.
               |Try: $renderedVarsWithDescription pragma $renderedCliArgs
               """.stripMargin
-            printError(errMsg, None)
-            sys.exit(1)
-          }
-      }
 
-      val currentCode = cliConfigs
-        .traverse { config =>
-          Try(os.read(config.filePath))
+              printError(errMsg, None)
+              sys.exit(1)
+            }
         }
-        .collect { case Some(value) => value }
-      val currentSyntaxTree = currentCode.flatMap { code =>
-        SyntaxTree.from(code)
-      }
+
+      val currentCode = Try(os.read(config.filePath))
+
+      val currentSyntaxTree = currentCode.flatMap(SyntaxTree.from)
+
       val currentCodeAndTree =
         for {
           code <- currentCode
@@ -154,13 +158,20 @@ object Main extends IOApp {
 
           val writePrevTree: IO[Unit] = migrationResult flatMap {
             case Failure(exception) =>
-              IO { printError(exception.getMessage(), None) }
+              IO {
+                printError(exception.getMessage(), None)
+                sys.exit(1)
+              }
             case Success(_) if prevTreeExists =>
               IO { os.write.over(prevFilePath, currentCode) }
             case Success(_) if !prevTreeExists =>
               IO {
-                os.makeDir(os.pwd / ".pragma")
-                os.write(prevFilePath, currentCode)
+                if (os.exists(os.pwd / ".pragma"))
+                  os.write(prevFilePath, currentCode)
+                else {
+                  os.makeDir(os.pwd / ".pragma")
+                  os.write(prevFilePath, currentCode)
+                }
               }
           }
 
