@@ -95,47 +95,6 @@ case class IfInAuthFunction(id: String, ptype: PFunction)
   def execute(input: JsValue): Try[JsValue] = ???
 }
 
-case class IfSelfAuthPredicate(selfModel: PModel) extends BuiltinFunction {
-  val id = "ifSelf"
-
-  val ptype = PFunction(
-    Map(
-      "args" -> PInterface(
-        "authPredicateArgs",
-        List(
-          PInterfaceField("user", selfModel, None),
-          PInterfaceField("data", selfModel, None)
-        ),
-        None
-      )
-    ),
-    PBool
-  )
-
-  def execute(args: JsValue): Try[JsBoolean] = {
-    val ids = args match {
-      case JsObject(inputFields) =>
-        inputFields
-          .get("user")
-          .flatMap {
-            case JsObject(fields) => fields.get(selfModel.primaryField.id)
-            case _                => None
-          }
-          .zip {
-            inputFields.get("data").flatMap {
-              case JsObject(fields) => fields.get(selfModel.primaryField.id)
-              case _                => None
-            }
-          }
-      case _ => None
-    }
-    Success(ids match {
-      case Some((userId, otherId)) if userId == otherId => JsTrue
-      case _                                            => JsFalse
-    })
-  }
-}
-
 case class IfRoleAuthPredicate(id: String, ptype: PFunction)
     extends BuiltinFunction {
   def execute(input: JsValue): Try[JsValue] = ???

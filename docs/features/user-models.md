@@ -13,10 +13,10 @@ You can define *roles* for user models to specify what each kind of user is allo
 To create a user model, simply annotate a model with the [`@user` directive](./directives.md#user). For example:
 
 ```pragma
-@user
+@user @1 
 model User {
-  username: String @publicCredential
-  password: String @secretCredential
+  @1 username: String @publicCredential
+  @2 password: String @secretCredential
 }
 ```
 
@@ -25,12 +25,12 @@ This tells Pragma to setup authentication flows for the `User` user model, where
 > Note: You can mark multiple fields with the `@publicCredential` directive. However, there can only be one `@secretCredential` field on a model. This allows for functionality such as allowing users to either log in using their email, or their username. For example:
 
 ```pragma
-@user
+@user @1
 model User {
-  username: String @publicCredential
-  email: String @publicCredential
-  password: String @secretCredential
+  @1 username: String @publicCredential
+  @2 email: String @publicCredential
+  @3 password: String @secretCredential
 }
 ```
 
-See the [Generated API](../api/index.md) section for more details on how to use `login` mutations.
+See the [Generated API](../api/index.md) section for more details on how to use `login` queries.

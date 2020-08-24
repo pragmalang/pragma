@@ -6,9 +6,9 @@ You can validate data using the functions you pass to directives such as `onWrit
 import validators from "./validators.js"
 
 @onWrite(validators.validateBook)
-model Book {
-  title: String
-  authors: [String]
+@1 model Book {
+  @1 title: String
+  @2 authors: [String]
 }
 ```
 
@@ -31,9 +31,9 @@ You can also transform data using the function you pass to `onWrite`. For exampl
 import transformBook from "./transformers.js"
 
 @onWrite(validators.validateBook)
-model Book {
-  title: String
-  authors: [String]
+@1 model Book {
+  @2 title: String
+  @3 authors: [String]
 }
 ```
 
