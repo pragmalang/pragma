@@ -7,8 +7,7 @@ import org.parboiled2.ParseError
 import cats.effect._
 import doobie._, doobie.hikari._
 import running.storage.postgres._
-import cli.CLIConfig
-import cli.CLICommand._
+import cli._
 
 object Main extends IOApp {
 
@@ -90,12 +89,12 @@ object Main extends IOApp {
           .toList
 
       val transactor =
-        (config.command, POSTGRES_URL, POSTGRES_USER, POSTGRES_PASSWORD) match {
+        (config.mode, POSTGRES_URL, POSTGRES_USER, POSTGRES_PASSWORD) match {
           case (_, Some(url), Some(username), Some(password)) =>
             IO(buildTransactor(url, username, password))
-          case (Dev(_), _, _, _) =>
+          case (RunMode.Dev, _, _, _) =>
             IO(buildTransactor("localhost:5433/test", "test", "test"))
-          case (Prod, _, _, _) =>
+          case (RunMode.Prod, _, _, _) =>
             IO {
               val isPlural = missingEnvVars.length > 1
               val `variable/s` = if (isPlural) "variables" else "variable"
@@ -114,7 +113,6 @@ object Main extends IOApp {
               printError(errMsg, None)
               sys.exit(1)
             }
-          case _ => IO(sys.exit(1))
         }
 
       val currentCode = Try(os.read(config.filePath))

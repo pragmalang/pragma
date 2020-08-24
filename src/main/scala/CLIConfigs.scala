@@ -6,13 +6,20 @@ import cats.effect._
 import java.io.File
 
 case class CLIConfig(
-    command: CLICommand = CLICommand.Dev(false),
-    filePath: Path = os.pwd / "Pragmafile",
-    isHelp: Boolean = false
+    command: CLICommand,
+    filePath: Path,
+    isHelp: Boolean,
+    mode: RunMode
 )
 
 object CLIConfig {
-  def default = CLIConfig()
+  def default =
+    CLIConfig(
+      command = CLICommand.RootCommand,
+      filePath = os.pwd / "Pragmafile",
+      isHelp = false,
+      mode = RunMode.Dev
+    )
 
   val parser: OptionParser[CLIConfig] =
     new OptionParser[CLIConfig]("pragma") {
@@ -23,12 +30,16 @@ object CLIConfig {
       }
 
       cmd("prod")
-        .action((_, configs) => configs.copy(command = CLICommand.Prod))
+        .action { (_, configs) =>
+          configs.copy(command = CLICommand.Prod, mode = RunMode.Prod)
+        }
         .text("Run app in production mode.")
         .children(fileArg)
 
       cmd("dev")
-        .action((_, configs) => configs.copy(command = CLICommand.Dev()))
+        .action { (_, configs) =>
+          configs.copy(command = CLICommand.Dev(), mode = RunMode.Dev)
+        }
         .text("Run app in development mode.")
         .children(fileArg, watchOpt)
 
@@ -50,7 +61,7 @@ object CLIConfig {
           .action { (file, configs) =>
             configs.copy(filePath = Path(file.getAbsolutePath()))
           }
-          .text(s"Defaults to ${os.pwd / "Pragmafile"}.")
+          .text(s"Defaults to ${(os.pwd / "Pragmafile").relativeTo(os.pwd)}.")
 
       opt[Unit]("help")
         .abbr("h")
@@ -83,4 +94,10 @@ object CLICommand {
   case class Dev(watch: Boolean = false) extends CLICommand
   case object Prod extends CLICommand
   case object RootCommand extends CLICommand
+}
+
+sealed trait RunMode
+object RunMode {
+  case object Dev extends RunMode
+  case object Prod extends RunMode
 }
