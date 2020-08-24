@@ -11,6 +11,12 @@ import cli._
 
 object Main extends IOApp {
 
+  // To disable logging
+  import org.slf4j.LoggerFactory
+  import ch.qos.logback.classic.LoggerContext
+  val loggerCtx = LoggerFactory.getILoggerFactory().asInstanceOf[LoggerContext]
+  loggerCtx.stop()
+
   def buildTransactor(
       uri: String,
       username: String,

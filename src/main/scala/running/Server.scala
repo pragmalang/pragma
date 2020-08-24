@@ -6,8 +6,9 @@ import org.http4s.dsl.io._
 import scala.concurrent.ExecutionContext.Implicits.global
 import org.http4s.server.blaze._
 import org.http4s.server.Router
-import fs2._
 import org.http4s.implicits._
+import org.http4s.util._
+import fs2._
 import cats.implicits._
 import sangria.schema.Schema
 import sangria.execution.Executor
@@ -19,7 +20,6 @@ import scala.concurrent.duration._
 import domain._
 import domain.utils._
 import setup.schemaGenerator.ApiSchemaGenerator
-import org.http4s.util._
 import running.RequestHandler
 import storage.postgres._
 
