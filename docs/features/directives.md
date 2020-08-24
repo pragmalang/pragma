@@ -62,11 +62,7 @@ Adds auto-increment functionality.
 
 ### @primary
 Marks a field as a primary key.
-> *Note*: Can only be used on non-optional fields with [primitive types](./primitive-types.md).
-
-### @id
-Marks a field as an ID for its model. Marks a field as a primary key if no other field is marked with `@primary`.
-> *Note*: Can only be used on `String` and `Int` fields.
+> *Note*: Can only be used on non-optional fields with type [`String` or `Int`](./primitive-types.md).
 
 ### @connect
 Create a many-to-many relationship between two models.

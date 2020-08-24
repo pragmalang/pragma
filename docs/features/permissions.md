@@ -2,29 +2,29 @@
 
 Most applications need [authorization](https://en.wikipedia.org/wiki/Authorization) logic to control which users can access which data (resources).
 
-One way of setting up autorization for an app, is by using [Access Control Lists (ACL)](https://en.wikipedia.org/wiki/Access-control_list). ACLs are powerful since they allow us to define rules for data access in a very declaritive manner. ACLs are used in Unix-like systems for filesystem [permissions](https://en.wikipedia.org/wiki/File_system_permissions#Permissions).
+One way of setting up autorization for an app is using [Access Control Lists](https://en.wikipedia.org/wiki/Access-control_list) (ACLs), which are powerful since they allow us to define rules for data access in a very declaritive manner. ACLs are used in Unix-like systems for [filesystem permissions](https://en.wikipedia.org/wiki/File_system_permissions#Permissions).
 
 ## Example Online Course App
 
 Let's say we're designing an online course management app. Each instructor teaches one course, and they control which students enrol in it. Instructors, students, and courses can be modeled as follows:
 
 ```pragma
-@user
+@user @1
 model Instructor {
-  name: String @publicCredential
-  password: String @secretCredential
-  course: Course
+  @1 name: String @publicCredential
+  @2 password: String @secretCredential
+  @3 course: Course
 }
 
-@user
+@user @2 
 model Student {
-  name: String @publicCredential
-  password: String @secretCredential
+  @1 name: String @publicCredential
+  @2 password: String @secretCredential
 }
 
-model Course {
-  name: String
-  participants: [Student]
+@3 model Course {
+  @1 name: String
+  @2 participants: [Student]
 }
 ```
 
