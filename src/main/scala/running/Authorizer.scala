@@ -33,13 +33,8 @@ class Authorizer[S, M[_]: Monad](
 
       val user = userReadQuery(userModel, jwt.userId)
 
-      user.map {
-        case userJson: JsObject =>
-          results(ops.values.flatten.toVector, userJson)
-        case _ =>
-          throw InternalException(
-            "User retrieved from storage must be an object with the same ID as the request's JWT"
-          )
+      user.map { userJson =>
+        results(ops.values.flatten.toVector, userJson)
       }
     }
   }
