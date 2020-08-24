@@ -18,7 +18,7 @@ object CLIConfig {
       command = CLICommand.RootCommand,
       filePath = os.pwd / "Pragmafile",
       isHelp = false,
-      mode = RunMode.Dev
+      mode = RunMode.fromEnv
     )
 
   val parser: OptionParser[CLIConfig] =
@@ -100,4 +100,12 @@ sealed trait RunMode
 object RunMode {
   case object Dev extends RunMode
   case object Prod extends RunMode
+
+  def fromEnv: RunMode = sys.env.get("PRAGMA_ENV") match {
+    case Some("production")  => Prod
+    case Some("prod")        => Prod
+    case Some("development") => Dev
+    case Some("dev")         => Dev
+    case _                   => Dev
+  }
 }

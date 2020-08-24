@@ -5,17 +5,34 @@ import domain._
 import running.Server
 import org.parboiled2.ParseError
 import cats.effect._
-import doobie._, doobie.hikari._
+import cats.implicits._
+import doobie._, doobie.hikari._, doobie.implicits._
 import running.storage.postgres._
 import cli._
+import cli.RunMode.Dev
+import cli.RunMode.Prod
 
 object Main extends IOApp {
+
+  def removeAllTablesFromDb(
+      transactor: Resource[IO, HikariTransactor[IO]]
+  )(implicit bracket: Bracket[IO, Throwable]): IO[Unit] =
+    transactor.use { t =>
+      Fragment(
+        s"""|DROP SCHEMA public CASCADE;
+            |CREATE SCHEMA public;
+            |GRANT ALL ON SCHEMA public TO ${t.kernel.getUsername()};
+            |GRANT ALL ON SCHEMA public TO public;
+            |""".stripMargin,
+        Nil
+      ).update.run.transact(t)
+    }.void
 
   def buildTransactor(
       uri: String,
       username: String,
       password: String
-  ): Resource[IO, HikariTransactor[IO]] =
+  ): Resource[IO, HikariTransactor[IO]] = {
     for {
       ce <- ExecutionContexts.fixedThreadPool[IO](32)
       be <- Blocker[IO]
@@ -31,6 +48,7 @@ object Main extends IOApp {
         be
       )
     } yield t
+  }
 
   def buildMigrationEngine(
       prevTree: SyntaxTree,
@@ -88,12 +106,22 @@ object Main extends IOApp {
           .map(v => v._1 -> v._3)
           .toList
 
+      val onBuildTransactorError: PartialFunction[Throwable, IO[Unit]] = _ =>
+        IO {
+          printError(
+            "Unable to connect to PostgreSQL database, please make sure the info "
+          )
+          sys.exit(1)
+        }
+
       val transactor =
         (config.mode, POSTGRES_URL, POSTGRES_USER, POSTGRES_PASSWORD) match {
           case (_, Some(url), Some(username), Some(password)) =>
             IO(buildTransactor(url, username, password))
+              .onError(onBuildTransactorError)
           case (RunMode.Dev, _, _, _) =>
             IO(buildTransactor("localhost:5433/test", "test", "test"))
+              .onError(onBuildTransactorError)
           case (RunMode.Prod, _, _, _) =>
             IO {
               val isPlural = missingEnvVars.length > 1
@@ -128,12 +156,18 @@ object Main extends IOApp {
       currentCodeAndTree match {
         case Failure(userErr: UserError) =>
           IO {
-            userErr.errors foreach (err => printError(err._1, err._2))
+            userErr.errors foreach { err =>
+              printError(err._1, err._2, currentCode.toOption)
+            }
             ExitCode.Error
           }
-        case Failure(ParseError(pos, _, _)) =>
+        case Failure(ParseError(pos, pos2, _)) =>
           IO {
-            printError("Parse error", Some(PositionRange(pos, pos)))
+            printError(
+              "Parse error",
+              Some(PositionRange(pos, pos2)),
+              currentCode.toOption
+            )
             ExitCode.Error
           }
         case Failure(otherErr) =>
@@ -146,67 +180,108 @@ object Main extends IOApp {
           val prevFilePath = os.pwd / ".pragma" / "prev"
           val prevTreeExists = os.exists(prevFilePath)
 
-          val prevTree =
-            if (prevTreeExists)
+          val prevTree = config.mode match {
+            case RunMode.Prod if (prevTreeExists) =>
               SyntaxTree.from(os.read(prevFilePath)).get
-            else
-              SyntaxTree.empty
+            case RunMode.Prod if (!prevTreeExists) => SyntaxTree.empty
+            case RunMode.Dev                       => SyntaxTree.empty
+          }
 
           val storage =
             transactor.map(t => buildStorage(prevTree, currentTree, t))
 
-          val migrationResult = storage
-            .flatMap(
-              _.use(_.migrate)
+          val migrate = storage
+            .flatMap { s =>
+              s.use(_.migrate)
                 .map(_.toTry)
-            )
+            }
 
-          val writePrevTree: IO[Unit] = migrationResult flatMap {
-            case Failure(exception) =>
+          val writePrevTree =
+            if (prevTreeExists)
+              IO(os.write.over(prevFilePath, currentCode))
+            else if (os.exists(os.pwd / ".pragma"))
+              IO(os.write(prevFilePath, currentCode))
+            else
               IO {
-                printError(exception.getMessage(), None)
-                sys.exit(1)
+                os.makeDir(os.pwd / ".pragma")
+                os.write(prevFilePath, currentCode)
               }
-            case Success(_) if prevTreeExists =>
-              IO { os.write.over(prevFilePath, currentCode) }
-            case Success(_) if !prevTreeExists =>
-              IO {
-                if (os.exists(os.pwd / ".pragma"))
-                  os.write(prevFilePath, currentCode)
-                else {
-                  os.makeDir(os.pwd / ".pragma")
-                  os.write(prevFilePath, currentCode)
-                }
-              }
+
+          val removeAllTables = transactor flatMap removeAllTablesFromDb recover {
+            e =>
+              printError(e.getMessage(), None)
+              sys.exit(1)
           }
 
           val server = storage.map(new Server(_, currentTree))
 
-          writePrevTree *> server.flatMap(_.run(args))
+          config.mode match {
+            case Dev =>
+              removeAllTables *> migrate *> server.flatMap(_.run(args))
+            case Prod =>
+              migrate *> writePrevTree *> server.flatMap(_.run(args))
+          }
         }
       }
     }
 
   lazy val errSep = Console.RED + ("━" * 100) + Console.RESET
 
-  def printError(message: String, position: Option[PositionRange]) = {
-    println(errSep)
-    print("[error] ")
-    println(message)
-    position match {
+  def printError(
+      message: String,
+      position: Option[PositionRange] = None,
+      code: Option[String] = None
+  ) = {
+    val errTag = s"\n${Console.RED}[error]${Console.RESET} "
+    val errorCodeRegion = position match {
       case Some(
           PositionRange(
-            Position(_, line, char),
-            Position(_, line2, char2)
+            Position(_, lineIndex, charIndex),
+            Position(_, lineIndex2, charIndex2)
           )
-          ) => {
-        print('\t')
-        println(
-          s"(at line $line character $char until line $line2 character $char2)"
-        )
-      }
-      case _ => ()
+          ) =>
+        for {
+          code <- code
+          lines = code.split("\n").toList
+          errorLine = lines(lineIndex - 1)
+          msg = if (lineIndex != lineIndex2) {
+            val firstErrorLine = errorLine
+            val midErrorLines = lines
+              .slice(lineIndex, lineIndex2 - 1)
+              .map(line => line + "\n" + ("^" * line.length))
+              .mkString("\n")
+            val lastErrorLine = lines(lineIndex2 - 1)
+            s"""|From line $lineIndex character $charIndex to line $lineIndex2 character $charIndex2
+                |
+                |$firstErrorLine
+                |${" " * (charIndex - 1)}${"^" * ((firstErrorLine.length - 1) - charIndex)}
+                |${midErrorLines}
+                |${lastErrorLine}
+                |${"^" * charIndex2}
+                |""".stripMargin
+          } else if (charIndex != charIndex2) {
+            s"""|at line $lineIndex
+                |
+                |$errorLine
+                |${" " * (charIndex - 1)}${"^" * (charIndex2 - charIndex)}
+                |""".stripMargin
+          } else {
+            s"""|at line $lineIndex
+                |
+                |$errorLine
+                |${" " * (charIndex - 2)}^
+                |""".stripMargin
+          }
+
+        } yield ": " + msg
+      case _ => None
     }
-    println(errSep)
+
+    val styledErrorMessage =
+      s"""|$errSep
+          |$errTag $message ${errorCodeRegion.getOrElse("")}
+          |$errSep""".stripMargin
+    println(styledErrorMessage)
   }
+
 }
