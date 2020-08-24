@@ -111,11 +111,11 @@ class Substitution extends AnyFlatSpec {
     val permissions = st.permissions
     val selfRule = permissions.globalTenant.roles.head.rules.head
 
+    assert(selfRule.isSlefRule)
     assert(selfRule.ruleKind == Allow)
     assert(selfRule.resourcePath._1.id == "User")
     assert(selfRule.resourcePath._2.get.id == "bio")
     assert(selfRule.permissions == Set(Update))
-    assert(selfRule.predicate.get.isInstanceOf[IfSelfAuthPredicate])
   }
 
 }

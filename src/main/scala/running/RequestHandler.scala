@@ -21,16 +21,10 @@ class RequestHandler[S, M[_]: Monad](
       ops <- Operations.from(validationResult)(syntaxTree)
       result = authorizer(ops, req.user)
     } yield
-      result flatMap [Operations.OperationsMap] {
-        case Left(errors) if !errors.isEmpty =>
-          MonadError[M, Throwable].raiseError(errors.head)
-        case Left(_) => ops.pure[M]
-        case Right(passed) =>
-          if (passed) ops.pure[M]
-          else
-            MonadError[M, Throwable].raiseError {
-              UserError("Unauthorized access")
-            }
+      result flatMap [Operations.OperationsMap] { errors =>
+        if (!errors.isEmpty)
+          MonadError[M, Throwable].raiseError(UserError.fromAuthErrors(errors))
+        else ops.pure[M]
       }
 
     val opsAfterWriteHooks = authResult.map { result =>

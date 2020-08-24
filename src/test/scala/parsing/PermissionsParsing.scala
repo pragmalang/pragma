@@ -21,6 +21,7 @@ class PermissionsParsing extends AnyFlatSpec {
             Some(PositionRange(Position(27, 2, 27), Position(40, 2, 40)))
           )
         ),
+        false,
         Some(PositionRange(Position(9, 2, 9), Position(40, 2, 40)))
       ),
       AccessRule(
@@ -33,6 +34,7 @@ class PermissionsParsing extends AnyFlatSpec {
             Some(PositionRange(Position(79, 3, 39), Position(92, 3, 52)))
           )
         ),
+        false,
         Some(PositionRange(Position(49, 3, 9), Position(92, 3, 52)))
       )
     )

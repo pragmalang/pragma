@@ -4,12 +4,12 @@ import spray.json._
 import spray.json.DefaultJsonProtocol._
 import org.graalvm.polyglot
 import scala.util.{Try, Success, Failure}
+import domain.utils.InternalException
+import running.JwtPaylod
+import cats.kernel.Eq
 
 object DomainImplicits {
 
-  import domain.utils.InternalException
-
-  import running.JwtPaylod
   implicit object PvalueJsonFormater extends JsonWriter[PValue] {
     @throws[InternalException]
     def write(value: PValue): JsValue = value match {
@@ -105,4 +105,9 @@ object DomainImplicits {
       }
     }
   }
+
+  implicit val jsValueEq = new Eq[JsValue] {
+    def eqv(x: JsValue, y: JsValue): Boolean = x == y
+  }
+
 }

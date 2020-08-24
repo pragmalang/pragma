@@ -58,8 +58,8 @@ object PermissionsSubstitutor {
   ): Try[AccessRule] = {
     val parentName = rule.resourcePath._1.asInstanceOf[Reference].path.head
     val childRef = rule.resourcePath._2.asInstanceOf[Option[Reference]]
-    val (parent, isSelfRule) =
-      if (selfRole.isDefined && parentName == "self") (selfRole.get, true)
+    val parent =
+      if (selfRole.isDefined && rule.isSlefRule) selfRole.get
       else if (!selfRole.isDefined && parentName == "self")
         return Failure(
           UserError(
@@ -68,7 +68,7 @@ object PermissionsSubstitutor {
           )
         )
       else
-        (st.modelsById.get(parentName) match {
+        st.modelsById.get(parentName) match {
           case Some(model) => model
           case None =>
             return Failure(
@@ -77,7 +77,7 @@ object PermissionsSubstitutor {
                 rule.position
               )
             )
-        }, false)
+        }
     val child =
       if (childRef.isDefined) {
         val foundChild = childRef flatMap { ref =>
@@ -97,23 +97,16 @@ object PermissionsSubstitutor {
 
     val newRule = rule.copy(resourcePath = (parent, child))
 
-    substituteRulePredicate(
-      newRule,
-      isSelfRule,
-      st.models.toList,
-      ctx
-    ).flatMap(substituteAccessRulePermissions(_))
+    substituteRulePredicate(newRule, ctx)
+      .flatMap(substituteAccessRulePermissions(_))
   }
 
   /** Used as a part of access rule substitution */
   private def substituteRulePredicate(
       rule: AccessRule,
-      isSelfRule: Boolean,
-      modelDefs: List[PModel],
       ctx: Map[String, PValue]
   ): Try[AccessRule] = {
     val userPredicate = rule.predicate match {
-      case None => None
       case Some(ref: Reference) =>
         Substitutor.getReferencedFunction(ref, ctx) match {
           case None =>
@@ -122,23 +115,8 @@ object PermissionsSubstitutor {
         }
       case someFunction => someFunction
     }
-    val withSelfAdditions = (rule.resourcePath._1, userPredicate) match {
-      case (model, None) if isSelfRule =>
-        Some(IfSelfAuthPredicate(modelDefs.find(_.id == model.id).get))
-      case (model, Some(predicate)) if isSelfRule => {
-        val selfModel = modelDefs.find(_.id == model.id).get
-        Some(
-          PredicateAnd(
-            selfModel,
-            IfSelfAuthPredicate(selfModel),
-            predicate
-          )
-        )
-      }
-      case _ => userPredicate
-    }
 
-    Success(rule.copy(predicate = withSelfAdditions))
+    Success(rule.copy(predicate = userPredicate))
   }
 
   /** Used as a part of access rule substitution */
@@ -147,7 +125,7 @@ object PermissionsSubstitutor {
   ): Try[AccessRule] = {
     import PPermission._
     val newPermissions = rule match {
-      case AccessRule(_, _, permissions, _, _)
+      case AccessRule(_, _, permissions, _, _, _)
           if permissions.size > 1 && permissions.contains(All) =>
         Left(
           (
@@ -155,20 +133,20 @@ object PermissionsSubstitutor {
             rule.position
           )
         )
-      case AccessRule(_, (_, None), permissions, _, _)
+      case AccessRule(_, (_, None), permissions, _, _, _)
           if permissions == Set(All) =>
         Right(allowedModelPermissions)
-      case AccessRule(_, (_, Some(field)), permissions, _, _)
+      case AccessRule(_, (_, Some(field)), permissions, _, _, _)
           if field.ptype.isInstanceOf[PArray] && permissions == Set(All) =>
         Right(allowedArrayFieldPermissions)
-      case AccessRule(_, (_, Some(field)), permissions, _, _)
+      case AccessRule(_, (_, Some(field)), permissions, _, _, _)
           if (field.ptype.isInstanceOf[PrimitiveType] ||
             field.ptype.isInstanceOf[PEnum]) && permissions == Set(All) =>
         Right(allowedPrimitiveFieldPermissions)
-      case AccessRule(_, (_, Some(_)), permissions, _, _)
+      case AccessRule(_, (_, Some(_)), permissions, _, _, _)
           if permissions == Set(All) =>
         Right(allowedModelPermissions)
-      case AccessRule(_, (_, Some(field)), permissions, _, _)
+      case AccessRule(_, (_, Some(field)), permissions, _, _, _)
           if field.ptype.isInstanceOf[PArray] =>
         permissions.find(!allowedArrayFieldPermissions.contains(_)) match {
           case None => Right(permissions)
@@ -180,7 +158,7 @@ object PermissionsSubstitutor {
               )
             )
         }
-      case AccessRule(_, (_, Some(field)), permissions, _, _)
+      case AccessRule(_, (_, Some(field)), permissions, _, _, _)
           if field.ptype.isInstanceOf[PrimitiveType] ||
             field.ptype.isInstanceOf[PEnum] =>
         permissions.find(!allowedPrimitiveFieldPermissions.contains(_)) match {
@@ -193,7 +171,7 @@ object PermissionsSubstitutor {
               )
             )
         }
-      case AccessRule(_, (_, Some(field)), permissions, _, _) =>
+      case AccessRule(_, (_, Some(field)), permissions, _, _, _) =>
         permissions.find(!allowedModelFieldPermissions.contains(_)) match {
           case None => Right(permissions)
           case Some(event) =>
@@ -204,7 +182,7 @@ object PermissionsSubstitutor {
               )
             )
         }
-      case AccessRule(_, (model, None), permissions, _, _) =>
+      case AccessRule(_, (model, None), permissions, _, _, _) =>
         permissions.find(!allowedModelPermissions.contains(_)) match {
           case None => Right(permissions)
           case Some(event) =>

@@ -407,6 +407,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
           ),
           permissions.toSet,
           predicate,
+          resource.path.head == "self",
           Some(PositionRange(start, end))
         )
     }

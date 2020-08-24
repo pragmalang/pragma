@@ -1,30 +1,28 @@
 package running
 
 import domain.SyntaxTree
-import domain.utils.AuthorizationError
 import running._, running.storage._
 import sangria.macros._
 import spray.json._
 import scala.util._
 import cats.implicits._
-import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest._
+import flatspec.AnyFlatSpec
 
 class Authorization extends AnyFlatSpec {
   "Authorizer" should "authorize requests correctly" in {
     val code = """
     @1 @user
-    model User {
+    model AU_User {
       @1 username: String @primary @publicCredential
       @2 password: String @secretCredential
       @3 isVerified: Boolean = false
     }
 
-    deny SET_ON_CREATE User.isVerified
-    allow CREATE User
-
-    role User {
-      allow READ self
-    }
+    allow CREATE AU_User
+    deny SET_ON_CREATE AU_User.isVerified
+    allow READ AU_User
+    deny READ AU_User.password
     """
 
     val syntaxTree = SyntaxTree.from(code).get
@@ -34,43 +32,29 @@ class Authorization extends AnyFlatSpec {
       .getOrElse(fail())
       .run(t)
       .unsafeRunSync()
-    val authorizer =
-      new Authorizer(syntaxTree, testStorage.storage, devModeOn = true)
-
-    val johnDoe = JsObject(
-      Map(
-        "username" -> JsString("John Doe"),
-        "password" -> JsString("123"),
-        "isVerified" -> JsFalse
-      )
-    )
-    queryEngine
-      .runQuery(
-        queryEngine
-          .createOneRecord(syntaxTree.modelsById("User"), johnDoe, Vector.empty)
-      )
-      .unsafeRunSync()
+    val authorizer = new Authorizer(syntaxTree, testStorage.storage)
 
     val req = Request(
       None,
       None,
-      Some(JwtPayload(JsString("John Doe"), "User")),
+      None,
       gql"""
       mutation createUser {
-        User {
-          create(user: {
-            username: "John Dow",
+        AU_User {
+          create(aU_User: {
+            username: "John Doe",
             password: "password",
             isVerified: true
           })
         }
       }
       
-      query getUser { # should succeed because user is logged in
-        User {
+      query getUser {
+        AU_User {
           read(username: "John Doe") {
             username
             isVerified
+            password
           }
         }
       }
@@ -82,38 +66,38 @@ class Authorization extends AnyFlatSpec {
     )
     val reqOps = Operations.from(req)(syntaxTree)
 
-    val result = reqOps.flatMap { ops =>
-      authorizer(ops, req.user).unsafeRunSync
+    val result = reqOps.map { ops =>
+      authorizer(ops, req.user).unsafeRunSync.map(_.message)
     }
-    assert(
-      result == Left(
+
+    assert {
+      result == Right {
         Vector(
-          AuthorizationError(
-            "Denied setting attribute in `CREATE` operation"
-          )
+          "Denied setting field `isVerified` in `CREATE` operation",
+          "`deny` rule exists that prohibits `READ` operations on `AU_User.password`"
         )
-      ),
-      "Request should be denied because SET_ON_CREATE is denied for `isVerified`"
-    )
+      }
+    }
+
   }
 
-  "Authorizer" should "handle user predicates correctly" in {
+  "Authorizer" should "take user roles into account" taggedAs (Tag("auth_2")) in {
     val code = """
-    @1 model Todo {
+    @1 model AU_Todo {
       @1 content: String
       @2 id: String @primary
     }
 
-    @2 @user model User2 {
+    @2 @user model AU_User2 {
       @1 username: String @primary @publicCredential
       @2 password: String @secretCredential
-      @3 todos: [Todo]
+      @3 todos: [AU_Todo]
     }
 
-    allow CREATE User2
-    allow READ User2.todos
+    allow CREATE AU_User2
+    allow READ AU_User2.todos
 
-    role User2 {
+    role AU_User2 {
       allow READ self
       deny UPDATE self.username # Like Twitter
       allow [REMOVE_FROM, PUSH_TO] self.todos
@@ -131,8 +115,8 @@ class Authorization extends AnyFlatSpec {
       user = None,
       query = gql"""
       mutation createUser {
-        User2 {
-          create(user: {
+        AU_User2 {
+          create(aU_User2: {
             username: "John Doe",
             password: "password",
             todos: []
@@ -145,6 +129,7 @@ class Authorization extends AnyFlatSpec {
       url = "",
       hostname = ""
     )
+
     val johnDoe = JsObject(
       Map(
         "username" -> JsString("John Doe"),
@@ -152,24 +137,26 @@ class Authorization extends AnyFlatSpec {
         "todos" -> JsArray.empty
       )
     )
+
     queryEngine
       .runQuery(
         queryEngine
           .createOneRecord(
-            syntaxTree.modelsById("User2"),
+            syntaxTree.modelsById("AU_User2"),
             johnDoe,
             Vector.empty
           )
       )
       .unsafeRunSync()
+
     val reqWithRole = Request(
       hookData = None,
       body = None,
-      user = Some(JwtPayload(JsString("John Doe"), "User")),
+      user = Some(JwtPayload(JsString("John Doe"), "AU_User2")),
       query = gql"""
       mutation updateUsername {
-        User2 {
-          update(username: "John Doe", user: {username: "Jane Doe"}) {
+        AU_User2 {
+          update(username: "John Doe", data: {username: "Jane Doe"}) {
             username
           }
         }
@@ -181,8 +168,7 @@ class Authorization extends AnyFlatSpec {
       hostname = ""
     )
 
-    val authorizer =
-      new Authorizer(syntaxTree, testStorage.storage, devModeOn = true)
+    val authorizer = new Authorizer(syntaxTree, testStorage.storage)
 
     val withoutRoleOps = Operations.from(reqWithoutRole)
     val withRoleOps = Operations.from(reqWithRole)
@@ -192,10 +178,19 @@ class Authorization extends AnyFlatSpec {
       (withoutRole, withRole) = ops
     } yield
       (
-        authorizer(withoutRole, reqWithoutRole.user) ::
-          authorizer(withRole, reqWithRole.user) :: Nil
-      ).sequence
+        authorizer(withoutRole, reqWithoutRole.user),
+        authorizer(withRole, reqWithRole.user)
+      ).bisequence.unsafeRunSync
 
-    pprint.pprintln(results)
+    results.foreach {
+      case (result1, result2) => {
+        assert(result1 === Vector.empty)
+        assert(
+          result2.map(_.message) == Vector(
+            "Denied updating `username` field in `UPDATE` operation on `AU_User2`"
+          )
+        )
+      }
+    }
   }
 }

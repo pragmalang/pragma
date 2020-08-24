@@ -201,6 +201,7 @@ case class AccessRule(
     resourcePath: (PShape, Option[PShapeField]),
     permissions: Set[PPermission],
     predicate: Option[PFunctionValue[JsValue, Try[JsValue]]],
+    isSlefRule: Boolean,
     position: Option[PositionRange]
 ) extends PConstruct {
   def eventsThatMatch: Set[PEvent] = permissions.flatMap(eventsOf)
@@ -212,7 +213,7 @@ case class AccessRule(
         case ((_, None), Create)         => List(Create, CreateMany)
         case ((_, Some(_)), SetOnCreate) => List(Create, CreateMany)
         case (_, Read)                   => List(Read, ReadMany)
-        case ((_, None), Update)         => List(Update, UpdateMany)
+        case (_, Update)                 => List(Update, UpdateMany)
         case ((_, Some(field)), Mutate)
             if field.ptype.isInstanceOf[PReference] =>
           List(Update, UpdateMany)
