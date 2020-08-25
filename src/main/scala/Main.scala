@@ -263,19 +263,19 @@ object Main extends IOApp {
                 |${" " * (charIndex - 1)}${"^" * ((firstErrorLine.length - 1) - charIndex)}
                 |${midErrorLines}
                 |${lastErrorLine}
-                |${"^" * charIndex2}
+                |${Console.RED}${"^" * charIndex2}${Console.RED}
                 |""".stripMargin
           } else if (charIndex != charIndex2) {
             s"""|at line $lineIndex
                 |
                 |$errorLine
-                |${" " * (charIndex - 1)}${"^" * (charIndex2 - charIndex)}
+                |${Console.RED}${" " * (charIndex - 1)}${"^" * (charIndex2 - charIndex)}${Console.RED}
                 |""".stripMargin
           } else {
             s"""|at line $lineIndex
                 |
                 |$errorLine
-                |${" " * (charIndex - 2)}^
+                |${Console.RED}${" " * (charIndex - 2)}^${Console.RESET}
                 |""".stripMargin
           }
 
