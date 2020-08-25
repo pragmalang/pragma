@@ -7,6 +7,7 @@ import spray.json._
 import scala.collection.immutable._
 import scala.util._
 import org.scalatest.flatspec.AnyFlatSpec
+import cats.implicits._
 
 class RequestOperations extends AnyFlatSpec {
   "Request operations" should "be computed from user GraphQL query" in {
@@ -68,20 +69,28 @@ class RequestOperations extends AnyFlatSpec {
 
     ops match {
       case Left(err) =>
-        fail(
+        fail {
           s"Operations should be constructed successfully, instead they failed with $err"
-        )
+        }
       case Right(ops) => {
+        // Number of operation groups
         assert(ops.values.flatten.size == 2)
 
-        assert(ops.flatMap(_._2.map(_.event)) == List(Read, Update))
-
-        assert(ops(Some("user")).head.opArguments == ReadArgs(JsString("123")))
-
-        assert(ops(Some("user")).head.innerReadOps.length == 2)
+        assert(
+          ops.flatMap(_._2.values.flatten.map(_.event)) ===
+            List(Read, Update)
+        )
 
         assert(
-          ops(Some("updateTodo")).head.opArguments == UpdateArgs(
+          ops(Some("user"))("User").head.opArguments == ReadArgs(
+            JsString("123")
+          )
+        )
+
+        assert(ops(Some("user"))("User").head.innerReadOps.length == 2)
+
+        assert(
+          ops(Some("updateTodo"))("Todo").head.opArguments == UpdateArgs(
             ObjectWithId(
               JsObject(Map("content" -> JsString("Clean the dishes"))),
               JsString("22234")

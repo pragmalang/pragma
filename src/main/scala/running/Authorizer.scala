@@ -17,7 +17,8 @@ class Authorizer[S, M[_]: Monad](
       ops: Operations.OperationsMap,
       user: Option[JwtPayload]
   ): M[Vector[AuthorizationError]] = user match {
-    case None => results(ops.values.flatten.toVector, JsNull).pure[M]
+    case None =>
+      results(ops.values.flatMap(_.values).flatten.toVector, JsNull).pure[M]
     case Some(jwt) => {
       val userModel = syntaxTree.modelsById.get(jwt.role) match {
         case Some(model) => model
@@ -34,7 +35,7 @@ class Authorizer[S, M[_]: Monad](
       val user = userReadQuery(userModel, jwt.userId)
 
       user.map { userJson =>
-        results(ops.values.flatten.toVector, userJson)
+        results(ops.values.flatMap(_.values).flatten.toVector, userJson)
       }
     }
   }

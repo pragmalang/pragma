@@ -97,13 +97,14 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
   def runGql(gqlQuery: sangria.ast.Document) = {
     val req = bareReqFrom(gqlQuery)
     val reqOps = Operations.from(req)
-    reqOps.map(queryEngine.run(_).unsafeRunSync) match {
+    val results = reqOps.map(queryEngine.run(_).unsafeRunSync) match {
       case Left(err) => throw err
       case Right(values) =>
         values.map {
-          case (alias, vec) => alias -> vec.map(_._2)
+          case (alias, vec) => alias -> vec.flatMap(_._2.map(_._2))
         }
     }
+    results.toMap
   }
 
   "Array-field population" should "read array fields from join tables" taggedAs (dkr) in {
@@ -127,7 +128,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
       .readOneRecord(
         syntaxTree.modelsById("Country"),
         JsString("US"),
-        ops(None).head.innerReadOps
+        ops(None)("Country").head.innerReadOps
       )
       .transact(t)
       .unsafeRunSync
@@ -157,7 +158,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
     val iops = Operations
       .from(req)
       .getOrElse(fail("Ops should be constructed successfully"))
-      .apply(None)
+      .apply(None)("Country")
       .head
       .innerReadOps
 
@@ -194,7 +195,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
       .readManyRecords(
         syntaxTree.modelsById("Country"),
         QueryWhere(None, None, None),
-        reqOps(None).head.innerReadOps
+        reqOps(None)("Country").head.innerReadOps
       )
       .transact(t)
       .unsafeRunSync

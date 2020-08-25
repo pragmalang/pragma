@@ -32,10 +32,17 @@ abstract class QueryEngine[S, M[_]: Monad] {
 
   /** Succeeds only if all operations do */
   final type TransactionResultMap =
-    Map[Option[String], Vector[(Operation, JsValue)]]
+    Vector[
+      (
+          Option[Operations.OperationGroupName],
+          Vector[
+            (Operations.ModelSelectionName, Vector[(Operation, JsValue)])
+          ]
+      )
+    ]
 
   def run(
-      operations: Map[Option[String], Vector[Operation]]
+      operations: Operations.OperationsMap
   ): M[TransactionResultMap]
 
   def query(op: Operation): Query[JsValue]

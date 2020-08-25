@@ -31,8 +31,13 @@ class RequestHandler[S, M[_]: Monad](
       result.flatMap[Operations.OperationsMap] { opsMap =>
         val newOps = opsMap.toVector
           .traverse {
-            case (groupName, ops) =>
-              ops.traverse(applyWriteHooks).map(groupName -> _)
+            case (groupName, opModelGroups) =>
+              opModelGroups.toVector
+                .traverse {
+                  case (medelSelectionName, ops) =>
+                    ops.traverse(applyWriteHooks).map(medelSelectionName -> _)
+                }
+                .map(groupName -> _.toMap)
           }
           .map(_.toMap)
 
@@ -49,16 +54,20 @@ class RequestHandler[S, M[_]: Monad](
     val readHookResults = storageResult.map { result =>
       result
         .flatMap { transactionMap =>
-          transactionMap.toVector.traverse {
-            case (groupName, ops) =>
-              ops
+          transactionMap.traverse {
+            case (groupName, modelGroups) =>
+              modelGroups
                 .traverse {
-                  case (op, res) => applyReadHooks(op, res).map(op -> _)
+                  case (modelGroupName, ops) =>
+                    ops
+                      .traverse {
+                        case (op, res) => applyReadHooks(op, res).map(op -> _)
+                      }
+                      .map(modelGroupName -> _)
                 }
                 .map(groupName -> _)
           }
         }
-        .map(_.toMap)
     }
 
     readHookResults.map { result =>
@@ -76,9 +85,14 @@ class RequestHandler[S, M[_]: Monad](
       resultMap: storage.queryEngine.TransactionResultMap
   ): JsObject = {
     val opGroupResults = for {
-      (groupName, groupResults) <- resultMap
-      groupResultFields = groupResults.map {
-        case (op, result) => op.name -> withInnerOpsAliases(op, result)
+      (groupName, modelGroups) <- resultMap
+      groupResultFields = modelGroups.map {
+        case (modelGroupName, ops) =>
+          modelGroupName -> JsObject {
+            ops.map {
+              case (op, result) => op.name -> withInnerOpsAliases(op, result)
+            }.toMap
+          }
       }.toMap
       groupResultJson = JsObject(groupResultFields)
     } yield (groupName.getOrElse("data"), groupResultJson)

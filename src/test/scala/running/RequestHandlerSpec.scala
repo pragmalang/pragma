@@ -50,7 +50,7 @@ class RequestHandlerSpec extends AnyFlatSpec {
     val req = bareReqFrom {
       gql"""
       mutation createFathi {
-        RH_User {
+        user: RH_User {
           create(rH_User: {
             username: "Fathi",
             todos: [
@@ -83,11 +83,15 @@ class RequestHandlerSpec extends AnyFlatSpec {
           Map(
             "createFathi" -> JsObject(
               Map(
-                "create" -> JsObject(
+                "user" -> JsObject(
                   Map(
-                    "username" -> JsString("Mr. Fathi"), // Because of `rhHooks.prependMrToUsername`
-                    "priorityTodo" -> JsObject( // Because of `rhHooks.setPriorityTodo`
-                      Map("title" -> JsString("** Get pizza **"))
+                    "create" -> JsObject(
+                      Map(
+                        "username" -> JsString("Mr. Fathi"), // Because of `rhHooks.prependMrToUsername`
+                        "priorityTodo" -> JsObject( // Because of `rhHooks.setPriorityTodo`
+                          Map("title" -> JsString("** Get pizza **"))
+                        )
+                      )
                     )
                   )
                 )
@@ -129,10 +133,14 @@ class RequestHandlerSpec extends AnyFlatSpec {
           Map(
             "readGetPizza" -> JsObject(
               Map(
-                "read" -> JsObject(
+                "RH_Todo" -> JsObject(
                   Map(
-                    "title" -> JsString("** Get pizza **"), // Because of `emphasizeUndone`
-                    "content" -> JsString("We need to eat")
+                    "read" -> JsObject(
+                      Map(
+                        "title" -> JsString("** Get pizza **"), // Because of `emphasizeUndone`
+                        "content" -> JsString("We need to eat")
+                      )
+                    )
                   )
                 )
               )

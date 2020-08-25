@@ -23,14 +23,18 @@ class PostgresQueryEngine[M[_]: Monad](
 
   override def run(
       operations: Operations.OperationsMap
-  ): M[TransactionResultMap] =
-    operations.toVector
-      .traverse {
-        case (name, ops) =>
-          (name -> ops.traverse(op => query(op).map(op -> _))).sequence
-            .transact(transactor)
-      }
-      .map(_.toMap)
+  ): M[TransactionResultMap] = operations.toVector.traverse {
+    case (groupName, opGroup) =>
+      opGroup.toVector
+        .traverse {
+          case (modelSelectionName, modelOps) =>
+            modelOps
+              .traverse(op => query(op).map(op -> _))
+              .map(modelSelectionName -> _)
+        }
+        .map(groupName -> _)
+        .transact(transactor)
+  }
 
   def query(op: Operation): Query[JsValue] = op match {
     case op: ReadOperation =>

@@ -7,7 +7,10 @@ import cats.implicits._
 import running.storage._, running.utils._
 
 object Operations {
-  type OperationsMap = Map[Option[String], Vector[Operation]]
+  type OperationGroupName = String
+  type ModelSelectionName = String
+  type OperationsMap =
+    Map[Option[OperationGroupName], Map[ModelSelectionName, Vector[Operation]]]
 
   case class AliasedField(
       field: PShapeField,
@@ -21,7 +24,7 @@ object Operations {
     * ```gql
     * mutation {
     *   User { # This is a model-level selection.
-    *          # `User` is the `groupName` of the operations within its scope 
+    *          # `User` is the `groupName` of the operations within its scope
     *          #  (the alias becomes the `groupName` if defined.)
     *     create(...) { # This is an operation selection
     *       #     ^   Arguments are parsed into `OpArgs` and stored in `Operation#opArguments`
@@ -49,16 +52,20 @@ object Operations {
     request.query.operations.toVector
       .traverse {
         case (name, op) => {
-          val modelSelections = op.selections.flatTraverse {
-            case f: FieldSelection =>
-              fromModelSelection(f, request.user, st)
-            case _ =>
-              Left {
-                InternalException(
-                  s"GraphQL query model selections must all be field selections. Something must've went wrond during query reduction"
+          val modelSelections = op.selections
+            .traverse {
+              case f: FieldSelection =>
+                fromModelSelection(f, request.user, st).map(
+                  f.alias.getOrElse(f.name) -> _
                 )
-              }
-          }
+              case _ =>
+                Left {
+                  InternalException(
+                    s"GraphQL query model selections must all be field selections. Something must've went wrond during query reduction"
+                  )
+                }
+            }
+            .map(_.toMap)
           modelSelections.map(name -> _)
         }
       }

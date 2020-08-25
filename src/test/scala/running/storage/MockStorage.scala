@@ -1,10 +1,9 @@
 package running.storage
 
-import running.Operation
+import running._
 import spray.json._
 import cats._
 import cats.implicits._
-
 import concurrent.Future
 import concurrent.ExecutionContext.Implicits.global
 import domain.{PModel, PShapeField}
@@ -23,7 +22,7 @@ object MockQueryEngine extends QueryEngine[MockStorage.type, Future] {
   override def runQuery[A](query: A): Future[A] = ???
 
   def run(
-      operations: Map[Option[String], Vector[Operation]]
+      operations: Operations.OperationsMap
   ) = ???
 
   def createManyRecords(
