@@ -545,7 +545,7 @@ package object assets {
 
   val asciiLogo = Console.BOLD + """
  ___________________
-|_________________  |
+|______Pragma_____  |
  ______________   | |
 |  ____   ____ \  | |
 | |    | |____) | | |
@@ -554,6 +554,6 @@ package object assets {
 | |    |_|        | |
 | |_______________| |
 |___________________|
-    PragmaLang.com     
+    pragmalang.com
   """ + Console.RESET
 }
