@@ -238,7 +238,7 @@ object Main extends IOApp {
       position: Option[PositionRange] = None,
       code: Option[String] = None
   ) = {
-    val errTag = s"\n${Console.RED}[error]${Console.RESET} "
+    val errTag = s"\n[${Console.RED}error${Console.RESET}]"
     val errorCodeRegion = position match {
       case Some(
           PositionRange(
