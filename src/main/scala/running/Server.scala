@@ -22,6 +22,7 @@ import domain.utils._
 import setup.schemaGenerator.ApiSchemaGenerator
 import running.RequestHandler
 import storage.postgres._
+import assets.asciiLogo
 
 class Server(storage: Resource[IO, Postgres[IO]], currentSyntaxTree: SyntaxTree)
     extends IOApp {
@@ -64,7 +65,7 @@ class Server(storage: Resource[IO, Postgres[IO]], currentSyntaxTree: SyntaxTree)
             },
             user = req.headers
               .get(CaseInsensitiveString("Authorization"))
-              .map(h => running.JwtPaylod.decode(h.value).get)
+              .flatMap(h => running.JwtPaylod.decode(h.value).toOption)
           )
           val resJson = reqHandler
             .use(rh => rh.handle(preq))
@@ -94,7 +95,17 @@ class Server(storage: Resource[IO, Postgres[IO]], currentSyntaxTree: SyntaxTree)
   }
 
   def run(args: List[String]): IO[ExitCode] = {
-    BlazeServerBuilder[IO](global)
+    val msg =
+      s"""
+        ${asciiLogo.split("\n").map(line => (" " * 24) + line).mkString("\n")}
+
+        Pragma GraphQL server is now running on port 3030.
+
+                  ${Console.GREEN}${Console.BOLD}http://localhost:3030/graphql${Console.RESET}
+      """
+
+    val printMsg = IO(println(msg))
+    printMsg *> BlazeServerBuilder[IO](global)
       .bindHttp(3030, "localhost")
       .withHttpApp(Router("/graphql" -> routes).orNotFound)
       .serve
