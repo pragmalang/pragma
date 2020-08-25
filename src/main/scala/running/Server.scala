@@ -64,7 +64,7 @@ class Server(storage: Resource[IO, Postgres[IO]], currentSyntaxTree: SyntaxTree)
             },
             user = req.headers
               .get(CaseInsensitiveString("Authorization"))
-              .map(h => running.JwtPaylod.decode(h.value).get)
+              .flatMap(h => running.JwtPaylod.decode(h.value).toOption)
           )
           val resJson = reqHandler
             .use(rh => rh.handle(preq))
