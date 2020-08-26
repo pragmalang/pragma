@@ -8,6 +8,8 @@ package utils {
 
   class QueryError(message: String) extends Exception(s"QueryError: $message")
 
+  case object InvalidJwtTokenError extends Exception("Invalid JWT token")
+
 }
 package object utils {
 

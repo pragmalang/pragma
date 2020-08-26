@@ -303,8 +303,8 @@ object Operations {
             opGroupName,
             iops
           ).asRight
-        case (ev, _) =>
-          InternalException(s"Invalid `$ev` operation arguments").asLeft
+        case (event, _) =>
+          InternalException(s"Invalid `$event` operation arguments").asLeft
       }
     } yield op
   }
@@ -394,238 +394,237 @@ object Operations {
       event: PEvent,
       opTargetModel: PModel,
       opSelection: FieldSelection
-  ): Either[Exception, OpArgs[PEvent]] =
-    event match {
-      case domain.Read => {
-        val id =
-          opSelection.arguments
-            .find(_.name == opTargetModel.primaryField.id)
-            .map(_.value)
-        id match {
-          case Some(value) => ReadArgs(sangriaToJson(value)).asRight
-          case _ =>
-            UserError(
-              "Arguments of Read operation should contain the ID of the record to read"
-            ).asLeft
-        }
-      }
-      case ReadMany => {
-        // TODO: Parse QueryWhere in Operations
-        val where = QueryWhere(None, None, None)
-        ReadManyArgs(Some(where)).asRight
-      }
-      case Create => {
-        val objToInsert =
-          objFieldsFrom(opSelection.arguments)
-            .find(_._1 == opTargetModel.id.small)
-            .map(_._2.asJsObject)
-
-        objToInsert match {
-          case Some(obj) => CreateArgs(obj).asRight
-          case _ =>
-            UserError(
-              s"Create mutation takes a `${opTargetModel.id.small}` argument"
-            ).asLeft
-        }
-      }
-      case CreateMany => {
-        val records =
-          objFieldsFrom(opSelection.arguments)
-            .find(_._1 == "items")
-            .map {
-              case (_, arr: JsArray) =>
-                arr.elements.map {
-                  case obj: JsObject => obj
-                  case nonObj =>
-                    throw InternalException(
-                      s"Trying to create a record with non-object value `$nonObj`"
-                    )
-                }
-              case _ =>
-                throw InternalException("Value `items` must be an array")
-            }
-            .getOrElse(
-              throw InternalException(
-                "CREATE_MANY operation arguments must have an `items` field"
-              )
-            )
-        CreateManyArgs(records).asRight
-      }
-      case PushTo(_) => {
-        val item = opSelection.arguments
-          .find(_.name == "item")
-          .map(arg => sangriaToJson(arg.value))
-          .getOrElse(
-            throw InternalException {
-              "Arguments of `PUSH_TO` operation must contain the item to be pushed"
-            }
-          )
-        val sourceId = opSelection.arguments
+  ): Either[Exception, OpArgs[PEvent]] = event match {
+    case domain.Read => {
+      val id =
+        opSelection.arguments
           .find(_.name == opTargetModel.primaryField.id)
-          .map(arg => sangriaToJson(arg.value))
-          .getOrElse(
-            throw InternalException {
-              "Arguments of `PUSH_TO` operation must contain the ID of the array field object"
-            }
-          )
-        PushToArgs(sourceId, item).asRight
-      }
-      case PushManyTo(_) => {
-        val items = opSelection.arguments
-          .find(_.name == "items")
           .map(_.value)
-          .map {
-            case ls: sangria.ast.ListValue => ls.values.map(sangriaToJson)
-            case _ =>
-              throw InternalException(
-                "`items` argument of `PUSH_MANY_TO` operation must be an array"
-              )
-          }
-          .getOrElse(
-            throw InternalException {
-              "Arguments of `PUSH_MANY_TO` operation must contain the items to be pushed"
-            }
-          )
-        val sourceId = opSelection.arguments
-          .find(_.name == opTargetModel.primaryField.id)
-          .map(arg => sangriaToJson(arg.value))
-          .getOrElse(
-            throw InternalException {
-              "Arguments of `PUSH_TO` operation must contain the ID of the array field object"
-            }
-          )
-        PushManyToArgs(sourceId, items).asRight
+      id match {
+        case Some(value) => ReadArgs(sangriaToJson(value)).asRight
+        case _ =>
+          UserError(
+            "Arguments of Read operation should contain the ID of the record to read"
+          ).asLeft
       }
-      case Delete => {
-        val id = opSelection.arguments
-          .collectFirst {
-            case arg if arg.name == opTargetModel.primaryField.id =>
-              sangriaToJson(arg.value)
-          }
-          .getOrElse {
-            throw new InternalException(
-              "DELETE operation arguments must contain the ID of the record to be deleted"
-            )
-          }
-        DeleteArgs(id).asRight
-      }
-      case DeleteMany => {
-        val idsToDelete = opSelection.arguments.collectFirst {
-          case arg if arg.name == "items" => sangriaToJson(arg.value)
-        }
-        idsToDelete match {
-          case Some(arr: JsArray) => DeleteManyArgs(arr.elements).asRight
-          case _ =>
-            UserError(
-              "DELETE_MANY operation must have an `items` list argument"
-            ).asLeft
-        }
-      }
-      case RemoveFrom(_) => {
-        val sourceId = opSelection.arguments
-          .collectFirst {
-            case arg if arg.name == opTargetModel.primaryField.id =>
-              sangriaToJson(arg.value)
-          }
-          .getOrElse {
-            throw InternalException(
-              "REMOVE_FROM operation arguments must contain the ID of the parent object"
-            )
-          }
-        val targetId = opSelection.arguments
-          .collectFirst {
-            case arg if arg.name == "item" =>
-              sangriaToJson(arg.value)
-          }
-          .getOrElse {
-            throw InternalException(
-              "REMOVE_FROM operation arguments must contain the ID of the child object to remove"
-            )
-          }
-        RemoveFromArgs(sourceId, targetId).asRight
-      }
-      case RemoveManyFrom(arrayField) => {
-        val id = opSelection.arguments.collectFirst {
-          case arg if arg.name == opTargetModel.primaryField.id =>
-            sangriaToJson(arg.value)
-        }
-        val items = opSelection.arguments.collectFirst {
-          case arg if arg.name == "items" => sangriaToJson(arg.value)
-        }
-        (id, items) match {
-          case (Some(id), Some(JsArray(items))) =>
-            RemoveManyFromArgs(id, items).asRight
-          case (None, Some(_)) =>
-            UserError(
-              s"REMOVE_MANY_FROM operation on field `${arrayField.id}` of model `${opTargetModel.id}` takes a `${opTargetModel.primaryField.id}` argument"
-            ).asLeft
-          case (Some(_), None) =>
-            UserError(
-              s"REMOVE_MANY_FROM operation on field `${arrayField.id}` of model `${opTargetModel.id}` takes an `items` array argument"
-            ).asLeft
-          case _ =>
-            UserError(
-              s"REMOVE_MANY_FROM operation on field `${arrayField.id}` of model `${opTargetModel.id}` takes `${opTargetModel.primaryField.id}` and `items` arguments"
-            ).asLeft
-        }
-      }
-      case domain.Update => {
-        val objId = opSelection.arguments.collectFirst {
-          case arg if arg.name == opTargetModel.primaryField.id =>
-            sangriaToJson(arg.value)
-        }
-        val data = opSelection.arguments.collectFirst {
-          case arg if arg.name == "data" => sangriaToJson(arg.value)
-        }
-        (objId, data) match {
-          case (Some(id), Some(data: JsObject)) =>
-            UpdateArgs(ObjectWithId(data, id)).asRight
-          case (None, _) =>
-            UserError(
-              s"UPDATE arguments must contain the ID of the object to be updated"
-            ).asLeft
-          case (_, None) =>
-            UserError(
-              s"UPDATE arguments must contain a `data` object"
-            ).asLeft
-          case _ =>
-            UserError(
-              s"UPDATE arguments must contain an ID and a `data` object"
-            ).asLeft
-        }
-      }
-      case UpdateMany => {
-        val items = opSelection.arguments.collectFirst {
-          case arg if arg.name == "items" => sangriaToJson(arg.value)
-        } match {
-          case Some(items) => items.asRight
-          case None =>
-            UserError("UPDATE_MANY operation takes an `items` argument").asLeft
-        }
-        val objectsWithIds = items.flatMap {
-          case JsArray(items) =>
-            items.traverse {
-              case JsObject(fields)
-                  if !fields.contains(opTargetModel.primaryField.id) =>
-                UserError(
-                  s"Objects in `items` array argument of UPDATE_MANY operation on model `${opTargetModel.id}` must contain a `${opTargetModel.primaryField.id}`"
-                ).asLeft
-              case _: JsNumber | JsNull | _: JsBoolean | _: JsArray =>
-                UserError(
-                  s"Values in `items` array argument of UPDATE_MANY operation must be objects containing `${opTargetModel.primaryField.id}`"
-                ).asLeft
-              case validObject @ JsObject(fields) =>
-                ObjectWithId(validObject, fields(opTargetModel.primaryField.id)).asRight
-            }
-          case _ =>
-            UserError(
-              "`items` argument of UPDATE_MANY operation must be an array"
-            ).asLeft
-        }
-        objectsWithIds.map(UpdateManyArgs(_))
-      }
-      case Login => ???
     }
+    case ReadMany => {
+      // TODO: Parse QueryWhere in Operations
+      val where = QueryWhere(None, None, None)
+      ReadManyArgs(Some(where)).asRight
+    }
+    case Create => {
+      val objToInsert =
+        objFieldsFrom(opSelection.arguments)
+          .find(_._1 == opTargetModel.id.small)
+          .map(_._2.asJsObject)
+
+      objToInsert match {
+        case Some(obj) => CreateArgs(obj).asRight
+        case _ =>
+          UserError(
+            s"Create mutation takes a `${opTargetModel.id.small}` argument"
+          ).asLeft
+      }
+    }
+    case CreateMany => {
+      val records =
+        objFieldsFrom(opSelection.arguments)
+          .find(_._1 == "items")
+          .map {
+            case (_, arr: JsArray) =>
+              arr.elements.map {
+                case obj: JsObject => obj
+                case nonObj =>
+                  throw InternalException(
+                    s"Trying to create a record with non-object value `$nonObj`"
+                  )
+              }
+            case _ =>
+              throw InternalException("Value `items` must be an array")
+          }
+          .getOrElse(
+            throw InternalException(
+              "CREATE_MANY operation arguments must have an `items` field"
+            )
+          )
+      CreateManyArgs(records).asRight
+    }
+    case PushTo(_) => {
+      val item = opSelection.arguments
+        .find(_.name == "item")
+        .map(arg => sangriaToJson(arg.value))
+        .getOrElse(
+          throw InternalException {
+            "Arguments of `PUSH_TO` operation must contain the item to be pushed"
+          }
+        )
+      val sourceId = opSelection.arguments
+        .find(_.name == opTargetModel.primaryField.id)
+        .map(arg => sangriaToJson(arg.value))
+        .getOrElse(
+          throw InternalException {
+            "Arguments of `PUSH_TO` operation must contain the ID of the array field object"
+          }
+        )
+      PushToArgs(sourceId, item).asRight
+    }
+    case PushManyTo(_) => {
+      val items = opSelection.arguments
+        .find(_.name == "items")
+        .map(_.value)
+        .map {
+          case ls: sangria.ast.ListValue => ls.values.map(sangriaToJson)
+          case _ =>
+            throw InternalException(
+              "`items` argument of `PUSH_MANY_TO` operation must be an array"
+            )
+        }
+        .getOrElse(
+          throw InternalException {
+            "Arguments of `PUSH_MANY_TO` operation must contain the items to be pushed"
+          }
+        )
+      val sourceId = opSelection.arguments
+        .find(_.name == opTargetModel.primaryField.id)
+        .map(arg => sangriaToJson(arg.value))
+        .getOrElse(
+          throw InternalException {
+            "Arguments of `PUSH_TO` operation must contain the ID of the array field object"
+          }
+        )
+      PushManyToArgs(sourceId, items).asRight
+    }
+    case Delete => {
+      val id = opSelection.arguments
+        .collectFirst {
+          case arg if arg.name == opTargetModel.primaryField.id =>
+            sangriaToJson(arg.value)
+        }
+        .getOrElse {
+          throw new InternalException(
+            "DELETE operation arguments must contain the ID of the record to be deleted"
+          )
+        }
+      DeleteArgs(id).asRight
+    }
+    case DeleteMany => {
+      val idsToDelete = opSelection.arguments.collectFirst {
+        case arg if arg.name == "items" => sangriaToJson(arg.value)
+      }
+      idsToDelete match {
+        case Some(arr: JsArray) => DeleteManyArgs(arr.elements).asRight
+        case _ =>
+          UserError(
+            "DELETE_MANY operation must have an `items` list argument"
+          ).asLeft
+      }
+    }
+    case RemoveFrom(_) => {
+      val sourceId = opSelection.arguments
+        .collectFirst {
+          case arg if arg.name == opTargetModel.primaryField.id =>
+            sangriaToJson(arg.value)
+        }
+        .getOrElse {
+          throw InternalException(
+            "REMOVE_FROM operation arguments must contain the ID of the parent object"
+          )
+        }
+      val targetId = opSelection.arguments
+        .collectFirst {
+          case arg if arg.name == "item" =>
+            sangriaToJson(arg.value)
+        }
+        .getOrElse {
+          throw InternalException(
+            "REMOVE_FROM operation arguments must contain the ID of the child object to remove"
+          )
+        }
+      RemoveFromArgs(sourceId, targetId).asRight
+    }
+    case RemoveManyFrom(arrayField) => {
+      val id = opSelection.arguments.collectFirst {
+        case arg if arg.name == opTargetModel.primaryField.id =>
+          sangriaToJson(arg.value)
+      }
+      val items = opSelection.arguments.collectFirst {
+        case arg if arg.name == "items" => sangriaToJson(arg.value)
+      }
+      (id, items) match {
+        case (Some(id), Some(JsArray(items))) =>
+          RemoveManyFromArgs(id, items).asRight
+        case (None, Some(_)) =>
+          UserError(
+            s"REMOVE_MANY_FROM operation on field `${arrayField.id}` of model `${opTargetModel.id}` takes a `${opTargetModel.primaryField.id}` argument"
+          ).asLeft
+        case (Some(_), None) =>
+          UserError(
+            s"REMOVE_MANY_FROM operation on field `${arrayField.id}` of model `${opTargetModel.id}` takes an `items` array argument"
+          ).asLeft
+        case _ =>
+          UserError(
+            s"REMOVE_MANY_FROM operation on field `${arrayField.id}` of model `${opTargetModel.id}` takes `${opTargetModel.primaryField.id}` and `items` arguments"
+          ).asLeft
+      }
+    }
+    case domain.Update => {
+      val objId = opSelection.arguments.collectFirst {
+        case arg if arg.name == opTargetModel.primaryField.id =>
+          sangriaToJson(arg.value)
+      }
+      val data = opSelection.arguments.collectFirst {
+        case arg if arg.name == "data" => sangriaToJson(arg.value)
+      }
+      (objId, data) match {
+        case (Some(id), Some(data: JsObject)) =>
+          UpdateArgs(ObjectWithId(data, id)).asRight
+        case (None, _) =>
+          UserError(
+            s"UPDATE arguments must contain the ID of the object to be updated"
+          ).asLeft
+        case (_, None) =>
+          UserError(
+            s"UPDATE arguments must contain a `data` object"
+          ).asLeft
+        case _ =>
+          UserError(
+            s"UPDATE arguments must contain an ID and a `data` object"
+          ).asLeft
+      }
+    }
+    case UpdateMany => {
+      val items = opSelection.arguments.collectFirst {
+        case arg if arg.name == "items" => sangriaToJson(arg.value)
+      } match {
+        case Some(items) => items.asRight
+        case None =>
+          UserError("UPDATE_MANY operation takes an `items` argument").asLeft
+      }
+      val objectsWithIds = items.flatMap {
+        case JsArray(items) =>
+          items.traverse {
+            case JsObject(fields)
+                if !fields.contains(opTargetModel.primaryField.id) =>
+              UserError(
+                s"Objects in `items` array argument of UPDATE_MANY operation on model `${opTargetModel.id}` must contain a `${opTargetModel.primaryField.id}`"
+              ).asLeft
+            case _: JsNumber | JsNull | _: JsBoolean | _: JsArray =>
+              UserError(
+                s"Values in `items` array argument of UPDATE_MANY operation must be objects containing `${opTargetModel.primaryField.id}`"
+              ).asLeft
+            case validObject @ JsObject(fields) =>
+              ObjectWithId(validObject, fields(opTargetModel.primaryField.id)).asRight
+          }
+        case _ =>
+          UserError(
+            "`items` argument of UPDATE_MANY operation must be an array"
+          ).asLeft
+      }
+      objectsWithIds.map(UpdateManyArgs(_))
+    }
+    case Login => ???
+  }
 
   private def parseInnerOpArgs(
       opTargetModel: PModel,

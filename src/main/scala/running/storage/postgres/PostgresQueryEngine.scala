@@ -184,9 +184,9 @@ class PostgresQueryEngine[M[_]: Monad](
       columns <- primFields
       columnSql = columns.map(_._1.id.withQuotes).mkString(", ")
       set = setJsValues(columns.map(_._2))
-      insertSql = s"INSERT INTO ${model.id.withQuotes} (${columnSql}) VALUES (" +
-        List.fill(columns.length)("?").mkString(", ") +
-        s") RETURNING ${model.primaryField.id.withQuotes};"
+      insertSql = s"""|INSERT INTO ${model.id.withQuotes} ($columnSql) VALUES (
+                      |${List.fill(columns.length)("?").mkString(", ")}
+                      |) RETURNING ${model.primaryField.id.withQuotes};""".stripMargin
       rowId <- HC
         .stream(insertSql, set, 1)
         .head
@@ -568,10 +568,15 @@ class PostgresQueryEngine[M[_]: Monad](
       arrayField: PModelField,
       arrayInnerOp: InnerOperation
   ): Query[Vector[JsValue]] = {
+    val tableName = baseModel.id
+      .concat("_")
+      .concat(arrayInnerOp.targetField.field.id)
+      .withQuotes
     val sql =
-      s"SELECT ${("target_" + arrayInnerOp.targetModel.id).withQuotes} " +
-        s"FROM ${baseModel.id.concat("_").concat(arrayInnerOp.targetField.field.id).withQuotes} " +
-        s"WHERE ${("source_" + baseModel.id).withQuotes} = ?"
+      s"""|SELECT ${("target_" + arrayInnerOp.targetModel.id).withQuotes}
+          |FROM $tableName
+          |WHERE ${("source_" + baseModel.id).withQuotes} = ?;
+          """.stripMargin
 
     val prep = setJsValue(baseRecordId)
     val joinRecords = HC.stream(sql, prep, 200)

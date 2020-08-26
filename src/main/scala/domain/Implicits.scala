@@ -5,7 +5,6 @@ import spray.json.DefaultJsonProtocol._
 import org.graalvm.polyglot
 import scala.util.{Try, Success, Failure}
 import domain.utils.InternalException
-import running.JwtPaylod
 import cats.kernel.Eq
 
 object DomainImplicits {
@@ -39,7 +38,7 @@ object DomainImplicits {
   implicit class StringMethods(s: String) {
     import sys.process._
     def small = if (s.isEmpty) s else s.updated(0, s.head.toLower)
-    def decodeJwt = JwtPaylod.decode(s)
+
     def $(msg: String, logsHandler: String => Unit = _ => ()) =
       s ! ProcessLogger(logsHandler) match {
         case 1 => Failure(new Exception(msg))

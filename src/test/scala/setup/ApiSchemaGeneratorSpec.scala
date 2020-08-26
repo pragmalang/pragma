@@ -121,7 +121,7 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       }
       
       type BusinessMutations {
-        login(publicCredential: String!, password: String!): String!
+        loginByEmail(email: String!, password: String!): String!
         create(business: BusinessInput!): Business!
         update(email: String!, business: BusinessInput!): Business!
         delete(email: String!): Business!

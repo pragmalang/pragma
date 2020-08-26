@@ -130,4 +130,5 @@ abstract class QueryEngine[S, M[_]: Monad] {
       primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
   ): Query[JsObject]
+
 }
