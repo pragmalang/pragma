@@ -131,4 +131,11 @@ abstract class QueryEngine[S, M[_]: Monad] {
       innerReadOps: Vector[InnerOperation]
   ): Query[JsObject]
 
+  def login(
+      model: PModel,
+      publicCredentialField: PModelField,
+      publicCredentialValue: JsString,
+      secretCredentialValue: Option[String]
+  ): Query[JsObject]
+
 }

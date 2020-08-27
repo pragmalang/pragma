@@ -73,15 +73,15 @@ object Operations {
 
   private def opSelectionEvent(opSelection: String, model: PModel): PEvent =
     opSelection match {
-      case "read"       => Read
-      case "list"       => ReadMany
-      case "create"     => Create
-      case "createMany" => CreateMany
-      case "update"     => Update
-      case "updateMany" => UpdateMany
-      case "delete"     => Delete
-      case "deleteMany" => DeleteMany
-      case "login"      => Login
+      case "read"                      => Read
+      case "list"                      => ReadMany
+      case "create"                    => Create
+      case "createMany"                => CreateMany
+      case "update"                    => Update
+      case "updateMany"                => UpdateMany
+      case "delete"                    => Delete
+      case "deleteMany"                => DeleteMany
+      case s if s startsWith "loginBy" => Login
       case s if s startsWith "pushTo" =>
         PushTo(captureListField(model, s.replace("pushTo", "")))
       case s if s startsWith "pushManyTo" =>
@@ -623,7 +623,26 @@ object Operations {
       }
       objectsWithIds.map(UpdateManyArgs(_))
     }
-    case Login => ???
+    case Login => {
+      val publicCredentialField =
+        opTargetModel.fields.find(_.id == opSelection.arguments.head.name).get
+      val publicCredentialFieldValue = sangriaToJson(
+        opSelection.arguments.head.value
+      )
+
+      val secretCredentialField =
+        opTargetModel.secretCredentialField
+          .flatMap { field =>
+            opSelection.arguments.find(_.name == field.id)
+          }
+          .map(arg => sangriaToJson(arg.value))
+
+      LoginArgs(
+        publicCredentialField,
+        publicCredentialFieldValue,
+        secretCredentialField
+      ).asRight
+    }
   }
 
   private def parseInnerOpArgs(
