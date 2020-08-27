@@ -1,6 +1,6 @@
 package parsing
 
-import domain._, utils._
+import domain._, domain.utils._, domain.DomainImplicits._
 import parsing.utils.DependencyGraph
 import scala.util._
 
@@ -92,18 +92,23 @@ class Validator(constructs: List[PConstruct]) {
     if (!errors.isEmpty) throw new UserError(errors)
   }
 
-  // Check that no two constructs have the same id.
+  /** Check that no two constructs have the same id. */
   def checkIdentity(
-      identifiables: Seq[Identifiable with Positioned]
+      xs: Seq[Identifiable with Positioned]
   ): List[ErrorMessage] =
-    identifiables
-      .foldLeft((Set.empty[String], List.empty[ErrorMessage]))(
+    xs.foldLeft((Set.empty[String], List.empty[ErrorMessage]))(
         (acc, construct) =>
           if (acc._1(construct.id))
             (
               acc._1,
               acc._2 :+
                 s"`${construct.id}` is defined twice" -> construct.position
+            )
+          else if (acc._1(construct.id.small) | acc._1(construct.id.capitalize))
+            (
+              acc._1,
+              acc._2 :+
+                s"The identifier `${construct.id}` appears in two positions with the difference in the case of the first character. This causes usability issues in the generated API" -> construct.position
             )
           else (acc._1 + construct.id, acc._2)
       )
@@ -115,7 +120,7 @@ class Validator(constructs: List[PConstruct]) {
     else Success(())
   }
 
-  // Check that no two fields of a model have the same id.
+  /** Check that no two fields of a model have the same id. */
   def checkModelFieldIdentity: Try[Unit] = Try {
     val errors = st.models.map(m => checkIdentity(m.fields))
     if (!errors.isEmpty) throw new UserError(errors.flatten)

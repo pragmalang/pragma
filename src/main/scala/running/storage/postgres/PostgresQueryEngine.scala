@@ -11,7 +11,6 @@ import cats.effect._
 import spray.json._
 import domain.DomainImplicits._
 import running.RunningImplicits.PValueJsonWriter
-import running.RunningImplicits.JwtPaylodJsonFormater
 
 class PostgresQueryEngine[M[_]: Monad](
     transactor: Transactor[M],
@@ -124,39 +123,51 @@ class PostgresQueryEngine[M[_]: Monad](
 
   override def runQuery[A](query: Query[A]): M[A] = query.transact(transactor)
 
-  private[postgres] def jwtLogin(
-      model: PModel,
-      publicCredentialField: PModelField,
-      publicCredentialValue: JsString,
-      secretCredentialValue: Option[String]
-  ): Query[JwtPayload] = {
-
-    val query = model.secretCredentialField match {
-      case Some(secretCredentialField) =>
-        s"""|SELECT ${model.primaryField.id.withQuotes} FROM ${model.id.withQuotes}
-            |WHERE ${publicCredentialField.id.withQuotes} = ? AND ${secretCredentialField.id.withQuotes} = ?;
-            |""".stripMargin
-      case None =>
-        s"""|SELECT ${model.primaryField.id.withQuotes} FROM ${model.id.withQuotes}
-            |WHERE ${publicCredentialField.id.withQuotes} = ?;
-            |""".stripMargin
-    }
-
-    ???
-  }
-
   override def login(
       model: PModel,
       publicCredentialField: PModelField,
-      publicCredentialValue: JsString,
+      publicCredentialValue: String,
       secretCredentialValue: Option[String]
-  ): Query[JsObject] =
-    jwtLogin(
-      model,
-      publicCredentialField,
-      publicCredentialValue,
-      secretCredentialValue
-    ).map(payload => JwtPaylodJsonFormater.write(payload).asJsObject)
+  ): Query[JsObject] = {
+    val (sql, prep) =
+      model.secretCredentialField zip secretCredentialValue match {
+        case Some((scField, scValue)) => {
+          val sql =
+            s"""|SELECT ${model.primaryField.id.withQuotes} FROM ${model.id.withQuotes}
+                |WHERE ${publicCredentialField.id.withQuotes} = ? AND ${scField.id.withQuotes} = ?;
+                |""".stripMargin
+          val prep = HPS.set(1, publicCredentialValue) *> HPS.set(2, scValue)
+          sql -> prep
+        }
+        case None => {
+          val sql =
+            s"""|SELECT ${model.primaryField.id.withQuotes} FROM ${model.id.withQuotes}
+                |WHERE ${publicCredentialField.id.withQuotes} = ?;
+                |""".stripMargin
+          sql -> HPS.set(publicCredentialValue)
+        }
+      }
+
+    HC.stream(sql, prep, 1)
+      .head
+      .compile
+      .toList
+      .map { resList =>
+        val JsObject(fields) = resList.head
+        JsObject(
+          "userId" -> fields(model.primaryField.id),
+          "role" -> JsString(model.id)
+        )
+      }
+      .recoverWith {
+        case _ =>
+          queryError {
+            UserError(
+              s"Cannot find `${model.id}` with public credential `${publicCredentialField.id}` of value `$publicCredentialValue`"
+            )
+          }
+      }
+  }
 
   override def createManyRecords(
       model: PModel,

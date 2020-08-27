@@ -73,11 +73,11 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
        |
        |ALTER TABLE "Todo_renderSQL" ADD COLUMN "title" TEXT NOT NULL PRIMARY KEY;
        |
-       |ALTER TABLE "User_renderSQL" ADD COLUMN "username" TEXT NOT NULL PRIMARY KEY;
+       |ALTER TABLE "User_renderSQL" ADD COLUMN "username" TEXT NOT NULL UNIQUE PRIMARY KEY;
        |
        |ALTER TABLE "User_renderSQL" ADD COLUMN "id" UUID NOT NULL DEFAULT uuid_generate_v4 ();
        |
-       |ALTER TABLE "User_renderSQL" ADD COLUMN "password" TEXT NOT NULL;
+       |ALTER TABLE "User_renderSQL" ADD COLUMN "password" TEXT NOT NULL UNIQUE;
        |
        |ALTER TABLE "User_renderSQL" ADD COLUMN "isVerified" BOOL NOT NULL;
        |
@@ -131,7 +131,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
             "username",
             PostgresType.TEXT,
             true,
-            false,
+            true,
             true,
             false,
             false,
@@ -176,7 +176,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
             "password",
             PostgresType.TEXT,
             true,
-            false,
+            true,
             false,
             false,
             false,
@@ -479,7 +479,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
               "password",
               PostgresType.TEXT,
               true,
-              false,
+              true,
               false,
               false,
               false,

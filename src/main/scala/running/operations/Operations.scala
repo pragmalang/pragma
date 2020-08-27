@@ -394,7 +394,7 @@ object Operations {
       event: PEvent,
       opTargetModel: PModel,
       opSelection: FieldSelection
-  ): Either[Exception, OpArgs[PEvent]] = event match {
+  ): Either[InternalException, OpArgs[PEvent]] = event match {
     case domain.Read => {
       val id =
         opSelection.arguments
@@ -403,7 +403,7 @@ object Operations {
       id match {
         case Some(value) => ReadArgs(sangriaToJson(value)).asRight
         case _ =>
-          UserError(
+          InternalException(
             "Arguments of Read operation should contain the ID of the record to read"
           ).asLeft
       }
@@ -422,7 +422,7 @@ object Operations {
       objToInsert match {
         case Some(obj) => CreateArgs(obj).asRight
         case _ =>
-          UserError(
+          InternalException(
             s"Create mutation takes a `${opTargetModel.id.small}` argument"
           ).asLeft
       }
@@ -515,7 +515,7 @@ object Operations {
       idsToDelete match {
         case Some(arr: JsArray) => DeleteManyArgs(arr.elements).asRight
         case _ =>
-          UserError(
+          InternalException(
             "DELETE_MANY operation must have an `items` list argument"
           ).asLeft
       }
@@ -555,15 +555,15 @@ object Operations {
         case (Some(id), Some(JsArray(items))) =>
           RemoveManyFromArgs(id, items).asRight
         case (None, Some(_)) =>
-          UserError(
+          InternalException(
             s"REMOVE_MANY_FROM operation on field `${arrayField.id}` of model `${opTargetModel.id}` takes a `${opTargetModel.primaryField.id}` argument"
           ).asLeft
         case (Some(_), None) =>
-          UserError(
+          InternalException(
             s"REMOVE_MANY_FROM operation on field `${arrayField.id}` of model `${opTargetModel.id}` takes an `items` array argument"
           ).asLeft
         case _ =>
-          UserError(
+          InternalException(
             s"REMOVE_MANY_FROM operation on field `${arrayField.id}` of model `${opTargetModel.id}` takes `${opTargetModel.primaryField.id}` and `items` arguments"
           ).asLeft
       }
@@ -580,15 +580,15 @@ object Operations {
         case (Some(id), Some(data: JsObject)) =>
           UpdateArgs(ObjectWithId(data, id)).asRight
         case (None, _) =>
-          UserError(
+          InternalException(
             s"UPDATE arguments must contain the ID of the object to be updated"
           ).asLeft
         case (_, None) =>
-          UserError(
+          InternalException(
             s"UPDATE arguments must contain a `data` object"
           ).asLeft
         case _ =>
-          UserError(
+          InternalException(
             s"UPDATE arguments must contain an ID and a `data` object"
           ).asLeft
       }
@@ -599,49 +599,64 @@ object Operations {
       } match {
         case Some(items) => items.asRight
         case None =>
-          UserError("UPDATE_MANY operation takes an `items` argument").asLeft
+          InternalException("UPDATE_MANY operation takes an `items` argument").asLeft
       }
       val objectsWithIds = items.flatMap {
         case JsArray(items) =>
           items.traverse {
             case JsObject(fields)
                 if !fields.contains(opTargetModel.primaryField.id) =>
-              UserError(
+              InternalException(
                 s"Objects in `items` array argument of UPDATE_MANY operation on model `${opTargetModel.id}` must contain a `${opTargetModel.primaryField.id}`"
               ).asLeft
             case _: JsNumber | JsNull | _: JsBoolean | _: JsArray =>
-              UserError(
+              InternalException(
                 s"Values in `items` array argument of UPDATE_MANY operation must be objects containing `${opTargetModel.primaryField.id}`"
               ).asLeft
             case validObject @ JsObject(fields) =>
               ObjectWithId(validObject, fields(opTargetModel.primaryField.id)).asRight
           }
         case _ =>
-          UserError(
+          InternalException(
             "`items` argument of UPDATE_MANY operation must be an array"
           ).asLeft
       }
       objectsWithIds.map(UpdateManyArgs(_))
     }
     case Login => {
-      val publicCredentialField =
-        opTargetModel.fields.find(_.id == opSelection.arguments.head.name).get
-      val publicCredentialFieldValue = sangriaToJson(
-        opSelection.arguments.head.value
-      )
+      val credentials =
+        (opSelection.arguments, opTargetModel.secretCredentialField) match {
+          case (Vector(publicCredentialArg), None) =>
+            (
+              opTargetModel.fieldsById(publicCredentialArg.name),
+              sangriaToJson(publicCredentialArg.value),
+              None
+            ).asRight
+          case (Vector(arg1, arg2), Some(secretCredentialField))
+              if arg1.name == secretCredentialField.id =>
+            (
+              opTargetModel.fieldsById(arg2.name),
+              sangriaToJson(arg2.value),
+              Some(sangriaToJson(arg1.value))
+            ).asRight
+          case (Vector(arg1, arg2), Some(secretCredentialField))
+              if arg2.name == secretCredentialField.id =>
+            (
+              opTargetModel.fieldsById(arg1.name),
+              sangriaToJson(arg1.value),
+              Some(sangriaToJson(arg2.value))
+            ).asRight
+          case _ =>
+            InternalException("Invalid argument list in operation `LOGIN`").asLeft
+        }
 
-      val secretCredentialField =
-        opTargetModel.secretCredentialField
-          .flatMap { field =>
-            opSelection.arguments.find(_.name == field.id)
-          }
-          .map(arg => sangriaToJson(arg.value))
-
-      LoginArgs(
-        publicCredentialField,
-        publicCredentialFieldValue,
-        secretCredentialField
-      ).asRight
+      credentials.map { credentials =>
+        LoginArgs(
+          publicCredentialField = credentials._1,
+          publicCredentialValue = credentials._2,
+          secretCredentialValue = credentials._3
+        )
+      }
     }
   }
 

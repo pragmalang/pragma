@@ -290,7 +290,7 @@ case class PostgresMigration(
                   name = field.id,
                   dataType = postgresType,
                   isNotNull = !field.isOptional,
-                  isUnique = field.isUnique,
+                  isUnique = field.isUnique || field.isPublicCredential || field.isSecretCredential,
                   isPrimaryKey = field.isPrimary,
                   isAutoIncrement = field.isAutoIncrement,
                   isUUID = field.isUUID,

@@ -134,7 +134,7 @@ abstract class QueryEngine[S, M[_]: Monad] {
   def login(
       model: PModel,
       publicCredentialField: PModelField,
-      publicCredentialValue: JsString,
+      publicCredentialValue: String,
       secretCredentialValue: Option[String]
   ): Query[JsObject]
 
