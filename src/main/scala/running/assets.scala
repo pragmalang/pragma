@@ -543,7 +543,7 @@ package object assets {
 </html>
     """
 
-  val asciiLogo = Console.BOLD + """
+  val asciiLogo = Console.BOLD + Console.MAGENTA + """
  ___________________
 |______Pragma_____  |
  ______________   | |

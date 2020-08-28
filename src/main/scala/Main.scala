@@ -59,28 +59,31 @@ object Main extends IOApp {
   def buildMigrationEngine(
       prevTree: SyntaxTree,
       currentTree: SyntaxTree,
-      transactor: Resource[IO, HikariTransactor[IO]]
+      transactor: Resource[IO, HikariTransactor[IO]],
+      queryEngine: PostgresQueryEngine[IO]
   ): Resource[IO, PostgresMigrationEngine[IO]] =
     transactor map { t =>
-      new PostgresMigrationEngine[IO](t, prevTree, currentTree)
+      new PostgresMigrationEngine[IO](t, prevTree, currentTree, queryEngine)
     }
 
   def buildQueryEngine(
       currentTree: SyntaxTree,
-      transactor: Resource[IO, HikariTransactor[IO]]
+      transactor: Resource[IO, HikariTransactor[IO]],
+      jc: JwtCodec
   ): Resource[IO, PostgresQueryEngine[IO]] =
     transactor map { t =>
-      new PostgresQueryEngine[IO](t, currentTree)
+      new PostgresQueryEngine[IO](t, currentTree, jc)
     }
 
   def buildStorage(
       prevTree: SyntaxTree,
       currentTree: SyntaxTree,
-      transactor: Resource[IO, HikariTransactor[IO]]
+      transactor: Resource[IO, HikariTransactor[IO]],
+      jc: JwtCodec
   ): Resource[IO, Postgres[IO]] =
     for {
-      qe <- buildQueryEngine(currentTree, transactor)
-      me <- buildMigrationEngine(prevTree, currentTree, transactor)
+      qe <- buildQueryEngine(currentTree, transactor, jc)
+      me <- buildMigrationEngine(prevTree, currentTree, transactor, qe)
     } yield new Postgres[IO](me, qe)
 
   override def run(args: List[String]): IO[ExitCode] =
@@ -213,14 +216,17 @@ object Main extends IOApp {
             case RunMode.Dev                       => SyntaxTree.empty
           }
 
-          val storage =
-            transactor.map(t => buildStorage(prevTree, currentTree, t))
+          val storage = for {
+            t <- transactor
+            jc <- jwtCodec
+          } yield buildStorage(prevTree, currentTree, t, jc)
 
-          val migrate = storage
-            .flatMap { s =>
-              s.use(_.migrate)
-                .map(_.toTry)
-            }
+          val migrate: IO[Try[Unit]] =
+            storage
+              .flatMap { s =>
+                s.use(_.migrate)
+                  .map(_.toTry)
+              }
 
           val writePrevTree =
             if (prevTreeExists)

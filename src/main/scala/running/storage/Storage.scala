@@ -136,6 +136,6 @@ abstract class QueryEngine[S, M[_]: Monad] {
       publicCredentialField: PModelField,
       publicCredentialValue: JsValue,
       secretCredentialValue: Option[String]
-  ): Query[JsObject]
+  ): Query[JsString]
 
 }

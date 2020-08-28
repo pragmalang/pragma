@@ -214,6 +214,7 @@ class RequestHandler[S, M[_]: Monad](
           }
       case JsArray(elements) =>
         elements.traverse(applyReadHooks(op, _)).map(JsArray(_))
+      case s: JsString => s.asRight
       case _ =>
         InternalException(
           s"Result of ${op.event} operation must either be an array or an object"

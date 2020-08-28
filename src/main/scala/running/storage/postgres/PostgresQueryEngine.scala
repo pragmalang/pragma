@@ -14,7 +14,8 @@ import running.RunningImplicits.PValueJsonWriter
 
 class PostgresQueryEngine[M[_]: Monad](
     transactor: Transactor[M],
-    st: SyntaxTree
+    st: SyntaxTree,
+    jc: JwtCodec
 )(implicit bracket: Bracket[M, Throwable])
     extends QueryEngine[Postgres[M], M] {
   import PostgresQueryEngine._
@@ -135,7 +136,7 @@ class PostgresQueryEngine[M[_]: Monad](
       publicCredentialField: PModelField,
       publicCredentialValue: JsValue,
       secretCredentialValue: Option[String]
-  ): Query[JsObject] = {
+  ): Query[JsString] = {
     val (sql, prep) =
       model.secretCredentialField zip secretCredentialValue match {
         case Some((scField, scValue)) => {
@@ -161,10 +162,11 @@ class PostgresQueryEngine[M[_]: Monad](
       .toList
       .map { resList =>
         val JsObject(fields) = resList.head
-        JsObject(
-          "userId" -> fields(model.primaryField.id),
-          "role" -> JsString(model.id)
+        val jp = JwtPayload(
+          userId = fields(model.primaryField.id),
+          role = model.id
         )
+        JsString(jc.encode(jp))
       }
       .recoverWith {
         case _ =>
