@@ -52,23 +52,37 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
   def modelMutationsTypes: Iterable[Definition] =
     syntaxTree.models.map(model => {
 
-      val login = if (model.isUser) {
-        val secretCredentialField = model.fields
-          .find(_.isSecretCredential)
-          .get
-        Some(
-          graphQlField(
-            nameTransformer = _ => "login",
-            args = Map(
-              "publicCredential" -> builtinType(StringScalar),
-              secretCredentialField.id -> fieldType(
-                secretCredentialField.ptype
-              )
-            ),
-            fieldType = builtinType(StringScalar)
-          )(model.id)
-        )
-      } else None
+      val publicCredentialFields = model.fields.filter(_.isPublicCredential)
+
+      val logins = publicCredentialFields.map {
+        field =>
+          val secretCredentialField = model.fields
+            .find(_.isSecretCredential)
+
+          val transformedFieldId = capitalizeFieldName(
+            publicCredentialFields.toList,
+            field
+          )
+
+          if (model.isUser)
+            Some(
+              graphQlField(
+                nameTransformer = _ => s"loginBy${transformedFieldId}",
+                args = secretCredentialField match {
+                  case None =>
+                    Map(field.id -> builtinType(StringScalar))
+                  case Some(secretCredentialField) =>
+                    Map(
+                      field.id -> builtinType(StringScalar),
+                      secretCredentialField.id ->
+                        fieldType(secretCredentialField.ptype)
+                    )
+                },
+                fieldType = builtinType(StringScalar)
+              )(model.id)
+            )
+          else None
+      }
 
       val create = Some(
         graphQlField(
@@ -157,12 +171,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         .flatMap(f => {
           val listFieldInnerType = f.ptype.asInstanceOf[PArray].ptype
           val transformedFieldId =
-            if (modelListFields
-                  .filter(_.id.toLowerCase == f.id.toLowerCase)
-                  .length > 1)
-              f.id
-            else
-              f.id.capitalize
+            capitalizeFieldName(modelListFields.toList, f)
 
           val pushTo = Some(
             graphQlField(
@@ -229,14 +238,15 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         .toVector
 
       val fields: Vector[FieldDefinition] = (Vector(
-        login,
         create,
         update,
         delete,
         createMany,
         updateMany,
         deleteMany
-      ) :++ modelListFieldOperations).collect { case Some(value) => value }
+      ) :++ modelListFieldOperations :++ logins).collect {
+        case Some(value) => value
+      }
 
       ObjectTypeDefinition(s"${model.id}Mutations", Vector.empty, fields)
     })
@@ -579,6 +589,14 @@ object ApiSchemaGenerator {
       isOptional: Boolean,
       tpe: Type
   )
+
+  def capitalizeFieldName(fields: List[PModelField], f: PModelField) =
+    if (fields
+          .filter(_.id.toLowerCase == f.id.toLowerCase)
+          .length > 1)
+      f.id
+    else
+      f.id.capitalize
 
   trait SchemaBuildOutput
   case object AsDocument extends SchemaBuildOutput

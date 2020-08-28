@@ -17,9 +17,12 @@ import doobie.util.fragment.Fragment
 class PostgresMigrationEngine[M[_]: Monad](
     transactor: Transactor[M],
     prevSyntaxTree: SyntaxTree,
-    currentSyntaxTree: SyntaxTree
-)(implicit bracket: Bracket[M, Throwable], cs: ContextShift[M])
-    extends MigrationEngine[Postgres[M], M] {
+    currentSyntaxTree: SyntaxTree,
+    queryEngine: PostgresQueryEngine[M]
+)(
+    implicit bracket: Bracket[M, Throwable],
+    cs: ContextShift[M]
+) extends MigrationEngine[Postgres[M], M] {
 
   override def migrate: M[Either[Throwable, Unit]] = {
     val thereExistDataM: M[Map[ModelId, Boolean]] =
@@ -45,7 +48,7 @@ class PostgresMigrationEngine[M[_]: Monad](
       thereExistData <- thereExistDataM
       result <- migration(prevSyntaxTree, thereExistData) match {
         case Left(e)          => Monad[M].pure(e.asLeft)
-        case Right(migration) => migration.run[M](transactor).map(_.asRight)
+        case Right(migration) => migration.run(transactor).map(_.asRight)
       }
     } yield result
   }
@@ -56,12 +59,13 @@ class PostgresMigrationEngine[M[_]: Monad](
   def migration(
       prevTree: SyntaxTree,
       thereExistData: Map[ModelId, Boolean]
-  ): Either[Throwable, PostgresMigration] =
+  ): Either[Throwable, PostgresMigration[M]] =
     inferedMigrationSteps(currentSyntaxTree, prevTree, thereExistData) map {
       PostgresMigration(
         _,
         prevTree,
-        currentSyntaxTree
+        currentSyntaxTree,
+        queryEngine
       )
     }
 
@@ -284,9 +288,10 @@ class PostgresMigrationEngine[M[_]: Monad](
 object PostgresMigrationEngine {
   def initialMigration[M[_]: Monad](
       t: Transactor[M],
-      st: SyntaxTree
+      st: SyntaxTree,
+      queryEngine: PostgresQueryEngine[M]
   )(implicit bracket: Bracket[M, Throwable], cs: ContextShift[M]) =
-    new PostgresMigrationEngine[M](t, SyntaxTree.empty, st)
+    new PostgresMigrationEngine[M](t, SyntaxTree.empty, st, queryEngine)
 }
 
 /**

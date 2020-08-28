@@ -45,6 +45,7 @@ class RequestOperations extends AnyFlatSpec {
                 }
             }
         }
+
         mutation updateTodo {
             Todo {
                 update(title: "22234", data: {
@@ -53,6 +54,17 @@ class RequestOperations extends AnyFlatSpec {
                     content
                 }
             }
+        }
+
+        mutation loginAnas {
+          User {
+            loginByUsername(username: "Anas") {
+              username
+              friend {
+                username
+              }
+            }
+          }
         }
         """
     val request = Request(
@@ -74,11 +86,11 @@ class RequestOperations extends AnyFlatSpec {
         }
       case Right(ops) => {
         // Number of operation groups
-        assert(ops.values.flatten.size == 2)
+        assert(ops.values.flatten.size == 3)
 
         assert(
           ops.flatMap(_._2.values.flatten.map(_.event)) ===
-            List(Read, Update)
+            List(Read, Update, Login)
         )
 
         assert(
@@ -97,6 +109,14 @@ class RequestOperations extends AnyFlatSpec {
             )
           )
         )
+
+        val anasLoginArgs = ops(Some("loginAnas"))("User").head.opArguments
+          .asInstanceOf[LoginArgs]
+
+        assert(anasLoginArgs.publicCredentialField.id == "username")
+        assert(anasLoginArgs.secretCredentialValue == None)
+        assert(anasLoginArgs.publicCredentialValue == JsString("Anas"))
+
       }
     }
 

@@ -4,12 +4,9 @@ import pdi.jwt.{Jwt, JwtAlgorithm}
 import spray.json._
 import RunningImplicits._
 
-case class JwtPayload(userId: JsValue, role: String) {
-  def encode = JwtPaylod.encode(this)
-}
+case class JwtPayload(userId: JsValue, role: String)
 
-object JwtPaylod {
-  val secret = sys.env("PRAGMA_SECRET")
+class JwtCodec(secret: String) {
   def decode(token: String) =
     Jwt
       .decodeRawAll(token, secret, Seq(JwtAlgorithm.HS256))

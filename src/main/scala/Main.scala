@@ -2,7 +2,7 @@ import scala.util._
 import domain.utils._
 import org.parboiled2.Position
 import domain._
-import running.Server
+import running._
 import org.parboiled2.ParseError
 import cats.effect._
 import cats.implicits._
@@ -59,28 +59,31 @@ object Main extends IOApp {
   def buildMigrationEngine(
       prevTree: SyntaxTree,
       currentTree: SyntaxTree,
-      transactor: Resource[IO, HikariTransactor[IO]]
+      transactor: Resource[IO, HikariTransactor[IO]],
+      queryEngine: PostgresQueryEngine[IO]
   ): Resource[IO, PostgresMigrationEngine[IO]] =
     transactor map { t =>
-      new PostgresMigrationEngine[IO](t, prevTree, currentTree)
+      new PostgresMigrationEngine[IO](t, prevTree, currentTree, queryEngine)
     }
 
   def buildQueryEngine(
       currentTree: SyntaxTree,
-      transactor: Resource[IO, HikariTransactor[IO]]
+      transactor: Resource[IO, HikariTransactor[IO]],
+      jc: JwtCodec
   ): Resource[IO, PostgresQueryEngine[IO]] =
     transactor map { t =>
-      new PostgresQueryEngine[IO](t, currentTree)
+      new PostgresQueryEngine[IO](t, currentTree, jc)
     }
 
   def buildStorage(
       prevTree: SyntaxTree,
       currentTree: SyntaxTree,
-      transactor: Resource[IO, HikariTransactor[IO]]
+      transactor: Resource[IO, HikariTransactor[IO]],
+      jc: JwtCodec
   ): Resource[IO, Postgres[IO]] =
     for {
-      qe <- buildQueryEngine(currentTree, transactor)
-      me <- buildMigrationEngine(prevTree, currentTree, transactor)
+      qe <- buildQueryEngine(currentTree, transactor, jc)
+      me <- buildMigrationEngine(prevTree, currentTree, transactor, qe)
     } yield new Postgres[IO](me, qe)
 
   override def run(args: List[String]): IO[ExitCode] =
@@ -98,6 +101,7 @@ object Main extends IOApp {
       val POSTGRES_URL = sys.env.get("POSTGRES_URL")
       val POSTGRES_USER = sys.env.get("POSTGRES_USER")
       val POSTGRES_PASSWORD = sys.env.get("POSTGRES_PASSWORD")
+      val PRAGMA_SECRET = sys.env.get("PRAGMA_SECRET")
 
       val missingEnvVars =
         List(
@@ -107,10 +111,15 @@ object Main extends IOApp {
             "POSTGRES_PASSWORD",
             POSTGRES_PASSWORD,
             "Your PostgreSQL DB password"
+          ),
+          (
+            "PRAGMA_SECRET",
+            PRAGMA_SECRET,
+            "A secret for your app, used for authentication"
           )
-        ).filter(!_._2.isDefined)
-          .map(v => v._1 -> v._3)
-          .toList
+        ).collect {
+          case (name, None, desc) => name -> desc
+        }.toList
 
       val onBuildTransactorError: PartialFunction[Throwable, IO[Unit]] = _ =>
         IO {
@@ -120,15 +129,27 @@ object Main extends IOApp {
           sys.exit(1)
         }
 
-      val transactor =
-        (config.mode, POSTGRES_URL, POSTGRES_USER, POSTGRES_PASSWORD) match {
-          case (_, Some(url), Some(username), Some(password)) =>
-            IO(buildTransactor(url, username, password))
-              .onError(onBuildTransactorError)
-          case (RunMode.Dev, _, _, _) =>
-            IO(buildTransactor("localhost:5433/test", "test", "test"))
-              .onError(onBuildTransactorError)
-          case (RunMode.Prod, _, _, _) =>
+      val transactorAndJwtCodec =
+        (
+          config.mode,
+          POSTGRES_URL,
+          POSTGRES_USER,
+          POSTGRES_PASSWORD,
+          PRAGMA_SECRET
+        ) match {
+          case (_, Some(url), Some(username), Some(password), Some(secret)) =>
+            IO {
+              buildTransactor(url, username, password) -> new JwtCodec(secret)
+            }.onError(onBuildTransactorError)
+          case (RunMode.Dev, _, _, _, _) =>
+            IO {
+              buildTransactor(
+                "localhost:5433/test",
+                "test",
+                "test"
+              ) -> new JwtCodec("123456")
+            }.onError(onBuildTransactorError)
+          case (RunMode.Prod, _, _, _, _) =>
             IO {
               val isPlural = missingEnvVars.length > 1
               val `variable/s` = if (isPlural) "variables" else "variable"
@@ -149,15 +170,17 @@ object Main extends IOApp {
             }
         }
 
+      val transactor = transactorAndJwtCodec.map(_._1)
+      val jwtCodec = transactorAndJwtCodec.map(_._2)
+
       val currentCode = Try(os.read(config.filePath))
 
       val currentSyntaxTree = currentCode.flatMap(SyntaxTree.from)
 
-      val currentCodeAndTree =
-        for {
-          code <- currentCode
-          currentSyntaxTree <- currentSyntaxTree
-        } yield (currentSyntaxTree, code)
+      val currentCodeAndTree = for {
+        code <- currentCode
+        currentSyntaxTree <- currentSyntaxTree
+      } yield (currentSyntaxTree, code)
 
       currentCodeAndTree match {
         case Failure(userErr: UserError) =>
@@ -193,14 +216,17 @@ object Main extends IOApp {
             case RunMode.Dev                       => SyntaxTree.empty
           }
 
-          val storage =
-            transactor.map(t => buildStorage(prevTree, currentTree, t))
+          val storage = for {
+            t <- transactor
+            jc <- jwtCodec
+          } yield buildStorage(prevTree, currentTree, t, jc)
 
-          val migrate = storage
-            .flatMap { s =>
-              s.use(_.migrate)
-                .map(_.toTry)
-            }
+          val migrate: IO[Try[Unit]] =
+            storage
+              .flatMap { s =>
+                s.use(_.migrate)
+                  .map(_.toTry)
+              }
 
           val writePrevTree =
             if (prevTreeExists)
@@ -219,7 +245,9 @@ object Main extends IOApp {
               sys.exit(1)
           }
 
-          val server = storage.map(new Server(_, currentTree))
+          val server = (jwtCodec, storage) mapN {
+            case (jc, s) => new Server(jc, s, currentTree)
+          }
 
           config.mode match {
             case Dev =>

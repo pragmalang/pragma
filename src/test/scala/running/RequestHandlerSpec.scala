@@ -81,17 +81,13 @@ class RequestHandlerSpec extends AnyFlatSpec {
       Map(
         "data" -> JsObject(
           Map(
-            "createFathi" -> JsObject(
+            "user" -> JsObject(
               Map(
-                "user" -> JsObject(
+                "create" -> JsObject(
                   Map(
-                    "create" -> JsObject(
-                      Map(
-                        "username" -> JsString("Mr. Fathi"), // Because of `rhHooks.prependMrToUsername`
-                        "priorityTodo" -> JsObject( // Because of `rhHooks.setPriorityTodo`
-                          Map("title" -> JsString("** Get pizza **"))
-                        )
-                      )
+                    "username" -> JsString("Mr. Fathi"), // Because of `rhHooks.prependMrToUsername`
+                    "priorityTodo" -> JsObject( // Because of `rhHooks.setPriorityTodo`
+                      Map("title" -> JsString("** Get pizza **"))
                     )
                   )
                 )
@@ -131,16 +127,12 @@ class RequestHandlerSpec extends AnyFlatSpec {
       Map(
         "data" -> JsObject(
           Map(
-            "readGetPizza" -> JsObject(
+            "RH_Todo" -> JsObject(
               Map(
-                "RH_Todo" -> JsObject(
+                "read" -> JsObject(
                   Map(
-                    "read" -> JsObject(
-                      Map(
-                        "title" -> JsString("** Get pizza **"), // Because of `emphasizeUndone`
-                        "content" -> JsString("We need to eat")
-                      )
-                    )
+                    "title" -> JsString("** Get pizza **"), // Because of `emphasizeUndone`
+                    "content" -> JsString("We need to eat")
                   )
                 )
               )

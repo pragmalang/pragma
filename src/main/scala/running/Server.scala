@@ -24,8 +24,11 @@ import running.RequestHandler
 import storage.postgres._
 import assets.asciiLogo
 
-class Server(storage: Resource[IO, Postgres[IO]], currentSyntaxTree: SyntaxTree)
-    extends IOApp {
+class Server(
+    jwtCodec: JwtCodec,
+    storage: Resource[IO, Postgres[IO]],
+    currentSyntaxTree: SyntaxTree
+) extends IOApp {
 
   val gqlSchema =
     Schema.buildFromAst(
@@ -33,7 +36,12 @@ class Server(storage: Resource[IO, Postgres[IO]], currentSyntaxTree: SyntaxTree)
     )
 
   val reqHandler =
-    storage.map(s => new RequestHandler[Postgres[IO], IO](currentSyntaxTree, s))
+    storage.map { s =>
+      new RequestHandler[Postgres[IO], IO](
+        currentSyntaxTree,
+        s
+      )
+    }
 
   val routes = HttpRoutes.of[IO] {
     case req @ POST -> Root => {
@@ -65,7 +73,7 @@ class Server(storage: Resource[IO, Postgres[IO]], currentSyntaxTree: SyntaxTree)
             },
             user = req.headers
               .get(CaseInsensitiveString("Authorization"))
-              .flatMap(h => running.JwtPaylod.decode(h.value).toOption)
+              .flatMap(h => jwtCodec.decode(h.value).toOption)
           )
           val resJson = reqHandler
             .use(rh => rh.handle(preq))
@@ -75,6 +83,10 @@ class Server(storage: Resource[IO, Postgres[IO]], currentSyntaxTree: SyntaxTree)
               case Left(otherErr) => JsString(otherErr.getMessage)
               case Right(obj)     => obj
             }
+            .recover {
+              case err => JsObject("error" -> JsString(err.getMessage))
+            }
+
           Response[IO](
             Status(200),
             HttpVersion(1, 1),

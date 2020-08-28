@@ -96,7 +96,9 @@ class RequestHandler[S, M[_]: Monad](
       }.toMap
       groupResultJson = JsObject(groupResultFields)
     } yield (groupName.getOrElse("data"), groupResultJson)
-    JsObject(opGroupResults.toMap)
+
+    if (opGroupResults.length == 1) opGroupResults.head._2
+    else JsObject(opGroupResults.toMap)
   }
 
   /** To be used in functions that convert storage results to JSON */
@@ -212,6 +214,7 @@ class RequestHandler[S, M[_]: Monad](
           }
       case JsArray(elements) =>
         elements.traverse(applyReadHooks(op, _)).map(JsArray(_))
+      case s: JsString => s.asRight
       case _ =>
         InternalException(
           s"Result of ${op.event} operation must either be an array or an object"

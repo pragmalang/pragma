@@ -130,4 +130,12 @@ abstract class QueryEngine[S, M[_]: Monad] {
       primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
   ): Query[JsObject]
+
+  def login(
+      model: PModel,
+      publicCredentialField: PModelField,
+      publicCredentialValue: JsValue,
+      secretCredentialValue: Option[String]
+  ): Query[JsString]
+
 }

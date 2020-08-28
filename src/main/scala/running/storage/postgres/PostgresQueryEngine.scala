@@ -14,7 +14,8 @@ import running.RunningImplicits.PValueJsonWriter
 
 class PostgresQueryEngine[M[_]: Monad](
     transactor: Transactor[M],
-    st: SyntaxTree
+    st: SyntaxTree,
+    jc: JwtCodec
 )(implicit bracket: Bracket[M, Throwable])
     extends QueryEngine[Postgres[M], M] {
   import PostgresQueryEngine._
@@ -113,6 +114,13 @@ class PostgresQueryEngine[M[_]: Monad](
         op.opArguments.items.toVector,
         op.innerReadOps
       ).widen[JsValue]
+    case op: LoginOperation =>
+      login(
+        op.targetModel,
+        op.opArguments.publicCredentialField,
+        op.opArguments.publicCredentialValue,
+        op.opArguments.secretCredentialValue
+      ).widen[JsValue]
     case otherOp =>
       queryError[JsValue] {
         InternalException(
@@ -122,6 +130,53 @@ class PostgresQueryEngine[M[_]: Monad](
   }
 
   override def runQuery[A](query: Query[A]): M[A] = query.transact(transactor)
+
+  override def login(
+      model: PModel,
+      publicCredentialField: PModelField,
+      publicCredentialValue: JsValue,
+      secretCredentialValue: Option[String]
+  ): Query[JsString] = {
+    val (sql, prep) =
+      model.secretCredentialField zip secretCredentialValue match {
+        case Some((scField, scValue)) => {
+          val sql =
+            s"""|SELECT ${model.primaryField.id.withQuotes} FROM ${model.id.withQuotes}
+                |WHERE ${publicCredentialField.id.withQuotes} = ? AND ${scField.id.withQuotes} = ?;
+                |""".stripMargin
+          val prep = setJsValue(publicCredentialValue) *> HPS.set(2, scValue)
+          sql -> prep
+        }
+        case None => {
+          val sql =
+            s"""|SELECT ${model.primaryField.id.withQuotes} FROM ${model.id.withQuotes}
+                |WHERE ${publicCredentialField.id.withQuotes} = ?;
+                |""".stripMargin
+          sql -> setJsValue(publicCredentialValue)
+        }
+      }
+
+    HC.stream(sql, prep, 1)
+      .head
+      .compile
+      .toList
+      .map { resList =>
+        val JsObject(fields) = resList.head
+        val jp = JwtPayload(
+          userId = fields(model.primaryField.id),
+          role = model.id
+        )
+        JsString(jc.encode(jp))
+      }
+      .recoverWith {
+        case _ =>
+          queryError {
+            UserError(
+              s"Cannot find `${model.id}` with public credential `${publicCredentialField.id}` of value `$publicCredentialValue`"
+            )
+          }
+      }
+  }
 
   override def createManyRecords(
       model: PModel,
@@ -184,9 +239,9 @@ class PostgresQueryEngine[M[_]: Monad](
       columns <- primFields
       columnSql = columns.map(_._1.id.withQuotes).mkString(", ")
       set = setJsValues(columns.map(_._2))
-      insertSql = s"INSERT INTO ${model.id.withQuotes} (${columnSql}) VALUES (" +
-        List.fill(columns.length)("?").mkString(", ") +
-        s") RETURNING ${model.primaryField.id.withQuotes};"
+      insertSql = s"""|INSERT INTO ${model.id.withQuotes} ($columnSql) VALUES (
+                      |${List.fill(columns.length)("?").mkString(", ")}
+                      |) RETURNING ${model.primaryField.id.withQuotes};""".stripMargin
       rowId <- HC
         .stream(insertSql, set, 1)
         .head
@@ -568,10 +623,15 @@ class PostgresQueryEngine[M[_]: Monad](
       arrayField: PModelField,
       arrayInnerOp: InnerOperation
   ): Query[Vector[JsValue]] = {
+    val tableName = baseModel.id
+      .concat("_")
+      .concat(arrayInnerOp.targetField.field.id)
+      .withQuotes
     val sql =
-      s"SELECT ${("target_" + arrayInnerOp.targetModel.id).withQuotes} " +
-        s"FROM ${baseModel.id.concat("_").concat(arrayInnerOp.targetField.field.id).withQuotes} " +
-        s"WHERE ${("source_" + baseModel.id).withQuotes} = ?"
+      s"""|SELECT ${("target_" + arrayInnerOp.targetModel.id).withQuotes}
+          |FROM $tableName
+          |WHERE ${("source_" + baseModel.id).withQuotes} = ?;
+          """.stripMargin
 
     val prep = setJsValue(baseRecordId)
     val joinRecords = HC.stream(sql, prep, 200)
