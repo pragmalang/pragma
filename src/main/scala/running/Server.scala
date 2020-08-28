@@ -82,6 +82,8 @@ class Server(
                 JsArray(errors.map(e => JsString(e._1)).toVector)
               case Left(otherErr) => JsString(otherErr.getMessage)
               case Right(obj)     => obj
+            }.recover {
+              case err => JsObject("error" -> JsString(err.getMessage))
             }
           Response[IO](
             Status(200),

@@ -255,5 +255,5 @@ case class RemoveManyFromArgs(id: JsValue, items: Vector[JsValue])
 case class LoginArgs(
     publicCredentialField: PModelField,
     publicCredentialValue: JsValue,
-    secretCredentialValue: Option[JsValue]
+    secretCredentialValue: Option[String]
 ) extends OpArgs[Login.type]

@@ -113,6 +113,13 @@ class PostgresQueryEngine[M[_]: Monad](
         op.opArguments.items.toVector,
         op.innerReadOps
       ).widen[JsValue]
+    case op: LoginOperation =>
+      login(
+        op.targetModel,
+        op.opArguments.publicCredentialField,
+        op.opArguments.publicCredentialValue,
+        op.opArguments.secretCredentialValue
+      ).widen[JsValue]
     case otherOp =>
       queryError[JsValue] {
         InternalException(
@@ -126,7 +133,7 @@ class PostgresQueryEngine[M[_]: Monad](
   override def login(
       model: PModel,
       publicCredentialField: PModelField,
-      publicCredentialValue: String,
+      publicCredentialValue: JsValue,
       secretCredentialValue: Option[String]
   ): Query[JsObject] = {
     val (sql, prep) =
@@ -136,7 +143,7 @@ class PostgresQueryEngine[M[_]: Monad](
             s"""|SELECT ${model.primaryField.id.withQuotes} FROM ${model.id.withQuotes}
                 |WHERE ${publicCredentialField.id.withQuotes} = ? AND ${scField.id.withQuotes} = ?;
                 |""".stripMargin
-          val prep = HPS.set(1, publicCredentialValue) *> HPS.set(2, scValue)
+          val prep = setJsValue(publicCredentialValue) *> HPS.set(2, scValue)
           sql -> prep
         }
         case None => {
@@ -144,7 +151,7 @@ class PostgresQueryEngine[M[_]: Monad](
             s"""|SELECT ${model.primaryField.id.withQuotes} FROM ${model.id.withQuotes}
                 |WHERE ${publicCredentialField.id.withQuotes} = ?;
                 |""".stripMargin
-          sql -> HPS.set(publicCredentialValue)
+          sql -> setJsValue(publicCredentialValue)
         }
       }
 

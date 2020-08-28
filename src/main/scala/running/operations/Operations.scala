@@ -650,12 +650,23 @@ object Operations {
             InternalException("Invalid argument list in operation `LOGIN`").asLeft
         }
 
-      credentials.map { credentials =>
-        LoginArgs(
-          publicCredentialField = credentials._1,
-          publicCredentialValue = credentials._2,
-          secretCredentialValue = credentials._3
-        )
+      credentials.flatMap {
+        case (pcField, pcValue, Some(JsString(scValue))) =>
+          LoginArgs(
+            publicCredentialField = pcField,
+            publicCredentialValue = pcValue,
+            secretCredentialValue = Some(scValue)
+          ).asRight
+        case (pcField, pcValue, None) =>
+          LoginArgs(
+            publicCredentialField = pcField,
+            publicCredentialValue = pcValue,
+            secretCredentialValue = None
+          ).asRight
+        case _ =>
+          InternalException(
+            s"Secret credential value in login operation on model `${opTargetModel.id}` must be a `String`"
+          ).asLeft
       }
     }
   }

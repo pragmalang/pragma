@@ -96,7 +96,9 @@ class RequestHandler[S, M[_]: Monad](
       }.toMap
       groupResultJson = JsObject(groupResultFields)
     } yield (groupName.getOrElse("data"), groupResultJson)
-    JsObject(opGroupResults.toMap)
+
+    if (opGroupResults.length == 1) opGroupResults.head._2
+    else JsObject(opGroupResults.toMap)
   }
 
   /** To be used in functions that convert storage results to JSON */
