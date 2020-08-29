@@ -172,7 +172,7 @@ class PostgresQueryEngine[M[_]: Monad](
         case _ =>
           queryError {
             UserError(
-              s"Cannot find `${model.id}` with public credential `${publicCredentialField.id}` of value `$publicCredentialValue`"
+              s"Invalid credentials for `${model.id}` with public credential `${publicCredentialField.id}` of value $publicCredentialValue"
             )
           }
       }

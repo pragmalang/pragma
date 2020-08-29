@@ -79,12 +79,21 @@ class Server(
             .use(rh => rh.handle(preq))
             .map[JsValue] {
               case Left(UserError(errors)) =>
-                JsArray(errors.map(e => JsString(e._1)).toVector)
+                JsArray {
+                  errors
+                    .map(e => JsObject("message" -> JsString(e._1)))
+                    .toVector
+                }
               case Left(otherErr) => JsString(otherErr.getMessage)
               case Right(obj)     => obj
             }
             .recover {
-              case err => JsObject("error" -> JsString(err.getMessage))
+              case err =>
+                JsObject {
+                  "errors" -> JsArray {
+                    JsObject("message" -> JsString(err.getMessage))
+                  }
+                }
             }
 
           Response[IO](
@@ -171,8 +180,7 @@ class Server(
                 .asJsObject
                 .fields + ("types" -> JsArray(typesWithEventEnum))
             )
-          ),
-          "errors" -> JsArray.empty
+          )
         )
       }
       .map(_.compactPrint.getBytes.iterator),

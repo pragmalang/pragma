@@ -71,12 +71,7 @@ class RequestHandler[S, M[_]: Monad](
     }
 
     readHookResults.map { result =>
-      result
-        .map(data => JsObject(Map("data" -> transactionResultJson(data))))
-        .recover {
-          case err: Throwable =>
-            JsObject(Map("errors" -> JsArray(Vector(JsString(err.getMessage)))))
-        }
+      result.map(data => JsObject(Map("data" -> transactionResultJson(data))))
     }
 
   }
