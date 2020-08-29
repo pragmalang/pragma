@@ -3,7 +3,7 @@
 You can validate data using the functions you pass to directives such as `onWrite` and `onRead`. For example:
 
 ```pragma
-import validators from "./validators.js"
+import "./validators.js" as validators
 
 @onWrite(validators.validateBook)
 @1 model Book {
@@ -12,7 +12,7 @@ import validators from "./validators.js"
 }
 ```
 
-where `validateBook` a JavaScript function in `validators.js`, defined as:
+where `validateBook` is a JavaScript function in `validators.js`, defined as:
 
 ```js
 const validateBook = book => {
@@ -23,24 +23,22 @@ const validateBook = book => {
 }
 ```
 
-Notice how this function throws an error if the input book's `authors` array is empty. When the error is thrown, the request fails, and the thrown error's message is returned.
-
-You can also transform data using the function you pass to `onWrite`. For example:
+This function returns a new version of the input book that is then saved to the database. Notice how this function throws an error if the input book's `authors` array is empty. When the error is thrown, the request fails, and the thrown error's message is returned to the user. Similarly, you can transform the data going out of the database using the functions you pass to `onRead`. For example:
 
 ```pragma
-import transformBook from "./transformers.js"
+import "./transformers.js" as transformers
 
-@onWrite(validators.validateBook)
+@onRead(transformers.transformBook)
 @1 model Book {
   @2 title: String
   @3 authors: [String]
 }
 ```
 
-where `transformBook` is a JavaScript function in `transformers.js` as:
+where `transformBook` is a JavaScript function defined in `transformers.js` as:
 
 ```js
 const transformBook = book => ({ ...book, title: book.title.toUpperCase() })
 ```
 
-This function returns a new version of the input book that is then saved to the database. Similarly, you can transform the data going out of the database using the function you pass to `onRead`.
+The result of the transformation is then returned to the user, or passed to subsequent read hooks if specified by adding more `onRead` directives to the model. The same composition mechanism applies to other types of directives that take function arguments, i.e. `onWrite`, `onLogin`, and `onDelete`.

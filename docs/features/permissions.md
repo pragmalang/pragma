@@ -48,7 +48,7 @@ Here we define a `role` block where we specify that the `Instructor` can do `ALL
 Let's say that we want to restrict `Instructor`s to accessing the course that belongs to them. We can do this by passing a predicate (a function that returns `true` or `false`) in which we compare the course that the `Instructor` is trying to access with the instructor's `course` field.
 
 ```pragma
-import auth from "./auth-rules.js"
+import "./auth-rules.js" as auth
 
 role Instructor {
   allow ALL Course auth.courseBelongsToInstructor
