@@ -59,10 +59,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           val secretCredentialField = model.fields
             .find(_.isSecretCredential)
 
-          val transformedFieldId = capitalizeFieldName(
-            publicCredentialFields.toList,
-            field
-          )
+          val transformedFieldId = field.id.capitalize
 
           if (model.isUser)
             Some(
@@ -170,8 +167,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       val modelListFieldOperations = modelListFields
         .flatMap(f => {
           val listFieldInnerType = f.ptype.asInstanceOf[PArray].ptype
-          val transformedFieldId =
-            capitalizeFieldName(modelListFields.toList, f)
+          val transformedFieldId = f.id.capitalize
 
           val pushTo = Some(
             graphQlField(
@@ -340,14 +336,18 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     syntaxTree.models.map { model =>
       InputObjectTypeDefinition(
         name = inputTypeName(model)(OptionalInput),
-        fields = model.fields.toVector.map(
-          field =>
+        fields = model.fields
+          .filterNot { field =>
+            field.isAutoIncrement || field.isUUID
+          }
+          .map { field =>
             InputValueDefinition(
               name = field.id,
               valueType = inputFieldType(field),
               None
             )
-        )
+          }
+          .toVector
       )
     }
 
@@ -589,14 +589,6 @@ object ApiSchemaGenerator {
       isOptional: Boolean,
       tpe: Type
   )
-
-  def capitalizeFieldName(fields: List[PModelField], f: PModelField) =
-    if (fields
-          .filter(_.id.toLowerCase == f.id.toLowerCase)
-          .length > 1)
-      f.id
-    else
-      f.id.capitalize
 
   trait SchemaBuildOutput
   case object AsDocument extends SchemaBuildOutput

@@ -107,7 +107,6 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       }
       
       input BusinessInput {
-        username: String
         email: String
         password: String
         branches: [BranchInput]
