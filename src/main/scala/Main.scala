@@ -1,24 +1,20 @@
 import scala.util._
-import domain.utils._
+import domain._, domain.utils._
 import org.parboiled2.Position
-import domain._
 import running._
 import org.parboiled2.ParseError
-import cats.effect._
-import cats.implicits._
+import cats.effect._, cats.implicits._
 import doobie._, doobie.hikari._, doobie.implicits._
 import running.storage.postgres._
-import cli._
-import cli.RunMode.Dev
-import cli.RunMode.Prod
+import cli._, cli.RunMode._
 
 object Main extends IOApp {
 
   // To disable logging
-  import org.slf4j.LoggerFactory
-  import ch.qos.logback.classic.LoggerContext
-  val loggerCtx = LoggerFactory.getILoggerFactory().asInstanceOf[LoggerContext]
-  loggerCtx.stop()
+  org.slf4j.LoggerFactory
+    .getILoggerFactory()
+    .asInstanceOf[ch.qos.logback.classic.LoggerContext]
+    .stop()
 
   def removeAllTablesFromDb(
       transactor: Resource[IO, HikariTransactor[IO]]

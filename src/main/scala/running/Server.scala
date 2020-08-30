@@ -1,26 +1,18 @@
 package running
 
 import cats.effect._
-import org.http4s._
-import org.http4s.dsl.io._
+import org.http4s._, org.http4s.dsl.io._
+import org.http4s.server.blaze._, org.http4s.server.Router
+import org.http4s.util._, org.http4s.implicits._
 import scala.concurrent.ExecutionContext.Implicits.global
-import org.http4s.server.blaze._
-import org.http4s.server.Router
-import org.http4s.implicits._
-import org.http4s.util._
 import fs2._
 import cats.implicits._
-import sangria.schema.Schema
-import sangria.execution.Executor
+import sangria.schema.Schema, sangria.execution.Executor
 import sangria.parser.QueryParser
-import sangria.marshalling.sprayJson._
 import spray.json._
-import scala.concurrent._
-import scala.concurrent.duration._
-import domain._
-import domain.utils._
+import domain._, domain.utils._
 import setup.schemaGenerator.ApiSchemaGenerator
-import running.RequestHandler
+import running.RequestHandler, running.utils.sangriaToJson
 import storage.postgres._
 import assets.asciiLogo
 
@@ -52,7 +44,9 @@ class Server(
             Status(200),
             HttpVersion(1, 1),
             Headers(List(Header("Content-Type", "application/json"))),
-            body = Stream.fromIterator[IO](introspectionResult(jsonBody))
+            body = Stream
+              .eval(introspectionResult(jsonBody))
+              .flatMap(it => Stream.fromIterator[IO](it))
           )
         } else {
           val preq = running.Request(
@@ -135,7 +129,7 @@ class Server(
       .as(ExitCode.Success)
   }
 
-  def introspectionResult(query: JsObject) = Await.result(
+  def introspectionResult(query: JsObject): IO[Iterator[Byte]] = IO.fromFuture {
     Executor
       .execute(
         gqlSchema,
@@ -149,7 +143,10 @@ class Server(
           .get
       )
       .map { res =>
-        val typesWithEventEnum = res.asJsObject
+        val resObject =
+          sangriaToJson(res.asInstanceOf[sangria.ast.Value])
+            .asInstanceOf[JsObject]
+        val typesWithEventEnum = resObject
           .fields("data")
           .asJsObject
           .fields("__schema")
@@ -173,7 +170,8 @@ class Server(
         JsObject(
           "data" -> JsObject(
             "__schema" -> JsObject(
-              res.asJsObject
+              resObject
+                .asInstanceOf[JsObject]
                 .fields("data")
                 .asJsObject
                 .fields("__schema")
@@ -183,8 +181,8 @@ class Server(
           )
         )
       }
-      .map(_.compactPrint.getBytes.iterator),
-    10.seconds
-  )
+      .map(_.compactPrint.getBytes.iterator)
+      .pure[IO]
+  }
 
 }

@@ -11,7 +11,8 @@ lazy val root = (project in file("."))
     packageDescription := "See https://docs.pragmalang.com for details.",
     libraryDependencies ++= Seq(
       "org.scalatest" %% "scalatest" % "3.0.8" % Test,
-      "com.lihaoyi" %% "pprint" % "0.5.6" % Test
+      "com.lihaoyi" %% "pprint" % "0.5.6" % Test,
+      "org.tpolecat" %% "doobie-scalatest" % "0.9.0"
     )
   )
 
@@ -34,16 +35,13 @@ libraryDependencies ++= Seq(
   "org.parboiled" %% "parboiled" % "2.2.0",
   "org.sangria-graphql" %% "sangria" % "2.0.0",
   "io.spray" %% "spray-json" % "1.3.5",
-  "org.sangria-graphql" %% "sangria-spray-json" % "1.0.2",
   "com.pauldijou" %% "jwt-core" % "4.3.0",
   "org.http4s" %% "http4s-dsl" % "0.21.4",
   "org.http4s" %% "http4s-blaze-server" % "0.21.4",
   "ch.qos.logback" % "logback-classic" % "1.2.3",
   "org.typelevel" %% "cats-effect" % "2.1.3",
-  "org.typelevel" %% "cats-core" % "2.1.1",
   "org.tpolecat" %% "doobie-core" % "0.9.0",
   "org.tpolecat" %% "doobie-hikari" % "0.9.0",
-  "org.tpolecat" %% "doobie-scalatest" % "0.9.0",
   "org.postgresql" % "postgresql" % "42.2.14",
   "com.lihaoyi" %% "os-lib" % "0.7.1",
   "com.github.scopt" %% "scopt" % "3.7.1"
@@ -56,10 +54,17 @@ enablePlugins(GraalVMNativeImagePlugin, DockerComposePlugin)
 // Run `sbt graalvm-native-image:packageBin` to generate native binary
 // See: https://www.scala-sbt.org/sbt-native-packager/index.html
 graalVMNativeImageOptions := Seq(
-  "--no-fallback",
   "--language:js",
   "--language:python",
-  "--initialize-at-build-time=scala.runtime.Statics$VM"
+  "--no-fallback",
+  "--debug-attach",
+  "--initialize-at-run-time=scala.runtime.Statics$VM",
+  "--initialize-at-run-time=scala.runtime.StructuralCallSite",
+  "-H:+ReportExceptionStackTraces",
+  "-H:+TraceClassInitialization",
+  "--enable-http",
+  "--enable-https",
+  "--enable-all-security-services"
 )
 
 // To make tests run within a Docker container
