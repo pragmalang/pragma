@@ -180,7 +180,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
                     fieldTypeName => s"${fieldTypeName.capitalize}Input"
                 )
               ),
-              fieldType(listFieldInnerType)
+              fieldType(model)
             )(f.id)
           )
 
@@ -192,13 +192,15 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
                 "item" -> fieldType(
                   listFieldInnerType match {
                     case m: PModel => m.primaryField.ptype
-                    case t         => t
+                    case PReference(id) =>
+                      syntaxTree.modelsById(id).primaryField.ptype
+                    case t => t
                   },
                   nameTransformer =
                     fieldTypeName => s"${fieldTypeName.capitalize}Input"
                 )
               ),
-              fieldType(listFieldInnerType)
+              fieldType(model)
             )(f.id)
           )
 
@@ -214,7 +216,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
                   isEmptiable = false
                 )
               ),
-              fieldType(f.ptype)
+              fieldType(model)
             )(f.id)
           )
 
@@ -225,7 +227,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
                 model.primaryField.id -> fieldType(model.primaryField.ptype),
                 "filter" -> builtinType(FilterInput, isOptional = true)
               ),
-              fieldType(f.ptype)
+              fieldType(model)
             )(f.id)
           )
 

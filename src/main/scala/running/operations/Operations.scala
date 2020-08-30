@@ -574,7 +574,8 @@ object Operations {
           sangriaToJson(arg.value)
       }
       val data = opSelection.arguments.collectFirst {
-        case arg if arg.name == "data" => sangriaToJson(arg.value)
+        case arg if arg.name == opTargetModel.id.small =>
+          sangriaToJson(arg.value)
       }
       (objId, data) match {
         case (Some(id), Some(data: JsObject)) =>
@@ -585,11 +586,11 @@ object Operations {
           ).asLeft
         case (_, None) =>
           InternalException(
-            s"UPDATE arguments must contain a `data` object"
+            s"UPDATE arguments of model `${opTargetModel.id}` must contain a `${opTargetModel.id.small}` object"
           ).asLeft
         case _ =>
           InternalException(
-            s"UPDATE arguments must contain an ID and a `data` object"
+            s"UPDATE arguments of model `${opTargetModel.id}` must contain `${opTargetModel.primaryField.id}` and `${opTargetModel.id.small}` arguments"
           ).asLeft
       }
     }

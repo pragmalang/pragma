@@ -120,17 +120,17 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       }
       
       type BusinessMutations {
-        loginByEmail(email: String!, password: String!): String!
         create(business: BusinessInput!): Business!
         update(email: String!, business: BusinessInput!): Business!
         delete(email: String!): Business!
         createMany(items: [BusinessInput!]!): [Business]!
         updateMany(items: [BusinessInput!]!): [Business]!
         deleteMany(items: [String!]): [Business]!
-        pushToBranches(email: String!, item: BranchInput!): Branch!
-        pushManyToBranches(email: String!, items: [BranchInput!]!): [Branch]!
-        removeFromBranches(email: String!, item: BranchInput!): Branch!
-        removeManyFromBranches(email: String!, filter: FilterInput): [Branch]!
+        pushToBranches(email: String!, item: BranchInput!): Business!
+        pushManyToBranches(email: String!, items: [BranchInput!]!): Business!
+        removeFromBranches(email: String!, item: String!): Business!
+        removeManyFromBranches(email: String!, filter: FilterInput): Business!
+        loginByEmail(email: String!, password: String!): String!
       }
       
       type BranchMutations {
@@ -167,11 +167,7 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
     val resultSchema =
       Schema.buildFromAst(generator.buildApiSchemaAsDocument)
 
-    assert(resultSchema.types.keys == expectedSchema.types.keys)
-    assert(resultSchema.additionalTypes == expectedSchema.additionalTypes)
-    assert(
-      resultSchema.directives.map(_.name) ==
-        expectedSchema.directives.map(_.name)
-    )
+    val difference = resultSchema.compare(expectedSchema)
+    assert(difference.isEmpty)
   }
 }

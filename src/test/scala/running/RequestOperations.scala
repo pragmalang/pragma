@@ -48,7 +48,7 @@ class RequestOperations extends AnyFlatSpec {
 
         mutation updateTodo {
             Todo {
-                update(title: "22234", data: {
+                update(title: "22234", todo: {
                     content: "Clean the dishes"
                 }) {
                     content

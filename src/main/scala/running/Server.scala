@@ -7,14 +7,17 @@ import org.http4s.util._, org.http4s.implicits._
 import scala.concurrent.ExecutionContext.Implicits.global
 import fs2._
 import cats.implicits._
-import sangria.schema.Schema, sangria.execution.Executor
 import sangria.parser.QueryParser
 import spray.json._
-import domain._, domain.utils._
 import setup.schemaGenerator.ApiSchemaGenerator
-import running.RequestHandler, running.utils.sangriaToJson
+import running.RequestHandler
 import storage.postgres._
 import assets.asciiLogo
+import domain._
+import domain.utils._
+import sangria.marshalling.sprayJson._
+import sangria.schema.Schema
+import sangria.execution.Executor
 
 class Server(
     jwtCodec: JwtCodec,
@@ -143,10 +146,7 @@ class Server(
           .get
       )
       .map { res =>
-        val resObject =
-          sangriaToJson(res.asInstanceOf[sangria.ast.Value])
-            .asInstanceOf[JsObject]
-        val typesWithEventEnum = resObject
+        val typesWithEventEnum = res.asJsObject
           .fields("data")
           .asJsObject
           .fields("__schema")
@@ -170,8 +170,7 @@ class Server(
         JsObject(
           "data" -> JsObject(
             "__schema" -> JsObject(
-              resObject
-                .asInstanceOf[JsObject]
+              res.asJsObject
                 .fields("data")
                 .asJsObject
                 .fields("__schema")

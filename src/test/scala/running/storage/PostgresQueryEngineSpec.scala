@@ -513,7 +513,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
     val gqlQuery = gql"""
     mutation {
       Country {
-        update(code: "US", data: {
+        update(code: "US", country: {
           name: "United States"
         }) {
           code
