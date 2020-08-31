@@ -339,9 +339,6 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       InputObjectTypeDefinition(
         name = inputTypeName(model)(OptionalInput),
         fields = model.fields
-          .filterNot { field =>
-            field.isAutoIncrement || field.isUUID
-          }
           .map { field =>
             InputValueDefinition(
               name = field.id,
