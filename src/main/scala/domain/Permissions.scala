@@ -57,12 +57,13 @@ sealed trait DeleteEvent extends PEvent
 
 sealed trait PPermission {
   override def toString(): String = this match {
-    case All         => "ALL"
-    case SetOnCreate => "SET_ON_CREATE"
-    case Mutate      => "MUTATE"
-    case PushTo      => "PUSH_TO"
-    case RemoveFrom  => "REMOVE_FROM"
-    case e: PEvent   => e.toString
+    case All          => "ALL"
+    case SetOnCreate  => "SET_ON_CREATE"
+    case ReadOnCreate => "READ_ON_CREATE"
+    case Mutate       => "MUTATE"
+    case PushTo       => "PUSH_TO"
+    case RemoveFrom   => "REMOVE_FROM"
+    case e: PEvent    => e.toString
   }
 }
 object PPermission {
@@ -82,6 +83,7 @@ case object Read extends PPermission with ReadEvent
 /** Translates to LIST event */
 case object ReadMany extends ReadEvent
 case object Create extends PPermission with CreateEvent
+case object ReadOnCreate extends PPermission
 case object CreateMany extends CreateEvent
 case object Update extends PPermission with UpdateEvent
 case object UpdateMany extends UpdateEvent
@@ -206,24 +208,25 @@ case class AccessRule(
 ) extends PConstruct {
   def eventsThatMatch: Set[PEvent] = permissions.flatMap(eventsOf)
 
-  def eventsOf(permission: PPermission): Seq[PEvent] =
+  /** Returns the events that trigger the permission */
+  def eventsOf(permission: PPermission): List[PEvent] =
     if (!permissions.contains(permission)) Nil
     else
-      (resourcePath, permission) match {
-        case ((_, None), Create)         => List(Create, CreateMany)
-        case ((_, Some(_)), SetOnCreate) => List(Create, CreateMany)
-        case (_, Read)                   => List(Read, ReadMany)
-        case (_, Update)                 => List(Update, UpdateMany)
-        case ((_, Some(field)), Mutate)
-            if field.ptype.isInstanceOf[PReference] =>
+      (resourcePath._2, permission) match {
+        case (None, Create)         => List(Create, CreateMany)
+        case (_, ReadOnCreate)      => List(Create, CreateMany)
+        case (Some(_), SetOnCreate) => List(Create, CreateMany)
+        case (_, Read)              => List(Read, ReadMany)
+        case (_, Update)            => List(Update, UpdateMany)
+        case (Some(field), Mutate) if field.ptype.isInstanceOf[PReference] =>
           List(Update, UpdateMany)
-        case ((_, Some(field)), PushTo) =>
+        case (Some(field), PushTo) =>
           List(PushTo(field), PushManyTo(field))
-        case ((_, Some(field)), RemoveFrom) =>
+        case (Some(field), RemoveFrom) =>
           List(RemoveFrom(field), RemoveManyFrom(field))
-        case ((_, None), Delete) => List(Delete, DeleteMany)
-        case ((_, None), Login)  => List(Login)
-        case ((_, Some(field)), All) if field.ptype.isInstanceOf[PArray] =>
+        case (None, Delete) => List(Delete, DeleteMany)
+        case (None, Login)  => List(Login)
+        case (Some(field), All) if field.ptype.isInstanceOf[PArray] =>
           List(
             PushTo(field),
             PushManyTo(field),
@@ -231,13 +234,19 @@ case class AccessRule(
             RemoveManyFrom(field),
             Update
           )
-        case ((_, Some(field)), All)
-            if field.ptype.isInstanceOf[PrimitiveType] ||
-              field.ptype.isInstanceOf[PEnum] =>
+        case (Some(field), All) if (field.ptype match {
+              case _: PrimitiveType                     => true
+              case _: PEnum                             => true
+              case POption(_: PrimitiveType | _: PEnum) => true
+              case _                                    => false
+            }) =>
           List(Read, ReadMany, Update, UpdateMany)
-        case ((_, Some(field)), All) if field.ptype.isInstanceOf[PReference] =>
+        case (Some(field), All) if (field.ptype match {
+              case PReference(_) => true
+              case _             => false
+            }) =>
           List(Read, ReadMany, Update, UpdateMany)
-        case ((_, None), All) =>
+        case (None, All) =>
           List(
             Read,
             ReadMany,

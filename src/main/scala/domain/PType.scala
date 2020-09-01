@@ -155,8 +155,8 @@ case object PInt extends PrimitiveType
 case object PFloat extends PrimitiveType
 case object PBool extends PrimitiveType
 case object PDate extends PrimitiveType
-case class PArray(ptype: PType) extends PrimitiveType
+case class PArray(ptype: PType) extends PType
 case class PFile(sizeInBytes: Int, extensions: Seq[String])
     extends PrimitiveType
 case class PFunction(args: NamedArgs, returnType: PType) extends PrimitiveType
-case class POption(ptype: PType) extends PrimitiveType
+case class POption(ptype: PType) extends PType

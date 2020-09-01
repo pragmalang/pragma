@@ -349,6 +349,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
       Map(
         "ALL" -> All,
         "CREATE" -> Create,
+        "READ_ON_CREATE" -> ReadOnCreate,
         "READ" -> Read,
         "UPDATE" -> Update,
         "DELETE" -> Delete,

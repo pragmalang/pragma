@@ -71,7 +71,13 @@ class Authorizer[S, M[_]: Monad](
       predicateArg: JsValue
   ): Vector[AuthorizationError] = {
     lazy val argsMatchRule = (rule.resourcePath._2, op) match {
+      case (None, _: CreateOperation | _: CreateManyOperation)
+          if rule.permissions(ReadOnCreate) =>
+        true
       case (None, _) => true
+      case (Some(field), _: CreateOperation | _: CreateManyOperation)
+          if rule.permissions(ReadOnCreate) =>
+        op.innerReadOps.exists(_.targetField.field.id == field.id)
       case (Some(ruleField), op: UpdateOperation) =>
         op.opArguments.obj.obj.fields.contains(ruleField.id)
       case (Some(ruleField), op: UpdateManyOperation) =>
