@@ -234,7 +234,7 @@ object Operations {
             as,
             model,
             user zip role,
-            model.writeHooks,
+            model.deleteHooks,
             opName,
             opGroupName,
             iops
@@ -244,7 +244,7 @@ object Operations {
             as,
             model,
             user zip role,
-            model.writeHooks,
+            model.deleteHooks,
             opName,
             opGroupName,
             iops
@@ -298,7 +298,7 @@ object Operations {
             as,
             model,
             user zip role,
-            model.writeHooks,
+            model.loginHooks,
             opName,
             opGroupName,
             iops
@@ -374,7 +374,7 @@ object Operations {
             targetField = aliasedField,
             targetModel = innerOpTargetModel,
             user = user zip role,
-            crudHooks = innerOpTargetModel.readHooks,
+            hooks = innerOpTargetModel.readHooks,
             innerReadOps = innerSels
           )
         case as: InnerListArgs =>
@@ -383,7 +383,7 @@ object Operations {
             opArguments = as,
             targetModel = innerOpTargetModel,
             user = user zip role,
-            crudHooks = innerOpTargetModel.readHooks,
+            hooks = innerOpTargetModel.readHooks,
             innerReadOps = innerSels
           )
       }
@@ -697,7 +697,7 @@ object Operations {
       targetField = AliasedField(model.primaryField, None, Vector.empty),
       targetModel = model,
       user = None,
-      crudHooks = Vector.empty,
+      hooks = Vector.empty,
       innerReadOps = Vector.empty
     )
 

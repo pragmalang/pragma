@@ -58,6 +58,8 @@ case class PModel(
 
   lazy val deleteHooks = getHooksByName(this, "onDelete")
 
+  lazy val loginHooks = getHooksByName(this, "onLogin")
+
   lazy val publicCredentialFields = fields.filter(_.isPublicCredential)
 
   lazy val secretCredentialField = fields.find(_.isSecretCredential)

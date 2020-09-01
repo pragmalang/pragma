@@ -27,15 +27,15 @@ class RequestHandler[S, M[_]: Monad](
         else ops.pure[M]
       }
 
-    val opsAfterWriteHooks = authResult.map { result =>
+    val opsAfterPreHooks = authResult.map { result =>
       result.flatMap[Operations.OperationsMap] { opsMap =>
         val newOps = opsMap.toVector
           .traverse {
             case (groupName, opModelGroups) =>
               opModelGroups.toVector
                 .traverse {
-                  case (medelSelectionName, ops) =>
-                    ops.traverse(applyWriteHooks).map(medelSelectionName -> _)
+                  case (modelSelectionName, ops) =>
+                    ops.traverse(applyPreHooks).map(modelSelectionName -> _)
                 }
                 .map(groupName -> _.toMap)
           }
@@ -49,7 +49,7 @@ class RequestHandler[S, M[_]: Monad](
     }
 
     val storageResult =
-      opsAfterWriteHooks.traverse(ops => ops.flatMap(storage.run))
+      opsAfterPreHooks.traverse(ops => ops.flatMap(storage.run))
 
     val readHookResults = storageResult.map { result =>
       result
@@ -127,10 +127,10 @@ class RequestHandler[S, M[_]: Monad](
     }
 
   /** Apples crud hooks to operation arguments */
-  private def applyWriteHooks(op: Operation): Either[Throwable, Operation] =
+  private def applyPreHooks(op: Operation): Either[Throwable, Operation] =
     op match {
       case createOp: CreateOperation =>
-        applyHooks(createOp.crudHooks, createOp.opArguments.obj)
+        applyHooks(createOp.hooks, createOp.opArguments.obj)
           .flatMap {
             case obj: JsObject => obj.asRight
             case _ =>
@@ -144,7 +144,7 @@ class RequestHandler[S, M[_]: Monad](
       case createManyOp: CreateManyOperation =>
         createManyOp.opArguments.items.toVector
           .traverse { item =>
-            applyHooks(createManyOp.crudHooks, item).flatMap {
+            applyHooks(createManyOp.hooks, item).flatMap {
               case obj: JsObject => obj.asRight
               case _ =>
                 UserError(
@@ -158,7 +158,7 @@ class RequestHandler[S, M[_]: Monad](
             )
           }
       case updateOp: UpdateOperation =>
-        applyHooks(updateOp.crudHooks, updateOp.opArguments.obj.obj).flatMap {
+        applyHooks(updateOp.hooks, updateOp.opArguments.obj.obj).flatMap {
           case obj: JsObject =>
             updateOp
               .copy(
@@ -174,7 +174,7 @@ class RequestHandler[S, M[_]: Monad](
       case updateManyOp: UpdateManyOperation =>
         updateManyOp.opArguments.items.toVector
           .traverse { obj =>
-            applyHooks(updateManyOp.crudHooks, obj.obj).flatMap {
+            applyHooks(updateManyOp.hooks, obj.obj).flatMap {
               case newObj: JsObject => obj.copy(obj = newObj).asRight
               case _ =>
                 UserError(
@@ -187,6 +187,70 @@ class RequestHandler[S, M[_]: Monad](
               opArguments = updateManyOp.opArguments.copy(items = newItems)
             )
           }
+      case deleteOp: DeleteOperation =>
+        applyHooks(
+          deleteOp.hooks,
+          JsObject(
+            deleteOp.targetModel.primaryField.id -> deleteOp.opArguments.id
+          )
+        ) map { result =>
+          deleteOp.copy(opArguments = deleteOp.opArguments.copy(id = result))
+        }
+      case loginOp: LoginOperation => {
+        val publicCredPair =
+          loginOp.opArguments.publicCredentialField.id -> loginOp.opArguments.publicCredentialValue
+        val secretCredPair =
+          loginOp.targetModel.secretCredentialField.map(_.id) zip
+            loginOp.opArguments.secretCredentialValue.map(JsString(_))
+        val credObjFields = publicCredPair :: secretCredPair
+          .map(_ :: Nil)
+          .getOrElse(Nil)
+        applyHooks(loginOp.hooks, JsObject(credObjFields.toMap)) flatMap {
+          case JsObject(fields)
+              if loginOp.targetModel.secretCredentialField.isDefined &&
+                fields.contains(secretCredPair.get._1) &&
+                fields.contains(loginOp.opArguments.publicCredentialField.id) =>
+            fields
+              .get(loginOp.targetModel.secretCredentialField.get.id)
+              .flatMap {
+                case JsString(value) => Some(value)
+                case _               => None
+              }
+              .map { secretValue =>
+                loginOp
+                  .copy(
+                    opArguments = LoginArgs(
+                      loginOp.opArguments.publicCredentialField,
+                      fields(loginOp.opArguments.publicCredentialField.id),
+                      Some(secretValue)
+                    )
+                  )
+                  .asRight
+              }
+              .getOrElse {
+                UserError(
+                  s"Invalid secret credential field in `LOGIN` hook result on model `${loginOp.targetModel.id}`"
+                ).asLeft
+              }
+          case JsObject(fields)
+              if fields.contains(
+                loginOp.opArguments.publicCredentialField.id
+              ) =>
+            loginOp
+              .copy(
+                opArguments = LoginArgs(
+                  loginOp.opArguments.publicCredentialField,
+                  fields(loginOp.opArguments.publicCredentialField.id),
+                  None
+                )
+              )
+              .asRight
+          case _ =>
+            UserError(
+              s"Invalid credentials returned from `LOGIN` hook on model `${loginOp.targetModel.id}`"
+            ).asLeft
+        }
+      }
       case _ => op.asRight
     }
 
@@ -247,7 +311,7 @@ class RequestHandler[S, M[_]: Monad](
               }
               .getOrElse((iiop.targetField.field.id -> JsNull).asRight)
           }
-        newObj <- applyHooks(innerReadOp.crudHooks, JsObject(newFields.toMap))
+        newObj <- applyHooks(innerReadOp.hooks, JsObject(newFields.toMap))
       } yield newObj
       else iopResult.asRight
     }
@@ -264,7 +328,7 @@ class RequestHandler[S, M[_]: Monad](
             innerReadManyOp.targetField,
             innerReadManyOp.targetModel,
             innerReadManyOp.user,
-            innerReadManyOp.crudHooks,
+            innerReadManyOp.hooks,
             innerReadManyOp.innerReadOps
           )
           elements
