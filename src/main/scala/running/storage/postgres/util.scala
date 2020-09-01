@@ -71,16 +71,8 @@ package object utils {
       Some {
         val tableMetadata = new ArrayFieldTableMetaData(model, field)
 
-        val innerRefType: Option[Either[PEnum, PModel]] = field.innerModelId
-          .flatMap { name =>
-            currentSyntaxTree.modelsById.get(name).map(_.asRight)
-          } match {
-          case Some(value) => Some(value)
-          case None =>
-            field.innerModelId.flatMap { name =>
-              currentSyntaxTree.enumsById.get(name)
-            } map (_.asLeft)
-        }
+        val innerRefType: Option[PModel] = field.innerModelId
+          .flatMap(name => currentSyntaxTree.modelsById.get(name))
 
         val thisModelReferenceColumn = ColumnDefinition(
           tableMetadata.sourceColumnName,
@@ -105,44 +97,30 @@ package object utils {
         )
 
         val valueOrReferenceColumn = innerRefType match {
-          case Some(refType) =>
-            refType match {
-              case Left(_) =>
-                ColumnDefinition(
-                  name = tableMetadata.targetColumnName,
-                  dataType = PostgresType.TEXT,
-                  isNotNull = true,
-                  isAutoIncrement = false,
-                  isPrimaryKey = false,
-                  isUUID = false,
-                  isUnique = false,
-                  foreignKey = None
-                )
-              case Right(otherModel) =>
-                ColumnDefinition(
-                  name = tableMetadata.targetColumnName,
-                  dataType = otherModel.primaryField.ptype match {
-                    case PString if otherModel.primaryField.isUUID =>
-                      PostgresType.UUID
-                    case PString => PostgresType.TEXT
-                    case PInt    => PostgresType.INT8
-                    case t =>
-                      throw new InternalException(
-                        s"Primary field in model `${otherModel.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."
-                      )
-                  },
-                  isNotNull = true,
-                  isAutoIncrement = false,
-                  isPrimaryKey = false,
-                  isUUID = false,
-                  isUnique = false,
-                  foreignKey = ForeignKey(
-                    otherModel.id,
-                    otherModel.primaryField.id,
-                    onDelete = Cascade
-                  ).some
-                )
-            }
+          case Some(otherModel) =>
+            ColumnDefinition(
+              name = tableMetadata.targetColumnName,
+              dataType = otherModel.primaryField.ptype match {
+                case PString if otherModel.primaryField.isUUID =>
+                  PostgresType.UUID
+                case PString => PostgresType.TEXT
+                case PInt    => PostgresType.INT8
+                case t =>
+                  throw new InternalException(
+                    s"Primary field in model `${otherModel.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."
+                  )
+              },
+              isNotNull = true,
+              isAutoIncrement = false,
+              isPrimaryKey = false,
+              isUUID = false,
+              isUnique = false,
+              foreignKey = ForeignKey(
+                otherModel.id,
+                otherModel.primaryField.id,
+                onDelete = Cascade
+              ).some
+            )
           case None =>
             ColumnDefinition(
               name = tableMetadata.targetColumnName,

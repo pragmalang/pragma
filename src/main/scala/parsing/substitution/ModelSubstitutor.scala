@@ -12,7 +12,7 @@ object ModelSubstitutor {
         substituteOptionalArrayFieldDefaultValue(model),
         ctx
       )
-    })
+    }).map(_.map(substituteEnumTypeReferences(_, st.enums)))
   }
 
   private def substituteDirectiveFunctionRefs(
@@ -95,6 +95,25 @@ object ModelSubstitutor {
       model.index,
       model.position
     )
+  }
+
+  private def substituteEnumTypeReferences(
+      model: PModel,
+      enumDefs: Seq[PEnum]
+  ): PModel = {
+    val newFields = model.fields.map { field =>
+      field.ptype match {
+        case PReference(id) => {
+          val foundEnum = enumDefs.find(_.id == id)
+          foundEnum match {
+            case Some(e) => field.copy(ptype = e)
+            case None    => field
+          }
+        }
+        case _ => field
+      }
+    }
+    model.copy(fields = newFields)
   }
 
 }

@@ -340,10 +340,9 @@ class PostgresQueryEngine[M[_]: Monad](
 
     val primArrayUpdates = fieldTypeMap(PrimArray).traverse {
       case (
-          arrayField @ PModelField(_, PArray(PReference(enumRef)), _, _, _, _),
+          arrayField @ PModelField(_, PArray(refEnum: PEnum), _, _, _, _),
           JsArray(values)
-          ) if st.enumsById.contains(enumRef) => {
-        val refEnum = st.enumsById(enumRef)
+          ) =>
         values.collectFirst {
           case JsString(value) if !refEnum.values.contains(value) =>
             queryError[JsObject] {
@@ -357,10 +356,13 @@ class PostgresQueryEngine[M[_]: Monad](
           deleteAllJoinRecords(model, arrayField, primaryKeyValue) *>
             pushManyTo(model, arrayField, values, primaryKeyValue, Vector.empty)
         }
-      }
       case (arrayField, JsArray(values)) =>
         deleteAllJoinRecords(model, arrayField, primaryKeyValue) *>
           pushManyTo(model, arrayField, values, primaryKeyValue, Vector.empty)
+      case _ =>
+        queryError[JsObject] {
+          InternalException(" Primitive array field should have an array value")
+        }
     }
 
     val primUpdateSql = s"UPDATE ${model.id.withQuotes} SET " +
