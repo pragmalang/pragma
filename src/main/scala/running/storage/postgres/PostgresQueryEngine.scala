@@ -9,6 +9,8 @@ import doobie._, doobie.implicits._, doobie.postgres.implicits._
 import cats._, cats.implicits._
 import cats.effect._
 import spray.json._
+import com.github.t3hnar.bcrypt._
+import scala.util._
 
 class PostgresQueryEngine[M[_]: Monad](
     transactor: Transactor[M],
@@ -134,49 +136,56 @@ class PostgresQueryEngine[M[_]: Monad](
       publicCredentialField: PModelField,
       publicCredentialValue: JsValue,
       secretCredentialValue: Option[String]
-  ): Query[JsString] = {
-    val (sql, prep) =
-      model.secretCredentialField zip secretCredentialValue match {
-        case Some((scField, scValue)) => {
-          val sql =
-            s"""|SELECT ${model.primaryField.id.withQuotes} FROM ${model.id.withQuotes}
-                |WHERE ${publicCredentialField.id.withQuotes} = ? AND ${scField.id.withQuotes} = ?;
-                |""".stripMargin
-          val prep =
-            setJsValue(publicCredentialValue, publicCredentialField) *>
-              HPS.set(2, scValue)
-          sql -> prep
-        }
-        case None => {
-          val sql =
-            s"""|SELECT ${model.primaryField.id.withQuotes} FROM ${model.id.withQuotes}
-                |WHERE ${publicCredentialField.id.withQuotes} = ?;
-                |""".stripMargin
-          sql -> setJsValue(publicCredentialValue, publicCredentialField)
-        }
-      }
-
-    HC.stream(sql, prep, 1)
-      .head
-      .compile
-      .toList
-      .map { resList =>
-        val JsObject(fields) = resList.head
-        val jp = JwtPayload(
-          userId = fields(model.primaryField.id),
-          role = model.id
-        )
-        JsString(jc.encode(jp))
-      }
-      .recoverWith {
-        case _ =>
-          queryError {
-            UserError(
-              s"Invalid credentials for `${model.id}` with public credential `${publicCredentialField.id}` of value $publicCredentialValue"
-            )
+  ): Query[JsString] =
+    model.secretCredentialField zip secretCredentialValue match {
+      case Some((scField, scValue)) => {
+        val sql =
+          s"""|SELECT ${model.primaryField.id.withQuotes}, ${scField.id.withQuotes} FROM ${model.id.withQuotes}
+              |WHERE ${publicCredentialField.id.withQuotes} = ? ;
+              |""".stripMargin
+        val prep = setJsValue(publicCredentialValue, publicCredentialField)
+        for {
+          resList <- HC.stream(sql, prep, 1).head.compile.toList
+          JsObject(fields) = resList.head
+          jp = JwtPayload(
+            userId = fields(model.primaryField.id),
+            role = model.id
+          )
+          hashed <- fields(scField.id) match {
+            case JsString(s) => s.pure[Query]
+            case _ =>
+              queryError[String] {
+                InternalException(
+                  "Secret credential value must be a `String`, but retrieved something else from the database"
+                )
+              }
           }
+          token <- scValue.isBcryptedSafeBounded(hashed) match {
+            case Success(valid) if valid =>
+              JsString(jc.encode(jp)).pure[Query]
+            case _ =>
+              queryError[JsString](UserError(s"Invalid credentials"))
+          }
+        } yield token
       }
-  }
+      case None => {
+        val sql =
+          s"""|SELECT ${model.primaryField.id.withQuotes} FROM ${model.id.withQuotes}
+              |WHERE ${publicCredentialField.id.withQuotes} = ?;""".stripMargin
+        val prep = setJsValue(publicCredentialValue, publicCredentialField)
+
+        HC.stream(sql, prep, 1).head.compile.toList.map(_.head).map { resObj =>
+          val id = resObj.fields(model.primaryField.id)
+          val jp = JwtPayload(
+            userId = id,
+            role = model.id
+          )
+          JsString(jc.encode(jp))
+        } recoverWith {
+          case _ => queryError[JsString](UserError(s"Invalid credentials"))
+        }
+      }
+    }
 
   override def createManyRecords(
       model: PModel,
@@ -233,7 +242,24 @@ class PostgresQueryEngine[M[_]: Monad](
           )
       }
 
-    val primFields = refInserts.map(fieldTypeMap(Prim) ++ _)
+    val primFields = refInserts.flatMap { refIns =>
+      val withHashedSecretCreds = fieldTypeMap(Prim).toVector.traverse {
+        case (field, JsString(secret)) if field.isSecretCredential =>
+          secret.bcryptSafeBounded.map(field -> JsString(_))
+        case otherwise => Success(otherwise)
+      }
+      withHashedSecretCreds match {
+        case Success(primFields) => (primFields ++ refIns).pure[Query]
+        case Failure(_) =>
+          queryError[Vector[(PModelField, JsValue)]] {
+            UserError(
+              s"Could not hash the value of secret credential${model.secretCredentialField
+                .map(f => s"`${f.id}`")
+                .getOrElse("")}. Secret credential values must consist of 71 or less non-UTF-8 characters"
+            )
+          }
+      }
+    }
 
     val insertedRecordId = for {
       columns <- primFields
