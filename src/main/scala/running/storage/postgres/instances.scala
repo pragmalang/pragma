@@ -1,8 +1,9 @@
 package running.storage.postgres
 
-import domain.utils._ 
+import domain.utils._
 import cats._
 import spray.json._
+import java.util.UUID
 
 package object instances {
 
@@ -25,15 +26,16 @@ package object instances {
     * doesn't match any case.
     */
   private def columnValueToJson(value: Any): JsValue = value match {
-    case null      => JsNull
-    case i: Int    => JsNumber(i)
-    case d: Double => JsNumber(d)
-    case s: String => JsString(s)
-    case d: Date   => JsString(d.toString)
-    case s: Short  => JsNumber(s.toDouble)
-    case l: Long   => JsNumber(l)
-    case f: Float  => JsNumber(f.toDouble)
-    case _         => JsNull
+    case null       => JsNull
+    case i: Int     => JsNumber(i)
+    case d: Double  => JsNumber(d)
+    case s: String  => JsString(s)
+    case d: Date    => JsString(d.toString)
+    case s: Short   => JsNumber(s.toDouble)
+    case l: Long    => JsNumber(l)
+    case f: Float   => JsNumber(f.toDouble)
+    case uuid: UUID => JsString(uuid.toString)
+    case _          => JsNull
   }
 
 }

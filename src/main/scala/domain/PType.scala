@@ -34,11 +34,11 @@ trait PShape extends Identifiable {
 }
 
 case class PModel(
-    id: String,
-    fields: Seq[PModelField],
-    directives: Seq[Directive],
-    index: Int,
-    position: Option[PositionRange]
+    val id: String,
+    val fields: Seq[PModelField],
+    val directives: Seq[Directive],
+    val index: Int,
+    val position: Option[PositionRange]
 ) extends PType
     with PConstruct
     with PShape {

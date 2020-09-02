@@ -86,8 +86,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
        |ALTER TABLE "User_renderSQL" ADD COLUMN "isVerified" BOOL NOT NULL;
        |
        |CREATE TABLE IF NOT EXISTS "User_renderSQL_todos"(
-       |"source_User_renderSQL" TEXT NOT NULL REFERENCES "User_renderSQL"("username") ON DELETE CASCADE,
-       |"target_Todo_renderSQL" TEXT NOT NULL REFERENCES "Todo_renderSQL"("title") ON DELETE CASCADE);
+       |"source_User_renderSQL" TEXT NOT NULL REFERENCES "User_renderSQL"("username") ON DELETE CASCADE ON UPDATE CASCADE,
+       |"target_Todo_renderSQL" TEXT NOT NULL REFERENCES "Todo_renderSQL"("title") ON DELETE CASCADE ON UPDATE CASCADE);
        |""".stripMargin
       )
 

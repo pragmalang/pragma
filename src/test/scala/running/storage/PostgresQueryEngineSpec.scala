@@ -13,7 +13,7 @@ import running.storage.TestStorage
 import cats.implicits._
 import org.scalatest.flatspec.AnyFlatSpec
 
-/** NOTE: These tests may fail if executed out of oder
+/** NOTE: These tests may fail if executed out of order
   * They also require a running Postgress instance
   */
 class PostgresQueryEngineSpec extends AnyFlatSpec {

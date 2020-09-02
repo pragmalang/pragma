@@ -258,7 +258,7 @@ object Operations {
             opName,
             opGroupName,
             iops,
-            arrayField
+            model.fieldsById(arrayField.id)
           ).asRight
         case (PushManyTo(arrayField), as: PushManyToArgs) =>
           PushManyToOperation(
@@ -269,7 +269,7 @@ object Operations {
             opName,
             opGroupName,
             iops,
-            arrayField
+            model.fieldsById(arrayField.id)
           ).asRight
         case (RemoveFrom(arrayField), as: RemoveFromArgs) =>
           RemoveFromOperation(
@@ -280,7 +280,7 @@ object Operations {
             opName,
             opGroupName,
             iops,
-            arrayField
+            model.fieldsById(arrayField.id)
           ).asRight
         case (RemoveManyFrom(arrayField), as: RemoveManyFromArgs) =>
           RemoveManyFromOperation(
@@ -291,7 +291,7 @@ object Operations {
             opName,
             opGroupName,
             iops,
-            arrayField
+            model.fieldsById(arrayField.id)
           ).asRight
         case (Login, as: LoginArgs) =>
           LoginOperation(

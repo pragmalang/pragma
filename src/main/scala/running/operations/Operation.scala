@@ -121,7 +121,7 @@ case class PushToOperation(
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation],
-    arrayField: PShapeField
+    arrayField: PModelField
 ) extends Operation {
   override val event = PushTo(arrayField)
 }
@@ -134,7 +134,7 @@ case class PushManyToOperation(
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation],
-    arrayField: PShapeField
+    arrayField: PModelField
 ) extends Operation {
   override val event = PushManyTo(arrayField)
 }
@@ -147,7 +147,7 @@ case class RemoveFromOperation(
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation],
-    arrayField: PShapeField
+    arrayField: PModelField
 ) extends Operation {
   override val event = RemoveFrom(arrayField)
 }
@@ -160,7 +160,7 @@ case class RemoveManyFromOperation(
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation],
-    arrayField: PShapeField
+    arrayField: PModelField
 ) extends Operation {
   override val event = RemoveManyFrom(arrayField)
 }

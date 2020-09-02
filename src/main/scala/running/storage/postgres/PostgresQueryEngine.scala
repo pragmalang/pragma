@@ -2,15 +2,13 @@ package running.storage.postgres
 
 import instances._
 import domain._, domain.utils._
-import running._, storage._
-import doobie._
-import doobie.implicits._
-import cats._
-import cats.implicits._
-import cats.effect._
-import spray.json._
 import domain.DomainImplicits._
 import running.RunningImplicits.PValueJsonWriter
+import running._, storage._
+import doobie._, doobie.implicits._, doobie.postgres.implicits._
+import cats._, cats.implicits._
+import cats.effect._
+import spray.json._
 
 class PostgresQueryEngine[M[_]: Monad](
     transactor: Transactor[M],
@@ -144,7 +142,9 @@ class PostgresQueryEngine[M[_]: Monad](
             s"""|SELECT ${model.primaryField.id.withQuotes} FROM ${model.id.withQuotes}
                 |WHERE ${publicCredentialField.id.withQuotes} = ? AND ${scField.id.withQuotes} = ?;
                 |""".stripMargin
-          val prep = setJsValue(publicCredentialValue) *> HPS.set(2, scValue)
+          val prep =
+            setJsValue(publicCredentialValue, publicCredentialField) *>
+              HPS.set(2, scValue)
           sql -> prep
         }
         case None => {
@@ -152,7 +152,7 @@ class PostgresQueryEngine[M[_]: Monad](
             s"""|SELECT ${model.primaryField.id.withQuotes} FROM ${model.id.withQuotes}
                 |WHERE ${publicCredentialField.id.withQuotes} = ?;
                 |""".stripMargin
-          sql -> setJsValue(publicCredentialValue)
+          sql -> setJsValue(publicCredentialValue, publicCredentialField)
         }
       }
 
@@ -238,10 +238,12 @@ class PostgresQueryEngine[M[_]: Monad](
     val insertedRecordId = for {
       columns <- primFields
       columnSql = columns.map(_._1.id.withQuotes).mkString(", ")
-      set = setJsValues(columns.map(_._2))
-      insertSql = s"""|INSERT INTO ${model.id.withQuotes} ($columnSql) VALUES (
-                      |${List.fill(columns.length)("?").mkString(", ")}
-                      |) RETURNING ${model.primaryField.id.withQuotes};""".stripMargin
+      nonUUIDColumns = columns.filterNot(_._1.isUUID)
+      set = setJsValues(nonUUIDColumns)
+      valuesSql = List.fill(nonUUIDColumns.length)("?").mkString(", ")
+      insertSql = s"""|INSERT INTO ${model.id.withQuotes} ($columnSql) 
+                      |VALUES ($valuesSql)
+                      |RETURNING ${model.primaryField.id.withQuotes};""".stripMargin
       rowId <- HC
         .stream(insertSql, set, 1)
         .head
@@ -373,8 +375,12 @@ class PostgresQueryEngine[M[_]: Monad](
         .mkString(", ") +
       s" WHERE ${model.primaryField.id.withQuotes} = ?;"
     val primUpdatePrep =
-      setJsValues(fieldTypeMap(Prim).map(_._2)) *>
-        setJsValue(primaryKeyValue, fieldTypeMap(Prim).length + 1)
+      setJsValues(fieldTypeMap(Prim)) *>
+        setJsValue(
+          primaryKeyValue,
+          model.primaryField,
+          fieldTypeMap(Prim).length + 1
+        )
     val primUpdate = HC
       .updateWithGeneratedKeys(model.primaryField.id :: Nil)(
         primUpdateSql,
@@ -422,7 +428,7 @@ class PostgresQueryEngine[M[_]: Monad](
     val sql =
       s"DELETE FROM ${model.id.withQuotes} WHERE ${model.primaryField.id.withQuotes} = ?;"
     toDelete <* HC
-      .updateWithGeneratedKeys(Nil)(sql, setJsValue(id), 0)
+      .updateWithGeneratedKeys(Nil)(sql, setJsValue(id, model.primaryField), 0)
       .compile
       .drain
   }
@@ -453,7 +459,7 @@ class PostgresQueryEngine[M[_]: Monad](
 
   override def pushManyTo(
       model: PModel,
-      field: PShapeField,
+      field: PModelField,
       items: Vector[JsValue],
       primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
@@ -467,7 +473,7 @@ class PostgresQueryEngine[M[_]: Monad](
 
   override def pushOneTo(
       model: PModel,
-      field: PShapeField,
+      field: PModelField,
       item: JsValue,
       sourceId: JsValue,
       innerReadOps: Vector[InnerOperation]
@@ -488,7 +494,7 @@ class PostgresQueryEngine[M[_]: Monad](
 
   override def removeManyFrom(
       model: PModel,
-      arrayField: PShapeField,
+      arrayField: PModelField,
       sourcePkValue: JsValue,
       targetPkValues: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
@@ -502,7 +508,7 @@ class PostgresQueryEngine[M[_]: Monad](
 
   override def removeOneFrom(
       model: PModel,
-      arrayField: PShapeField,
+      arrayField: PModelField,
       sourcePkValue: JsValue,
       tergetPkValue: JsValue,
       innerReadOps: Vector[InnerOperation]
@@ -515,7 +521,12 @@ class PostgresQueryEngine[M[_]: Monad](
       s"DELETE FROM ${model.id.concat("_" + arrayField.id).withQuotes} WHERE ${"source_"
         .concat(model.id)
         .withQuotes} = ? AND ${"target_".concat(refModel.id).withQuotes} = ?;"
-    val prep = setJsValue(sourcePkValue, 1) *> setJsValue(tergetPkValue, 2)
+    val targetField = arrayField.ptype match {
+      case PArray(PReference(id)) => st.modelsById(id).primaryField
+      case _                      => arrayField
+    }
+    val prep = setJsValue(sourcePkValue, model.primaryField, 1) *>
+      setJsValue(tergetPkValue, targetField, 2)
     HC.updateWithGeneratedKeys(Nil)(sql, prep, 0).compile.drain *>
       readOneRecord(model, sourcePkValue, innerReadOps)
   }
@@ -528,7 +539,8 @@ class PostgresQueryEngine[M[_]: Monad](
     val aliasedColumns =
       commaSepColumnNames(Operations.primaryFieldInnerOp(model) +: innerReadOps)
 
-    Fragment(s"SELECT $aliasedColumns FROM ${model.id.withQuotes};", Nil, None)
+    val sql = s"SELECT $aliasedColumns FROM ${model.id.withQuotes};"
+    Fragment(sql, Nil, None)
       .query[JsObject]
       .to[Vector]
       .flatMap(_.traverse(populateObject(model, _, innerReadOps)))
@@ -546,7 +558,7 @@ class PostgresQueryEngine[M[_]: Monad](
     val sql =
       s"""SELECT $aliasedColumns FROM ${model.id.withQuotes} WHERE ${model.primaryField.id.withQuotes} = ?;"""
 
-    val prep = setJsValue(primaryKeyValue)
+    val prep = setJsValue(primaryKeyValue, model.primaryField)
 
     HC.stream(sql, prep, 1)
       .head
@@ -635,7 +647,7 @@ class PostgresQueryEngine[M[_]: Monad](
           |WHERE ${("source_" + baseModel.id).withQuotes} = ?;
           """.stripMargin
 
-    val prep = setJsValue(baseRecordId)
+    val prep = setJsValue(baseRecordId, baseModel.primaryField)
     val joinRecords = HC.stream(sql, prep, 200)
 
     arrayField.ptype match {
@@ -706,6 +718,25 @@ class PostgresQueryEngine[M[_]: Monad](
         .withDefaultValue(Vector.empty)
     }.toMap
 
+  private def joinInsert(
+      model: PModel,
+      field: PModelField,
+      sourceValue: JsValue,
+      targetValue: JsValue
+  ): Query[Unit] = {
+    val joinTable = model.id.concat("_").concat(field.id).withQuotes
+    val sourceField = model.id.concat("_").concat(field.id).withQuotes
+    val sql =
+      s"INSERT INTO $joinTable VALUES (?, ?) RETURNING $sourceField;"
+    val targetPkField = field.ptype match {
+      case PArray(PReference(id)) => st.modelsById(id).primaryField
+      case _                      => field
+    }
+    val set = setJsValue(sourceValue, model.primaryField) *>
+      setJsValue(targetValue, targetPkField, 2)
+    HC.stream(sql, set, 1).compile.toVector.as(())
+  }
+
 }
 object PostgresQueryEngine {
   type Query[A] = ConnectionIO[A]
@@ -725,22 +756,30 @@ object PostgresQueryEngine {
   /** Utility function to get a `PreparedStatementIO`
     * from a JSON value.
     */
-  private def setJsValue(jsVal: JsValue, paramIndex: Int = 1) =
-    jsVal match {
-      case JsString(s)  => HPS.set(paramIndex, s)
-      case JsNumber(n)  => HPS.set(paramIndex, n.toDouble)
-      case JsBoolean(b) => HPS.set(paramIndex, b)
-      case JsNull       => HPS.set(paramIndex, Option.empty[Int])
-      case _ =>
-        throw InternalException(
-          s"Trying to set illegal value $jsVal at index $paramIndex in SQL query"
-        )
-    }
+  private def setJsValue(
+      jsVal: JsValue,
+      modelField: PModelField,
+      paramIndex: Int = 1
+  ) = jsVal match {
+    case JsString(s) if modelField.isUUID =>
+      HPS.set(paramIndex, java.util.UUID.fromString(s))
+    case JsString(s)  => HPS.set(paramIndex, s)
+    case JsNumber(n)  => HPS.set(paramIndex, n.toDouble)
+    case JsBoolean(b) => HPS.set(paramIndex, b)
+    case JsNull       => HPS.set(paramIndex, Option.empty[Int])
+    case _ =>
+      throw InternalException(
+        s"Trying to set illegal value $jsVal at index $paramIndex in SQL query"
+      )
+  }
 
   /** Sets all the given values based on their index in the sequence */
-  private def setJsValues(values: Seq[JsValue]): PreparedStatementIO[Unit] =
+  private def setJsValues(
+      values: Seq[(PModelField, JsValue)]
+  ): PreparedStatementIO[Unit] =
     values.zipWithIndex.foldLeft(HPS.set(())) {
-      case (set, (value, index)) => set *> setJsValue(value, index + 1)
+      case (set, ((field, value), index)) =>
+        set *> setJsValue(value, field, index + 1)
     }
 
   private def commaSepColumnNames(
@@ -757,21 +796,11 @@ object PostgresQueryEngine {
   private def selectAllById(model: PModel, id: JsValue): Query[JsObject] = {
     val sql =
       s"SELECT * FROM ${model.id.withQuotes} WHERE ${model.primaryField.id} = ?;"
-    HC.stream(sql, setJsValue(id), 1).head.compile.toList.map(_.head)
-  }
-
-  private def joinInsert(
-      model: PModel,
-      field: PShapeField,
-      sourceValue: JsValue,
-      targetValue: JsValue
-  ): Query[Unit] = {
-    val joinTable = model.id.concat("_").concat(field.id).withQuotes
-    val sourceField = model.id.concat("_").concat(field.id).withQuotes
-    val sql =
-      s"INSERT INTO $joinTable VALUES (?, ?) RETURNING $sourceField;"
-    val set = setJsValue(sourceValue) *> setJsValue(targetValue, 2)
-    HC.stream(sql, set, 1).compile.toVector.as(())
+    HC.stream(sql, setJsValue(id, model.primaryField), 1)
+      .head
+      .compile
+      .toList
+      .map(_.head)
   }
 
   /** Returns a `Query` resulting in the given error */
@@ -788,7 +817,7 @@ object PostgresQueryEngine {
   ): Query[Unit] = {
     val sql =
       s"DELETE FROM ${sourceModel.id.concat("_").concat(arrayField.id).withQuotes} WHERE ${"source_".concat(sourceModel.id).withQuotes} = ?;"
-    val prep = setJsValue(sourcePkVlaue)
+    val prep = setJsValue(sourcePkVlaue, sourceModel.primaryField)
     HC.updateWithGeneratedKeys(Nil)(sql, prep, 0).compile.drain
   }
 

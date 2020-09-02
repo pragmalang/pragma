@@ -89,7 +89,7 @@ abstract class QueryEngine[S, M[_]: Monad] {
 
   def pushManyTo(
       model: PModel,
-      field: PShapeField,
+      field: PModelField,
       items: Vector[JsValue],
       primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
@@ -97,7 +97,7 @@ abstract class QueryEngine[S, M[_]: Monad] {
 
   def pushOneTo(
       model: PModel,
-      field: PShapeField,
+      field: PModelField,
       item: JsValue,
       sourceId: JsValue,
       innerReadOps: Vector[InnerOperation]
@@ -105,7 +105,7 @@ abstract class QueryEngine[S, M[_]: Monad] {
 
   def removeManyFrom(
       model: PModel,
-      arrayField: PShapeField,
+      arrayField: PModelField,
       sourcePkValue: JsValue,
       targetPkValues: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
@@ -113,7 +113,7 @@ abstract class QueryEngine[S, M[_]: Monad] {
 
   def removeOneFrom(
       model: PModel,
-      arrayField: PShapeField,
+      arrayField: PModelField,
       sourcePkValue: JsValue,
       targetPkValue: JsValue,
       innerReadOps: Vector[InnerOperation]

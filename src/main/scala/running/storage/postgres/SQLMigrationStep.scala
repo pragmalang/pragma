@@ -92,7 +92,7 @@ case class ColumnDefinition(
           case Restrict => "ON DELETE SET NULL"
           case Default  => ""
         }
-        s" REFERENCES ${fk.otherTableName.withQuotes}(${fk.otherColumnName.withQuotes}) ${onDeleteCascade} ON UPDATE CASCADE;"
+        s" REFERENCES ${fk.otherTableName.withQuotes}(${fk.otherColumnName.withQuotes}) ${onDeleteCascade} ON UPDATE CASCADE"
       }
       case None => ""
     }
