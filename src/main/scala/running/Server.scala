@@ -85,6 +85,14 @@ class Server(
               case Right(obj)     => obj
             }
             .recover {
+              case UserError(errors) =>
+                JsObject {
+                  "errors" -> JsArray {
+                    errors
+                      .map(err => JsObject("message" -> JsString(err._1)))
+                      .toVector
+                  }
+                }
               case err =>
                 JsObject {
                   "errors" -> JsArray {
