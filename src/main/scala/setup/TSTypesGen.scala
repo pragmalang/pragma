@@ -1,13 +1,6 @@
 package setup
 import domain._
-import setup.TSType.TSInterface
-import setup.TSType.TSArray
-import setup.TSType.TSEnum
-import setup.TSType.TSNumber
-import setup.TSType.TSBoolean
-import setup.TSType.TSString
-import setup.TSType.TSDate
-import setup.TSType.TSAny
+import TSType._
 
 class TSTypesGen(syntaxTree: SyntaxTree) {
   val tsTypes = (syntaxTree.models ++ syntaxTree.enums).map(tsType).toList
@@ -42,14 +35,14 @@ sealed trait TSType {
     case TSEnum(name, _) if !verbose      => name
     case TSInterface(name, fields) if verbose =>
       s"""|interface $name {
-          |  ${fields.map(_.render).mkString("\n")}
+          |${fields.map(f => "  " + f.render).mkString("\n")}
           |}
           |""".stripMargin
     case TSEnum(name, variants) if verbose =>
       s"""|enum $name {
-            |  ${variants.mkString("\n")}
-            |}
-            |""".stripMargin
+          |${variants.map("  " + _).mkString("\n")}
+          |}
+          |""".stripMargin
     case TSArray(of) => s"Array<${of.render(verbose = false)}>"
     case TSNumber    => "number"
     case TSBoolean   => "boolean"

@@ -7,6 +7,7 @@ import cats.effect._, cats.implicits._
 import doobie._, doobie.hikari._, doobie.implicits._
 import running.storage.postgres._
 import cli._, cli.RunMode._
+import setup.TSTypesGen
 
 object Main extends IOApp {
 
@@ -224,6 +225,24 @@ object Main extends IOApp {
                   .map(_.toTry)
               }
 
+          val tsDefsFilePath = os.pwd / ".pragma" / "types.ts"
+
+          val tsDefs = new TSTypesGen(currentTree).renderTypes
+
+          val tsDefsFileExists = os.exists(tsDefsFilePath)
+
+          val writeTsDefs = if (config.withTsDefs) {
+            if (tsDefsFileExists)
+              IO(os.write.over(tsDefsFilePath, tsDefs))
+            else if (os.exists(os.pwd / ".pragma"))
+              IO(os.write(tsDefsFilePath, tsDefs))
+            else
+              IO {
+                os.makeDir(os.pwd / ".pragma")
+                os.write(tsDefsFilePath, tsDefs)
+              }
+          } else IO(())
+
           val writePrevTree =
             if (prevTreeExists)
               IO(os.write.over(prevFilePath, currentCode))
@@ -245,11 +264,23 @@ object Main extends IOApp {
             case (jc, s) => new Server(jc, s, currentTree)
           }
 
+          val runServer = server.flatMap(_.run(args))
+
           config.mode match {
             case Dev =>
-              removeAllTables *> migrate *> server.flatMap(_.run(args))
+              for {
+                _ <- removeAllTables
+                _ <- migrate
+                _ <- writeTsDefs
+                exitCode <- runServer
+              } yield exitCode
             case Prod =>
-              migrate *> writePrevTree *> server.flatMap(_.run(args))
+              for {
+                _ <- migrate
+                _ <- writePrevTree
+                _ <- writeTsDefs
+                exitCode <- runServer
+              } yield exitCode
           }
         }
       }

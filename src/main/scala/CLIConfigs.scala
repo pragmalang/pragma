@@ -9,7 +9,8 @@ case class CLIConfig(
     command: CLICommand,
     filePath: Path,
     isHelp: Boolean,
-    mode: RunMode
+    mode: RunMode,
+    withTsDefs: Boolean
 )
 
 object CLIConfig {
@@ -18,7 +19,8 @@ object CLIConfig {
       command = CLICommand.RootCommand,
       filePath = os.pwd / "Pragmafile",
       isHelp = false,
-      mode = RunMode.fromEnv
+      mode = RunMode.fromEnv,
+      withTsDefs = false
     )
 
   val parser: OptionParser[CLIConfig] =
@@ -34,14 +36,14 @@ object CLIConfig {
           configs.copy(command = CLICommand.Prod, mode = RunMode.Prod)
         }
         .text("Run app in production mode.")
-        .children(fileArg)
+        .children(fileArg, tsDefsOpt)
 
       cmd("dev")
         .action { (_, configs) =>
           configs.copy(command = CLICommand.Dev(), mode = RunMode.Dev)
         }
         .text("Run app in development mode.")
-        .children(fileArg, watchOpt)
+        .children(fileArg, watchOpt, tsDefsOpt)
 
       def watchOpt =
         opt[Unit]("watch")
@@ -62,6 +64,12 @@ object CLIConfig {
             configs.copy(filePath = Path(file.getAbsolutePath()))
           }
           .text(s"Defaults to ${(os.pwd / "Pragmafile").relativeTo(os.pwd)}.")
+
+      def tsDefsOpt =
+        opt[Unit]("ts-defs")
+          .abbr("ts")
+          .optional()
+          .action((_, config) => config.copy(withTsDefs = true))
 
       opt[Unit]("help")
         .abbr("h")
