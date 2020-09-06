@@ -90,6 +90,8 @@ object Main extends IOApp {
         case None        => sys.exit(1)
       }
 
+      val pwd = os.Path(config.filePath.wrapped.getParent())
+
       if (config.isHelp) {
         println(CLIConfig.usageWithAsciiLogo)
         sys.exit(0)
@@ -203,7 +205,7 @@ object Main extends IOApp {
           }
 
         case Success((currentTree, currentCode)) => {
-          val prevFilePath = os.pwd / ".pragma" / "prev"
+          val prevFilePath = pwd / ".pragma" / "prev"
           val prevTreeExists = os.exists(prevFilePath)
 
           val prevTree = config.mode match {
@@ -225,7 +227,7 @@ object Main extends IOApp {
                   .map(_.toTry)
               }
 
-          val tsDefsFilePath = os.pwd / ".pragma" / "types.ts"
+          val tsDefsFilePath = pwd / ".pragma" / "types.ts"
 
           val tsDefs = new TSTypesGen(currentTree).renderTypes
 
@@ -234,11 +236,11 @@ object Main extends IOApp {
           val writeTsDefs = if (config.withTsDefs) {
             if (tsDefsFileExists)
               IO(os.write.over(tsDefsFilePath, tsDefs))
-            else if (os.exists(os.pwd / ".pragma"))
+            else if (os.exists(pwd / ".pragma"))
               IO(os.write(tsDefsFilePath, tsDefs))
             else
               IO {
-                os.makeDir(os.pwd / ".pragma")
+                os.makeDir(pwd / ".pragma")
                 os.write(tsDefsFilePath, tsDefs)
               }
           } else IO(())
@@ -246,11 +248,11 @@ object Main extends IOApp {
           val writePrevTree =
             if (prevTreeExists)
               IO(os.write.over(prevFilePath, currentCode))
-            else if (os.exists(os.pwd / ".pragma"))
+            else if (os.exists(pwd / ".pragma"))
               IO(os.write(prevFilePath, currentCode))
             else
               IO {
-                os.makeDir(os.pwd / ".pragma")
+                os.makeDir(pwd / ".pragma")
                 os.write(prevFilePath, currentCode)
               }
 

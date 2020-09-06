@@ -63,8 +63,7 @@ object CLIConfig {
           .text(s"Defaults to ./Pragmafile")
 
       def tsDefsOpt =
-        opt[Unit]("ts-defs")
-          .abbr("ts")
+        opt[Unit]("ts")
           .optional()
           .action((_, config) => config.copy(withTsDefs = true))
           .text("Generates Typescript type definitions")
