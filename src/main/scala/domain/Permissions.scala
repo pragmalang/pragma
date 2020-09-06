@@ -111,68 +111,9 @@ case object SetOnCreate extends PPermission // allowed by default
 case object Login extends PPermission with PEvent // allowed by default
 
 case class Permissions(
-    globalTenant: Tenant,
-    tenants: Seq[Tenant]
-) {
-  type TargetModelId = String
-  type RoleId = String
-  type PermissionTree =
-    Map[Option[RoleId], Map[TargetModelId, Map[PEvent, Seq[AccessRule]]]]
-
-  /**
-    * A queryable tree of permissions.
-    * Note: it's better to use the methods on `Permissions`
-    * for querying instead of directly accessing `tree`.
-    */
-  lazy val tree: PermissionTree = constructTree
-
-  private def ruleEventTree(
-      rules: Seq[AccessRule]
-  ): Map[PEvent, Seq[AccessRule]] = {
-    val eventRulePairs =
-      rules.flatMap(rule => rule.eventsThatMatch.map((_, rule)))
-    eventRulePairs.groupMap(_._1)(_._2)
-  }
-
-  private def targetModelTree(
-      rules: Seq[AccessRule]
-  ): Map[TargetModelId, Map[PEvent, Seq[AccessRule]]] =
-    rules.groupBy(_.resourcePath._1.id).map {
-      case (targetModelId, rules) => (targetModelId, ruleEventTree(rules))
-    }
-
-  private def constructTree: PermissionTree = {
-    val trees =
-      globalTenant.roles.map { role =>
-        Option(role.user.id) -> targetModelTree(
-          globalTenant.rules ++ role.rules
-        )
-      }
-    trees.toMap.withDefaultValue(targetModelTree(globalTenant.rules))
-  }
-
-  def rulesOf(
-      role: Option[RoleId],
-      targetModel: TargetModelId,
-      event: PEvent
-  ): Seq[AccessRule] = {
-    val targetModelTree = tree(role)
-    val rules = for {
-      eventTree <- targetModelTree.get(targetModel)
-      rules <- eventTree.get(event)
-    } yield rules
-
-    rules.getOrElse(Nil)
-  }
-
-  def rulesOf(
-      role: Option[PModel],
-      targetModel: PModel,
-      event: PEvent
-  ): Seq[AccessRule] =
-    rulesOf(role.map(_.id), targetModel.id, event)
-
-}
+    val globalTenant: Tenant,
+    val tenants: Seq[Tenant]
+)
 object Permissions {
   val empty = Permissions(
     Tenant("root", Nil, Nil, None),
@@ -205,59 +146,4 @@ case class AccessRule(
     predicate: Option[PFunctionValue[JsValue, Try[JsValue]]],
     isSlefRule: Boolean,
     position: Option[PositionRange]
-) extends PConstruct {
-  def eventsThatMatch: Set[PEvent] = permissions.flatMap(eventsOf)
-
-  /** Returns the events that trigger the permission */
-  def eventsOf(permission: PPermission): List[PEvent] =
-    if (!permissions.contains(permission)) Nil
-    else
-      (resourcePath._2, permission) match {
-        case (None, Create)         => List(Create, CreateMany)
-        case (_, ReadOnCreate)      => List(Create, CreateMany)
-        case (Some(_), SetOnCreate) => List(Create, CreateMany)
-        case (_, Read)              => List(Read, ReadMany)
-        case (_, Update)            => List(Update, UpdateMany)
-        case (Some(field), Mutate) if field.ptype.isInstanceOf[PReference] =>
-          List(Update, UpdateMany)
-        case (Some(field), PushTo) =>
-          List(PushTo(field), PushManyTo(field))
-        case (Some(field), RemoveFrom) =>
-          List(RemoveFrom(field), RemoveManyFrom(field))
-        case (None, Delete) => List(Delete, DeleteMany)
-        case (None, Login)  => List(Login)
-        case (Some(field), All) if field.ptype.isInstanceOf[PArray] =>
-          List(
-            PushTo(field),
-            PushManyTo(field),
-            RemoveFrom(field),
-            RemoveManyFrom(field),
-            Update
-          )
-        case (Some(field), All) if (field.ptype match {
-              case _: PrimitiveType                     => true
-              case _: PEnum                             => true
-              case POption(_: PrimitiveType | _: PEnum) => true
-              case _                                    => false
-            }) =>
-          List(Read, ReadMany, Update, UpdateMany)
-        case (Some(field), All) if (field.ptype match {
-              case PReference(_) => true
-              case _             => false
-            }) =>
-          List(Read, ReadMany, Update, UpdateMany)
-        case (None, All) =>
-          List(
-            Read,
-            ReadMany,
-            Update,
-            UpdateMany,
-            Create,
-            CreateMany,
-            Delete,
-            DeleteMany,
-            Login
-          )
-        case _ => Nil
-      }
-}
+) extends PConstruct

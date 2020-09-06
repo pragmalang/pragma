@@ -4,12 +4,14 @@ import domain._
 import running.storage.QueryWhere
 import spray.json._
 import scala.util.Try
+import cats.implicits._
 
 sealed trait Operation {
   val event: PEvent
   val opArguments: OpArgs[PEvent]
   val targetModel: PModel
   val user: Option[(JwtPayload, PModel)]
+  val targetsSelf: Boolean
   // Contains hooks used in @onRead, @onWrite, and @onDelete directives
   val hooks: Seq[PFunctionValue[JsValue, Try[JsValue]]]
   val name: String
@@ -27,6 +29,7 @@ case class ReadOperation(
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = Read
+  override val targetsSelf = this.opArguments.id.some == user.map(_._1.userId)
 }
 
 case class ReadManyOperation(
@@ -39,6 +42,7 @@ case class ReadManyOperation(
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = ReadMany
+  override val targetsSelf = false
 }
 
 case class CreateOperation(
@@ -51,6 +55,7 @@ case class CreateOperation(
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = Create
+  override val targetsSelf = false
 }
 
 case class CreateManyOperation(
@@ -63,6 +68,7 @@ case class CreateManyOperation(
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = CreateMany
+  override val targetsSelf = false
 }
 
 case class UpdateOperation(
@@ -75,6 +81,8 @@ case class UpdateOperation(
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = Update
+  override val targetsSelf =
+    this.opArguments.obj.objId.some == user.map(_._1.userId)
 }
 
 case class UpdateManyOperation(
@@ -87,6 +95,7 @@ case class UpdateManyOperation(
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = UpdateMany
+  override val targetsSelf = false
 }
 
 case class DeleteOperation(
@@ -99,6 +108,7 @@ case class DeleteOperation(
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = Delete
+  override val targetsSelf = this.opArguments.id.some == user.map(_._1.userId)
 }
 
 case class DeleteManyOperation(
@@ -111,6 +121,7 @@ case class DeleteManyOperation(
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = DeleteMany
+  override val targetsSelf = false
 }
 
 case class PushToOperation(
@@ -124,6 +135,7 @@ case class PushToOperation(
     arrayField: PModelField
 ) extends Operation {
   override val event = PushTo(arrayField)
+  override val targetsSelf = this.opArguments.id.some == user.map(_._1.userId)
 }
 
 case class PushManyToOperation(
@@ -137,6 +149,7 @@ case class PushManyToOperation(
     arrayField: PModelField
 ) extends Operation {
   override val event = PushManyTo(arrayField)
+  override val targetsSelf = this.opArguments.id.some == user.map(_._1.userId)
 }
 
 case class RemoveFromOperation(
@@ -150,6 +163,7 @@ case class RemoveFromOperation(
     arrayField: PModelField
 ) extends Operation {
   override val event = RemoveFrom(arrayField)
+  override val targetsSelf = this.opArguments.id.some == user.map(_._1.userId)
 }
 
 case class RemoveManyFromOperation(
@@ -163,6 +177,7 @@ case class RemoveManyFromOperation(
     arrayField: PModelField
 ) extends Operation {
   override val event = RemoveManyFrom(arrayField)
+  override val targetsSelf = this.opArguments.id.some == user.map(_._1.userId)
 }
 
 case class LoginOperation(
@@ -175,6 +190,7 @@ case class LoginOperation(
     innerReadOps: Vector[InnerOperation]
 ) extends Operation {
   override val event = Login
+  override val targetsSelf = false
 }
 
 /** Represents a data read selection within an operation */
@@ -200,6 +216,7 @@ case class InnerReadOperation(
   override val opArguments = InnerOpNoArgs
   override val name = targetField.alias.getOrElse(targetField.field.id)
   override val groupName = "InnerReadOps"
+  override val targetsSelf = false
 }
 
 case class InnerReadManyOperation(
@@ -213,6 +230,7 @@ case class InnerReadManyOperation(
   override val event = ReadMany
   override val name = targetField.alias.getOrElse(targetField.field.id)
   override val groupName = "InnerReadManyOps"
+  override val targetsSelf = false
 }
 
 sealed trait OpArgs[+E <: PEvent]

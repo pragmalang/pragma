@@ -2,6 +2,7 @@ package running
 
 import spray.json.JsObject
 import sangria.ast.Document
+import domain.AccessRule
 
 object TestUtils {
 
@@ -17,5 +18,10 @@ object TestUtils {
       url = "",
       hostname = ""
     )
+
+  def printRule(rule: AccessRule) = println {
+    s"${rule.ruleKind} ${rule.permissions} ${rule.resourcePath._1.id}.${rule.resourcePath._2
+      .map(_.id)} if ${rule.predicate.map(_ => "<predicate>")}"
+  }
 
 }

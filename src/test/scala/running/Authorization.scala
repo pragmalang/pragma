@@ -1,4 +1,4 @@
-package running
+package running.authorizer
 
 import domain.SyntaxTree
 import running._, running.storage._

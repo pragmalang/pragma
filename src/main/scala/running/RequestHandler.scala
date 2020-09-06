@@ -1,5 +1,6 @@
 package running
 
+import running.authorizer.Authorizer
 import domain._, domain.utils.UserError
 import storage.Storage
 import cats._
