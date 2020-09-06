@@ -91,7 +91,7 @@ object Main extends IOApp {
       }
 
       if (config.isHelp) {
-        println(CLIConfig.usage)
+        println(CLIConfig.usageWithAsciiLogo)
         sys.exit(0)
       }
 
