@@ -6,7 +6,12 @@ import domain.utils.InternalException
 
 package utils {
 
-  class QueryError(message: String) extends Exception(s"QueryError: $message")
+  case class QueryError(messages: Vector[String])
+      extends Exception(s"Query Error:\n${messages.mkString("; ")}")
+
+  object QueryError {
+    def apply(message: String) = new QueryError(Vector(message))
+  }
 
   case object InvalidJwtTokenError extends Exception("Invalid JWT token")
 

@@ -1,5 +1,6 @@
 package running
 
+import running.utils.QueryError
 import cats.effect._
 import org.http4s._, org.http4s.dsl.io._
 import org.http4s.server.blaze._, org.http4s.server.Router
@@ -16,14 +17,14 @@ import assets.asciiLogo
 import domain._
 import domain.utils._
 import sangria.marshalling.sprayJson._
-import sangria.schema.Schema
-import sangria.execution.Executor
+import sangria.schema.Schema, sangria.execution.Executor
 
 class Server(
     jwtCodec: JwtCodec,
     storage: Resource[IO, Postgres[IO]],
     currentSyntaxTree: SyntaxTree
 ) extends IOApp {
+  import Server._
 
   val gqlSchema =
     Schema.buildFromAst(
@@ -75,30 +76,11 @@ class Server(
           val resJson = reqHandler
             .use(rh => rh.handle(preq))
             .map[JsValue] {
-              case Left(UserError(errors)) =>
-                JsArray {
-                  errors
-                    .map(e => JsObject("message" -> JsString(e._1)))
-                    .toVector
-                }
-              case Left(otherErr) => JsString(otherErr.getMessage)
-              case Right(obj)     => obj
+              case Left(e)    => jsonFrom(e)
+              case Right(obj) => obj
             }
             .recover {
-              case UserError(errors) =>
-                JsObject {
-                  "errors" -> JsArray {
-                    errors
-                      .map(err => JsObject("message" -> JsString(err._1)))
-                      .toVector
-                  }
-                }
-              case err =>
-                JsObject {
-                  "errors" -> JsArray {
-                    JsObject("message" -> JsString(err.getMessage))
-                  }
-                }
+              case e: Throwable => jsonFrom(e)
             }
 
           Response[IO](
@@ -190,6 +172,33 @@ class Server(
       }
       .map(_.compactPrint.getBytes.iterator)
       .pure[IO]
+  }
+
+}
+object Server {
+
+  private def jsonFrom(err: Throwable): JsObject = err match {
+    case UserError(errors) =>
+      JsObject {
+        "errors" -> JsArray {
+          errors
+            .map(err => JsObject("message" -> JsString(err._1)))
+            .toVector
+        }
+      }
+
+    case QueryError(messages) =>
+      JsObject {
+        "errors" -> JsArray {
+          messages.map(msg => JsObject("message" -> JsString(msg)))
+        }
+      }
+    case err =>
+      JsObject {
+        "errors" -> JsArray {
+          JsObject("message" -> JsString(err.getMessage))
+        }
+      }
   }
 
 }

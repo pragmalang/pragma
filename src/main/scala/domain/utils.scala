@@ -33,7 +33,7 @@ package utils {
       )
 
   case class UserError(val errors: Iterable[ErrorMessage])
-      extends Exception(errors.map(_._1).mkString("\n"))
+      extends Exception(errors.map(_._1).mkString("; "))
 
   object UserError {
     def apply(

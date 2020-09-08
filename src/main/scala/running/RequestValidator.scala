@@ -26,10 +26,9 @@ class RequestValidator(syntaxTree: SyntaxTree) {
   def validateQuery(request: Request): Try[Request] = Try {
     val violations = queryValidator
       .validateQuery(sangriaSchema, request.query)
-      .toList
 
     if (!violations.isEmpty)
-      throw new QueryError(violations.map(_.errorMessage).mkString(","))
+      throw new QueryError(violations.map(_.errorMessage))
 
     val operationDefinitions = request.query.definitions
       .collect { case d: OperationDefinition => d }
@@ -89,7 +88,7 @@ class RequestValidator(syntaxTree: SyntaxTree) {
         coercedValues.addOne(variableName -> defaultValue.get.toJson)
       else if (variableType
                  .isInstanceOf[NotNullType] && (!hasValue || value == JsNull))
-        throw new QueryError("Variables coercion failed")
+        throw QueryError("Variables coercion failed")
       else if (hasValue) {
         if (typeCheckJson(
               fromGraphQLNamedTypeToPType(variableType.namedType),
@@ -97,7 +96,7 @@ class RequestValidator(syntaxTree: SyntaxTree) {
             )(
               value
             ).isFailure)
-          throw new QueryError("Variables coercion failed")
+          throw QueryError("Variables coercion failed")
         else coercedValues.addOne(variableName -> value)
       }
     }
@@ -133,7 +132,7 @@ class RequestValidator(syntaxTree: SyntaxTree) {
         coercedValues.addOne(argumentName -> defaultValue.get.toJson)
       } else if (argumentType
                    .isInstanceOf[NotNullType] & (!hasValue || value.get == JsNull)) {
-        throw new QueryError("Variables coercion failed")
+        throw QueryError("Variables coercion failed")
       } else if (hasValue) {
         if (value.get == JsNull)
           coercedValues.addOne(argumentName -> JsNull)
@@ -145,7 +144,7 @@ class RequestValidator(syntaxTree: SyntaxTree) {
             apiSchemaGenerator.buildApiSchemaAsSyntaxTree
           )(value.get)
           if (coercedValue.isFailure)
-            throw new QueryError("Variables coercion failed")
+            throw QueryError("Variables coercion failed")
           else coercedValues.addOne(argumentName -> coercedValue.get)
         }
       }
