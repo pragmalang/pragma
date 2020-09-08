@@ -77,13 +77,13 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
        |
        |ALTER TABLE "Todo_renderSQL" ADD COLUMN "title" TEXT NOT NULL PRIMARY KEY;
        |
-       |ALTER TABLE "User_renderSQL" ADD COLUMN "username" TEXT NOT NULL UNIQUE PRIMARY KEY;
-       |
-       |ALTER TABLE "User_renderSQL" ADD COLUMN "id" UUID NOT NULL DEFAULT uuid_generate_v4 ();
+       |ALTER TABLE "User_renderSQL" ADD COLUMN "isVerified" BOOL NOT NULL;
        |
        |ALTER TABLE "User_renderSQL" ADD COLUMN "password" TEXT NOT NULL UNIQUE;
        |
-       |ALTER TABLE "User_renderSQL" ADD COLUMN "isVerified" BOOL NOT NULL;
+       |ALTER TABLE "User_renderSQL" ADD COLUMN "username" TEXT NOT NULL UNIQUE PRIMARY KEY;
+       |
+       |ALTER TABLE "User_renderSQL" ADD COLUMN "id" UUID NOT NULL DEFAULT uuid_generate_v4 ();
        |
        |CREATE TABLE IF NOT EXISTS "User_renderSQL_todos"(
        |"source_User_renderSQL" TEXT NOT NULL REFERENCES "User_renderSQL"("username") ON DELETE CASCADE ON UPDATE CASCADE,
@@ -97,6 +97,11 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
         case Right(migration) => migration.renderSQL
       })
     )
+
+    // migrationEngine.initialMigration match {
+    //   case Left(e)          => ()
+    //   case Right(migration) => println(migration.renderSQL)
+    // }
 
     migrationEngine.initialMigration
       .getOrElse(fail())
@@ -132,43 +137,13 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
         "User",
         AddColumn(
           ColumnDefinition(
-            "username",
-            PostgresType.TEXT,
-            true,
-            true,
-            true,
-            false,
-            false,
-            None
-          )
-        )
-      ),
-      AlterTable(
-        "Todo",
-        AddColumn(
-          ColumnDefinition(
-            "title",
-            PostgresType.TEXT,
-            true,
-            false,
-            true,
-            false,
-            false,
-            None
-          )
-        )
-      ),
-      AlterTable(
-        "User",
-        AddColumn(
-          ColumnDefinition(
-            "id",
-            PostgresType.UUID,
+            "isVerified",
+            PostgresType.BOOL,
             true,
             false,
             false,
             false,
-            true,
+            false,
             None
           )
         )
@@ -192,11 +167,41 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
         "User",
         AddColumn(
           ColumnDefinition(
-            "isVerified",
-            PostgresType.BOOL,
+            "username",
+            PostgresType.TEXT,
+            true,
+            true,
             true,
             false,
             false,
+            None
+          )
+        )
+      ),
+      AlterTable(
+        "User",
+        AddColumn(
+          ColumnDefinition(
+            "id",
+            PostgresType.UUID,
+            true,
+            false,
+            false,
+            false,
+            true,
+            None
+          )
+        )
+      ),
+      AlterTable(
+        "Todo",
+        AddColumn(
+          ColumnDefinition(
+            "title",
+            PostgresType.TEXT,
+            true,
+            false,
+            true,
             false,
             false,
             None
@@ -239,9 +244,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       testStorage.queryEngine
     )
 
-    assert(
-      postgresMigration.sqlSteps == expected
-    )
+    assert(postgresMigration.sqlSteps == expected)
   }
 
   test("Adding new models in a migration works") {
