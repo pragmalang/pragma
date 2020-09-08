@@ -18,8 +18,9 @@ class RequestHandler[S, M[_]: Monad](
 
   def handle(req: Request): M[Either[Throwable, JsObject]] = {
     val authResult = for {
-      validationResult <- reqValidator(RequestReducer(req)).toEither
-      ops <- Operations.from(validationResult)(syntaxTree)
+      validationResult <- reqValidator(req).toEither
+      reducedRequest = RequestReducer(validationResult)
+      ops <- Operations.from(reducedRequest)(syntaxTree)
       result = authorizer(ops, req.user)
     } yield
       result flatMap [Operations.OperationsMap] { errors =>

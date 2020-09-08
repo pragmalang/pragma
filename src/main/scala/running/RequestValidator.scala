@@ -9,10 +9,10 @@ import setup.schemaGenerator.ApiSchemaGenerator
 import setup.schemaGenerator.SchemaGeneratorImplicits._
 import spray.json._
 import RunningImplicits._
-import running.utils.QueryError
 import cats.implicits._
 import scala.util.Failure
 import scala.util.Success
+import running.utils.QueryError
 
 class RequestValidator(syntaxTree: SyntaxTree) {
 
@@ -44,16 +44,40 @@ class RequestValidator(syntaxTree: SyntaxTree) {
           case Success(_)         => request
         }
       case _ => {
-        operationDefinitions
-          .zip(request.queryVariables.fields.values)
-          .map { op =>
-            coerceVariables(
-              op._1,
-              op._2
-                .asJsObject("Query variables must be sent as a JSON object")
-            )
-          }
-          .sequence match {
+        operationDefinitions.map { op =>
+          coerceVariables(
+            op,
+            request.queryVariables
+              .fields(op.name.get)
+              .asJsObject("Query variables must be sent as a JSON object")
+          )
+        //   map { variables =>
+        //     for {
+        //       op <- operationDefinitions
+        //       opName = op.name match {
+        //         case Some(name) => name
+        //         case None => throw new QueryError("Each operation must have a name")
+        //       }
+        //       opVariables = ???
+        //     } yield
+        //       opVariables match {
+        //         case Some((_, value: JsObject)) => Success(value)
+        //         case Some((name, _)) =>
+        //           Failure(
+        //             new QueryError(
+        //               s"Operation `$name` mus"
+        //             )
+        //           )
+        //         case None =>
+        //           Failure(
+        //             new QueryError(
+        //               "Each operation must have a key in the query variables JSON object"
+        //             )
+        //           )
+        //       }
+        //     ???
+        //   }
+        }.sequence match {
           case Failure(exception) => throw exception
           case Success(_)         => request
         }

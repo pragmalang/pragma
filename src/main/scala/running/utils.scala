@@ -38,6 +38,24 @@ package object utils {
       )
   }
 
+  def jsonToSangria(v: JsValue): Value = v match {
+    case JsObject(fields) =>
+      ObjectValue(
+        fields.map { f =>
+          ObjectField(f._1, jsonToSangria(f._2))
+        }.toVector
+      )
+    case JsArray(elements) => ListValue(elements.map(jsonToSangria))
+    case JsString(value)   => StringValue(value)
+    case JsNumber(value) if value.isWhole =>
+      BigIntValue(value.bigDecimal.toBigInteger())
+    case JsNumber(value) =>
+      BigDecimalValue(value.bigDecimal)
+    case JsTrue  => BooleanValue(true)
+    case JsFalse => BooleanValue(false)
+    case JsNull  => NullValue()
+  }
+
   def objFieldsFrom(
       args: Vector[sangria.ast.Argument]
   ): Vector[(String, spray.json.JsValue)] =

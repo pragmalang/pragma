@@ -59,7 +59,7 @@ class Authorization extends AnyFlatSpec {
         }
       }
       """,
-      Left(JsObject(Map.empty[String, JsValue])),
+      JsObject(Map.empty[String, JsValue]),
       Map.empty,
       "",
       ""
@@ -124,7 +124,7 @@ class Authorization extends AnyFlatSpec {
         }
       }
       """,
-      queryVariables = Left(JsObject.empty),
+      queryVariables = JsObject.empty,
       cookies = Map.empty,
       url = "",
       hostname = ""
@@ -162,7 +162,7 @@ class Authorization extends AnyFlatSpec {
         }
       }
       """,
-      queryVariables = Left(JsObject.empty),
+      queryVariables = JsObject.empty,
       cookies = Map.empty,
       url = "",
       hostname = ""
