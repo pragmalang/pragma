@@ -50,32 +50,6 @@ class RequestValidator(syntaxTree: SyntaxTree) {
               .fields(op.name.get)
               .asJsObject("Query variables must be sent as a JSON object")
           )
-        //   map { variables =>
-        //     for {
-        //       op <- operationDefinitions
-        //       opName = op.name match {
-        //         case Some(name) => name
-        //         case None => throw new QueryError("Each operation must have a name")
-        //       }
-        //       opVariables = ???
-        //     } yield
-        //       opVariables match {
-        //         case Some((_, value: JsObject)) => Success(value)
-        //         case Some((name, _)) =>
-        //           Failure(
-        //             new QueryError(
-        //               s"Operation `$name` mus"
-        //             )
-        //           )
-        //         case None =>
-        //           Failure(
-        //             new QueryError(
-        //               "Each operation must have a key in the query variables JSON object"
-        //             )
-        //           )
-        //       }
-        //     ???
-        //   }
         }.sequence match {
           case Failure(exception) => throw exception
           case Success(_)         => request
