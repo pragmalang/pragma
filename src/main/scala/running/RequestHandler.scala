@@ -51,7 +51,19 @@ class RequestHandler[S, M[_]: Monad](
     }
 
     val storageResult =
-      opsAfterPreHooks.traverse(ops => ops.flatMap(storage.run))
+      opsAfterPreHooks.traverse { ops =>
+        req.body.flatMap(_.fields.get("operationName")) match {
+          case Some(JsString(opName)) =>
+            ops.flatMap { ops =>
+              val op = ops.filter {
+                case (Some(op), _) => op == opName
+                case _             => false
+              }
+              storage.run(op)
+            }
+          case _ => ops.flatMap(storage.run)
+        }
+      }
 
     val readHookResults = storageResult.map { result =>
       result
