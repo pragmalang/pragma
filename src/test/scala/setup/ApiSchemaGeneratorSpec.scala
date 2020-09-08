@@ -166,7 +166,7 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
     val expectedSchema = Schema.buildFromAst(gqlDoc)
 
     val resultSchema =
-      Schema.buildFromAst(generator.buildApiSchemaAsDocument)
+      Schema.buildFromAst(generator.build)
 
     val difference = resultSchema.compare(expectedSchema)
     assert(difference.isEmpty)

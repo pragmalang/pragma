@@ -28,7 +28,7 @@ class Server(
 
   val gqlSchema =
     Schema.buildFromAst(
-      ApiSchemaGenerator(currentSyntaxTree).buildApiSchemaAsDocument
+      ApiSchemaGenerator(currentSyntaxTree).build
     )
 
   val reqHandler =

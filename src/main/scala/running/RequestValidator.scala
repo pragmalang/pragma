@@ -17,7 +17,7 @@ class RequestValidator(syntaxTree: SyntaxTree) {
   val apiSchemaGenerator = ApiSchemaGenerator(syntaxTree)
 
   val sangriaSchema =
-    Schema.buildFromAst(apiSchemaGenerator.buildApiSchemaAsDocument)
+    Schema.buildFromAst(apiSchemaGenerator.build)
 
   def validateQuery(request: Request): Try[Request] = Try {
     val violations = queryValidator

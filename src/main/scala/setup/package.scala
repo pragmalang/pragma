@@ -55,7 +55,7 @@ case class Setup[M[_]: Monad](syntaxTree: SyntaxTree) {
   def writeDockerComposeYaml() =
     "mkdir .pragma" $ "Filesystem Error: Couldn't create .pragma directory"
 
-  def buildApiSchema(): SyntaxTree =
-    ApiSchemaGenerator(syntaxTree).buildApiSchemaAsSyntaxTree
+  def buildApiSchema() =
+    ApiSchemaGenerator(syntaxTree).build
 
 }
