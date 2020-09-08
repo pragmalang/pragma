@@ -91,8 +91,7 @@ object RunningImplicits {
         .parse(json.asJsObject.fields("body").asInstanceOf[JsString].value)
         .get,
       queryVariables = json.asJsObject.fields("queryVariables") match {
-        case obj: JsObject => Left(obj)
-        case arr: JsArray  => Right(arr.convertTo[List[JsObject]])
+        case obj: JsObject => obj
         case _ =>
           throw DeserializationException(
             "Query variables must only be an Array or Object"
@@ -108,10 +107,7 @@ object RunningImplicits {
       "body" -> obj.body.toJson,
       "kind" -> "Request".toJson,
       "query" -> obj.query.renderPretty.toJson,
-      "queryVariables" -> (obj.queryVariables match {
-        case Left(vars)  => vars.toJson
-        case Right(vars) => vars.toJson
-      }),
+      "queryVariables" -> obj.queryVariables,
       "cookies" -> obj.cookies.toJson,
       "url" -> obj.url.toJson,
       "hostname" -> obj.hostname.toJson,

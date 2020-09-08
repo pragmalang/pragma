@@ -10,6 +10,9 @@ import setup.schemaGenerator.SchemaGeneratorImplicits._
 import spray.json._
 import RunningImplicits._
 import running.utils.QueryError
+import cats.implicits._
+import scala.util.Failure
+import scala.util.Success
 
 class RequestValidator(syntaxTree: SyntaxTree) {
 
@@ -34,25 +37,27 @@ class RequestValidator(syntaxTree: SyntaxTree) {
     val operationDefinitions = request.query.definitions
       .collect { case d: OperationDefinition => d }
 
-    operationDefinitions.size match {
-      case 1 =>
-        request.copy(
-          queryVariables = Left(
+    operationDefinitions match {
+      case Vector(op) =>
+        coerceVariables(op, request.queryVariables) match {
+          case Failure(exception) => throw exception
+          case Success(_)         => request
+        }
+      case _ => {
+        operationDefinitions
+          .zip(request.queryVariables.fields.values)
+          .map { op =>
             coerceVariables(
-              operationDefinitions.head,
-              request.queryVariables.swap.getOrElse(JsObject.empty)
-            ).get
-          )
-        )
-      case _ =>
-        request.copy(
-          queryVariables = Right(
-            operationDefinitions
-              .zip(request.queryVariables.getOrElse(Nil))
-              .map(op => coerceVariables(op._1, op._2).get)
-              .toList
-          )
-        )
+              op._1,
+              op._2
+                .asJsObject("Query variables must be sent as a JSON object")
+            )
+          }
+          .sequence match {
+          case Failure(exception) => throw exception
+          case Success(_)         => request
+        }
+      }
     }
   }
 
