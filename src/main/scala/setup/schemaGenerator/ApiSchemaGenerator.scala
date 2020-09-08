@@ -338,15 +338,13 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     syntaxTree.models.map { model =>
       InputObjectTypeDefinition(
         name = inputTypeName(model)(OptionalInput),
-        fields = model.fields
-          .map { field =>
-            InputValueDefinition(
-              name = field.id,
-              valueType = inputFieldType(field),
-              None
-            )
-          }
-          .toVector
+        fields = model.fields.map { field =>
+          InputValueDefinition(
+            name = field.id,
+            valueType = inputFieldType(field),
+            None
+          )
+        }.toVector
       )
     }
 
@@ -360,11 +358,9 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       .foldLeft(List.empty[Option[FieldDefinition]])(
         (acc, rule) => acc ++ syntaxTree.models.map(rule)
       )
-      .filter({
-        case Some(_) => true
-        case None    => false
-      })
-      .map(_.get)
+      .collect {
+        case Some(value) => value
+      }
       .toVector
   )
 
@@ -529,7 +525,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       ++ modelSubscriptionsTypes).toVector
   }
 
-  def getTypeFromSchema(tpe: Type): Option[TypeFromSchema] = Option {
+  def getTypeFromSchema(tpe: Type): Option[TypeFromSchema] = {
     val td = buildApiSchemaAsDocument.definitions
       .find({
         case typeDef: TypeDefinition if typeDef.name == tpe.namedType.name =>
@@ -537,7 +533,6 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         case _ => false
       })
       .map(_.asInstanceOf[TypeDefinition])
-      .get
 
     val isEmptyList = tpe match {
       case ListType(_, _) => true
@@ -554,7 +549,9 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       case _                 => false
     }
 
-    TypeFromSchema(td, isEmptyList, isNonEmptyList, isOptional, tpe)
+    td.map(
+      td => TypeFromSchema(td, isEmptyList, isNonEmptyList, isOptional, tpe)
+    )
   }
 }
 
