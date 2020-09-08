@@ -64,10 +64,8 @@ class Server(
               case _           => throw UserError("Invalid GraphQL query")
             },
             queryVariables = jsonBody.fields("variables") match {
-              case o: JsObject => Left(o)
-              case JsArray(values) =>
-                Right(values.collect { case o: JsObject => o })
-              case _ => throw UserError("Invalid GraphQL query variables")
+              case o: JsObject => o
+              case _           => throw UserError("Invalid GraphQL query variables")
             },
             user = req.headers
               .get(CaseInsensitiveString("Authorization"))

@@ -1,47 +1,106 @@
 package running
 
 import sangria._, ast._
+import spray.json._
+import utils._
 
 object RequestReducer {
 
   def apply(input: Request): Request =
     input.copy(
       query = RequestReducer
-        .reduceQuery(input.query)
+        .reduceQuery(input.query, input.queryVariables)
     )
 
-  def reduceQuery(queryAst: Document): Document =
+  def reduceQuery(queryAst: Document, variables: JsObject): Document =
     Document(queryAst.definitions.collect {
       case operationDefinition: OperationDefinition =>
-        RequestReducer
-          .spreadFragmentSpreads(operationDefinition, queryAst)
+        substitute(operationDefinition, queryAst, variables)
           .asInstanceOf[OperationDefinition]
       case fragmentDefinition: FragmentDefinition => fragmentDefinition
     })
 
-  def spreadFragmentSpreads(
+  /**
+    * Assumes that `query` has been passed to `spreadFragmentSpreads`
+    */
+  def substituteVariablesAndFragments(
+      selections: Vector[Selection],
+      queryAst: Document,
+      variables: JsObject
+  ): Vector[Selection] =
+    selections.foldLeft(Vector.empty[Selection]) { (acc, selection) =>
+      selection match {
+        case selection: Field =>
+          acc :+ selection.copy(
+            selections = substituteVariablesAndFragments(
+              selection.selections,
+              queryAst,
+              variables
+            ),
+            arguments = selection.arguments.map {
+              case arg @ Argument(_, VariableValue(name, _, _), _, _) =>
+                arg.copy(value = jsonToSangria(variables.fields(name)))
+              case arg => arg
+            }
+          )
+        case selection: InlineFragment =>
+          acc ++ substituteVariablesAndFragments(
+            selection.selections,
+            queryAst,
+            variables
+          )
+        case selection: FragmentSpread =>
+          acc ++ substituteVariablesAndFragments(
+            queryAst.definitions
+              .collect {
+                case s: FragmentDefinition => s
+              }
+              .find(_.name == selection.name)
+              .get
+              .selections,
+            queryAst,
+            variables
+          )
+      }
+    }
+
+  def substitute(
       selectable: SelectionContainer,
-      queryAst: Document
+      queryAst: Document,
+      variables: JsObject
   ): SelectionContainer =
     selectable match {
       case field: Field =>
         field.copy(
-          selections = substituteFragmentSpreads(field.selections, queryAst)
+          selections = substituteVariablesAndFragments(
+            field.selections,
+            queryAst,
+            variables
+          )
         )
       case fragmentDefinition: FragmentDefinition =>
         fragmentDefinition.copy(
-          selections =
-            substituteFragmentSpreads(fragmentDefinition.selections, queryAst)
+          selections = substituteVariablesAndFragments(
+            fragmentDefinition.selections,
+            queryAst,
+            variables
+          )
         )
       case inlineFragment: InlineFragment =>
         inlineFragment.copy(
-          selections =
-            substituteFragmentSpreads(inlineFragment.selections, queryAst)
+          selections = substituteVariablesAndFragments(
+            inlineFragment.selections,
+            queryAst,
+            variables
+          )
         )
       case operationDefinition: OperationDefinition =>
         operationDefinition.copy(
-          selections =
-            substituteFragmentSpreads(operationDefinition.selections, queryAst)
+          selections = substituteVariablesAndFragments(
+            operationDefinition.selections,
+            queryAst,
+            variables
+          )
         )
     }
 
@@ -61,11 +120,9 @@ object RequestReducer {
         case selection: FragmentSpread =>
           acc ++ substituteFragmentSpreads(
             queryAst.definitions
-              .filter {
-                case _: FragmentDefinition => true
-                case _                     => false
+              .collect {
+                case s: FragmentDefinition => s
               }
-              .map(_.asInstanceOf[FragmentDefinition])
               .find(_.name == selection.name)
               .get
               .selections,
@@ -78,10 +135,8 @@ object RequestReducer {
       queryAst: Document
   ): Vector[SelectionContainer] =
     queryAst.definitions
-      .filter {
-        case _: OperationDefinition => true
-        case _: FragmentDefinition  => true
-        case _                      => false
+      .collect {
+        case op: OperationDefinition => op
+        case f: FragmentDefinition   => f
       }
-      .map(_.asInstanceOf[SelectionContainer])
 }

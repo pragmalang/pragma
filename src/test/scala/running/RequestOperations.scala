@@ -72,7 +72,7 @@ class RequestOperations extends AnyFlatSpec {
       None,
       None,
       query,
-      Left(JsObject(Map.empty[String, JsValue])),
+      JsObject(Map.empty[String, JsValue]),
       Map.empty,
       "http://localhost:8080/gql",
       "localhost"

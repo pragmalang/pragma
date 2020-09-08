@@ -4,12 +4,14 @@ import scopt._
 import os._
 import cats.effect._
 import java.io.File
+import assets.asciiLogo
 
 case class CLIConfig(
     command: CLICommand,
     filePath: Path,
     isHelp: Boolean,
-    mode: RunMode
+    mode: RunMode,
+    withTsDefs: Boolean
 )
 
 object CLIConfig {
@@ -18,30 +20,26 @@ object CLIConfig {
       command = CLICommand.RootCommand,
       filePath = os.pwd / "Pragmafile",
       isHelp = false,
-      mode = RunMode.fromEnv
+      mode = RunMode.fromEnv,
+      withTsDefs = false
     )
 
   val parser: OptionParser[CLIConfig] =
     new OptionParser[CLIConfig]("pragma") {
-      head {
-        s"""
-        |              ${Console.WHITE_B}${Console.BLACK}${Console.BOLD}Pragma${Console.RESET}
-        """.stripMargin
-      }
 
       cmd("prod")
         .action { (_, configs) =>
           configs.copy(command = CLICommand.Prod, mode = RunMode.Prod)
         }
-        .text("Run app in production mode.")
-        .children(fileArg)
+        .text("Runs the app in production mode")
+        .children(fileArg, tsDefsOpt)
 
       cmd("dev")
         .action { (_, configs) =>
           configs.copy(command = CLICommand.Dev(), mode = RunMode.Dev)
         }
-        .text("Run app in development mode.")
-        .children(fileArg, watchOpt)
+        .text("Runs the app in development mode")
+        .children(fileArg, watchOpt, tsDefsOpt)
 
       def watchOpt =
         opt[Unit]("watch")
@@ -54,6 +52,7 @@ object CLIConfig {
                 case command           => command
               })
           }
+          .text("Restarts the server on every change in <file>")
 
       def fileArg =
         arg[File]("<file>")
@@ -61,12 +60,19 @@ object CLIConfig {
           .action { (file, configs) =>
             configs.copy(filePath = Path(file.getAbsolutePath()))
           }
-          .text(s"Defaults to ${(os.pwd / "Pragmafile").relativeTo(os.pwd)}.")
+          .text(s"Defaults to ./Pragmafile")
+
+      def tsDefsOpt =
+        opt[Unit]("ts")
+          .optional()
+          .action((_, config) => config.copy(withTsDefs = true))
+          .text("Generates Typescript type definitions")
 
       opt[Unit]("help")
         .abbr("h")
         .optional()
         .action((_, config) => config.copy(isHelp = true))
+        .text("Prints usage")
 
       checkConfig { conf =>
         if (!conf.isHelp) {
@@ -87,6 +93,14 @@ object CLIConfig {
     IO(parser.parse(args, CLIConfig.default))
 
   def usage: String = parser.renderTwoColumnsUsage
+
+  def usageWithAsciiLogo = {
+    val asciiLogoWithLeftPadding = asciiLogo
+      .split("\n")
+      .map(line => (" " * 24) + line)
+      .mkString("\n")
+    asciiLogoWithLeftPadding + "\n" + usage
+  }
 }
 
 sealed trait CLICommand

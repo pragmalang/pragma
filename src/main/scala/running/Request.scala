@@ -9,7 +9,7 @@ case class Request(
     body: Option[JsObject],
     user: Option[JwtPayload],
     query: Document,
-    queryVariables: Either[JsObject, Seq[JsObject]],
+    queryVariables: JsObject,
     cookies: Map[String, String],
     url: String,
     hostname: String

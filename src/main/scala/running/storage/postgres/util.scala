@@ -77,8 +77,9 @@ package object utils {
         val thisModelReferenceColumn = ColumnDefinition(
           tableMetadata.sourceColumnName,
           model.primaryField.ptype match {
-            case PString => PostgresType.TEXT
-            case PInt    => PostgresType.INT8
+            case PString if model.primaryField.isUUID => PostgresType.UUID
+            case PString                              => PostgresType.TEXT
+            case PInt                                 => PostgresType.INT8
             case t =>
               throw new InternalException(
                 s"Primary field in model `${model.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."

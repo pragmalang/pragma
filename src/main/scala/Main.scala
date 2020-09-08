@@ -7,6 +7,7 @@ import cats.effect._, cats.implicits._
 import doobie._, doobie.hikari._, doobie.implicits._
 import running.storage.postgres._
 import cli._, cli.RunMode._
+import setup.TSTypesGen
 
 object Main extends IOApp {
 
@@ -89,8 +90,10 @@ object Main extends IOApp {
         case None        => sys.exit(1)
       }
 
+      val pwd = os.Path(config.filePath.wrapped.getParent())
+
       if (config.isHelp) {
-        println(CLIConfig.usage)
+        println(CLIConfig.usageWithAsciiLogo)
         sys.exit(0)
       }
 
@@ -202,7 +205,7 @@ object Main extends IOApp {
           }
 
         case Success((currentTree, currentCode)) => {
-          val prevFilePath = os.pwd / ".pragma" / "prev"
+          val prevFilePath = pwd / ".pragma" / "prev"
           val prevTreeExists = os.exists(prevFilePath)
 
           val prevTree = config.mode match {
@@ -224,14 +227,32 @@ object Main extends IOApp {
                   .map(_.toTry)
               }
 
+          val tsDefsFilePath = pwd / ".pragma" / "types.ts"
+
+          val tsDefs = new TSTypesGen(currentTree).renderTypes
+
+          val tsDefsFileExists = os.exists(tsDefsFilePath)
+
+          val writeTsDefs = if (config.withTsDefs) {
+            if (tsDefsFileExists)
+              IO(os.write.over(tsDefsFilePath, tsDefs))
+            else if (os.exists(pwd / ".pragma"))
+              IO(os.write(tsDefsFilePath, tsDefs))
+            else
+              IO {
+                os.makeDir(pwd / ".pragma")
+                os.write(tsDefsFilePath, tsDefs)
+              }
+          } else IO(())
+
           val writePrevTree =
             if (prevTreeExists)
               IO(os.write.over(prevFilePath, currentCode))
-            else if (os.exists(os.pwd / ".pragma"))
+            else if (os.exists(pwd / ".pragma"))
               IO(os.write(prevFilePath, currentCode))
             else
               IO {
-                os.makeDir(os.pwd / ".pragma")
+                os.makeDir(pwd / ".pragma")
                 os.write(prevFilePath, currentCode)
               }
 
@@ -245,11 +266,23 @@ object Main extends IOApp {
             case (jc, s) => new Server(jc, s, currentTree)
           }
 
+          val runServer = server.flatMap(_.run(args))
+
           config.mode match {
             case Dev =>
-              removeAllTables *> migrate *> server.flatMap(_.run(args))
+              for {
+                _ <- removeAllTables
+                _ <- migrate
+                _ <- writeTsDefs
+                exitCode <- runServer
+              } yield exitCode
             case Prod =>
-              migrate *> writePrevTree *> server.flatMap(_.run(args))
+              for {
+                _ <- migrate
+                _ <- writePrevTree
+                _ <- writeTsDefs
+                exitCode <- runServer
+              } yield exitCode
           }
         }
       }

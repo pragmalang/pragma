@@ -13,7 +13,7 @@ object TestUtils {
       body = None,
       user = None,
       query = gqlQuery,
-      queryVariables = Left(JsObject.empty),
+      queryVariables = JsObject.empty,
       cookies = Map.empty,
       url = "",
       hostname = ""

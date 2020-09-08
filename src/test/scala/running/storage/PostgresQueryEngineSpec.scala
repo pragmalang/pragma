@@ -68,7 +68,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
 
   "Query engine" should "connect to the database and run queries" in {
     val countries =
-      sql"""select * from "Country";"""
+      sql"""select "code", "name", "population", "gnp" from "Country";"""
         .query[Country]
         .to[List]
         .transact(t)

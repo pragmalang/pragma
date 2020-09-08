@@ -9,6 +9,9 @@ import setup.schemaGenerator.ApiSchemaGenerator
 import setup.schemaGenerator.SchemaGeneratorImplicits._
 import spray.json._
 import RunningImplicits._
+import cats.implicits._
+import scala.util.Failure
+import scala.util.Success
 import running.utils.QueryError
 
 class RequestValidator(syntaxTree: SyntaxTree) {
@@ -33,25 +36,51 @@ class RequestValidator(syntaxTree: SyntaxTree) {
     val operationDefinitions = request.query.definitions
       .collect { case d: OperationDefinition => d }
 
-    operationDefinitions.size match {
-      case 1 =>
-        request.copy(
-          queryVariables = Left(
-            coerceVariables(
-              operationDefinitions.head,
-              request.queryVariables.swap.getOrElse(JsObject.empty)
-            ).get
+    operationDefinitions match {
+      case Vector(op) =>
+        coerceVariables(op, request.queryVariables) match {
+          case Failure(exception) => throw exception
+          case Success(_)         => request
+        }
+      case _ => {
+        operationDefinitions.map { op =>
+          coerceVariables(
+            op,
+            request.queryVariables
+              .fields(op.name.get)
+              .asJsObject("Query variables must be sent as a JSON object")
           )
-        )
-      case _ =>
-        request.copy(
-          queryVariables = Right(
-            operationDefinitions
-              .zip(request.queryVariables.getOrElse(Nil))
-              .map(op => coerceVariables(op._1, op._2).get)
-              .toList
-          )
-        )
+        //   map { variables =>
+        //     for {
+        //       op <- operationDefinitions
+        //       opName = op.name match {
+        //         case Some(name) => name
+        //         case None => throw new QueryError("Each operation must have a name")
+        //       }
+        //       opVariables = ???
+        //     } yield
+        //       opVariables match {
+        //         case Some((_, value: JsObject)) => Success(value)
+        //         case Some((name, _)) =>
+        //           Failure(
+        //             new QueryError(
+        //               s"Operation `$name` mus"
+        //             )
+        //           )
+        //         case None =>
+        //           Failure(
+        //             new QueryError(
+        //               "Each operation must have a key in the query variables JSON object"
+        //             )
+        //           )
+        //       }
+        //     ???
+        //   }
+        }.sequence match {
+          case Failure(exception) => throw exception
+          case Success(_)         => request
+        }
+      }
     }
   }
 

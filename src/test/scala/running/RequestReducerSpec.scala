@@ -3,6 +3,7 @@ package running
 import sangria.ast._
 import sangria.macros._
 import org.scalatest.funsuite.AnyFunSuite
+import spray.json.JsObject
 
 class RequestReducerSpec extends AnyFunSuite {
   test("spreadFragmentSpreads function works") {
@@ -56,9 +57,10 @@ class RequestReducerSpec extends AnyFunSuite {
         .map(
           s =>
             RequestReducer
-              .spreadFragmentSpreads(
+              .substitute(
                 s.asInstanceOf[SelectionContainer],
-                validQuery
+                validQuery,
+                JsObject.empty
               )
               .asInstanceOf[Definition]
         )

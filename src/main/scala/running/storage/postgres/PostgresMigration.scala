@@ -36,39 +36,42 @@ case class PostgresMigration[M[_]: Monad](
   lazy val unorderedSQLSteps =
     unorderedSteps.flatMap(fromMigrationStepToSqlMigrationSteps)
 
-  lazy val sqlSteps: Vector[SQLMigrationStep] = {
-    val dependencyGraph = ModelsDependencyGraph(currentSyntaxTree)
-    val sqlMigrationStepOrdering = new Ordering[SQLMigrationStep] {
-      override def compare(x: SQLMigrationStep, y: SQLMigrationStep): Int =
-        (x, y) match {
-          case (
-              AlterTable(_, action: AlterTableAction.AddColumn),
-              _: CreateTable
-              ) if action.definition.isPrimaryKey =>
-            -1
-          case (statement: CreateTable, _)
-              if currentSyntaxTree.modelsById.get(statement.name).isDefined =>
-            1
-          case (statement: CreateTable, _)
-              if !currentSyntaxTree.modelsById.get(statement.name).isDefined =>
-            -1
-          case (AlterTable(_, action: AlterTableAction.AddColumn), _)
-              if action.definition.isPrimaryKey =>
-            1
-          case (DropTable(a), DropTable(b))
-              if dependencyGraph.depsOf(a).contains(b) =>
-            1
-          case (
-              _: AlterManyFieldTypes,
-              AlterTable(_, _: AlterTableAction.RenameColumn)
-              ) =>
-            1
-          case (_: AlterManyFieldTypes, _: RenameTable) => 1
-          case (_, _)                                   => 0
-        }
-    }
-    unorderedSQLSteps.sortWith((x, y) => sqlMigrationStepOrdering.gt(x, y))
+  /**
+    * - Change column type, Rename column, Drop column
+    * - Drop table
+    * - Create table statements
+    * - Add column (primitive type)
+    * - Add foreign keys to non-array tables
+    * - Create array tables
+    * - Rename table
+    */
+  private def stepPriority(step: SQLMigrationStep): Int = step match {
+    case _: DropTable => 1
+    case CreateTable(_, Vector(sourceCol, _))
+        if sourceCol.name.startsWith("source_") =>
+      5
+    case CreateTable(_, _) => 2
+    case AlterTable(
+        _,
+        AlterTableAction.AddColumn(
+          ColumnDefinition(_, _, _, _, _, _, _, Some(_))
+        )
+        ) =>
+      4
+    case AlterTable(_, _: AlterTableAction.AddColumn) =>
+      3
+    case AlterTable(_, _: AlterTableAction.AddForeignKey) => 4
+    case _: RenameTable                                   => 6
+    case _: AlterManyFieldTypes                           => 0
+    case AlterTable(_, _: AlterTableAction.RenameColumn)  => 0
+    case AlterTable(_, _: AlterTableAction.DropColumn)    => 0
   }
+
+  lazy val sqlSteps: Vector[SQLMigrationStep] =
+    unorderedSQLSteps
+      .map(step => stepPriority(step) -> step)
+      .sortWith((x, y) => x._1 <= y._1)
+      .map(_._2)
 
   def run(
       transactor: Transactor[M]
@@ -242,19 +245,7 @@ case class PostgresMigration[M[_]: Monad](
       }
       case RenameModel(modelId, newId) =>
         Vector(RenameTable(modelId, newId))
-      case DeleteModel(model) => {
-        val dropModelTable = DropTable(model.id)
-        val dropJoinTables = model.fields
-          .collect { f =>
-            f.ptype match {
-              case PArray(PReference(_))          => model.id + "_" + f.id
-              case POption(PArray(PReference(_))) => model.id + "_" + f.id
-            }
-          }
-          .map(DropTable(_))
-          .toVector
-        dropJoinTables :+ dropModelTable
-      }
+      case DeleteModel(model) => Vector(DropTable(model.id))
       case UndeleteModel(model) =>
         fromMigrationStepToSqlMigrationSteps(CreateModel(model))
       case AddField(field, model) => {
