@@ -13,7 +13,6 @@ import spray.json._
 import setup.schemaGenerator.ApiSchemaGenerator
 import running.RequestHandler
 import storage.postgres._
-import assets.asciiLogo
 import domain._
 import domain.utils._
 import sangria.marshalling.sprayJson._
@@ -100,25 +99,14 @@ class Server(
       ).pure[IO]
   }
 
-  def run(args: List[String]): IO[ExitCode] = {
-    val msg =
-      s"""
-        ${asciiLogo.split("\n").map(line => (" " * 24) + line).mkString("\n")}
-
-        Pragma GraphQL server is now running on port 3030.
-
-                  ${Console.GREEN}${Console.BOLD}http://localhost:3030/graphql${Console.RESET}
-      """
-
-    val printMsg = IO(println(msg))
-    printMsg *> BlazeServerBuilder[IO](global)
+  def run(args: List[String]): IO[ExitCode] =
+    BlazeServerBuilder[IO](global)
       .bindHttp(3030, "localhost")
       .withHttpApp(Router("/graphql" -> routes).orNotFound)
       .serve
       .compile
       .drain
       .as(ExitCode.Success)
-  }
 
   def introspectionResult(query: JsObject): IO[Iterator[Byte]] = IO.fromFuture {
     Executor

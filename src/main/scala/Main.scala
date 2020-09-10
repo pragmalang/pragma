@@ -1,4 +1,4 @@
-import scala.util._
+import scala.util._, scala.io.StdIn
 import domain._, domain.utils._
 import org.parboiled2.Position
 import running._
@@ -83,7 +83,7 @@ object Main extends IOApp {
       me <- buildMigrationEngine(prevTree, currentTree, transactor, qe)
     } yield new Postgres[IO](me, qe)
 
-  override def run(args: List[String]): IO[ExitCode] =
+  def initiate(args: List[String]): IO[ExitCode] =
     CLIConfig.parse(args) flatMap { cliConfigOption =>
       val config = cliConfigOption match {
         case Some(value) => value
@@ -274,7 +274,7 @@ object Main extends IOApp {
                 _ <- removeAllTables
                 _ <- migrate
                 _ <- writeTsDefs
-                exitCode <- runServer
+                exitCode <- startDevServer(runServer, initiate(args))
               } yield exitCode
             case Prod =>
               for {
@@ -287,6 +287,16 @@ object Main extends IOApp {
         }
       }
     }
+
+  override def run(args: List[String]): IO[ExitCode] =
+    IO {
+      println {
+        assets.asciiLogo
+          .split("\n")
+          .map(line => (" " * 24) + line)
+          .mkString("\n")
+      }
+    } *> initiate(args)
 
   lazy val errSep = Console.RED + ("━" * 100) + Console.RESET
 
@@ -346,5 +356,24 @@ object Main extends IOApp {
           |$errSep""".stripMargin
     println(styledErrorMessage)
   }
+
+  private def startDevServer(server: IO[_], rerun: IO[ExitCode]): IO[ExitCode] =
+    IO(println(welcomeMsq)) *> server.start
+      .flatMap { fiber =>
+        StdIn.readLine match {
+          case "q" =>
+            IO(println("Come back soon!")) *> fiber.cancel as ExitCode.Success
+          case _ =>
+            IO(println("Restarting Pragma server...")) *> fiber.cancel *> rerun
+        }
+      }
+
+  val welcomeMsq = s"""
+        Pragma GraphQL server is now running on port 3030
+
+                  ${Console.GREEN}${Console.BOLD}http://localhost:3030/graphql${Console.RESET}
+
+          Enter 'q' to quit, or anything else to reload  
+      """
 
 }
