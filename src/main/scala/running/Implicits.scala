@@ -6,6 +6,9 @@ import spray.json.DefaultJsonProtocol._
 import sangria.ast._
 import sangria.parser.QueryParser
 import domain.utils.InternalException
+import scala.util.Success
+import scala.util.Failure
+import scala.util.Try
 
 object RunningImplicits {
 
@@ -44,9 +47,13 @@ object RunningImplicits {
             .map(field => ObjectField(field._1, read(field._2)))
             .toVector
         )
-      case JsArray(elements)                 => ListValue(elements.map(read))
-      case JsString(value)                   => StringValue(value)
-      case JsNumber(value) if value.isWhole  => BigIntValue(value.toBigInt)
+      case JsArray(elements) => ListValue(elements.map(read))
+      case JsString(value)   => StringValue(value)
+      case JsNumber(value) if value.isWhole =>
+        Try(value.toIntExact) match {
+          case Success(value) => IntValue(value)
+          case Failure(_)     => BigIntValue(value.toBigInt)
+        }
       case JsNumber(value) if !value.isWhole => BigDecimalValue(value)
       case JsTrue                            => BooleanValue(true)
       case JsFalse                           => BooleanValue(false)

@@ -422,10 +422,7 @@ object ApiSchemaGenerator {
   object OrderByInput extends BuiltinGraphQlType
   object OrderEnum extends BuiltinGraphQlType
   object RangeInput extends BuiltinGraphQlType
-  object LogicalFilterInput extends BuiltinGraphQlType
   object FilterInput extends BuiltinGraphQlType
-  object MultiRecordEvent extends BuiltinGraphQlType
-  object SingleRecordEvent extends BuiltinGraphQlType
   object AnyScalar extends BuiltinGraphQlType
   object IntScalar extends BuiltinGraphQlType
   object FloatScalar extends BuiltinGraphQlType
@@ -461,14 +458,11 @@ object ApiSchemaGenerator {
     }
 
   def builtinTypeName(t: BuiltinGraphQlType): String = t match {
-    case MultiRecordEvent   => "MultiRecordEvent"
     case OrderEnum          => "OrderEnum"
-    case SingleRecordEvent  => "SingleRecordEvent"
     case WhereInput         => "WhereInput"
     case EqInput            => "EqInput"
     case OrderByInput       => "OrderByInput"
     case FilterInput        => "FilterInput"
-    case LogicalFilterInput => "LogicalFilterInput"
     case RangeInput         => "RangeInput"
     case AnyScalar          => "Any"
     case IntScalar          => "Int"
