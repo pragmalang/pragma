@@ -11,7 +11,7 @@ case class CLIConfig(
     filePath: Path,
     isHelp: Boolean,
     mode: RunMode,
-    withTsDefs: Boolean
+    writeGqlSchema: Boolean
 )
 
 object CLIConfig {
@@ -21,7 +21,7 @@ object CLIConfig {
       filePath = os.pwd / "Pragmafile",
       isHelp = false,
       mode = RunMode.fromEnv,
-      withTsDefs = false
+      writeGqlSchema = false
     )
 
   val parser: OptionParser[CLIConfig] =
@@ -32,14 +32,14 @@ object CLIConfig {
           configs.copy(command = CLICommand.Prod, mode = RunMode.Prod)
         }
         .text("Runs the app in production mode")
-        .children(fileArg, tsDefsOpt)
+        .children(fileArg, writeGraphQLSchema)
 
       cmd("dev")
         .action { (_, configs) =>
           configs.copy(command = CLICommand.Dev(), mode = RunMode.Dev)
         }
         .text("Runs the app in development mode")
-        .children(fileArg, watchOpt, tsDefsOpt)
+        .children(fileArg, watchOpt, writeGraphQLSchema)
 
       def watchOpt =
         opt[Unit]("watch")
@@ -62,10 +62,10 @@ object CLIConfig {
           }
           .text(s"Defaults to ./Pragmafile")
 
-      def tsDefsOpt =
-        opt[Unit]("ts")
+      def writeGraphQLSchema =
+        opt[Unit]("write-gql-schema")
           .optional()
-          .action((_, config) => config.copy(withTsDefs = true))
+          .action((_, config) => config.copy(writeGqlSchema = true))
           .text("Generates Typescript type definitions")
 
       opt[Unit]("help")
