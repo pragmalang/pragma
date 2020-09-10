@@ -40,7 +40,7 @@ sealed trait TSType {
           |""".stripMargin
     case TSEnum(name, variants) if verbose =>
       s"""|enum $name {
-          |${variants.map("  " + _).mkString("\n")}
+          |${variants.map("  " + _).mkString(",\n")}
           |}
           |""".stripMargin
     case TSArray(of) => s"Array<${of.render(verbose = false)}>"

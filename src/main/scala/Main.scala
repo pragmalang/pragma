@@ -7,7 +7,7 @@ import cats.effect._, cats.implicits._
 import doobie._, doobie.hikari._, doobie.implicits._
 import running.storage.postgres._
 import cli._, cli.RunMode._
-import setup.TSTypesGen
+import setup.schemaGenerator.ApiSchemaGenerator
 
 object Main extends IOApp {
 
@@ -227,21 +227,21 @@ object Main extends IOApp {
                   .map(_.toTry)
               }
 
-          val tsDefsFilePath = pwd / ".pragma" / "types.ts"
+          val gqlFilePath = pwd / ".pragma" / "schema.gql"
 
-          val tsDefs = new TSTypesGen(currentTree).renderTypes
+          val gqlFileExists = os.exists(gqlFilePath)
 
-          val tsDefsFileExists = os.exists(tsDefsFilePath)
+          val gqlSchema = ApiSchemaGenerator(currentTree).build.renderPretty
 
-          val writeTsDefs = if (config.withTsDefs) {
-            if (tsDefsFileExists)
-              IO(os.write.over(tsDefsFilePath, tsDefs))
+          val writeTsDefs = if (config.writeGqlSchema) {
+            if (gqlFileExists)
+              IO(os.write.over(gqlFilePath, gqlSchema))
             else if (os.exists(pwd / ".pragma"))
-              IO(os.write(tsDefsFilePath, tsDefs))
+              IO(os.write(gqlFilePath, gqlSchema))
             else
               IO {
                 os.makeDir(pwd / ".pragma")
-                os.write(tsDefsFilePath, tsDefs)
+                os.write(gqlFilePath, gqlSchema)
               }
           } else IO(())
 
