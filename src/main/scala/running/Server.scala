@@ -4,8 +4,8 @@ import running.utils.QueryError
 import cats.effect._
 import org.http4s._, org.http4s.dsl.io._
 import org.http4s.server.blaze._, org.http4s.server.Router
-import org.http4s.util._, org.http4s.implicits._
-import scala.concurrent.ExecutionContext.Implicits.global
+import org.http4s.util._, org.http4s.implicits._, org.http4s.server.middleware._
+import scala.concurrent.ExecutionContext.global
 import fs2._
 import cats.implicits._
 import sangria.parser.QueryParser
@@ -30,73 +30,72 @@ class Server(
       ApiSchemaGenerator(currentSyntaxTree).build
     )
 
-  val reqHandler =
-    storage.map { s =>
-      new RequestHandler[Postgres[IO], IO](
-        currentSyntaxTree,
-        s
-      )
-    }
+  val reqHandler = storage.map { s =>
+    new RequestHandler[Postgres[IO], IO](currentSyntaxTree, s)
+  }
 
-  val routes = HttpRoutes.of[IO] {
-    case req @ POST -> Root => {
-      val res: Stream[IO, Response[IO]] = req.bodyAsText map { body =>
-        val jsonBody = body.parseJson.asJsObject
-        if (jsonBody.fields("operationName") == JsString("IntrospectionQuery")) {
-          Response[IO](
-            Status(200),
-            HttpVersion(1, 1),
-            Headers(List(Header("Content-Type", "application/json"))),
-            body = Stream
-              .eval(introspectionResult(jsonBody))
-              .flatMap(it => Stream.fromIterator[IO](it))
-          )
-        } else {
-          val preq = running.Request(
-            hookData = None,
-            body = Some(jsonBody),
-            cookies = req.cookies.map(c => c.name -> c.content).toMap,
-            hostname = req.remoteHost.getOrElse(""),
-            url = "localhost:3030",
-            query = jsonBody.fields("query") match {
-              case JsString(q) => QueryParser.parse(q).get
-              case _           => throw UserError("Invalid GraphQL query")
-            },
-            queryVariables = jsonBody.fields("variables") match {
-              case o: JsObject => o
-              case _           => throw UserError("Invalid GraphQL query variables")
-            },
-            user = req.headers
-              .get(CaseInsensitiveString("Authorization"))
-              .flatMap(h => jwtCodec.decode(h.value).toOption)
-          )
-          val resJson = reqHandler
-            .use(rh => rh.handle(preq))
-            .map[JsValue] {
-              case Left(e)    => jsonFrom(e)
-              case Right(obj) => obj
-            }
-            .recover {
-              case e: Throwable => jsonFrom(e)
-            }
+  val routes = GZip {
+    HttpRoutes.of[IO] {
+      case req @ POST -> Root => {
+        val res: Stream[IO, Response[IO]] = req.bodyText map { body =>
+          val jsonBody = body.parseJson.asJsObject
+          if (jsonBody.fields("operationName") ==
+                JsString("IntrospectionQuery"))
+            Response[IO](
+              Status(200),
+              HttpVersion.`HTTP/2.0`,
+              Headers(List(Header("Content-Type", "application/json"))),
+              body = Stream
+                .eval(introspectionResult(jsonBody))
+                .flatMap(it => Stream.fromIterator[IO](it))
+            )
+          else {
+            val preq = running.Request(
+              hookData = None,
+              body = Some(jsonBody),
+              cookies = req.cookies.map(c => c.name -> c.content).toMap,
+              hostname = req.remoteHost.getOrElse(""),
+              url = "localhost:3030",
+              query = jsonBody.fields("query") match {
+                case JsString(q) => QueryParser.parse(q).get
+                case _           => throw UserError("Invalid GraphQL query")
+              },
+              queryVariables = jsonBody.fields("variables") match {
+                case o: JsObject => o
+                case _           => throw UserError("Invalid GraphQL query variables")
+              },
+              user = req.headers
+                .get(CaseInsensitiveString("Authorization"))
+                .flatMap(h => jwtCodec.decode(h.value).toOption)
+            )
+            val resJson = reqHandler
+              .use(rh => rh.handle(preq))
+              .map[JsValue] {
+                case Left(e)    => jsonFrom(e)
+                case Right(obj) => obj
+              }
+              .recover {
+                case e: Throwable => jsonFrom(e)
+              }
 
-          Response[IO](
-            Status(200),
-            HttpVersion(1, 1),
-            Headers(List(Header("Content-Type", "application/json"))),
-            body = Stream.evalSeq(resJson.map(_.compactPrint.getBytes.toSeq))
-          )
+            Response[IO](
+              Status(200),
+              HttpVersion.`HTTP/2.0`,
+              Headers(List(Header("Content-Type", "application/json"))),
+              body = Stream.evalSeq(resJson.map(_.compactPrint.getBytes.toSeq))
+            )
+          }
         }
+        res.compile.toVector.map(_.head)
       }
-      res.compile.toVector.map(_.head)
+      case GET -> Root =>
+        Response[IO](
+          Status(200),
+          HttpVersion.`HTTP/2.0`,
+          Headers(List(Header("Content-Type", "text/html"))),
+          body = Stream.emits(assets.playgroundHtml.getBytes)
+        ).pure[IO]
     }
-    case GET -> Root =>
-      Response[IO](
-        Status(200),
-        HttpVersion(1, 1),
-        Headers(List(Header("Content-Type", "text/html"))),
-        body = Stream.fromIterator[IO](assets.playgroundHtml.getBytes.iterator)
-      ).pure[IO]
   }
 
   def run(args: List[String]): IO[ExitCode] =
@@ -109,6 +108,7 @@ class Server(
       .as(ExitCode.Success)
 
   def introspectionResult(query: JsObject): IO[Iterator[Byte]] = IO.fromFuture {
+    implicit val ctx = global
     Executor
       .execute(
         gqlSchema,

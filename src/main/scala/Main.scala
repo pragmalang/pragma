@@ -360,7 +360,7 @@ object Main extends IOApp {
   private def startDevServer(server: IO[_], rerun: IO[ExitCode]): IO[ExitCode] =
     IO(println(welcomeMsq)) *> server.start
       .flatMap { fiber =>
-        StdIn.readLine match {
+        IO.shift *> IO(StdIn.readLine).flatMap {
           case "q" =>
             IO(println("Come back soon!")) *> fiber.cancel as ExitCode.Success
           case _ =>
