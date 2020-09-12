@@ -1,38 +1,31 @@
-type UserWhereInput {
-  filter: UserPredicate
+input UserAggInput {
+  filter: [UserFilter]
   orderBy: OrderByInput
   range: RangeInput
-  cats: StringPredicate
+  drop: Int
+  take: Int
 }
 
-type UserFilter {
+input RangeInput {
+  before: ID
+  after: ID
+}
+
+input UserFilter {
   predicate: UserPredicate!
-  and: UserFilter
-  or: UserFilter
-  negate: Boolean
+  and: [UserFilter]
+  or: [UserFilter]
+  negated: Boolean
 }
 
-{
-    predicate: {
-        age: { lte: 80 }
-    },
-    and: {
-        predicate: { gender: MALE }
-    }
-}
-
-type UserPredicate {
+input UserPredicate {
   username: StringPredicate
   age: IntPredicate
-  gender: GenderEnum # Call me, I have no credit
+  gender: GenderEnum
   cats: ArrayPredicate
 }
 
-type ArrayPredicate {
-  length: Int
-}
-
-type IntPredicate {
+input IntPredicate {
   lt: Int
   gt: Int
   eq: Int
@@ -40,62 +33,25 @@ type IntPredicate {
   lte: Int
 }
 
-type StringPredicate {
-  length: Int
+input FloatPredicate {
+  lt: Float
+  gt: Float
+  eq: Float
+  gte: Float
+  lte: Float
+}
+
+input StringPredicate {
+  length: IntPredicate
   startsWith: String
   endsWith: String
-  matches: String
+  regex: String
 }
 
-{
-  User {
-    removeManyFromNs(..., {
-      eq: {
-        value: 5
-      }
-    }) 
-  }
+input ArrayPredicate {
+  length: IntPredicate
 }
 
+input BooleanPredicate = Boolean
 
-
-
-
-
-
-
-
-# Pragmafile
-@user
-model User {
-  username: String
-  password: String
-  cats: [Cat] @queryFilter(filters.userCatsFilter, "CatAgeGreaterThanTwo")
-}
-
-model Cat {
-  name: String
-  age: Int
-}
-
-# functions.js
-export const userCatsFilter = cat => cat.age > 10
-
-export const userCatsFilter2 = cat => {
-  return cat.age < 20
-}
-
-export const sfkmsldf = cat => userCatsFilter2(cat) && userCatsFilter(cat)
-
-# query
-{
-  User {
-    list {
-      username
-      cats(where: { filtersPipe: ["CatAgeGreaterThanTwo"] }) {
-        name
-        age
-      }
-    }
-  }
-}
+input EnumPredicate[E] = E
