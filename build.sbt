@@ -49,33 +49,30 @@ libraryDependencies ++= Seq(
   "com.github.t3hnar" %% "scala-bcrypt" % "4.3.0"
 )
 
-enablePlugins(GraalVMNativeImagePlugin, DockerComposePlugin)
+enablePlugins(DockerComposePlugin, GraalVMNativeImagePlugin)
 
-// Requires `native-image` utility from Graal
-// Run `gu install native-image` to install it (`gu` comes with Graal)
-// Run `sbt graalvm-native-image:packageBin` to generate native binary
-// See: https://www.scala-sbt.org/sbt-native-packager/index.html
-graalVMNativeImageOptions := Seq(
-  "--language:js",
-  "--language:python",
-  "--no-fallback",
-  "--debug-attach",
-  "--initialize-at-run-time=scala.runtime.Statics$VM",
-  "--initialize-at-run-time=scala.runtime.StructuralCallSite",
-  "-H:+ReportExceptionStackTraces",
-  "-H:+TraceClassInitialization",
-  "--enable-http",
-  "--enable-https",
-  "--enable-all-security-services"
-)
+/*
+  GraalVM Native Image Generation:
+  Requires `native-image` utility from Graal
+  Run `gu install native-image` to install it (`gu` comes with Graal)
+  Run `sbt graalvm-native-image:packageBin` to generate native binary
+  See: https://www.scala-sbt.org/sbt-native-packager/index.html
+  To generate META-INF:
+  java -agentlib:native-image-agent=config-merge-dir="./src/main/resources/META-INF/native-image/",config-write-initial-delay-secs=0 -jar "./target/scala-2.13/<pragma-jar>" dev <pragmafile>
+  See https://www.graalvm.org/reference-manual/native-image/Configuration/#assisted-configuration-of-native-image-builds
+      https://noelwelsh.com/posts/2020-02-06-serverless-scala-services.html
 
-// To make tests run within a Docker container
-// (for Postgres)
-// See https://github.com/Tapad/sbt-docker-compose
-// NOTE: If the docker containers cannot be started
-// it's most likely because the port 5433 is already in use.
-// Run `docker ps` and then run `docker kill <postgres-containe-id>`
-// to kill the postgres container to fix it.
+  Also: Make sure everthing else other than this process is canceled. It needs all the memory it can get.
+ */
+
+/*
+  To make tests run within a Docker container
+  (for Postgres)
+  See https://github.com/Tapad/sbt-docker-compose
+  NOTE: If the docker containers cannot be started
+  it's most likely because the port 5433 is already in use.
+  Run `docker ps` and then run `docker kill <postgres-containe-id>`
+  to kill the postgres container to fix it.
+ */
 addCommandAlias("test", "dockerComposeTest")
 dockerImageCreationTask := (publishLocal in Docker).value
-dockerExposedPorts ++= Seq(9000, 9000)
