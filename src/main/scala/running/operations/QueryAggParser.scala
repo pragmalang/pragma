@@ -3,6 +3,8 @@ package running.operations
 import domain._, domain.utils._
 import spray.json._
 import cats.implicits._
+import java.time.ZonedDateTime
+import scala.util.Try
 
 class QueryAggParser(st: SyntaxTree) {
 
@@ -93,7 +95,7 @@ class QueryAggParser(st: SyntaxTree) {
       case (PInt, o: JsObject)          => parseIntPredicate(o)
       case (PFloat, o: JsObject)        => parseFloatPredicate(o)
       case (PBool, o: JsObject)         => parseBoolPredicate(o)
-      case (PDate, o: JsObject)         => ???
+      case (PDate, o: JsObject)         => parseDatePredicate(o)
       case (PArray(_), o: JsObject)     => parseArrayPredicate(o)
       case (other, p) =>
         InternalException(
@@ -240,6 +242,45 @@ class QueryAggParser(st: SyntaxTree) {
       case _ =>
         InternalException("Invalid value for `eq` in `Boolean` predicate").asLeft
     }
+
+  private def parseDatePredicate(
+      predicateObj: JsObject
+  ): Either[InternalException, DatePredicate] =
+    for {
+      before <- predicateObj.fields.get("before") match {
+        case Some(JsString(value)) =>
+          Try(ZonedDateTime.parse(value)).toEither
+            .leftMap { err =>
+              InternalException("Invalid date value." + err.getMessage)
+            }
+            .map(_.some)
+        case None => None.asRight
+        case _ =>
+          InternalException("Invalid value for `before` in `Date` predicate").asLeft
+      }
+      after <- predicateObj.fields.get("after") match {
+        case Some(JsString(value)) =>
+          Try(ZonedDateTime.parse(value)).toEither
+            .leftMap { err =>
+              InternalException("Invalid date value." + err.getMessage)
+            }
+            .map(_.some)
+        case None => None.asRight
+        case _ =>
+          InternalException("Invalid value for `after` in `Date` predicate").asLeft
+      }
+      eq <- predicateObj.fields.get("eq") match {
+        case Some(JsString(value)) =>
+          Try(ZonedDateTime.parse(value)).toEither
+            .leftMap { err =>
+              InternalException("Invalid date value." + err.getMessage)
+            }
+            .map(_.some)
+        case None => None.asRight
+        case _ =>
+          InternalException("Invalid value for `eq` in `Date` predicate").asLeft
+      }
+    } yield DatePredicate(before, after, eq)
 
   private def parseArrayPredicate(
       predicateObj: JsObject

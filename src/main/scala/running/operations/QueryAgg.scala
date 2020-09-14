@@ -1,6 +1,7 @@
 package running.operations
 
 import domain._
+import java.time.ZonedDateTime
 
 case class QueryAgg(
     filter: Seq[QueryFilter],
@@ -43,6 +44,12 @@ case class FloatPredicate(
 ) extends QueryPredicate
 
 case class BoolPredicate(is: Boolean) extends QueryPredicate
+
+case class DatePredicate(
+    before: Option[ZonedDateTime],
+    after: Option[ZonedDateTime],
+    eq: Option[ZonedDateTime]
+) extends QueryPredicate
 
 case class ModelPredicate(
     model: PModel,
