@@ -1,6 +1,6 @@
 package running.storage
 
-import running._
+import running.operations._
 import spray.json._
 import scala.util._
 import domain._
@@ -121,7 +121,7 @@ abstract class QueryEngine[S, M[_]: Monad] {
 
   def readManyRecords(
       model: PModel,
-      where: QueryWhere,
+      where: QueryAgg,
       innerReadOps: Vector[InnerOperation]
   ): Query[JsArray]
 

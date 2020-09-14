@@ -1,7 +1,7 @@
 package running.authorizer
 
 import domain._, domain.utils._
-import running._, running.storage._
+import running.operations._, running.storage._
 import spray.json._
 import running.JwtPayload
 import scala.util._

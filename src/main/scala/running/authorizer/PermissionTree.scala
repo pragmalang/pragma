@@ -1,7 +1,7 @@
 package running.authorizer
 
 import domain._
-import running._
+import running.operations._
 import cats.implicits._
 import spray.json.JsObject
 

@@ -1,6 +1,6 @@
 package running
 
-import running.authorizer.Authorizer
+import running.authorizer.Authorizer, running.operations._
 import domain._, domain.utils.UserError
 import storage.Storage
 import cats._
@@ -15,12 +15,13 @@ class RequestHandler[S, M[_]: Monad](
 )(implicit mError: MonadError[M, Throwable]) {
   val reqValidator = new RequestValidator(syntaxTree)
   val authorizer = new Authorizer[S, M](syntaxTree, storage)
+  val opParser = new OperationParser(syntaxTree)
 
   def handle(req: Request): M[Either[Throwable, JsObject]] = {
     val authResult = for {
       validationResult <- reqValidator(req).toEither
       reducedRequest = RequestReducer(validationResult)
-      ops <- Operations.from(reducedRequest)(syntaxTree)
+      ops <- opParser.parse(reducedRequest)(syntaxTree)
       result = authorizer(ops, req.user)
     } yield
       result flatMap [Operations.OperationsMap] { errors =>

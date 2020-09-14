@@ -1,7 +1,7 @@
 package running.authorizer
 
 import domain.SyntaxTree
-import running._, running.storage._
+import running._, running.storage._, running.operations._
 import sangria.macros._
 import spray.json._
 import scala.util._
@@ -26,6 +26,7 @@ class Authorization extends AnyFlatSpec {
     """
 
     val syntaxTree = SyntaxTree.from(code).get
+    implicit val opParser = new OperationParser(syntaxTree)
     val testStorage = new TestStorage(syntaxTree)
     import testStorage._
     migrationEngine.initialMigration
@@ -64,7 +65,7 @@ class Authorization extends AnyFlatSpec {
       "",
       ""
     )
-    val reqOps = Operations.from(req)(syntaxTree)
+    val reqOps = opParser.parse(req)(syntaxTree)
 
     val result = reqOps.map { ops =>
       authorizer(ops, req.user).unsafeRunSync.map(_.message)
@@ -105,6 +106,7 @@ class Authorization extends AnyFlatSpec {
     """
 
     implicit val syntaxTree = SyntaxTree.from(code).get
+    implicit val opParser = new OperationParser(syntaxTree)
     val testStorage = new TestStorage(syntaxTree)
     import testStorage._
     migrationEngine.initialMigration.getOrElse(fail()).run(t).unsafeRunSync()
@@ -170,8 +172,8 @@ class Authorization extends AnyFlatSpec {
 
     val authorizer = new Authorizer(syntaxTree, testStorage.storage)
 
-    val withoutRoleOps = Operations.from(reqWithoutRole)
-    val withRoleOps = Operations.from(reqWithRole)
+    val withoutRoleOps = opParser.parse(reqWithoutRole)
+    val withRoleOps = opParser.parse(reqWithRole)
 
     val results = for {
       ops <- (withoutRoleOps, withRoleOps).bisequence

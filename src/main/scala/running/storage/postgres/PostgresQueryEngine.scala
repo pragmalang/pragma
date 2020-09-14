@@ -4,7 +4,7 @@ import instances._
 import domain._, domain.utils._
 import domain.DomainImplicits._
 import running.RunningImplicits.PValueJsonWriter
-import running._, storage._
+import running._, running.operations._, storage._
 import doobie._, doobie.implicits._, doobie.postgres.implicits._
 import cats._, cats.implicits._
 import cats.effect._
@@ -45,8 +45,9 @@ class PostgresQueryEngine[M[_]: Monad](
         op.innerReadOps
       ).widen[JsValue]
     case op: ReadManyOperation => {
-      val where = QueryWhere(None, None, None)
-      readManyRecords(op.targetModel, where, op.innerReadOps).widen[JsValue]
+      // val where = QueryAgg(None, None, None)
+      readManyRecords(op.targetModel, op.opArguments.agg, op.innerReadOps)
+        .widen[JsValue]
     }
     case op: CreateOperation =>
       createOneRecord(
@@ -559,7 +560,7 @@ class PostgresQueryEngine[M[_]: Monad](
 
   override def readManyRecords(
       model: PModel,
-      where: QueryWhere,
+      agg: QueryAgg,
       innerReadOps: Vector[InnerOperation]
   ): Query[JsArray] = {
     val aliasedColumns =
@@ -570,7 +571,7 @@ class PostgresQueryEngine[M[_]: Monad](
       .query[JsObject]
       .to[Vector]
       .flatMap(_.traverse(populateObject(model, _, innerReadOps)))
-      .map(objects => JsArray(where(objects)))
+      .map(objects => JsArray(objects))
   }
 
   override def readOneRecord(

@@ -2,7 +2,7 @@ package running
 
 import sangria.macros._
 import domain._
-import running._
+import running._, running.operations._
 import spray.json._
 import scala.collection.immutable._
 import scala.util._
@@ -30,6 +30,7 @@ class RequestOperations extends AnyFlatSpec {
     }
     """
     val syntaxTree = SyntaxTree.from(code).get
+    val opParser = new OperationParser(syntaxTree)
 
     val query = gql"""
         query user {
@@ -77,7 +78,7 @@ class RequestOperations extends AnyFlatSpec {
       "http://localhost:8080/gql",
       "localhost"
     )
-    val ops = Operations.from(request)(syntaxTree)
+    val ops = opParser.parse(request)(syntaxTree)
 
     ops match {
       case Left(err) =>

@@ -1,7 +1,7 @@
-package running
+package running.operations
 
 import domain._
-import running.storage.QueryWhere
+import running._
 import spray.json._
 import scala.util.Try
 import cats.implicits._
@@ -240,11 +240,11 @@ case class ObjectWithId(obj: JsObject, objId: JsValue)
 
 case class ReadArgs(id: JsValue) extends OpArgs[Read.type]
 
-case class ReadManyArgs(where: Option[QueryWhere]) extends OpArgs[ReadMany.type]
+case class ReadManyArgs(agg: QueryAgg) extends OpArgs[ReadMany.type]
 
 sealed trait InnerOpArgs[+R <: ReadEvent] extends OpArgs[R]
 case object InnerOpNoArgs extends InnerOpArgs[Read.type]
-case class InnerListArgs(where: Option[QueryWhere])
+case class InnerListArgs(where: Option[QueryAgg])
     extends InnerOpArgs[ReadMany.type]
 
 case class CreateArgs(obj: JsObject) extends OpArgs[Create.type]

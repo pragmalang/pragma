@@ -5,8 +5,7 @@ import org.scalatest._
 import doobie.implicits._
 import spray.json._
 import sangria.macros._
-import running._, running.TestUtils._
-import running.storage.QueryWhere
+import running.TestUtils._, running.operations._
 import scala.util._
 import running.storage.postgres.instances._
 import running.storage.TestStorage
@@ -42,6 +41,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
   """
 
   implicit val syntaxTree = SyntaxTree.from(code).get
+  implicit val opParser = new OperationParser(syntaxTree)
   val testStorage = new TestStorage(syntaxTree)
   import testStorage._
 
@@ -94,9 +94,11 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
   }
 
   /** Helper to run GQL queryies agains the `queryEngine` */
-  def runGql(gqlQuery: sangria.ast.Document) = {
+  def runGql(
+      gqlQuery: sangria.ast.Document
+  )(implicit opParser: OperationParser) = {
     val req = bareReqFrom(gqlQuery)
-    val reqOps = Operations.from(req)
+    val reqOps = opParser.parse(req)
     val results = reqOps.map(queryEngine.run(_).unsafeRunSync) match {
       case Left(err) => throw err
       case Right(values) =>
@@ -120,8 +122,8 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
     }
     """
     val req = bareReqFrom(gqlQuery)
-    val ops = Operations
-      .from(req)
+    val ops = opParser
+      .parse(req)
       .getOrElse(fail("Ops should be constructed successfully"))
 
     val resultUS = queryEngine
@@ -155,8 +157,8 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
     }
     """
     val req = bareReqFrom(gqlQuery)
-    val iops = Operations
-      .from(req)
+    val iops = opParser
+      .parse(req)
       .getOrElse(fail("Ops should be constructed successfully"))
       .apply(None)("Country")
       .head
@@ -187,14 +189,14 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
     }
     """
     val req = bareReqFrom(gqlQuery)
-    val reqOps = Operations
-      .from(req)
+    val reqOps = opParser
+      .parse(req)
       .getOrElse(fail("Ops should be constructed successfully"))
 
     val results = queryEngine
       .readManyRecords(
         syntaxTree.modelsById("Country"),
-        QueryWhere(None, None, None),
+        QueryAgg(Nil, None, None),
         reqOps(None)("Country").head.innerReadOps
       )
       .transact(t)
