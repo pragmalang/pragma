@@ -2,14 +2,14 @@ package parsing.substitution
 
 import domain._, utils._
 import parsing.PragmaParser.Reference
-import scala.util.{Try, Success, Failure}
+import scala.util._
 
 object ModelSubstitutor {
 
   def apply(st: SyntaxTree, ctx: PInterfaceValue): Try[Seq[PModel]] = {
     combineUserErrorTries(st.models.map { model =>
       substituteDirectiveFunctionRefs(
-        substituteOptionalArrayFieldDefaultValue(model),
+        substituteArrayFieldDefaultValue(model),
         ctx
       )
     }).map(_.map(substituteEnumTypeReferences(_, st.enums)))
@@ -77,14 +77,13 @@ object ModelSubstitutor {
       )
   }
 
-  private def substituteOptionalArrayFieldDefaultValue(
+  private def substituteArrayFieldDefaultValue(
       model: PModel
   ): PModel = {
     val newFields = model.fields map { field =>
       field.ptype match {
-        case POption(PArray(innerType)) =>
-          if (field.defaultValue.isDefined) field
-          else field.copy(defaultValue = Some(PArrayValue(Nil, innerType)))
+        case PArray(elemType) if !field.defaultValue.isDefined =>
+          field.copy(defaultValue = Some(PArrayValue(Nil, elemType)))
         case _ => field
       }
     }

@@ -218,7 +218,10 @@ class PostgresQueryEngine[M[_]: Monad](
           }
           createdRecords.map((field, _, refModel.primaryField.id))
         }
-        case _ => throw InternalException("Invalid reference array insert")
+        case (otherField, otherVal) =>
+          throw InternalException(
+            s"Invalid reference array insert of value `${otherVal}` on field `${otherField.id}`"
+          )
       }
 
     val refInserts = fieldTypeMap(Ref)
@@ -234,7 +237,8 @@ class PostgresQueryEngine[M[_]: Monad](
           }
           val refModel = st.modelsById(modelRef)
 
-          refInsertReturningId(refModel, refRecord).map(field -> _)
+          refInsertReturningId(refModel, refRecord)
+            .map(refModel.primaryField.copy(id = field.id) -> _)
         }
         case (field, JsNull) => (field, JsNull).widen[JsValue].pure[Query]
         case _ =>
@@ -244,13 +248,16 @@ class PostgresQueryEngine[M[_]: Monad](
       }
 
     val primFields = refInserts.flatMap { refIns =>
-      val withHashedSecretCreds = fieldTypeMap(Prim).toVector.traverse {
+      val withHashedSecretCreds = fieldTypeMap(Prim).traverse {
         case (field, JsString(secret)) if field.isSecretCredential =>
           secret.bcryptSafeBounded.map(field -> JsString(_))
         case otherwise => Success(otherwise)
       }
       withHashedSecretCreds match {
-        case Success(primFields) => (primFields ++ refIns).pure[Query]
+        case Success(primFields) =>
+          (primFields ++ refIns).toVector
+            .filter(_._2 != JsNull)
+            .pure[Query]
         case Failure(_) =>
           queryError[Vector[(PModelField, JsValue)]] {
             UserError(
@@ -265,9 +272,8 @@ class PostgresQueryEngine[M[_]: Monad](
     val insertedRecordId = for {
       columns <- primFields
       columnSql = columns.map(_._1.id.withQuotes).mkString(", ")
-      nonUUIDColumns = columns.filterNot(_._1.isUUID)
-      set = setJsValues(nonUUIDColumns)
-      valuesSql = List.fill(nonUUIDColumns.length)("?").mkString(", ")
+      set = setJsValues(columns)
+      valuesSql = List.fill(columns.length)("?").mkString(", ")
       insertSql = s"""|INSERT INTO ${model.id.withQuotes} ($columnSql) 
                       |VALUES ($valuesSql)
                       |RETURNING ${model.primaryField.id.withQuotes};""".stripMargin
@@ -315,7 +321,8 @@ class PostgresQueryEngine[M[_]: Monad](
       newRecord: JsObject,
       innerReadOps: Vector[InnerOperation]
   ): Query[JsObject] = {
-    val fieldTypeMap = fieldTypeMapFrom(newRecord, model)
+    val fieldTypeMap =
+      fieldTypeMapFrom(newRecord, model, includeNonSpecifiedFields = false)
 
     val refUpdates = fieldTypeMap(Ref).traverse {
       case (
@@ -365,6 +372,7 @@ class PostgresQueryEngine[M[_]: Monad](
             }
         }
       }
+      case _ => Vector.empty[JsObject].pure[ConnectionIO]
     }
 
     val primArrayUpdates = fieldTypeMap(PrimArray).traverse {
@@ -695,6 +703,7 @@ class PostgresQueryEngine[M[_]: Monad](
   }
 
   private def refInsertReturningId(refModel: PModel, value: JsObject) =
+    // If the user is referring to an existing record
     if (value.fields.size == 1 && value.fields.head._1 == refModel.primaryField.id)
       value.fields(refModel.primaryField.id).pure[Query]
     else
@@ -708,7 +717,8 @@ class PostgresQueryEngine[M[_]: Monad](
   private def fieldTypeMapFrom(
       record: JsObject,
       recordModel: PModel,
-      withFieldDefaults: Boolean = false
+      withFieldDefaults: Boolean = false,
+      includeNonSpecifiedFields: Boolean = true
   ): FieldKindValueMap = {
     val fieldKindMap = modelFieldKindMap(recordModel.id)
     fieldKindMap
@@ -720,6 +730,7 @@ class PostgresQueryEngine[M[_]: Monad](
             case field @ PModelField(_, _, Some(default), _, _, _)
                 if withFieldDefaults =>
               (field, PValueJsonWriter.write(default))
+            case field if includeNonSpecifiedFields => (field, JsNull)
           }.toVector
       }
       .withDefaultValue(Vector.empty)
@@ -793,10 +804,27 @@ object PostgresQueryEngine {
     case JsString(s)  => HPS.set(paramIndex, s)
     case JsNumber(n)  => HPS.set(paramIndex, n.toDouble)
     case JsBoolean(b) => HPS.set(paramIndex, b)
-    case JsNull       => HPS.set(paramIndex, Option.empty[Int])
+    case JsNull       => setJsNull(paramIndex, modelField.ptype)
     case _ =>
       throw InternalException(
         s"Trying to set illegal value $jsVal at index $paramIndex in SQL query"
+      )
+  }
+
+  private def setJsNull(
+      paramIndex: Int,
+      ptype: PType
+  ): PreparedStatementIO[Unit] = ptype match {
+    case POption(t) => setJsNull(paramIndex, t)
+    case _: PEnum   => HPS.set(paramIndex, Option.empty[String])
+    case PString    => HPS.set(paramIndex, Option.empty[String])
+    case PInt       => HPS.set(paramIndex, Option.empty[Long])
+    case PFloat     => HPS.set(paramIndex, Option.empty[Double])
+    case PBool      => HPS.set(paramIndex, Option.empty[Boolean])
+    case PDate      => HPS.set(paramIndex, Option.empty[java.util.Date])
+    case _ =>
+      throw new InternalException(
+        s"Trying to set column value of type `${displayPType(ptype)}` to NULL"
       )
   }
 
