@@ -1,14 +1,8 @@
 input UserAggInput {
   filter: [UserFilter]
   orderBy: OrderByInput
-  range: RangeInput
-  drop: Int
-  take: Int
-}
-
-input RangeInput {
-  before: ID
-  after: ID
+  from: Int
+  to: Int
 }
 
 input UserFilter {
@@ -45,13 +39,16 @@ input StringPredicate {
   length: IntPredicate
   startsWith: String
   endsWith: String
-  regex: String
+  pattern: String
+  eq: String
 }
 
 input ArrayPredicate {
   length: IntPredicate
 }
 
-input BooleanPredicate = Boolean
+input BooleanPredicate {
+  eq: Boolean
+}
 
-input EnumPredicate[E] = E
+# Enums have predicates similar to booleans (with `eq`)

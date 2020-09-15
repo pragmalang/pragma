@@ -136,6 +136,11 @@ case class PModelField(
 
   lazy val isUnique = directives.exists(_.id == "unique")
 
+  lazy val isArray = ptype match {
+    case PArray(_) => true
+    case _         => false
+  }
+
   lazy val innerModelId: Option[String] = ptype match {
     case PArray(model: PModel)           => model.id.some
     case PArray(PReference(id))          => id.some

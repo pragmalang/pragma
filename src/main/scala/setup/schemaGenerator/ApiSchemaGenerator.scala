@@ -34,13 +34,23 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           case ListType(_, _) =>
             field.copy(
               arguments = graphQlFieldArgs(
-                Map("where" -> builtinType(WhereInput, isOptional = true))
+                Map(
+                  "aggregation" -> namedType(
+                    inputTypeName(objDef.name)(ModelAggInput),
+                    isOptional = true
+                  )
+                )
               )
             )
           case NotNullType(ListType(_, _), _) =>
             field.copy(
               arguments = graphQlFieldArgs(
-                Map("where" -> builtinType(WhereInput, isOptional = true))
+                Map(
+                  "aggregation" -> namedType(
+                    inputTypeName(objDef.name)(ModelAggInput),
+                    isOptional = true
+                  )
+                )
               )
             )
           case _ => field
@@ -87,7 +97,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           args = Map(
             model.id.small -> fieldType(
               model,
-              nameTransformer = inputTypeName(_)(OptionalInput)
+              nameTransformer = inputTypeName(_)(ModelInput)
             )
           ),
           fieldType = fieldType(model)
@@ -101,7 +111,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
             model.primaryField.id -> fieldType(model.primaryField.ptype),
             model.id.small -> fieldType(
               model,
-              nameTransformer = inputTypeName(_)(OptionalInput)
+              nameTransformer = inputTypeName(_)(ModelInput)
             )
           ),
           fieldType = fieldType(model)
@@ -124,7 +134,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           args = Map(
             "items" -> listFieldType(
               model,
-              nameTransformer = inputTypeName(_)(OptionalInput),
+              nameTransformer = inputTypeName(_)(ModelInput),
               isEmptiable = false
             )
           ),
@@ -138,7 +148,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           args = Map(
             "items" -> listFieldType(
               model,
-              nameTransformer = inputTypeName(_)(OptionalInput),
+              nameTransformer = inputTypeName(_)(ModelInput),
               isEmptiable = false
             )
           ),
@@ -225,7 +235,10 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
               nameTransformer = _ => s"removeManyFrom${transformedFieldId}",
               Map(
                 model.primaryField.id -> fieldType(model.primaryField.ptype),
-                "filter" -> builtinType(FilterInput, isOptional = true)
+                "filter" -> gqlType(
+                  listFieldInnerType,
+                  inputTypeName(_)(ModelFilter)
+                )
               ),
               fieldType(model)
             )(f.id)
@@ -266,7 +279,11 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         graphQlField(
           nameTransformer = _ => "list",
           args = Map(
-            "where" -> builtinType(WhereInput, isOptional = true)
+            "aggregation" -> gqlType(
+              model,
+              inputTypeName(_)(ModelAggInput),
+              isOptional = true
+            )
           ),
           fieldType = listFieldType(model)
         )(model.id)
@@ -296,7 +313,11 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         graphQlField(
           nameTransformer = _ => "list",
           args = Map(
-            "where" -> builtinType(WhereInput, isOptional = true)
+            "where" -> gqlType(
+              model,
+              inputTypeName(_)(ModelAggInput),
+              isOptional = true
+            )
           ),
           fieldType = fieldType(model, isOptional = true)
         )(model.id)
@@ -309,23 +330,20 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
       ObjectTypeDefinition(s"${model.id}Subscriptions", Vector.empty, fields)
     })
 
-  def inputFieldType(field: PModelField) = {
-    val pReferenceType = fieldType(
+  def inputFieldType(field: PModelField, transformAll: Boolean = false)(
+      inputKind: InputKind
+  ) = {
+    val transformedType = fieldType(
       ht = field.ptype,
-      nameTransformer = inputTypeName(_)(OptionalInput),
-      isOptional = true
+      nameTransformer = inputTypeName(_)(inputKind),
+      isOptional = true,
+      transformAll = transformAll
     )
-
-    val isReferenceToModel = (t: PReference) =>
-      syntaxTree.modelsById.get(t.id).isDefined
-
     field.ptype match {
-      case t: PReference if isReferenceToModel(t) =>
-        pReferenceType
-      case PArray(t: PReference) if isReferenceToModel(t) =>
-        pReferenceType
-      case POption(t: PReference) if isReferenceToModel(t) =>
-        pReferenceType
+      case _: PReference          => transformedType
+      case PArray(_: PReference)  => transformedType
+      case POption(_: PReference) => transformedType
+      case _ if transformAll      => transformedType
       case _ =>
         fieldType(
           ht = field.ptype,
@@ -334,19 +352,142 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     }
   }
 
-  def inputTypes: Iterable[Definition] =
-    syntaxTree.models.map { model =>
-      InputObjectTypeDefinition(
-        name = inputTypeName(model)(OptionalInput),
+  def inputTypes: Iterable[Definition] = {
+
+    val modelInputTypes = syntaxTree.models.flatMap { model =>
+      val predicateInput = InputObjectTypeDefinition(
+        name = inputTypeName(model.id)(PredicateInput),
+        fields = model.fields
+          .filterNot(_.isSecretCredential)
+          .map { field =>
+            InputValueDefinition(
+              name = field.id,
+              valueType =
+                if (field.isArray)
+                  namedType(
+                    inputTypeName("Array")(PredicateInput),
+                    isOptional = true
+                  )
+                else
+                  inputFieldType(field, transformAll = true)(PredicateInput),
+              None
+            )
+          }
+          .toVector
+      )
+      val filterInput = InputObjectTypeDefinition(
+        name = inputTypeName(model.id)(ModelFilter),
+        fields = {
+          val predicate = InputValueDefinition(
+            name = "predicate",
+            valueType = namedType(inputTypeName(model.id)(PredicateInput)),
+            None
+          )
+
+          val and = InputValueDefinition(
+            name = "and",
+            valueType = namedType(
+              inputTypeName(model.id)(ModelFilter),
+              isOptional = true,
+              isList = true
+            ),
+            None
+          )
+
+          val or = InputValueDefinition(
+            name = "or",
+            valueType = namedType(
+              inputTypeName(model.id)(ModelFilter),
+              isOptional = true,
+              isList = true
+            ),
+            None
+          )
+
+          val negated = InputValueDefinition(
+            name = "negated",
+            valueType = namedType(
+              builtinTypeName(BooleanScalar),
+              isOptional = true
+            ),
+            None
+          )
+
+          Vector(predicate, and, or, negated)
+        }
+      )
+      val aggInput = InputObjectTypeDefinition(
+        name = inputTypeName(model.id)(ModelAggInput),
+        fields = {
+          val filter = InputValueDefinition(
+            name = "filter",
+            valueType = namedType(
+              inputTypeName(model.id)(ModelFilter),
+              isOptional = true,
+              isList = true
+            ),
+            None
+          )
+
+          val from = InputValueDefinition(
+            name = "from",
+            valueType = namedType(
+              builtinTypeName(IntScalar),
+              isOptional = true
+            ),
+            None
+          )
+
+          val to = InputValueDefinition(
+            name = "to",
+            valueType = namedType(
+              builtinTypeName(IntScalar),
+              isOptional = true
+            ),
+            None
+          )
+
+          val orderBy = InputValueDefinition(
+            name = "orderBy",
+            valueType = namedType(
+              builtinTypeName(OrderByInput),
+              isOptional = true
+            ),
+            None
+          )
+
+          Vector(filter, from, to, orderBy)
+        }
+      )
+      val input = InputObjectTypeDefinition(
+        name = inputTypeName(model.id)(ModelInput),
         fields = model.fields.map { field =>
           InputValueDefinition(
             name = field.id,
-            valueType = inputFieldType(field),
+            valueType = inputFieldType(field)(ModelInput),
             None
           )
         }.toVector
       )
+
+      Seq(predicateInput, filterInput, aggInput, input)
     }
+
+    val enumModelTypes = syntaxTree.enums.map { e =>
+      InputObjectTypeDefinition(
+        name = inputTypeName(e.id)(PredicateInput),
+        fields = Vector(
+          InputValueDefinition(
+            name = "eq",
+            valueType = namedType(e.id, isOptional = true),
+            None
+          )
+        )
+      )
+    }
+
+    modelInputTypes ++ enumModelTypes
+  }
 
   def ruleBasedTypeGenerator(
       typeName: String,
@@ -412,18 +553,14 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
 
 object ApiSchemaGenerator {
   sealed trait InputKind
-  object ObjectInput extends InputKind
-  object ReferenceInput extends InputKind
-  object OptionalInput extends InputKind
+  object ModelInput extends InputKind
+  object ModelAggInput extends InputKind
+  object ModelFilter extends InputKind
+  object PredicateInput extends InputKind
 
   sealed trait BuiltinGraphQlType
-  object EqInput extends BuiltinGraphQlType
-  object WhereInput extends BuiltinGraphQlType
   object OrderByInput extends BuiltinGraphQlType
   object OrderEnum extends BuiltinGraphQlType
-  object RangeInput extends BuiltinGraphQlType
-  object FilterInput extends BuiltinGraphQlType
-  object AnyScalar extends BuiltinGraphQlType
   object IntScalar extends BuiltinGraphQlType
   object FloatScalar extends BuiltinGraphQlType
   object StringScalar extends BuiltinGraphQlType
@@ -438,10 +575,6 @@ object ApiSchemaGenerator {
       tpe: Type
   )
 
-  trait SchemaBuildOutput
-  case object AsDocument extends SchemaBuildOutput
-  case object AsSyntaxTree extends SchemaBuildOutput
-
   def typeBuilder[T](
       typeNameCallback: T => String
   )(
@@ -449,27 +582,45 @@ object ApiSchemaGenerator {
       isOptional: Boolean,
       isList: Boolean
   ) =
-    isOptional match {
-      case true if isList  => ListType(NamedType(typeNameCallback(t)))
-      case true if !isList => NamedType(typeNameCallback(t))
-      case false if isList =>
+    (isOptional, isList) match {
+      case (true, true)  => ListType(NamedType(typeNameCallback(t)))
+      case (true, false) => NamedType(typeNameCallback(t))
+      case (false, true) =>
         NotNullType(ListType(NamedType(typeNameCallback(t))))
-      case false if !isList => NotNullType(NamedType(typeNameCallback(t)))
+      case (false, false) => NotNullType(NamedType(typeNameCallback(t)))
     }
 
+  def namedType(
+      name: String,
+      isOptional: Boolean = false,
+      isList: Boolean = false
+  ): Type = typeBuilder[String](identity)(name, isOptional, isList)
+
+  def typeName(ptype: PType): String = ptype match {
+    case PAny           => "Any"
+    case PReference(id) => id
+    case m: PModel      => m.id
+    case i: PInterface  => i.id
+    case e: PEnum       => e.id
+    case PString        => "String"
+    case PInt           => "Int"
+    case PFloat         => "Float"
+    case PBool          => "Boolean"
+    case PDate          => "Date"
+    case PArray(ptype)  => typeName(ptype)
+    case _: PFile       => "File"
+    case _: PFunction   => "Function"
+    case POption(ptype) => typeName(ptype)
+  }
+
   def builtinTypeName(t: BuiltinGraphQlType): String = t match {
-    case OrderEnum          => "OrderEnum"
-    case WhereInput         => "WhereInput"
-    case EqInput            => "EqInput"
-    case OrderByInput       => "OrderByInput"
-    case FilterInput        => "FilterInput"
-    case RangeInput         => "RangeInput"
-    case AnyScalar          => "Any"
-    case IntScalar          => "Int"
-    case StringScalar       => "String"
-    case BooleanScalar      => "Boolean"
-    case FloatScalar        => "Float"
-    case IDScalar           => "ID"
+    case OrderEnum     => "OrderEnum"
+    case OrderByInput  => "OrderByInput"
+    case IntScalar     => "Int"
+    case StringScalar  => "String"
+    case BooleanScalar => "Boolean"
+    case FloatScalar   => "Float"
+    case IDScalar      => "ID"
   }
 
   def builtinType(
@@ -477,6 +628,18 @@ object ApiSchemaGenerator {
       isOptional: Boolean = false,
       isList: Boolean = false
   ): Type = typeBuilder(builtinTypeName)(t, isOptional, isList)
+
+  def gqlType(
+      ptype: PType,
+      nameTransformer: String => String = identity,
+      isOptional: Boolean = false,
+      isList: Boolean = false
+  ): Type =
+    typeBuilder[PType](t => nameTransformer(typeName(t)))(
+      ptype,
+      isOptional,
+      isList
+    )
 
   def outputType(
       model: PModel,
@@ -491,9 +654,10 @@ object ApiSchemaGenerator {
     )
 
   def inputKindSuffix(kind: InputKind) = kind match {
-    case ObjectInput    => "ObjectInput"
-    case OptionalInput  => "Input"
-    case ReferenceInput => "ReferenceInput"
+    case ModelInput     => "Input"
+    case PredicateInput => "Predicate"
+    case ModelAggInput  => "AggInput"
+    case ModelFilter    => "Filter"
   }
 
   def notificationTypeName(modelId: String): String =
@@ -501,11 +665,8 @@ object ApiSchemaGenerator {
   def notificationTypeName(model: PModel): String =
     notificationTypeName(model.id)
 
-  def inputTypeName(modelId: String)(kind: InputKind): String =
-    modelId.capitalize + inputKindSuffix(kind)
-
-  def inputTypeName(model: PModel)(kind: InputKind): String =
-    inputTypeName(model.id)(kind)
+  def inputTypeName(name: String)(kind: InputKind): String =
+    name.capitalize + inputKindSuffix(kind)
 
   def listFieldType(
       ht: PType,
@@ -526,40 +687,71 @@ object ApiSchemaGenerator {
   def fieldType(
       ht: PType,
       isOptional: Boolean = false,
-      nameTransformer: String => String = identity
+      nameTransformer: String => String = identity,
+      transformAll: Boolean = false
   ): Type =
     ht match {
       case PArray(ht) =>
         if (isOptional)
-          ListType(fieldType(ht, isOptional = true, nameTransformer))
+          ListType(
+            fieldType(ht, isOptional = true, nameTransformer, transformAll)
+          )
         else
           NotNullType(
-            ListType(fieldType(ht, isOptional = true, nameTransformer))
+            ListType(
+              fieldType(ht, isOptional = true, nameTransformer, transformAll)
+            )
           )
+      case PBool if transformAll =>
+        if (isOptional) NamedType(nameTransformer("Boolean"))
+        else NotNullType(NamedType(nameTransformer("Boolean")))
       case PBool =>
         if (isOptional) NamedType("Boolean")
         else NotNullType(NamedType("Boolean"))
+      case PDate if transformAll =>
+        if (isOptional) NamedType(nameTransformer("Date"))
+        else NotNullType(NamedType(nameTransformer("Date")))
       case PDate =>
         if (isOptional) NamedType("Date") else NotNullType(NamedType("Date"))
+      case PFloat if transformAll =>
+        if (isOptional) NamedType(nameTransformer("Float"))
+        else NotNullType(NamedType(nameTransformer("Float")))
       case PFloat =>
         if (isOptional) NamedType("Float") else NotNullType(NamedType("Float"))
+      case PInt if transformAll =>
+        if (isOptional) NamedType(nameTransformer("Int"))
+        else NotNullType(NamedType(nameTransformer("Int")))
       case PInt =>
         if (isOptional) NamedType("Int") else NotNullType(NamedType("Int"))
+      case PString if transformAll =>
+        if (isOptional) NamedType(nameTransformer("String"))
+        else NotNullType(NamedType(nameTransformer("String")))
       case PString =>
         if (isOptional) NamedType("String")
         else NotNullType(NamedType("String"))
+      case PAny if transformAll =>
+        if (isOptional) NamedType(nameTransformer("Any"))
+        else NotNullType(NamedType(nameTransformer("Any")))
       case PAny =>
         if (isOptional) NamedType("Any")
         else NotNullType(NamedType("Any"))
-      case POption(ht) => fieldType(ht, isOptional = true, nameTransformer)
+      case POption(ht) =>
+        fieldType(ht, isOptional = true, nameTransformer, transformAll)
+      case PFile(_, _) if transformAll =>
+        if (isOptional) NamedType(nameTransformer("String"))
+        else NotNullType(NamedType(nameTransformer("String")))
       case PFile(_, _) =>
         if (isOptional) NamedType("String")
         else NotNullType(NamedType("String"))
       case s: PShape =>
         if (isOptional) NamedType(nameTransformer(s.id))
         else NotNullType(NamedType(nameTransformer(s.id)))
+      case e: PEnum if transformAll =>
+        if (isOptional) NamedType(nameTransformer(e.id))
+        else NotNullType(NamedType(nameTransformer(e.id)))
       case e: PEnum =>
-        if (isOptional) NamedType(e.id) else NotNullType(NamedType(e.id))
+        if (isOptional) NamedType(e.id)
+        else NotNullType(NamedType(e.id))
       case PReference(id) =>
         if (isOptional) NamedType(nameTransformer(id))
         else NotNullType(NamedType(nameTransformer(id)))
@@ -597,13 +789,36 @@ object ApiSchemaGenerator {
 
   lazy val buitlinGraphQlDefinitions =
     gql"""
-    input WhereInput {
-      filter: FilterInput
-      orderBy: OrderByInput
-      range: RangeInput
-      first: Int
-      last: Int
-      skip: Int
+    input IntPredicate {
+      lt: Int
+      gt: Int
+      eq: Int
+      gte: Int
+      lte: Int
+    }
+
+    input FloatPredicate {
+      lt: Float
+      gt: Float
+      eq: Float
+      gte: Float
+      lte: Float
+    }
+
+    input StringPredicate {
+      length: IntPredicate
+      startsWith: String
+      endsWith: String
+      pattern: String
+      eq: String
+    }
+
+    input ArrayPredicate {
+      length: IntPredicate
+    }
+
+    input BooleanPredicate {
+      eq: Boolean
     }
 
     input OrderByInput {
@@ -621,41 +836,6 @@ object ApiSchemaGenerator {
       DESC
       ASC
     }
-
-    input RangeInput {
-      before: ID!
-      after: ID!
-    }
-
-    input FilterInput {
-      not: FilterInput
-      and: FilterInput
-      or: FilterInput
-      eq: ComparisonInput # works only when the field is of type String or Int or Float
-      gt: ComparisonInput # works only when the field is of type Float or Int
-      gte: ComparisonInput # works only when the field is of type Float or Int
-      lt: ComparisonInput # works only when the field is of type Float or Int
-      lte: ComparisonInput # works only when the field is of type Float or Int
-      matches: MatchesInput # works only when the field is of type String
-    }
-
-    input MatchesInput {
-      # could be a single field like "friend" or a path "friend.name"
-      # works only when the field is of type String
-      field: String
-      regex: String!
-    }
-
-    input ComparisonInput {
-      # could be a single field like "friend" or a path "friend.name"
-      # If the type of the field or the path is object,
-      # then all fields that exist on value of `value: Any!` must be
-      # compared with fields with the same name in the model recursively  
-      field: String
-      value: Any!
-    }
-
-    scalar Any
 
     directive @listen(to: EventEnum!) on FIELD # on field selections inside a subscription
       """.definitions.toList
