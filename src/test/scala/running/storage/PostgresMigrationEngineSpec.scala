@@ -67,23 +67,23 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       Some(
         """|CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
        |
-       |CREATE TABLE IF NOT EXISTS "Todo_renderSQL"(
-       |);
-       |
-       |
        |CREATE TABLE IF NOT EXISTS "User_renderSQL"(
        |);
        |
        |
-       |ALTER TABLE "Todo_renderSQL" ADD COLUMN "title" TEXT NOT NULL PRIMARY KEY;
+       |CREATE TABLE IF NOT EXISTS "Todo_renderSQL"(
+       |);
        |
-       |ALTER TABLE "User_renderSQL" ADD COLUMN "isVerified" BOOL NOT NULL;
        |
-       |ALTER TABLE "User_renderSQL" ADD COLUMN "password" TEXT NOT NULL UNIQUE;
+       |ALTER TABLE "User_renderSQL" ADD COLUMN "id" UUID NOT NULL DEFAULT uuid_generate_v4 ();
        |
        |ALTER TABLE "User_renderSQL" ADD COLUMN "username" TEXT NOT NULL UNIQUE PRIMARY KEY;
        |
-       |ALTER TABLE "User_renderSQL" ADD COLUMN "id" UUID NOT NULL DEFAULT uuid_generate_v4 ();
+       |ALTER TABLE "User_renderSQL" ADD COLUMN "password" TEXT NOT NULL UNIQUE;
+       |
+       |ALTER TABLE "User_renderSQL" ADD COLUMN "isVerified" BOOL NOT NULL;
+       |
+       |ALTER TABLE "Todo_renderSQL" ADD COLUMN "title" TEXT NOT NULL PRIMARY KEY;
        |
        |CREATE TABLE IF NOT EXISTS "User_renderSQL_todos"(
        |"source_User_renderSQL" TEXT NOT NULL REFERENCES "User_renderSQL"("username") ON DELETE CASCADE ON UPDATE CASCADE,
@@ -97,11 +97,6 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
         case Right(migration) => migration.renderSQL
       })
     )
-
-    // migrationEngine.initialMigration match {
-    //   case Left(e)          => ()
-    //   case Right(migration) => println(migration.renderSQL)
-    // }
 
     migrationEngine.initialMigration
       .getOrElse(fail())
@@ -131,17 +126,47 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     val createUserModel = CreateModel(syntaxTree.modelsById("User"))
 
     val expected = Vector(
-      CreateTable("User", Vector()),
       CreateTable("Todo", Vector()),
+      CreateTable("User", Vector()),
+      AlterTable(
+        "Todo",
+        AddColumn(
+          ColumnDefinition(
+            "title",
+            PostgresType.TEXT,
+            true,
+            false,
+            true,
+            false,
+            false,
+            None
+          )
+        )
+      ),
       AlterTable(
         "User",
         AddColumn(
           ColumnDefinition(
-            "isVerified",
-            PostgresType.BOOL,
+            "id",
+            PostgresType.UUID,
             true,
             false,
             false,
+            false,
+            true,
+            None
+          )
+        )
+      ),
+      AlterTable(
+        "User",
+        AddColumn(
+          ColumnDefinition(
+            "username",
+            PostgresType.TEXT,
+            true,
+            true,
+            true,
             false,
             false,
             None
@@ -167,41 +192,11 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
         "User",
         AddColumn(
           ColumnDefinition(
-            "username",
-            PostgresType.TEXT,
-            true,
-            true,
+            "isVerified",
+            PostgresType.BOOL,
             true,
             false,
             false,
-            None
-          )
-        )
-      ),
-      AlterTable(
-        "User",
-        AddColumn(
-          ColumnDefinition(
-            "id",
-            PostgresType.UUID,
-            true,
-            false,
-            false,
-            false,
-            true,
-            None
-          )
-        )
-      ),
-      AlterTable(
-        "Todo",
-        AddColumn(
-          ColumnDefinition(
-            "title",
-            PostgresType.TEXT,
-            true,
-            false,
-            true,
             false,
             false,
             None

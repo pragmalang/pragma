@@ -70,7 +70,7 @@ case class PostgresMigration[M[_]: Monad](
   lazy val sqlSteps: Vector[SQLMigrationStep] =
     unorderedSQLSteps
       .map(step => stepPriority(step) -> step)
-      .sortWith((x, y) => x._1 <= y._1)
+      .sortBy(_._1)
       .map(_._2)
 
   def run(
