@@ -266,7 +266,7 @@ object Main extends IOApp {
             case (jc, s) => new Server(jc, s, currentTree)
           }
 
-          val runServer = server.flatMap(_.run(args))
+          val runServer = server.flatMap(_.run)
 
           config.mode match {
             case Dev =>

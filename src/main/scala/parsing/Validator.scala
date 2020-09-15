@@ -364,15 +364,13 @@ object Validator {
     model.fields.find(_.isPrimary)
 
   val invalidTypeIdentifiers = List(
-    "WhereInput",
     "OrderByInput",
     "OrderEnum",
-    "RangeInput",
-    "FilterInput",
-    "MatchesInput",
-    "ComparisonInput",
-    "EVENT_ENUM",
-    "Any"
+    "EventEnum",
+    "Any",
+    "Query",
+    "Mutation",
+    "Subscription"
   )
 
 }

@@ -22,10 +22,10 @@ class Server(
     jwtCodec: JwtCodec,
     storage: Resource[IO, Postgres[IO]],
     currentSyntaxTree: SyntaxTree
-) extends IOApp {
+)(implicit cs: ContextShift[IO], t: Timer[IO]) {
   import Server._
 
-  val gqlSchema =
+  def gqlSchema =
     Schema.buildFromAst(
       ApiSchemaGenerator(currentSyntaxTree).build
     )
@@ -98,7 +98,7 @@ class Server(
     }
   }
 
-  def run(args: List[String]): IO[ExitCode] =
+  def run: IO[ExitCode] =
     BlazeServerBuilder[IO](global)
       .bindHttp(3030, "localhost")
       .withHttpApp(Router("/graphql" -> routes).orNotFound)
