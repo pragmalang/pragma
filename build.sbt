@@ -66,13 +66,12 @@ enablePlugins(DockerComposePlugin, GraalVMNativeImagePlugin)
  */
 
 /*
-  To make tests run within a Docker container
-  (for Postgres)
+  To run tests within a Docker container (for Postgres):
+  `sbt dockerComposeTest`
   See https://github.com/Tapad/sbt-docker-compose
   NOTE: If the docker containers cannot be started
   it's most likely because the port 5433 is already in use.
   Run `docker ps` and then run `docker kill <postgres-containe-id>`
   to kill the postgres container to fix it.
  */
-addCommandAlias("test", "dockerComposeTest")
-dockerImageCreationTask := (publishLocal in Docker).value
+composeNoBuild := true
