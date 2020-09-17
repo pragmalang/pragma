@@ -4,18 +4,11 @@ import domain._, DomainImplicits._
 import sangria.ast._
 import sangria.ast.{Directive => GraphQlDirective}
 import sangria.macros._
+import domain.utils.Identifiable
+import cats.implicits._
 
 case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
   import ApiSchemaGenerator._
-
-  def buildGraphQLAst() = Document(typeDefinitions.toVector)
-
-  def typeDefinitions(): Iterable[Definition] =
-    syntaxTree.models.map(pshape(_)) ++
-      syntaxTree.enums.map(penum(_))
-
-  def graphQlFieldArgs(args: Map[String, Type]) =
-    args.map(arg => InputValueDefinition(arg._1, arg._2, None)).toVector
 
   def graphQlField(
       nameTransformer: String => String = identity,
@@ -27,37 +20,8 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
     arguments = graphQlFieldArgs(args)
   )
 
-  def outputTypes: Iterable[Definition] = typeDefinitions map {
-    case objDef: ObjectTypeDefinition =>
-      objDef.copy(fields = objDef.fields map { field =>
-        field.fieldType match {
-          case ListType(_, _) =>
-            field.copy(
-              arguments = graphQlFieldArgs(
-                Map(
-                  "aggregation" -> namedType(
-                    inputTypeName(objDef.name)(ModelAggInput),
-                    isOptional = true
-                  )
-                )
-              )
-            )
-          case NotNullType(ListType(_, _), _) =>
-            field.copy(
-              arguments = graphQlFieldArgs(
-                Map(
-                  "aggregation" -> namedType(
-                    inputTypeName(objDef.name)(ModelAggInput),
-                    isOptional = true
-                  )
-                )
-              )
-            )
-          case _ => field
-        }
-      })
-    case td => td
-  }
+  def outputTypes: Iterable[Definition] =
+    syntaxTree.models.map(pshape(_)) ++ syntaxTree.enums.map(penum(_))
 
   def modelMutationsTypes: Iterable[Definition] =
     syntaxTree.models.map(model => {
@@ -170,13 +134,8 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         )(model.id)
       )
 
-      val modelListFields = model.fields.collect {
-        case f @ PModelField(_, _: PArray, _, _, _, _) => f
-      }
-
-      val modelListFieldOperations = modelListFields
-        .flatMap(f => {
-          val listFieldInnerType = f.ptype.asInstanceOf[PArray].ptype
+      val modelListFieldOperations = model.fields.collect {
+        case f @ PModelField(_, PArray(listFieldInnerType), _, _, _, _) => {
           val transformedFieldId = f.id.capitalize
 
           val pushTo = Some(
@@ -237,7 +196,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
                 model.primaryField.id -> fieldType(model.primaryField.ptype),
                 "filter" -> gqlType(
                   listFieldInnerType,
-                  inputTypeName(_)(ModelFilter)
+                  inputTypeName(_)(FilterInput)
                 )
               ),
               fieldType(model)
@@ -245,8 +204,8 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           )
 
           List(pushTo, pushManyTo, removeFrom, removeManyFrom)
-        })
-        .toVector
+        }
+      }.flatten
 
       val fields: Vector[FieldDefinition] = (Vector(
         create,
@@ -281,7 +240,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           args = Map(
             "aggregation" -> gqlType(
               model,
-              inputTypeName(_)(ModelAggInput),
+              inputTypeName(_)(AggInput),
               isOptional = true
             )
           ),
@@ -315,7 +274,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           args = Map(
             "where" -> gqlType(
               model,
-              inputTypeName(_)(ModelAggInput),
+              inputTypeName(_)(AggInput),
               isOptional = true
             )
           ),
@@ -354,139 +313,158 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
 
   def inputTypes: Iterable[Definition] = {
 
-    val modelInputTypes = syntaxTree.models.flatMap { model =>
-      val predicateInput = InputObjectTypeDefinition(
-        name = inputTypeName(model.id)(PredicateInput),
-        fields = model.fields
-          .filterNot(_.isSecretCredential)
-          .map { field =>
-            InputValueDefinition(
-              name = field.id,
-              valueType =
-                if (field.isArray)
-                  namedType(
-                    inputTypeName("Array")(PredicateInput),
-                    isOptional = true
+    val modelsAndEnumsInputTypes =
+      (syntaxTree.models ++ syntaxTree.enums).flatMap {
+        modelOrEnum: Identifiable =>
+          val predicateInput = modelOrEnum match {
+            case model: PModel =>
+              InputObjectTypeDefinition(
+                name = inputTypeName(modelOrEnum.id)(PredicateInput),
+                fields = model.fields
+                  .filterNot(_.isSecretCredential)
+                  .map { field =>
+                    InputValueDefinition(
+                      name = field.id,
+                      valueType =
+                        if (field.isArray)
+                          namedType(
+                            inputTypeName("Array")(PredicateInput),
+                            isOptional = true
+                          )
+                        else
+                          inputFieldType(field, transformAll = true)(
+                            PredicateInput
+                          ),
+                      None
+                    )
+                  }
+                  .toVector
+              ).some
+            case e: PEnum =>
+              InputObjectTypeDefinition(
+                name = inputTypeName(modelOrEnum.id)(PredicateInput),
+                fields = Vector {
+                  InputValueDefinition(
+                    name = "eq",
+                    valueType = gqlType(
+                      e,
+                      name => name + inputKindSuffix(PredicateInput),
+                      isOptional = true
+                    ),
+                    None
                   )
-                else
-                  inputFieldType(field, transformAll = true)(PredicateInput),
-              None
-            )
+                }
+              ).some
+            case _ => None
           }
-          .toVector
-      )
-      val filterInput = InputObjectTypeDefinition(
-        name = inputTypeName(model.id)(ModelFilter),
-        fields = {
-          val predicate = InputValueDefinition(
-            name = "predicate",
-            valueType = namedType(inputTypeName(model.id)(PredicateInput)),
-            None
-          )
+          val filterInput = InputObjectTypeDefinition(
+            name = inputTypeName(modelOrEnum.id)(FilterInput),
+            fields = {
+              val predicate = InputValueDefinition(
+                name = "predicate",
+                valueType =
+                  namedType(inputTypeName(modelOrEnum.id)(PredicateInput)),
+                None
+              )
 
-          val and = InputValueDefinition(
-            name = "and",
-            valueType = namedType(
-              inputTypeName(model.id)(ModelFilter),
-              isOptional = true,
-              isList = true
-            ),
-            None
-          )
+              val and = InputValueDefinition(
+                name = "and",
+                valueType = namedType(
+                  inputTypeName(modelOrEnum.id)(FilterInput),
+                  isOptional = true,
+                  isList = true
+                ),
+                None
+              )
 
-          val or = InputValueDefinition(
-            name = "or",
-            valueType = namedType(
-              inputTypeName(model.id)(ModelFilter),
-              isOptional = true,
-              isList = true
-            ),
-            None
-          )
+              val or = InputValueDefinition(
+                name = "or",
+                valueType = namedType(
+                  inputTypeName(modelOrEnum.id)(FilterInput),
+                  isOptional = true,
+                  isList = true
+                ),
+                None
+              )
 
-          val negated = InputValueDefinition(
-            name = "negated",
-            valueType = namedType(
-              builtinTypeName(BooleanScalar),
-              isOptional = true
-            ),
-            None
-          )
+              val negated = InputValueDefinition(
+                name = "negated",
+                valueType = namedType(
+                  builtinTypeName(BooleanScalar),
+                  isOptional = true
+                ),
+                None
+              )
 
-          Vector(predicate, and, or, negated)
-        }
-      )
-      val aggInput = InputObjectTypeDefinition(
-        name = inputTypeName(model.id)(ModelAggInput),
-        fields = {
-          val filter = InputValueDefinition(
-            name = "filter",
-            valueType = namedType(
-              inputTypeName(model.id)(ModelFilter),
-              isOptional = true,
-              isList = true
-            ),
-            None
-          )
+              Vector(predicate, and, or, negated)
+            }
+          ).some
+          val aggInput = InputObjectTypeDefinition(
+            name = inputTypeName(modelOrEnum.id)(AggInput),
+            fields = {
+              val filter = InputValueDefinition(
+                name = "filter",
+                valueType = namedType(
+                  inputTypeName(modelOrEnum.id)(FilterInput),
+                  isOptional = true,
+                  isList = true
+                ),
+                None
+              )
 
-          val from = InputValueDefinition(
-            name = "from",
-            valueType = namedType(
-              builtinTypeName(IntScalar),
-              isOptional = true
-            ),
-            None
-          )
+              val from = InputValueDefinition(
+                name = "from",
+                valueType = namedType(
+                  builtinTypeName(IntScalar),
+                  isOptional = true
+                ),
+                None
+              )
 
-          val to = InputValueDefinition(
-            name = "to",
-            valueType = namedType(
-              builtinTypeName(IntScalar),
-              isOptional = true
-            ),
-            None
-          )
+              val to = InputValueDefinition(
+                name = "to",
+                valueType = namedType(
+                  builtinTypeName(IntScalar),
+                  isOptional = true
+                ),
+                None
+              )
 
-          val orderBy = InputValueDefinition(
-            name = "orderBy",
-            valueType = namedType(
-              builtinTypeName(OrderByInput),
-              isOptional = true
-            ),
-            None
-          )
+              val orderBy = InputValueDefinition(
+                name = "orderBy",
+                valueType = namedType(
+                  builtinTypeName(OrderByInput),
+                  isOptional = true
+                ),
+                None
+              )
 
-          Vector(filter, from, to, orderBy)
-        }
-      )
-      val input = InputObjectTypeDefinition(
-        name = inputTypeName(model.id)(ModelInput),
-        fields = model.fields.map { field =>
-          InputValueDefinition(
-            name = field.id,
-            valueType = inputFieldType(field)(ModelInput),
-            None
-          )
-        }.toVector
-      )
+              Vector(filter, from, to, orderBy)
+            }
+          ).some
+          val input = modelOrEnum match {
+            case model: PModel =>
+              Some {
+                InputObjectTypeDefinition(
+                  name = inputTypeName(modelOrEnum.id)(ModelInput),
+                  fields = model.fields.map { field =>
+                    InputValueDefinition(
+                      name = field.id,
+                      valueType = inputFieldType(field)(ModelInput),
+                      None
+                    )
+                  }.toVector
+                )
+              }
+            case _ => None
+          }
 
-      Seq(predicateInput, filterInput, aggInput, input)
-    }
+          Seq(predicateInput, filterInput, aggInput, input).collect {
+            case Some(inputType) => inputType
+          }
+      }
 
-    val enumModelTypes = syntaxTree.enums.map { e =>
-      InputObjectTypeDefinition(
-        name = inputTypeName(e.id)(PredicateInput),
-        fields = Vector(
-          InputValueDefinition(
-            name = "eq",
-            valueType = namedType(e.id, isOptional = true),
-            None
-          )
-        )
-      )
-    }
-
-    modelInputTypes ++ enumModelTypes
+    modelsAndEnumsInputTypes
   }
 
   def ruleBasedTypeGenerator(
@@ -554,8 +532,8 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
 object ApiSchemaGenerator {
   sealed trait InputKind
   object ModelInput extends InputKind
-  object ModelAggInput extends InputKind
-  object ModelFilter extends InputKind
+  object AggInput extends InputKind
+  object FilterInput extends InputKind
   object PredicateInput extends InputKind
 
   sealed trait BuiltinGraphQlType
@@ -641,23 +619,23 @@ object ApiSchemaGenerator {
       isList
     )
 
-  def outputType(
-      model: PModel,
-      isOptional: Boolean = false,
-      isList: Boolean = false,
-      nameTransformer: String => String = identity
-  ): Type =
-    typeBuilder((model: PModel) => nameTransformer(model.id))(
-      model,
-      isOptional,
-      isList
-    )
+  // def outputType(
+  //     model: PModel,
+  //     isOptional: Boolean = false,
+  //     isList: Boolean = false,
+  //     nameTransformer: String => String = identity
+  // ): Type =
+  //   typeBuilder((model: PModel) => nameTransformer(model.id))(
+  //     model,
+  //     isOptional,
+  //     isList
+  //   )
 
   def inputKindSuffix(kind: InputKind) = kind match {
     case ModelInput     => "Input"
     case PredicateInput => "Predicate"
-    case ModelAggInput  => "AggInput"
-    case ModelFilter    => "Filter"
+    case AggInput       => "AggInput"
+    case FilterInput    => "Filter"
   }
 
   def notificationTypeName(modelId: String): String =
@@ -779,16 +757,100 @@ object ApiSchemaGenerator {
     directives
   )
 
+  def graphQlFieldArgs(args: Map[String, Type]) =
+    args.map(arg => InputValueDefinition(arg._1, arg._2, None)).toVector
+
   def pshapeField(
       f: PShapeField
   ): FieldDefinition = FieldDefinition(
     name = f.id,
     fieldType = fieldType(f.ptype),
-    Vector.empty
+    arguments = f.ptype match {
+      case PArray(ptype) =>
+        graphQlFieldArgs(
+          Map(
+            "aggregation" -> gqlType(
+              ptype,
+              name => name + inputKindSuffix(AggInput),
+              isOptional = true
+            )
+          )
+        )
+      case _ => Vector.empty
+    }
   )
 
   lazy val buitlinGraphQlDefinitions =
     gql"""
+    input IntAggInput {
+      filter: [IntFilter]
+      orderBy: OrderByInput
+      from: Int
+      to: Int
+    }
+
+    input IntFilter {
+      predicate: IntPredicate!
+      and: [IntFilter]
+      or: [IntFilter]
+      negated: Boolean
+    }
+
+    input FloatAggInput {
+      filter: [FloatFilter]
+      orderBy: OrderByInput
+      from: Int
+      to: Int
+    }
+
+    input FloatFilter {
+      predicate: FloatPredicate!
+      and: [FloatFilter]
+      or: [FloatFilter]
+      negated: Boolean
+    }
+
+    input StringAggInput {
+      filter: [StringFilter]
+      orderBy: OrderByInput
+      from: Int
+      to: Int
+    }
+
+    input StringFilter {
+      predicate: StringPredicate!
+      and: [StringFilter]
+      or: [StringFilter]
+      negated: Boolean
+    }
+
+    input ArrayAggInput {
+      filter: [ArrayFilter]
+      orderBy: OrderByInput
+      from: Int
+      to: Int
+    }
+
+    input ArrayFilter {
+      predicate: ArrayPredicate!
+      and: [ArrayFilter]
+      or: [ArrayFilter]
+      negated: Boolean
+    }
+
+    input BooleanAggInput {
+      filter: [BooleanFilter]
+      orderBy: OrderByInput
+      from: Int
+      to: Int
+    }
+
+    input BooleanFilter {
+      predicate: BooleanPredicate!
+      and: [BooleanFilter]
+      or: [BooleanFilter]
+      negated: Boolean
+    }
     input IntPredicate {
       lt: Int
       gt: Int

@@ -10,8 +10,36 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
 
   test("buildApiSchema method works") {
     val gqlDoc = gql"""
+    input ArrayAggInput {
+      filter: [ArrayFilter]
+      orderBy: OrderByInput
+      from: Int
+      to: Int
+    }
+
+    input ArrayFilter {
+      predicate: ArrayPredicate!
+      and: [ArrayFilter]
+      or: [ArrayFilter]
+      negated: Boolean
+    }
+
     input ArrayPredicate {
       length: IntPredicate
+    }
+
+    input BooleanAggInput {
+      filter: [BooleanFilter]
+      orderBy: OrderByInput
+      from: Int
+      to: Int
+    }
+
+    input BooleanFilter {
+      predicate: BooleanPredicate!
+      and: [BooleanFilter]
+      or: [BooleanFilter]
+      negated: Boolean
     }
 
     input BooleanPredicate {
@@ -69,7 +97,7 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
     type Business {
       username: String
       email: String!
-      branches(aggregation: BusinessAggInput): [Branch]!
+      branches(aggregation: BranchAggInput): [Branch]!
       mainBranch: Branch
       businessType: BusinessType!
     }
@@ -135,8 +163,36 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       OTHER
     }
 
+    input BusinessTypeAggInput {
+      filter: [BusinessTypeFilter]
+      from: Int
+      to: Int
+      orderBy: OrderByInput
+    }
+
+    input BusinessTypeFilter {
+      predicate: BusinessTypePredicate!
+      and: [BusinessTypeFilter]
+      or: [BusinessTypeFilter]
+      negated: Boolean
+    }
+
     input BusinessTypePredicate {
-      eq: BusinessType
+      eq: BusinessTypePredicate
+    }
+
+    input FloatAggInput {
+      filter: [FloatFilter]
+      orderBy: OrderByInput
+      from: Int
+      to: Int
+    }
+
+    input FloatFilter {
+      predicate: FloatPredicate!
+      and: [FloatFilter]
+      or: [FloatFilter]
+      negated: Boolean
     }
 
     input FloatPredicate {
@@ -145,6 +201,20 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       eq: Float
       gte: Float
       lte: Float
+    }
+
+    input IntAggInput {
+      filter: [IntFilter]
+      orderBy: OrderByInput
+      from: Int
+      to: Int
+    }
+
+    input IntFilter {
+      predicate: IntPredicate!
+      and: [IntFilter]
+      or: [IntFilter]
+      negated: Boolean
     }
 
     input IntPredicate {
@@ -175,6 +245,20 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       Branch: BranchQueries
     }
 
+    input StringAggInput {
+      filter: [StringFilter]
+      orderBy: OrderByInput
+      from: Int
+      to: Int
+    }
+
+    input StringFilter {
+      predicate: StringPredicate!
+      and: [StringFilter]
+      or: [StringFilter]
+      negated: Boolean
+    }
+
     input StringPredicate {
       length: IntPredicate
       startsWith: String
@@ -193,8 +277,8 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       NEW
       CHANGE
     }
-    
-    directive @listen(to: EventEnum!) on FIELD # on field selections inside a subscription"""
+
+    directive @listen(to: EventEnum!) on FIELD"""
 
     val expectedSchema = Schema.buildFromAst(gqlDoc)
 
