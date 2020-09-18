@@ -196,7 +196,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
     val results = queryEngine
       .readManyRecords(
         syntaxTree.modelsById("Country"),
-        QueryAgg(Nil, None, None),
+        ModelAgg(syntaxTree.modelsById("Country"), Nil, None, None),
         reqOps(None)("Country").head.innerReadOps
       )
       .transact(t)

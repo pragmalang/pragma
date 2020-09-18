@@ -568,7 +568,7 @@ class PostgresQueryEngine[M[_]: Monad](
 
   override def readManyRecords(
       model: PModel,
-      agg: QueryAgg,
+      agg: ModelAgg,
       innerReadOps: Vector[InnerOperation]
   ): Query[JsArray] = {
     val aliasedColumns =

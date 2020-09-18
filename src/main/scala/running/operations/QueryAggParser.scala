@@ -3,48 +3,62 @@ package running.operations
 import domain._, domain.utils._
 import spray.json._
 import cats.implicits._
-import java.time.ZonedDateTime
+import java.time.Instant, java.util.Date
 import scala.util.Try
 
 class QueryAggParser(st: SyntaxTree) {
 
-  def parse(
-      elementType: PType,
+  def parseArrayFieldAgg(
+      parentModel: ModelId,
+      field: PModelField,
       aggObject: JsObject
-  ): Either[InternalException, QueryAgg] = {
-    val from = aggObject.fields.get("from") match {
-      case Some(JsNumber(value)) if value.isWhole => value.toInt.some.asRight
-      case None                                   => None.asRight
-      case _ =>
-        InternalException("Invalid value for `from` in query agg").asLeft
-    }
-    val to = aggObject.fields.get("to") match {
-      case Some(JsNumber(value)) if value.isWhole => value.toInt.some.asRight
-      case None                                   => None.asRight
-      case _ =>
-        InternalException("Invalid value for `to` in query agg").asLeft
-    }
-    val filterArray = aggObject.fields.get("filter") match {
-      case Some(JsArray(filters)) => filters.asRight
-      case None                   => Vector.empty.asRight
-      case _ =>
-        InternalException(
-          "Invalid value for `filter` array on query agg object"
-        ).asLeft
-    }
-
+  ): Either[InternalException, ArrayFieldAgg] =
     for {
-      f <- from
-      t <- to
-      filterObjects <- filterArray
-      filters <- filterObjects.traverse(parseFilter(elementType, _))
-    } yield QueryAgg(filters, f, t)
-  }
+      aggData <- aggStandardData(aggObject)
+      (from, to, filtersJson) = aggData
+      filters <- filtersJson.traverse(parseArrayFieldFilter(field, _))
+    } yield ArrayFieldAgg(parentModel, field, filters, from, to)
 
-  private def parseFilter(
-      elementType: PType,
+  def parseModelAgg(
+      model: PModel,
+      aggObject: JsObject
+  ): Either[InternalException, ModelAgg] =
+    for {
+      aggData <- aggStandardData(aggObject)
+      (from, to, filtersJson) = aggData
+      filters <- filtersJson.traverse(parseModelFilter(model, _))
+    } yield ModelAgg(model, filters, from, to)
+
+  private def aggStandardData(
+      aggObject: JsObject
+  ): Either[InternalException, (Option[Int], Option[Int], Vector[JsValue])] =
+    for {
+      from <- aggObject.fields.get("from") match {
+        case Some(JsNumber(value)) if value.isWhole => value.toInt.some.asRight
+        case None                                   => None.asRight
+        case _ =>
+          InternalException("Invalid value for `from` in query agg").asLeft
+      }
+      to <- aggObject.fields.get("to") match {
+        case Some(JsNumber(value)) if value.isWhole => value.toInt.some.asRight
+        case None                                   => None.asRight
+        case _ =>
+          InternalException("Invalid value for `to` in query agg").asLeft
+      }
+      filterArray <- aggObject.fields.get("filter") match {
+        case Some(JsArray(filters)) => filters.asRight
+        case None                   => Vector.empty.asRight
+        case _ =>
+          InternalException(
+            "Invalid value for `filter` array on query agg object"
+          ).asLeft
+      }
+    } yield (from, to, filterArray)
+
+  private def parseModelFilter(
+      model: PModel,
       filter: JsValue
-  ): Either[InternalException, QueryFilter] =
+  ): Either[InternalException, ModelFilter] =
     for {
       filterObj <- filter match {
         case o: JsObject => o.asRight
@@ -52,7 +66,7 @@ class QueryAggParser(st: SyntaxTree) {
           InternalException("Filter values must be objects").asLeft
       }
       pred <- filterObj.fields.get("predicate") match {
-        case Some(p) => parsePredicate(elementType, p)
+        case Some(p: JsObject) => parseModelPredicate(model, p)
         case _ =>
           InternalException(
             "Filter predicate value is required and must be an object"
@@ -60,14 +74,14 @@ class QueryAggParser(st: SyntaxTree) {
       }
       ands <- filterObj.fields.get("and") match {
         case Some(JsArray(andFilters)) =>
-          andFilters.traverse(parseFilter(elementType, _))
+          andFilters.traverse(parseModelFilter(model, _))
         case None => Vector.empty.asRight
         case _ =>
           InternalException("`and` value in filter object must be an array").asLeft
       }
       ors <- filterObj.fields.get("or") match {
         case Some(JsArray(orFilters)) =>
-          orFilters.traverse(parseFilter(elementType, _))
+          orFilters.traverse(parseModelFilter(model, _))
         case None => Vector.empty.asRight
         case _ =>
           InternalException("`or` value in filter object must be an array").asLeft
@@ -78,19 +92,62 @@ class QueryAggParser(st: SyntaxTree) {
         case _ =>
           InternalException("Value of `negated` in filter must be boolean").asLeft
       }
-    } yield QueryFilter(pred, ands, ors, negated)
+    } yield ModelFilter(pred, ands, ors, negated)
 
-  private def parsePredicate(
-      elemType: PType,
+  private def parseArrayFieldFilter(
+      arrayField: PModelField,
+      filter: JsValue
+  ): Either[InternalException, ArrayFieldFilter] =
+    for {
+      filterObj <- filter match {
+        case o: JsObject => o.asRight
+        case _ =>
+          InternalException("Array field filter values must be objects").asLeft
+      }
+      pred <- filterObj.fields.get("predicate") match {
+        case Some(p) => parseFieldPredicate(arrayField.ptype, p)
+        case _ =>
+          InternalException(
+            "Array field filter predicate value is required and must be an object"
+          ).asLeft
+      }
+      ands <- filterObj.fields.get("and") match {
+        case Some(JsArray(andFilters)) =>
+          andFilters.traverse(parseArrayFieldFilter(arrayField, _))
+        case None => Vector.empty.asRight
+        case _ =>
+          InternalException(
+            "`and` value in array field filter object must be an array"
+          ).asLeft
+      }
+      ors <- filterObj.fields.get("or") match {
+        case Some(JsArray(orFilters)) =>
+          orFilters.traverse(parseArrayFieldFilter(arrayField, _))
+        case None => Vector.empty.asRight
+        case _ =>
+          InternalException(
+            "`or` value in array field filter object must be an array"
+          ).asLeft
+      }
+      negated <- filterObj.fields.get("negated") match {
+        case Some(b: JsBoolean) => b.value.asRight
+        case None               => false.asRight
+        case _ =>
+          InternalException("Value of `negated` in filter must be boolean").asLeft
+      }
+    } yield ArrayFieldFilter(arrayField, pred, ands, ors, negated)
+
+  private def parseFieldPredicate(
+      fieldType: PType,
       predicate: JsValue
   ): Either[InternalException, QueryPredicate] =
-    (elemType, predicate) match {
+    (fieldType, predicate) match {
       case (_, o: JsObject) if o.fields.isEmpty => NullPredicate(false).asRight
       case (_, JsNull)                          => NullPredicate(true).asRight
       case (PReference(refId), o: JsObject) =>
-        parseModelPredicate(st.modelsById(refId))(o)
-      case (POption(t), _)              => parsePredicate(t, predicate)
-      case (model: PModel, o: JsObject) => parseModelPredicate(model)(o)
+        parseModelPredicate(st.modelsById(refId), o)
+      case (POption(t), _)              => parseFieldPredicate(t, predicate)
+      case (model: PModel, o: JsObject) => parseModelPredicate(model, o)
       case (PString, o: JsObject)       => parseStringPredicate(o)
       case (PInt, o: JsObject)          => parseIntPredicate(o)
       case (PFloat, o: JsObject)        => parseFloatPredicate(o)
@@ -103,7 +160,8 @@ class QueryAggParser(st: SyntaxTree) {
         ).asLeft
     }
 
-  private def parseModelPredicate(model: PModel)(
+  private def parseModelPredicate(
+      model: PModel,
       predicateObj: JsObject
   ): Either[InternalException, ModelPredicate] =
     predicateObj.fields.toVector
@@ -115,7 +173,7 @@ class QueryAggParser(st: SyntaxTree) {
                 s"`$fieldId` in query predicate is not a field of `${model.id}`"
               ).asLeft
             case Some(field) =>
-              parsePredicate(field.ptype, fieldPred).map(field -> _)
+              parseFieldPredicate(field.ptype, fieldPred).map(field.id -> _)
           }
         case (f, _) =>
           InternalException(s"Predicate field `$f` must be an object").asLeft
@@ -249,33 +307,33 @@ class QueryAggParser(st: SyntaxTree) {
     for {
       before <- predicateObj.fields.get("before") match {
         case Some(JsString(value)) =>
-          Try(ZonedDateTime.parse(value)).toEither
+          Try(Instant.parse(value)).toEither
             .leftMap { err =>
               InternalException("Invalid date value." + err.getMessage)
             }
-            .map(_.some)
+            .map(Date.from(_).some)
         case None => None.asRight
         case _ =>
           InternalException("Invalid value for `before` in `Date` predicate").asLeft
       }
       after <- predicateObj.fields.get("after") match {
         case Some(JsString(value)) =>
-          Try(ZonedDateTime.parse(value)).toEither
+          Try(Instant.parse(value)).toEither
             .leftMap { err =>
               InternalException("Invalid date value." + err.getMessage)
             }
-            .map(_.some)
+            .map(Date.from(_).some)
         case None => None.asRight
         case _ =>
           InternalException("Invalid value for `after` in `Date` predicate").asLeft
       }
       eq <- predicateObj.fields.get("eq") match {
         case Some(JsString(value)) =>
-          Try(ZonedDateTime.parse(value)).toEither
+          Try(Instant.parse(value)).toEither
             .leftMap { err =>
               InternalException("Invalid date value." + err.getMessage)
             }
-            .map(_.some)
+            .map(Date.from(_).some)
         case None => None.asRight
         case _ =>
           InternalException("Invalid value for `eq` in `Date` predicate").asLeft

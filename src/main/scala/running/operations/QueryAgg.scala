@@ -1,20 +1,50 @@
 package running.operations
 
-import domain._
-import java.time.ZonedDateTime
+import domain._, domain.utils._
+import java.util.Date
 
-case class QueryAgg(
-    filter: Seq[QueryFilter],
+trait QueryAgg[P <: QueryPredicate, QF <: QueryFilter[P]] {
+  val filter: Seq[QF]
+  val from: Option[Int]
+  val to: Option[Int]
+}
+
+case class ModelAgg(
+    targetModel: PModel,
+    filter: Seq[ModelFilter],
     from: Option[Int],
     to: Option[Int]
-)
+) extends QueryAgg[ModelPredicate, ModelFilter]
 
-case class QueryFilter(
-    predicate: QueryPredicate,
-    and: Seq[QueryFilter],
-    or: Seq[QueryFilter],
+case class ArrayFieldAgg(
+    parentModel: ModelId,
+    field: PModelField,
+    filter: Seq[ArrayFieldFilter],
+    from: Option[Int],
+    to: Option[Int]
+) extends QueryAgg[QueryPredicate, ArrayFieldFilter]
+
+trait QueryFilter[P <: QueryPredicate] {
+  val predicate: P
+  val and: Seq[QueryFilter[P]]
+  val or: Seq[QueryFilter[P]]
+  val negated: Boolean
+}
+
+case class ModelFilter(
+    predicate: ModelPredicate,
+    and: Seq[ModelFilter],
+    or: Seq[ModelFilter],
     negated: Boolean
-)
+) extends QueryFilter[ModelPredicate]
+
+case class ArrayFieldFilter(
+    field: PModelField,
+    predicate: QueryPredicate,
+    and: Seq[ArrayFieldFilter],
+    or: Seq[ArrayFieldFilter],
+    negated: Boolean
+) extends QueryFilter[QueryPredicate]
 
 sealed trait QueryPredicate
 
@@ -46,14 +76,14 @@ case class FloatPredicate(
 case class BoolPredicate(is: Boolean) extends QueryPredicate
 
 case class DatePredicate(
-    before: Option[ZonedDateTime],
-    after: Option[ZonedDateTime],
-    eq: Option[ZonedDateTime]
+    before: Option[Date],
+    after: Option[Date],
+    eq: Option[Date]
 ) extends QueryPredicate
 
 case class ModelPredicate(
     model: PModel,
-    fieldPredicates: Seq[(PModelField, QueryPredicate)]
+    fieldPredicates: Seq[(FieldId, QueryPredicate)]
 ) extends QueryPredicate
 
 case class ArrayPredicate(length: IntPredicate) extends QueryPredicate

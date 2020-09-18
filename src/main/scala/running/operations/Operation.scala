@@ -240,11 +240,11 @@ case class ObjectWithId(obj: JsObject, objId: JsValue)
 
 case class ReadArgs(id: JsValue) extends OpArgs[Read.type]
 
-case class ReadManyArgs(agg: QueryAgg) extends OpArgs[ReadMany.type]
+case class ReadManyArgs(agg: ModelAgg) extends OpArgs[ReadMany.type]
 
 sealed trait InnerOpArgs[+R <: ReadEvent] extends OpArgs[R]
 case object InnerOpNoArgs extends InnerOpArgs[Read.type]
-case class InnerListArgs(where: Option[QueryAgg])
+case class InnerListArgs(where: Option[ArrayFieldAgg])
     extends InnerOpArgs[ReadMany.type]
 
 case class CreateArgs(obj: JsObject) extends OpArgs[Create.type]

@@ -403,9 +403,10 @@ class OperationParser(st: SyntaxTree) {
         .find(_.name == "agg")
         .map(arg => sangriaToJson(arg.value)) match {
         case Some(arg: JsObject) =>
-          aggParser.parse(opTargetModel, arg).map(ReadManyArgs(_))
+          aggParser.parseModelAgg(opTargetModel, arg).map(ReadManyArgs(_))
         case Some(_) => InternalException("Invalid aggregation argument").asLeft
-        case None    => ReadManyArgs(QueryAgg(Nil, None, None)).asRight
+        case None =>
+          ReadManyArgs(ModelAgg(opTargetModel, Nil, None, None)).asRight
       }
     case Create => {
       val objToInsert =
