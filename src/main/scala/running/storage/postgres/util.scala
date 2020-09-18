@@ -66,80 +66,88 @@ package object utils {
       model: PModel,
       field: PModelField,
       currentSyntaxTree: SyntaxTree
-  ) = field.ptype match {
-    case POption(PArray(_)) | PArray(_) =>
-      Some {
-        val tableMetadata = new ArrayFieldTableMetaData(model, field)
+  ): Option[CreateTable] = field.ptype match {
+    case POption(PArray(_)) | PArray(_) => {
+      val tableMetadata = new ArrayFieldTableMetaData(model, field)
 
-        val innerRefType: Option[PModel] = field.innerModelId
-          .flatMap(name => currentSyntaxTree.modelsById.get(name))
+      val innerRefType: Option[PModel] = field.innerModelId
+        .flatMap(name => currentSyntaxTree.modelsById.get(name))
 
-        val thisModelReferenceColumn = ColumnDefinition(
-          tableMetadata.sourceColumnName,
-          model.primaryField.ptype match {
-            case PString if model.primaryField.isUUID => PostgresType.UUID
-            case PString                              => PostgresType.TEXT
-            case PInt                                 => PostgresType.INT8
-            case t =>
-              throw new InternalException(
-                s"Primary field in model `${model.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."
-              )
-          },
-          isNotNull = true,
-          isAutoIncrement = false,
-          isPrimaryKey = false,
-          isUUID = false,
-          isUnique = false,
-          foreignKey = ForeignKey(
-            model.id,
-            model.primaryField.id,
-            onDelete = Cascade
-          ).some
-        )
-
-        val valueOrReferenceColumn = innerRefType match {
-          case Some(otherModel) =>
-            ColumnDefinition(
-              name = tableMetadata.targetColumnName,
-              dataType = otherModel.primaryField.ptype match {
-                case PString if otherModel.primaryField.isUUID =>
-                  PostgresType.UUID
-                case PString => PostgresType.TEXT
-                case PInt    => PostgresType.INT8
-                case t =>
-                  throw new InternalException(
-                    s"Primary field in model `${otherModel.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."
-                  )
-              },
-              isNotNull = true,
-              isAutoIncrement = false,
-              isPrimaryKey = false,
-              isUUID = false,
-              isUnique = false,
-              foreignKey = ForeignKey(
-                otherModel.id,
-                otherModel.primaryField.id,
-                onDelete = Cascade
-              ).some
+      val thisModelReferenceColumn = ColumnDefinition(
+        tableMetadata.sourceColumnName,
+        model.primaryField.ptype match {
+          case PString if model.primaryField.isUUID => PostgresType.UUID
+          case PString                              => PostgresType.TEXT
+          case PInt                                 => PostgresType.INT8
+          case t =>
+            throw new InternalException(
+              s"Primary field in model `${model.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."
             )
-          case None =>
-            ColumnDefinition(
-              name = tableMetadata.targetColumnName,
-              dataType = toPostgresType(field.ptype).get,
-              isNotNull = true,
-              isAutoIncrement = false,
-              isPrimaryKey = false,
-              isUUID = false,
-              isUnique = false,
-              foreignKey = None
-            )
-        }
+        },
+        isNotNull = true,
+        isAutoIncrement = false,
+        isPrimaryKey = false,
+        isUUID = false,
+        isUnique = false,
+        foreignKey = ForeignKey(
+          model.id,
+          model.primaryField.id,
+          onDelete = Cascade
+        ).some
+      )
 
-        val columns =
-          Vector(thisModelReferenceColumn, valueOrReferenceColumn)
-
-        CreateTable(tableMetadata.tableName, columns)
+      val valueOrReferenceColumn = innerRefType match {
+        case Some(otherModel) =>
+          ColumnDefinition(
+            name = tableMetadata.targetColumnName,
+            dataType = otherModel.primaryField.ptype match {
+              case PString if otherModel.primaryField.isUUID =>
+                PostgresType.UUID
+              case PString => PostgresType.TEXT
+              case PInt    => PostgresType.INT8
+              case t =>
+                throw new InternalException(
+                  s"Primary field in model `${otherModel.id}` has type `${domain.utils.displayPType(t)}` and primary fields can only be of type `Int` or type `String`. This error is unexpected and must be reviewed by the creators of Pragma."
+                )
+            },
+            isNotNull = true,
+            isAutoIncrement = false,
+            isPrimaryKey = false,
+            isUUID = false,
+            isUnique = false,
+            foreignKey = ForeignKey(
+              otherModel.id,
+              otherModel.primaryField.id,
+              onDelete = Cascade
+            ).some
+          )
+        case None =>
+          ColumnDefinition(
+            name = tableMetadata.targetColumnName,
+            dataType = toPostgresType(field.ptype match {
+              case PArray(ptype) => ptype
+              case ptype         => ptype
+            }) match {
+              case Some(pgType) => pgType
+              case None =>
+                throw InternalException(
+                  s"Unable to handle `${model.id}.${field}` in migration engine (`createArrayTable`)"
+                )
+            },
+            isNotNull = true,
+            isAutoIncrement = false,
+            isPrimaryKey = false,
+            isUUID = false,
+            isUnique = false,
+            foreignKey = None
+          )
       }
+
+      val columns =
+        Vector(thisModelReferenceColumn, valueOrReferenceColumn)
+
+      CreateTable(tableMetadata.tableName, columns).some
+    }
     case _ => None
   }
 

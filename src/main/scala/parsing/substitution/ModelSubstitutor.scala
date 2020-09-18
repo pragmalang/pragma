@@ -109,6 +109,20 @@ object ModelSubstitutor {
             case None    => field
           }
         }
+        case PArray(PReference(id)) => {
+          val foundEnum = enumDefs.find(_.id == id)
+          foundEnum match {
+            case Some(e) => field.copy(ptype = PArray(e))
+            case None    => field
+          }
+        }
+        case POption(PReference(id)) => {
+          val foundEnum = enumDefs.find(_.id == id)
+          foundEnum match {
+            case Some(e) => field.copy(ptype = POption(e))
+            case None    => field
+          }
+        }
         case _ => field
       }
     }

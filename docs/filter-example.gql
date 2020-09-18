@@ -19,6 +19,76 @@ input UserPredicate {
   cats: ArrayPredicate
 }
 
+input IntAggInput {
+  filter: [IntFilter]
+  orderBy: OrderByInput
+  from: Int
+  to: Int
+}
+
+input IntFilter {
+  predicate: IntPredicate!
+  and: [IntFilter]
+  or: [IntFilter]
+  negated: Boolean
+}
+
+input FloatAggInput {
+  filter: [FloatFilter]
+  orderBy: OrderByInput
+  from: Int
+  to: Int
+}
+
+input FloatFilter {
+  predicate: FloatPredicate!
+  and: [FloatFilter]
+  or: [FloatFilter]
+  negated: Boolean
+}
+
+input StringAggInput {
+  filter: [StringFilter]
+  orderBy: OrderByInput
+  from: Int
+  to: Int
+}
+
+input StringFilter {
+  predicate: StringPredicate!
+  and: [StringFilter]
+  or: [StringFilter]
+  negated: Boolean
+}
+
+input ArrayAggInput {
+  filter: [ArrayFilter]
+  orderBy: OrderByInput
+  from: Int
+  to: Int
+}
+
+input ArrayFilter {
+  predicate: ArrayPredicate!
+  and: [ArrayFilter]
+  or: [ArrayFilter]
+  negated: Boolean
+}
+
+input BooleanAggInput {
+  filter: [BooleanFilter]
+  orderBy: OrderByInput
+  from: Int
+  to: Int
+}
+
+input BooleanFilter {
+  predicate: BooleanPredicate!
+  and: [BooleanFilter]
+  or: [BooleanFilter]
+  negated: Boolean
+}
+
 input IntPredicate {
   lt: Int
   gt: Int
