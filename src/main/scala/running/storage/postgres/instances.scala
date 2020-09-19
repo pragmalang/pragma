@@ -30,6 +30,8 @@ package object instances {
     case i: Int     => JsNumber(i)
     case d: Double  => JsNumber(d)
     case s: String  => JsString(s)
+    case true       => JsTrue
+    case false      => JsFalse
     case d: Date    => JsString(d.toString)
     case s: Short   => JsNumber(s.toDouble)
     case l: Long    => JsNumber(l)
