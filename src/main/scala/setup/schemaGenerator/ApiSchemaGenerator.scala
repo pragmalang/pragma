@@ -96,7 +96,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         graphQlField(
           nameTransformer = _ => "createMany",
           args = Map(
-            "records" -> listFieldType(
+            "items" -> listFieldType(
               model,
               nameTransformer = inputTypeName(_)(ModelInput)
             )
@@ -109,7 +109,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         graphQlField(
           nameTransformer = _ => "updateMany",
           args = Map(
-            "records" -> listFieldType(
+            "items" -> listFieldType(
               model,
               nameTransformer = inputTypeName(_)(ModelInput)
             )
@@ -122,10 +122,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         graphQlField(
           nameTransformer = _ => "deleteMany",
           args = Map(
-            "filter" -> gqlType(
-              model,
-              inputTypeName(_)(FilterInput)
-            )
+            "items" -> listFieldType(model.primaryField.ptype)
           ),
           fieldType = listFieldType(model)
         )(model.id)

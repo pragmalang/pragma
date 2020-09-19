@@ -74,9 +74,9 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       create(branch: BranchInput!): Branch!
       update(address: String!, branch: BranchInput!): Branch!
       delete(address: String!): Branch!
-      createMany(records: [BranchInput!]!): [Branch!]!
-      updateMany(records: [BranchInput!]!): [Branch!]!
-      deleteMany(filter: BranchFilter!): [Branch!]!
+      createMany(items: [BranchInput!]!): [Branch!]!
+      updateMany(items: [BranchInput!]!): [Branch!]!
+      deleteMany(items: [String!]!): [Branch!]!
     }
 
     input BranchPredicate {
@@ -129,9 +129,9 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       create(business: BusinessInput!): Business!
       update(email: String!, business: BusinessInput!): Business!
       delete(email: String!): Business!
-      createMany(records: [BusinessInput!]!): [Business!]!
-      updateMany(records: [BusinessInput!]!): [Business!]!
-      deleteMany(filter: BusinessFilter!): [Business!]!
+      createMany(items: [BusinessInput!]!): [Business!]!
+      updateMany(items: [BusinessInput!]!): [Business!]!
+      deleteMany(items: [String!]!): [Business!]!
       pushToBranches(email: String!, item: BranchInput!): Business!
       pushManyToBranches(email: String!, items: [BranchInput!]!): Business!
       removeFromBranches(email: String!, item: String!): Business!
@@ -287,6 +287,5 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
 
     val difference = resultSchema.compare(expectedSchema)
     assert(difference.isEmpty)
-    // println(resultSchema.renderPretty)
   }
 }
