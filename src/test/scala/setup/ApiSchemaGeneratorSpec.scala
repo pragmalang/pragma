@@ -11,7 +11,7 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
   test("buildApiSchema method works") {
     val gqlDoc = gql"""
     input ArrayAggInput {
-      filter: [ArrayFilter]
+      filter: [ArrayFilter!]
       orderBy: OrderByInput
       from: Int
       to: Int
@@ -19,8 +19,8 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
 
     input ArrayFilter {
       predicate: ArrayPredicate!
-      and: [ArrayFilter]
-      or: [ArrayFilter]
+      and: [ArrayFilter!]
+      or: [ArrayFilter!]
       negated: Boolean
     }
 
@@ -29,7 +29,7 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
     }
 
     input BooleanAggInput {
-      filter: [BooleanFilter]
+      filter: [BooleanFilter!]
       orderBy: OrderByInput
       from: Int
       to: Int
@@ -37,8 +37,8 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
 
     input BooleanFilter {
       predicate: BooleanPredicate!
-      and: [BooleanFilter]
-      or: [BooleanFilter]
+      and: [BooleanFilter!]
+      or: [BooleanFilter!]
       negated: Boolean
     }
 
@@ -52,7 +52,7 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
     }
 
     input BranchAggInput {
-      filter: [BranchFilter]
+      filter: [BranchFilter!]
       from: Int
       to: Int
       orderBy: OrderByInput
@@ -60,8 +60,8 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
 
     input BranchFilter {
       predicate: BranchPredicate!
-      and: [BranchFilter]
-      or: [BranchFilter]
+      and: [BranchFilter!]
+      or: [BranchFilter!]
       negated: Boolean
     }
 
@@ -74,9 +74,9 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       create(branch: BranchInput!): Branch!
       update(address: String!, branch: BranchInput!): Branch!
       delete(address: String!): Branch!
-      createMany(items: [BranchInput!]!): [Branch]!
-      updateMany(items: [BranchInput!]!): [Branch]!
-      deleteMany(items: [String!]): [Branch]!
+      createMany(records: [BranchInput!]!): [Branch!]!
+      updateMany(records: [BranchInput!]!): [Branch!]!
+      deleteMany(filter: BranchFilter!): [Branch!]!
     }
 
     input BranchPredicate {
@@ -86,24 +86,24 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
 
     type BranchQueries {
       read(address: String!): Branch
-      list(aggregation: BranchAggInput): [Branch]!
+      list(aggregation: BranchAggInput): [Branch!]!
     }
 
     type BranchSubscriptions {
       read(address: String!): Branch
-      list(where: BranchAggInput): Branch
+      list(aggregation: BranchAggInput): Branch
     }
 
     type Business {
       username: String
       email: String!
-      branches(aggregation: BranchAggInput): [Branch]!
+      branches(aggregation: BranchAggInput): [Branch!]!
       mainBranch: Branch
       businessType: BusinessType!
     }
 
     input BusinessAggInput {
-      filter: [BusinessFilter]
+      filter: [BusinessFilter!]
       from: Int
       to: Int
       orderBy: OrderByInput
@@ -111,8 +111,8 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
 
     input BusinessFilter {
       predicate: BusinessPredicate!
-      and: [BusinessFilter]
-      or: [BusinessFilter]
+      and: [BusinessFilter!]
+      or: [BusinessFilter!]
       negated: Boolean
     }
 
@@ -120,7 +120,7 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       username: String
       email: String
       password: String
-      branches: [BranchInput]
+      branches: [BranchInput!]
       mainBranch: BranchInput
       businessType: BusinessType
     }
@@ -129,9 +129,9 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       create(business: BusinessInput!): Business!
       update(email: String!, business: BusinessInput!): Business!
       delete(email: String!): Business!
-      createMany(items: [BusinessInput!]!): [Business]!
-      updateMany(items: [BusinessInput!]!): [Business]!
-      deleteMany(items: [String!]): [Business]!
+      createMany(records: [BusinessInput!]!): [Business!]!
+      updateMany(records: [BusinessInput!]!): [Business!]!
+      deleteMany(filter: BusinessFilter!): [Business!]!
       pushToBranches(email: String!, item: BranchInput!): Business!
       pushManyToBranches(email: String!, items: [BranchInput!]!): Business!
       removeFromBranches(email: String!, item: String!): Business!
@@ -149,12 +149,12 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
 
     type BusinessQueries {
       read(email: String!): Business
-      list(aggregation: BusinessAggInput): [Business]!
+      list(aggregation: BusinessAggInput): [Business!]!
     }
 
     type BusinessSubscriptions {
       read(email: String!): Business
-      list(where: BusinessAggInput): Business
+      list(aggregation: BusinessAggInput): Business
     }
 
     enum BusinessType {
@@ -164,7 +164,7 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
     }
 
     input BusinessTypeAggInput {
-      filter: [BusinessTypeFilter]
+      filter: [BusinessTypeFilter!]
       from: Int
       to: Int
       orderBy: OrderByInput
@@ -172,8 +172,8 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
 
     input BusinessTypeFilter {
       predicate: BusinessTypePredicate!
-      and: [BusinessTypeFilter]
-      or: [BusinessTypeFilter]
+      and: [BusinessTypeFilter!]
+      or: [BusinessTypeFilter!]
       negated: Boolean
     }
 
@@ -182,7 +182,7 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
     }
 
     input FloatAggInput {
-      filter: [FloatFilter]
+      filter: [FloatFilter!]
       orderBy: OrderByInput
       from: Int
       to: Int
@@ -190,8 +190,8 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
 
     input FloatFilter {
       predicate: FloatPredicate!
-      and: [FloatFilter]
-      or: [FloatFilter]
+      and: [FloatFilter!]
+      or: [FloatFilter!]
       negated: Boolean
     }
 
@@ -204,7 +204,7 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
     }
 
     input IntAggInput {
-      filter: [IntFilter]
+      filter: [IntFilter!]
       orderBy: OrderByInput
       from: Int
       to: Int
@@ -212,8 +212,8 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
 
     input IntFilter {
       predicate: IntPredicate!
-      and: [IntFilter]
-      or: [IntFilter]
+      and: [IntFilter!]
+      or: [IntFilter!]
       negated: Boolean
     }
 
@@ -246,7 +246,7 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
     }
 
     input StringAggInput {
-      filter: [StringFilter]
+      filter: [StringFilter!]
       orderBy: OrderByInput
       from: Int
       to: Int
@@ -254,8 +254,8 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
 
     input StringFilter {
       predicate: StringPredicate!
-      and: [StringFilter]
-      or: [StringFilter]
+      and: [StringFilter!]
+      or: [StringFilter!]
       negated: Boolean
     }
 
@@ -287,5 +287,6 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
 
     val difference = resultSchema.compare(expectedSchema)
     assert(difference.isEmpty)
+    // println(resultSchema.renderPretty)
   }
 }
