@@ -244,7 +244,7 @@ case class ReadManyArgs(agg: ModelAgg) extends OpArgs[ReadMany.type]
 
 sealed trait InnerOpArgs[+R <: ReadEvent] extends OpArgs[R]
 case object InnerOpNoArgs extends InnerOpArgs[Read.type]
-case class InnerListArgs(where: Option[ArrayFieldAgg])
+case class InnerListArgs(agg: Option[ArrayFieldAgg])
     extends InnerOpArgs[ReadMany.type]
 
 case class CreateArgs(obj: JsObject) extends OpArgs[Create.type]

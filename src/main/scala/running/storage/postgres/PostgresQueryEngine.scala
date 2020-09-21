@@ -44,11 +44,9 @@ class PostgresQueryEngine[M[_]: Monad](
         op.opArguments.id,
         op.innerReadOps
       ).widen[JsValue]
-    case op: ReadManyOperation => {
-      // val where = QueryAgg(None, None, None)
+    case op: ReadManyOperation =>
       readManyRecords(op.targetModel, op.opArguments.agg, op.innerReadOps)
         .widen[JsValue]
-    }
     case op: CreateOperation =>
       createOneRecord(
         op.targetModel,
@@ -571,13 +569,20 @@ class PostgresQueryEngine[M[_]: Monad](
       agg: ModelAgg,
       innerReadOps: Vector[InnerOperation]
   ): Query[JsArray] = {
-    val aliasedColumns =
+    val columns =
       commaSepColumnNames(Operations.primaryFieldInnerOp(model) +: innerReadOps)
 
-    val sql = s"SELECT $aliasedColumns FROM ${model.id.withQuotes};"
-    Fragment(sql, Nil, None)
-      .query[JsObject]
-      .to[Vector]
+    val (aggStr, aggSet, _, usedTables) = QueryAggSqlGen.modelAggSql(agg)
+
+    val tableNames = (usedTables + model.id.withQuotes).mkString(", ")
+
+    val sql =
+      s"SELECT $columns FROM $tableNames ${if (aggStr.isEmpty) ""
+      else "WHERE " + aggStr};"
+
+    HC.stream(sql, aggSet, 520)
+      .compile
+      .toVector
       .flatMap(_.traverse(populateObject(model, _, innerReadOps)))
       .map(objects => JsArray(objects))
   }
@@ -591,7 +596,7 @@ class PostgresQueryEngine[M[_]: Monad](
     val aliasedColumns = commaSepColumnNames(innerOpsWithPK)
 
     val sql =
-      s"""SELECT $aliasedColumns FROM ${model.id.withQuotes} WHERE ${model.primaryField.id.withQuotes} = ?;"""
+      s"""SELECT $aliasedColumns FROM ${model.id.withQuotes} WHERE ${model.id.withQuotes}.${model.primaryField.id.withQuotes} = ?;"""
 
     val prep = setJsValue(primaryKeyValue, model.primaryField)
 
@@ -624,7 +629,7 @@ class PostgresQueryEngine[M[_]: Monad](
             iop.innerReadOps
           ).map(obj => iop.targetField.field.id -> obj)
         case (
-            iop,
+            iop: InnerReadManyOperation,
             arrayField @ PModelField(_, PArray(_), _, _, _, _)
             ) =>
           populateArray(
@@ -670,19 +675,37 @@ class PostgresQueryEngine[M[_]: Monad](
       baseModel: PModel,
       baseRecordId: JsValue,
       arrayField: PModelField,
-      arrayInnerOp: InnerOperation
+      arrayInnerOp: InnerReadManyOperation
   ): Query[Vector[JsValue]] = {
-    val tableName = baseModel.id
+    val arrayTableName = baseModel.id
       .concat("_")
       .concat(arrayInnerOp.targetField.field.id)
       .withQuotes
-    val sql =
-      s"""|SELECT ${("target_" + arrayInnerOp.targetModel.id).withQuotes}
-          |FROM $tableName
-          |WHERE ${("source_" + baseModel.id).withQuotes} = ?;
+    val (sql, prep) = arrayInnerOp.opArguments.agg match {
+      case None => {
+        val str =
+          s"""|SELECT ${("target_" + arrayInnerOp.targetModel.id).withQuotes}
+              |FROM $arrayTableName
+              |WHERE ${("source_" + baseModel.id).withQuotes} = ?;
+           """.stripMargin
+        val set = setJsValue(baseRecordId, baseModel.primaryField)
+        (str, set)
+      }
+      case Some(agg) => {
+        val (aggStr, aggSet, _, aggUsedTables) =
+          QueryAggSqlGen.arrayFieldAggSql(agg, 2)
+        val tableNames = aggUsedTables.incl(arrayTableName).mkString(", ")
+        val str =
+          s"""|SELECT ${("target_" + arrayInnerOp.targetModel.id).withQuotes}
+              |FROM $tableNames
+              |WHERE ${("source_" + baseModel.id).withQuotes} = ?
+              |${if (aggStr.isEmpty) ";" else s"AND $aggSet;"}
           """.stripMargin
+        val set = setJsValue(baseRecordId, baseModel.primaryField) *> aggSet
+        (str, set)
+      }
+    }
 
-    val prep = setJsValue(baseRecordId, baseModel.primaryField)
     val joinRecords = HC.stream(sql, prep, 200)
 
     arrayField.ptype match {

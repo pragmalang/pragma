@@ -121,7 +121,7 @@ abstract class QueryEngine[S, M[_]: Monad] {
 
   def readManyRecords(
       model: PModel,
-      where: ModelAgg,
+      agg: ModelAgg,
       innerReadOps: Vector[InnerOperation]
   ): Query[JsArray]
 

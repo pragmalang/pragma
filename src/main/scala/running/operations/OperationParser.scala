@@ -346,7 +346,7 @@ class OperationParser(st: SyntaxTree) {
           s"Selection `${modelFieldSelection.name}` is not a field selection. All selections within operation selection must be field selections. Something must've went wrong during GraphQL query validation"
         )
     }
-    val iopArgs = parseInnerOpArgs(outerTargetModel, modelFieldSelection)(st)
+    val iopArgs = parseInnerOpArgs(outerTargetModel, modelFieldSelection)
     for {
       innerSels <- innerSelections
       args <- iopArgs
@@ -400,11 +400,14 @@ class OperationParser(st: SyntaxTree) {
     }
     case ReadMany =>
       opSelection.arguments
-        .find(_.name == "agg")
+        .find(_.name == "aggregation")
         .map(arg => sangriaToJson(arg.value)) match {
         case Some(arg: JsObject) =>
           aggParser.parseModelAgg(opTargetModel, arg).map(ReadManyArgs(_))
-        case Some(_) => InternalException("Invalid aggregation argument").asLeft
+        case Some(_) =>
+          InternalException(
+            s"`agg` argument of LIST operation on `${opTargetModel.id}` must be an object"
+          ).asLeft
         case None =>
           ReadManyArgs(ModelAgg(opTargetModel, Nil, None, None)).asRight
       }
@@ -670,16 +673,27 @@ class OperationParser(st: SyntaxTree) {
   private def parseInnerOpArgs(
       opTargetModel: PModel,
       fieldSelection: FieldSelection
-  )(implicit st: SyntaxTree): Either[Exception, InnerOpArgs[ReadEvent]] = {
+  ): Either[InternalException, InnerOpArgs[ReadEvent]] = {
     val modelField = opTargetModel.fieldsById.get(fieldSelection.name)
     modelField match {
       case None =>
-        new Exception(
+        InternalException(
           s"`${fieldSelection.name}` is not field of model `${opTargetModel.id}`"
         ).asLeft
-      case Some(PModelField(_, PArray(PReference(refId)), _, _, _, _))
-          if st.modelsById.contains(refId) =>
-        InnerListArgs(None).asRight // TODO: Parse `QueryWhere` from JSON
+      case Some(field @ PModelField(_, PArray(_), _, _, _, _)) => {
+        val agg =
+          fieldSelection.arguments.find(_.name == "aggregation").map { aggArg =>
+            sangriaToJson(aggArg.value) match {
+              case o: JsObject =>
+                aggParser.parseArrayFieldAgg(opTargetModel, field, o)
+              case _ =>
+                InternalException(
+                  s"`agg` argument of inner LIST operation on `${field.id}` must be an object"
+                ).asLeft
+            }
+          }
+        agg.sequence.map(InnerListArgs(_))
+      }
       case _ => InnerOpNoArgs.asRight
     }
   }

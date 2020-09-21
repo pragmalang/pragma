@@ -536,4 +536,76 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
     assert(updateResult === expected)
   }
 
+  "Query aggregation" should "filter and take ranges of records correctly" in {
+    val results = runGql {
+      gql"""
+      {
+        Country {
+          first3LargeCountries: list(aggregation: {
+            filter: [
+              { predicate: { population: { gt: 100 } } }
+            ],
+            from: 1,
+            to: 3
+          }) {
+            name
+          }
+          withOneCitizen: list(aggregation: {
+            filter: [
+              { predicate: { citizens: { length: { eq: 1 } } } }
+            ]
+          }) {
+            name
+            citizens {
+              name
+            }
+          }
+        }
+      }
+      """
+    }
+
+    val expected = Map(
+      None -> Vector(
+        JsArray(
+          Vector(
+            JsObject(
+              Map("code" -> JsString("SY"), "name" -> JsString("Syria"))
+            ),
+            JsObject(
+              Map("code" -> JsString("JO"), "name" -> JsString("Jordan"))
+            ),
+            JsObject(
+              Map("code" -> JsString("DK"), "name" -> JsString("Denmark"))
+            )
+          )
+        ),
+        JsArray(
+          Vector(
+            JsObject(
+              Map(
+                "code" -> JsString("SY"),
+                "name" -> JsString("Syria"),
+                "citizens" -> JsArray(
+                  Vector(JsObject(Map("name" -> JsString("Ali"))))
+                )
+              )
+            ),
+            JsObject(
+              Map(
+                "code" -> JsString("DK"),
+                "name" -> JsString("Denmark"),
+                "citizens" -> JsArray(
+                  Vector(JsObject(Map("name" -> JsString("John"))))
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+
+    assert(results == expected)
+  }
+
 }

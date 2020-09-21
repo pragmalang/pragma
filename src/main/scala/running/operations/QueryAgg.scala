@@ -17,7 +17,7 @@ case class ModelAgg(
 ) extends QueryAgg[ModelPredicate, ModelFilter]
 
 case class ArrayFieldAgg(
-    parentModel: ModelId,
+    parentModel: PModel,
     field: PModelField,
     filter: Seq[ArrayFieldFilter],
     from: Option[Int],

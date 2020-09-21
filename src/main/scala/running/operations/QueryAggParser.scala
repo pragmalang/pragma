@@ -9,7 +9,7 @@ import scala.util.Try
 class QueryAggParser(st: SyntaxTree) {
 
   def parseArrayFieldAgg(
-      parentModel: ModelId,
+      parentModel: PModel,
       field: PModelField,
       aggObject: JsObject
   ): Either[InternalException, ArrayFieldAgg] =
