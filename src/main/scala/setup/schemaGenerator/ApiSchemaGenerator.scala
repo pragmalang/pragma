@@ -98,8 +98,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           args = Map(
             "items" -> listFieldType(
               model,
-              nameTransformer = inputTypeName(_)(ModelInput),
-              isEmptiable = false
+              nameTransformer = inputTypeName(_)(ModelInput)
             )
           ),
           fieldType = listFieldType(model)
@@ -112,8 +111,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
           args = Map(
             "items" -> listFieldType(
               model,
-              nameTransformer = inputTypeName(_)(ModelInput),
-              isEmptiable = false
+              nameTransformer = inputTypeName(_)(ModelInput)
             )
           ),
           fieldType = listFieldType(model)
@@ -124,11 +122,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         graphQlField(
           nameTransformer = _ => "deleteMany",
           args = Map(
-            "items" -> listFieldType(
-              model.primaryField.ptype,
-              isEmptiable = false,
-              isOptional = true
-            )
+            "items" -> listFieldType(model.primaryField.ptype)
           ),
           fieldType = listFieldType(model)
         )(model.id)
@@ -181,8 +175,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
                 "items" -> listFieldType(
                   listFieldInnerType,
                   nameTransformer =
-                    fieldTypeName => s"${fieldTypeName.capitalize}Input",
-                  isEmptiable = false
+                    fieldTypeName => s"${fieldTypeName.capitalize}Input"
                 )
               ),
               fieldType(model)
@@ -272,7 +265,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
         graphQlField(
           nameTransformer = _ => "list",
           args = Map(
-            "where" -> gqlType(
+            "aggregation" -> gqlType(
               model,
               inputTypeName(_)(AggInput),
               isOptional = true
@@ -561,10 +554,10 @@ object ApiSchemaGenerator {
       isList: Boolean
   ) =
     (isOptional, isList) match {
-      case (true, true)  => ListType(NamedType(typeNameCallback(t)))
+      case (true, true)  => ListType(NotNullType(NamedType(typeNameCallback(t))))
       case (true, false) => NamedType(typeNameCallback(t))
       case (false, true) =>
-        NotNullType(ListType(NamedType(typeNameCallback(t))))
+        NotNullType(ListType(NotNullType(NamedType(typeNameCallback(t)))))
       case (false, false) => NotNullType(NamedType(typeNameCallback(t)))
     }
 
@@ -649,18 +642,12 @@ object ApiSchemaGenerator {
   def listFieldType(
       ht: PType,
       isOptional: Boolean = false,
-      isEmptiable: Boolean = true,
       nameTransformer: String => String = identity
-  ): Type = (isOptional, isEmptiable) match {
-    case (true, false) =>
+  ): Type =
+    if (isOptional)
       ListType(fieldType(ht, isOptional = false, nameTransformer))
-    case (false, true) =>
-      NotNullType(ListType(fieldType(ht, isOptional = true, nameTransformer)))
-    case (true, true) =>
-      ListType(fieldType(ht, isOptional = true, nameTransformer))
-    case (false, false) =>
+    else
       NotNullType(ListType(fieldType(ht, isOptional = false, nameTransformer)))
-  }
 
   def fieldType(
       ht: PType,
@@ -672,12 +659,12 @@ object ApiSchemaGenerator {
       case PArray(ht) =>
         if (isOptional)
           ListType(
-            fieldType(ht, isOptional = true, nameTransformer, transformAll)
+            fieldType(ht, isOptional = false, nameTransformer, transformAll)
           )
         else
           NotNullType(
             ListType(
-              fieldType(ht, isOptional = true, nameTransformer, transformAll)
+              fieldType(ht, isOptional = false, nameTransformer, transformAll)
             )
           )
       case PBool if transformAll =>
@@ -783,7 +770,7 @@ object ApiSchemaGenerator {
   lazy val buitlinGraphQlDefinitions =
     gql"""
     input IntAggInput {
-      filter: [IntFilter]
+      filter: [IntFilter!]
       orderBy: OrderByInput
       from: Int
       to: Int
@@ -791,13 +778,13 @@ object ApiSchemaGenerator {
 
     input IntFilter {
       predicate: IntPredicate!
-      and: [IntFilter]
-      or: [IntFilter]
+      and: [IntFilter!]
+      or: [IntFilter!]
       negated: Boolean
     }
 
     input FloatAggInput {
-      filter: [FloatFilter]
+      filter: [FloatFilter!]
       orderBy: OrderByInput
       from: Int
       to: Int
@@ -805,13 +792,13 @@ object ApiSchemaGenerator {
 
     input FloatFilter {
       predicate: FloatPredicate!
-      and: [FloatFilter]
-      or: [FloatFilter]
+      and: [FloatFilter!]
+      or: [FloatFilter!]
       negated: Boolean
     }
 
     input StringAggInput {
-      filter: [StringFilter]
+      filter: [StringFilter!]
       orderBy: OrderByInput
       from: Int
       to: Int
@@ -819,13 +806,13 @@ object ApiSchemaGenerator {
 
     input StringFilter {
       predicate: StringPredicate!
-      and: [StringFilter]
-      or: [StringFilter]
+      and: [StringFilter!]
+      or: [StringFilter!]
       negated: Boolean
     }
 
     input ArrayAggInput {
-      filter: [ArrayFilter]
+      filter: [ArrayFilter!]
       orderBy: OrderByInput
       from: Int
       to: Int
@@ -833,13 +820,13 @@ object ApiSchemaGenerator {
 
     input ArrayFilter {
       predicate: ArrayPredicate!
-      and: [ArrayFilter]
-      or: [ArrayFilter]
+      and: [ArrayFilter!]
+      or: [ArrayFilter!]
       negated: Boolean
     }
 
     input BooleanAggInput {
-      filter: [BooleanFilter]
+      filter: [BooleanFilter!]
       orderBy: OrderByInput
       from: Int
       to: Int
@@ -847,8 +834,8 @@ object ApiSchemaGenerator {
 
     input BooleanFilter {
       predicate: BooleanPredicate!
-      and: [BooleanFilter]
-      or: [BooleanFilter]
+      and: [BooleanFilter!]
+      or: [BooleanFilter!]
       negated: Boolean
     }
     input IntPredicate {
