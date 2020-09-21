@@ -34,7 +34,7 @@ class Server(
     new RequestHandler[Postgres[IO], IO](currentSyntaxTree, s)
   }
 
-  val routes = GZip {
+  val routes = 
     HttpRoutes.of[IO] {
       case req @ POST -> Root => {
         val res: Stream[IO, Response[IO]] = req.bodyText map { body =>
@@ -96,12 +96,13 @@ class Server(
           body = Stream.emits(assets.playgroundHtml.getBytes)
         ).pure[IO]
     }
-  }
+
+  val routesWithMiddleware = CORS(GZip(routes))
 
   def run: IO[ExitCode] =
     BlazeServerBuilder[IO](global)
       .bindHttp(3030, "localhost")
-      .withHttpApp(Router("/graphql" -> routes).orNotFound)
+      .withHttpApp(Router("/graphql" -> routesWithMiddleware).orNotFound)
       .serve
       .compile
       .drain
