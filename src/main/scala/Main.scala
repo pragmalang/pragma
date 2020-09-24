@@ -35,9 +35,11 @@ object Main extends IOApp {
       password: String
   ): Resource[IO, HikariTransactor[IO]] = {
     for {
-      exCtx <- ExecutionContexts.fixedThreadPool[IO](32)
+      exCtx <- ExecutionContexts.fixedThreadPool[IO](
+        Runtime.getRuntime.availableProcessors * 10
+      )
       blocker <- Blocker[IO]
-      t <- HikariTransactor.newHikariTransactor[IO](
+      transactor <- HikariTransactor.newHikariTransactor[IO](
         "org.postgresql.Driver",
         if (uri.startsWith("postgresql://"))
           s"jdbc:$uri"
@@ -48,7 +50,7 @@ object Main extends IOApp {
         exCtx,
         blocker
       )
-    } yield t
+    } yield transactor
   }
 
   def buildMigrationEngine(
