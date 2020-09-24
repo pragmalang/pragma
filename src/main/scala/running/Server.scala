@@ -20,7 +20,7 @@ import sangria.schema.Schema, sangria.execution.Executor
 
 class Server(
     jwtCodec: JwtCodec,
-    storage: Resource[IO, Postgres[IO]],
+    storage: Postgres[IO],
     currentSyntaxTree: SyntaxTree
 )(implicit cs: ContextShift[IO], t: Timer[IO]) {
   import Server._
@@ -30,11 +30,10 @@ class Server(
       ApiSchemaGenerator(currentSyntaxTree).build
     )
 
-  val reqHandler = storage.map { s =>
-    new RequestHandler[Postgres[IO], IO](currentSyntaxTree, s)
-  }
+  val reqHandler =
+    new RequestHandler[Postgres[IO], IO](currentSyntaxTree, storage)
 
-  val routes = 
+  val routes =
     HttpRoutes.of[IO] {
       case req @ POST -> Root => {
         val res: Stream[IO, Response[IO]] = req.bodyText map { body =>
@@ -69,7 +68,7 @@ class Server(
                 .flatMap(h => jwtCodec.decode(h.value).toOption)
             )
             val resJson = reqHandler
-              .use(rh => rh.handle(preq))
+              .handle(preq)
               .map[JsValue] {
                 case Left(e)    => jsonFrom(e)
                 case Right(obj) => obj

@@ -4,7 +4,7 @@ import org.parboiled2.Position
 import running._
 import org.parboiled2.ParseError
 import cats.effect._, cats.implicits._
-import doobie._, doobie.hikari._, doobie.implicits._
+import doobie._, doobie.hikari._
 import running.storage.postgres._
 import cli._, cli.RunMode._
 import setup.schemaGenerator.ApiSchemaGenerator
@@ -17,18 +17,16 @@ object Main extends IOApp {
     .asInstanceOf[ch.qos.logback.classic.LoggerContext]
     .stop()
 
-  def removeAllTablesFromDb(
-      transactor: Resource[IO, HikariTransactor[IO]]
-  )(implicit bracket: Bracket[IO, Throwable]): IO[Unit] =
-    transactor.use { t =>
+  def removeAllTablesFromDb(transactor: HikariTransactor[IO]): IO[Unit] =
+    transactor.trans.apply {
       Fragment(
         s"""|DROP SCHEMA public CASCADE;
             |CREATE SCHEMA public;
-            |GRANT ALL ON SCHEMA public TO ${t.kernel.getUsername()};
+            |GRANT ALL ON SCHEMA public TO ${transactor.kernel.getUsername};
             |GRANT ALL ON SCHEMA public TO public;
             |""".stripMargin,
         Nil
-      ).update.run.transact(t)
+      ).update.run
     }.void
 
   def buildTransactor(
@@ -37,8 +35,8 @@ object Main extends IOApp {
       password: String
   ): Resource[IO, HikariTransactor[IO]] = {
     for {
-      ce <- ExecutionContexts.fixedThreadPool[IO](32)
-      be <- Blocker[IO]
+      exCtx <- ExecutionContexts.fixedThreadPool[IO](32)
+      blocker <- Blocker[IO]
       t <- HikariTransactor.newHikariTransactor[IO](
         "org.postgresql.Driver",
         if (uri.startsWith("postgresql://"))
@@ -47,8 +45,8 @@ object Main extends IOApp {
           s"jdbc:postgresql://$uri",
         username,
         password,
-        ce,
-        be
+        exCtx,
+        blocker
       )
     } yield t
   }
@@ -256,17 +254,15 @@ object Main extends IOApp {
                 os.write(prevFilePath, currentCode)
               }
 
-          val removeAllTables = transactor flatMap removeAllTablesFromDb recover {
-            e =>
+          val removeAllTables =
+            transactor.flatMap(r => r.use(removeAllTablesFromDb)).recover { e =>
               printError(e.getMessage(), None)
               sys.exit(1)
-          }
+            }
 
-          val server = (jwtCodec, storage) mapN {
-            case (jc, s) => new Server(jc, s, currentTree)
-          }
-
-          val runServer = server.flatMap(_.run)
+          val runServer = (jwtCodec, storage).mapN {
+            case (jc, r) => r.use(s => new Server(jc, s, currentTree).run)
+          }.flatten
 
           config.mode match {
             case Dev =>

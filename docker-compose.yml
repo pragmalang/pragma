@@ -10,4 +10,9 @@ services:
       POSTGRES_DB: test
     ports:
       - "5433:5432"
-    command: ["postgres", "-c", "log_statement=all"]
+    command: [
+      "postgres", 
+      "-c", "log_statement=all",
+      "-c", "max_connections=300",
+      "-c", "shared_buffers=80MB"
+    ]
