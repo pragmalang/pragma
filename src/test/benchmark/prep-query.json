@@ -26,14 +26,6 @@
                     ]
                 }
             ]
-        },
-        "username": "fathistore",
-        "product": {
-            "id": "fucker",
-            "name": {
-                "ar": "faaker",
-                "en": "Fucker"
-            }
         }
     },
     "query": "mutation CreateBusiness($business: BusinessInput!) {\n  Business {\n    create(business: $business) {\n      username\n      name {\n        ar\n        en\n      }\n    }\n  }\n}\n"
