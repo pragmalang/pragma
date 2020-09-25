@@ -1,0 +1,22 @@
+{
+    "operationName": "CreateBusiness",
+    "variables": {
+        "business": {
+            "username": "fuckingstore",
+            "password": "123",
+            "name": {
+                "ar": "ma7al el fucking",
+                "en": "Fucking Store"
+            }
+        },
+        "username": "fuckingstore",
+        "product": {
+            "id": "fucker",
+            "name": {
+                "ar": "faaker",
+                "en": "Fucker"
+            }
+        }
+    },
+    "query": "mutation CreateBusiness($business: BusinessInput!) {\n  Business {\n    create(business: $business) {\n      username\n      name {\n        ar\n        en\n      }\n    }\n  }\n}\n\nquery GetBusiness($username: String!) {\n  Business {\n    read(username: $username) {\n      username\n      name {\n        ar\n        en\n      }\n      products {\n        id\n        name {\n          ar\n          en\n        }\n        prices {\n          currency {\n            name {\n              ar\n              en\n            }\n          }\n          value\n        }\n        questions {\n          name {\n            ar\n            en\n          }\n          type\n          isRequired\n          options {\n            name\n            changeInPrice\n          }\n          changeInPrice\n        }\n        imageUrl\n        description {\n          ar\n          en\n        }\n        discountCodes {\n          code\n          amount\n          discountType\n          minimumTotal\n          expiresAt\n          createdAt\n        }\n      }\n      brand {\n        primaryColor\n        secondaryColor\n        logoUrl\n      }\n      orders {\n        product {\n          id\n        }\n        currency {\n          name {\n            ar\n            en\n          }\n          code\n        }\n        language\n        answers {\n          question {\n            id\n          }\n          answer\n        }\n        status\n        customerPhoneNumber\n        total\n        id\n      }\n    }\n  }\n}\n\nmutation AddProductToBusiness($username: String!, $product: ProductInput!) {\n  Business {\n    pushToProducts(username: $username, item: $product) {\n      products {\n        name {\n          ar\n          en\n        }\n        prices {\n          currency {\n            name {\n              ar\n              en\n            }\n          }\n          value\n        }\n        questions {\n          name {\n            ar\n            en\n          }\n          type\n          isRequired\n          options {\n            name\n            changeInPrice\n          }\n          changeInPrice\n        }\n        imageUrl\n        description {\n          ar\n          en\n        }\n        discountCodes {\n          code\n          amount\n          discountType\n          minimumTotal\n          expiresAt\n          createdAt\n        }\n      }\n    }\n  }\n}\n"
+}

@@ -1,0 +1,152 @@
+allow ALL Business
+allow PUSH_TO Business.products
+allow PUSH_TO Business.orders
+allow REMOVE_FROM Business.products
+allow ALL Order
+allow ALL Answer
+allow ALL Brand
+allow ALL Product
+allow ALL Price
+allow ALL Question
+allow ALL Localized
+allow ALL Currency
+allow ALL DiscountCode
+allow ALL Option
+allow ALL BusinessSubscription
+allow ALL Salesman
+allow ALL Referral
+
+@user
+@1 model Business {
+  @1 username: String @primary @publicCredential
+  @2 password: String @secretCredential
+  @3 name: Localized
+  @4 products: [Product]
+  @5 brand: Brand?
+  @6 subscriptions: [BusinessSubscription]
+  @7 orders: [Order]
+}
+
+@16 model DiscountCode {
+  @1 id: String @primary @uuid
+  @2 code: String
+  @3 amount: Float # must be > 1 when discountType == PERCENTAGE and > 0 when discountType == CONSTANT
+  @4 discountType: DiscountType
+  @5 minimumTotal: Float = 0.0
+  @6 expiresAt: String? # a timestamp
+  @7 createdAt: String # a timestamp
+}
+
+enum DiscountType {
+  PERCENTAGE # total = total * (amount / 100)
+  CONSTANT # total = total - amount
+}
+
+@12 model BusinessSubscription {
+  @1 startedAt: String # a timestamp
+  @2 expiresAt: String # a timestamp
+  @3 amountPaid: Float?
+  @4 id: String @primary @uuid
+}
+
+# @onWrite(answer.calculateTotal)
+@2 model Order {
+  @1 product: Product
+  @2 currency: Currency
+  @3 language: Language
+  @4 answers: [Answer]
+  @5 status: Status = "PENDING"
+  @6 customerPhoneNumber: String?
+  @7 total: Float = 0.0
+  @8 id: String @primary @uuid
+}
+
+deny SET_ON_CREATE Order.total
+
+enum Status {
+  FULFILLED
+  PENDING
+  CANCELED
+}
+
+@3 model Answer {
+  @1 question: Question
+  @2 answer: String
+  @3 id: String @primary @uuid
+}
+
+@4 model Brand {
+  @1 primaryColor: String
+  @2 secondaryColor: String
+  @3 logoUrl: String
+  @4 id: String @primary @uuid
+}
+
+@5 model Product {
+  @1 name: Localized
+  @2 prices: [Price] # non-empty and one price per currency
+  @3 questions: [Question] # non-empty
+  @4 imageUrl: String?
+  @5 description: Localized?
+  @6 id: String @primary
+  @7 discountCodes: [DiscountCode]
+}
+
+@6 model Price {
+  @1 currency: Currency
+  @2 value: Float
+  @3 id: String @primary @uuid
+}
+
+@7 model Question {
+  @1 name: Localized
+  @2 type: QuestionType
+  @3 isRequired: Boolean
+  @5 id: String @primary @uuid
+  @6 options: [Option] # only when type == MULTIPLE_CHOICE || type == DROP_DOWN
+  @4 changeInPrice: Float? # only when type == NUMBER: total = total + (changeInPrice.value * answer) 
+}
+
+@15 model Option {
+  @1 id: String @primary @uuid
+  @2 name: String
+  @3 changeInPrice: Float # total = total + changeInPrice.value
+}
+
+enum QuestionType {
+  TEXT
+  NUMBER
+  DROP_DOWN
+  MULTIPLE_CHOICE
+  PHONE_NUMBER
+  EMAIL
+  DATE
+}
+
+@10 model Localized {
+  @1 ar: String
+  @2 en: String?
+  @3 id: String @primary @uuid
+}
+
+enum Language {
+  AR
+  EN
+}
+
+@11 model Currency {
+  @1 name: Localized
+  @2 code: String @primary
+}
+
+@13 model Salesman {
+  @1 username: String @primary @publicCredential
+  @2 password: String @secretCredential
+  @3 referrals: [Referral]
+}
+
+@14 model Referral {
+  @1 id: String @primary @uuid
+  @2 business: Business
+  @3 subscription: BusinessSubscription
+} 

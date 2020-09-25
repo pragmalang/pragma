@@ -1,4 +1,5 @@
 .metals/
+.ammonite/
 .bloop/
 target
 *.class

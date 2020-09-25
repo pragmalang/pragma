@@ -75,3 +75,14 @@ enablePlugins(DockerComposePlugin, GraalVMNativeImagePlugin)
   to kill the postgres container to fix it.
  */
 composeNoBuild := true
+
+/*
+  Apache Bench benchmark:
+  Run the ammonite script in `test/benchmark`:
+  `amm PragmaBench.sc`
+  Make sure to have the server and the database running 
+  before running the benchmark:
+  `dockerComposeUp;run "dev" "./src/test/benchmark/montajlink.pragma"`
+  NOTE: Apache Bench must be installed:
+  `sudo apt install ab`
+*/
