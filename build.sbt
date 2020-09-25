@@ -84,5 +84,5 @@ composeNoBuild := true
   before running the benchmark:
   `dockerComposeUp;run "dev" "./src/test/benchmark/montajlink.pragma"`
   NOTE: Apache Bench must be installed:
-  `sudo apt install ab`
+  `sudo apt install apache2-utils`
 */

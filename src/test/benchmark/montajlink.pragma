@@ -88,7 +88,7 @@ enum Status {
   @3 questions: [Question] # non-empty
   @4 imageUrl: String?
   @5 description: Localized?
-  @6 id: String @primary
+  @6 id: String @primary @uuid
   @7 discountCodes: [DiscountCode]
 }
 

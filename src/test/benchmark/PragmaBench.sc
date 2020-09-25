@@ -31,11 +31,16 @@ catch {
   }
 }
 
+val abQuery = read(pwd / "ab-query.json")
+
+println("Benchmark query:")
+println(ujson.read(abQuery).obj("query").str)
+
 println("Benchmark query response:")
 val benchQueryRes = requests.post(
   apiUrl,
   headers = gqlHeaders,
-  data = read(pwd / "ab-query.json")
+  data = abQuery
 )
 println(ujson.read(benchQueryRes.text).render(2))
 
@@ -44,6 +49,6 @@ println("Starting Apache Bench...")
 val abCmd: Array[String] =
   Array("ab", "-p", "ab-query.json", "-T", "application/json") ++
     gqlHeaders.toArray.flatMap { case (h, v) => Array("-H", s"'$h:$v'") } ++
-    Array("-n", "50000", "-c", "1000", apiUrl)
+    Array("-n", "50000", "-c", "10000", apiUrl)
 
 %(Shellable.SeqShellable(abCmd))(pwd)
