@@ -12,7 +12,6 @@ import setup.schemaGenerator.ApiSchemaGenerator
 
 object Main extends IOApp {
 
-  
   // To disable logging
   org.slf4j.LoggerFactory
     .getILoggerFactory()
