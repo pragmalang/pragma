@@ -10,6 +10,7 @@ import running.storage.postgres._
 import cli._, cli.RunMode._
 import setup.schemaGenerator.ApiSchemaGenerator
 
+
 object Main extends IOApp {
 
   // To disable logging
