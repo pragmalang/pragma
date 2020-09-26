@@ -14,8 +14,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Setup GraalVM environment
-    - uses: DeLaGuardo/setup-graalvm@2.0
+      uses: DeLaGuardo/setup-graalvm@2.0
       with:
-        graalvm-version: '20.0.0.java11'
+        graalvm-version: '20.0.0.java11' 
     - name: Build JAR
       run: sbt assembly
