@@ -13,7 +13,9 @@ lazy val root = (project in file("."))
       "org.scalatest" %% "scalatest" % "3.0.8" % Test,
       "com.lihaoyi" %% "pprint" % "0.5.6" % Test,
       "org.tpolecat" %% "doobie-scalatest" % "0.9.0"
-    )
+    ),
+    mainClass in assembly := Some("com.pragmalang.Main"),
+    test in assembly := {}
   )
 
 scalacOptions ++= Seq(
