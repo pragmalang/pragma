@@ -1,3 +1,4 @@
+package com.pragmalang
 import scala.util._, scala.io.StdIn
 import domain._, domain.utils._
 import org.parboiled2.Position
