@@ -329,31 +329,44 @@ class PostgresQueryEngine[M[_]: Monad](
     val fieldTypeMap =
       fieldTypeMapFrom(newRecord, model, includeNonSpecifiedFields = false)
 
-    val refUpdates = fieldTypeMap(Ref).traverse {
-      case (
-          PModelField(_, (PReference(modelRef)), _, _, _, _),
-          obj: JsObject
-          ) => {
-        val refModel = st.modelsById(modelRef)
-        if (obj.fields.contains(refModel.primaryField.id))
-          updateOneRecord(
-            refModel,
-            obj.fields(refModel.primaryField.id),
-            obj,
-            Vector.empty
-          )
-        else
-          queryError[JsObject] {
-            InternalException(
-              "Nested object in UPDATE arguments must be an object containing an ID"
-            )
+    val refUpdates: Query[Vector[(PModelField, JsValue)]] = fieldTypeMap(Ref)
+      .traverse {
+        case (
+            field @ PModelField(_, (PReference(modelRef)), _, _, _, _),
+            obj: JsObject
+            ) => {
+          val refModel = st.modelsById(modelRef)
+          val refIdIsDefined = obj.fields.contains(refModel.primaryField.id)
+          if (refIdIsDefined && obj.fields.knownSize == 1)
+            (field, obj.fields(refModel.primaryField.id)).pure[List].pure[Query]
+          else if (refIdIsDefined)
+            updateOneRecord(
+              refModel,
+              obj.fields(refModel.primaryField.id),
+              obj,
+              Vector.empty
+            ) *> List.empty[(PModelField, JsValue)].pure[Query]
+          else
+            for {
+              refId <- HC
+                .stream(
+                  s"SELECT ${field.id.withQuotes} FROM ${model.id.withQuotes} WHERE ${model.primaryField.id.withQuotes} = ?;",
+                  setJsValue(primaryKeyValue, refModel.primaryField),
+                  1
+                )
+                .head
+                .compile
+                .toList
+                .map(_.head.fields(field.id))
+              _ <- updateOneRecord(refModel, refId, obj, Vector.empty)
+            } yield List.empty[(PModelField, JsValue)]
+        }
+        case _ =>
+          queryError[List[(PModelField, JsValue)]] {
+            InternalException("Invalid reference field update")
           }
       }
-      case _ =>
-        queryError[JsObject] {
-          InternalException("Invalid reference field update")
-        }
-    }
+      .map(_.flatten)
 
     val refArrayUpdates = fieldTypeMap(RefArray).traverse {
       case (
@@ -417,34 +430,35 @@ class PostgresQueryEngine[M[_]: Monad](
         }
     }
 
-    val primUpdateSql = s"UPDATE ${model.id.withQuotes} SET " +
-      fieldTypeMap(Prim)
-        .map {
-          case (field, _) => s"${field.id.withQuotes} = ?"
-        }
-        .mkString(", ") +
-      s" WHERE ${model.primaryField.id.withQuotes} = ?;"
-    val primUpdatePrep =
-      setJsValues(fieldTypeMap(Prim)) *>
+    val primUpdate = for {
+      primColumns <- refUpdates.map(fieldTypeMap(Prim) ++ _)
+      primUpdateSql = s"UPDATE ${model.id.withQuotes} SET " +
+        primColumns
+          .map {
+            case (field, _) => s"${field.id.withQuotes} = ?"
+          }
+          .mkString(", ") +
+        s" WHERE ${model.primaryField.id.withQuotes} = ?;"
+      primUpdatePrep = setJsValues(primColumns) *>
         setJsValue(
           primaryKeyValue,
           model.primaryField,
           fieldTypeMap(Prim).length + 1
         )
-    val primUpdate = HC
-      .updateWithGeneratedKeys(model.primaryField.id :: Nil)(
-        primUpdateSql,
-        primUpdatePrep,
-        1
-      )
-      .head
-      .compile
-      .toList
-      .map(_.head.fields(model.primaryField.id))
+      newId <- HC
+        .updateWithGeneratedKeys(model.primaryField.id :: Nil)(
+          primUpdateSql,
+          primUpdatePrep,
+          1
+        )
+        .head
+        .compile
+        .toList
+        .map(_.head.fields(model.primaryField.id))
+    } yield newId
 
     for {
       _ <- refArrayUpdates
-      _ <- refUpdates
       _ <- primArrayUpdates
       newId <- primUpdate
       newRecord <- readOneRecord(model, newId, innerReadOps)
