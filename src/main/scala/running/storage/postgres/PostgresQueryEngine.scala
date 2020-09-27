@@ -385,24 +385,34 @@ class PostgresQueryEngine[M[_]: Monad](
           arrayField @ PModelField(_, PArray(refEnum: PEnum), _, _, _, _),
           JsArray(values)
           ) =>
-        values.collectFirst {
-          case JsString(value) if !refEnum.values.contains(value) =>
-            queryError[JsObject] {
-              UserError(s"Value `$value` is not a member of `${refEnum.id}`")
-            }
-          case _: JsNumber | JsNull | _: JsObject | _: JsArray =>
-            queryError[JsObject] {
-              UserError("Illegal non-string value in enum array field update")
-            }
-        } getOrElse {
-          deleteAllJoinRecords(model, arrayField, primaryKeyValue) *>
-            pushManyTo(model, arrayField, values, primaryKeyValue, Vector.empty)
-        }
+        values
+          .collectFirst {
+            case JsString(value) if !refEnum.values.contains(value) =>
+              queryError[JsObject] {
+                UserError(s"Value `$value` is not a member of `${refEnum.id}`")
+              }
+            case _: JsNumber | JsNull | _: JsObject | _: JsArray =>
+              queryError[JsObject] {
+                UserError("Illegal non-string value in enum array field update")
+              }
+          }
+          .getOrElse {
+            deleteAllJoinRecords(model, arrayField, primaryKeyValue) *>
+              pushManyTo(
+                model,
+                arrayField,
+                values,
+                primaryKeyValue,
+                Vector.empty
+              )
+          }
+          .widen[JsValue]
       case (arrayField, JsArray(values)) =>
         deleteAllJoinRecords(model, arrayField, primaryKeyValue) *>
           pushManyTo(model, arrayField, values, primaryKeyValue, Vector.empty)
+            .widen[JsValue]
       case _ =>
-        queryError[JsObject] {
+        queryError[JsValue] {
           InternalException(" Primitive array field should have an array value")
         }
     }
@@ -503,13 +513,12 @@ class PostgresQueryEngine[M[_]: Monad](
       items: Vector[JsValue],
       primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject] =
-    for {
-      _ <- items.traverse { item =>
-        pushOneTo(model, field, item, primaryKeyValue, Vector.empty)
+  ): Query[JsArray] =
+    items
+      .traverse { item =>
+        pushOneTo(model, field, item, primaryKeyValue, innerReadOps)
       }
-      selected <- readOneRecord(model, primaryKeyValue, innerReadOps)
-    } yield selected
+      .map(JsArray(_))
 
   override def pushOneTo(
       model: PModel,
@@ -517,19 +526,20 @@ class PostgresQueryEngine[M[_]: Monad](
       item: JsValue,
       sourceId: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject] = {
-    val insert = (field.ptype, item) match {
-      case (PArray(PReference(id)), obj: JsObject) =>
-        refInsertReturningId(st.modelsById(id), obj).flatMap { id =>
-          joinInsert(model, field, sourceId, id)
-        }
-      case (PArray(_), value) => joinInsert(model, field, sourceId, value)
-      case _ =>
-        throw InternalException(
-          s"Invalid operation PUSH_TO with value $item to field ${field.id}"
-        )
+  ): Query[JsValue] = (field.ptype, item) match {
+    case (PArray(PReference(refId)), obj: JsObject) => {
+      val refModel = st.modelsById(refId)
+      refInsertReturningId(refModel, obj).flatMap { id =>
+        joinInsert(model, field, sourceId, id) *>
+          readOneRecord(refModel, id, innerReadOps).widen[JsValue]
+      }
     }
-    insert.flatMap(_ => readOneRecord(model, sourceId, innerReadOps))
+    case (PArray(_), value) =>
+      joinInsert(model, field, sourceId, value) *> value.pure[Query]
+    case _ =>
+      throw InternalException(
+        s"Invalid operation PUSH_TO with value $item to field ${field.id}"
+      )
   }
 
   override def removeManyFrom(
@@ -538,37 +548,42 @@ class PostgresQueryEngine[M[_]: Monad](
       sourcePkValue: JsValue,
       targetPkValues: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject] =
-    for {
-      _ <- targetPkValues.traverse { targetPk =>
-        removeOneFrom(model, arrayField, sourcePkValue, targetPk, Vector.empty)
+  ): Query[JsArray] =
+    targetPkValues
+      .traverse { targetPk =>
+        removeOneFrom(model, arrayField, sourcePkValue, targetPk, innerReadOps)
       }
-      result <- readOneRecord(model, sourcePkValue, innerReadOps)
-    } yield result
+      .map(JsArray(_))
 
   override def removeOneFrom(
       model: PModel,
       arrayField: PModelField,
       sourcePkValue: JsValue,
-      tergetPkValue: JsValue,
+      targetValue: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject] = {
-    val refModel = arrayField.ptype match {
-      case PArray(PReference(modelId)) => st.modelsById(modelId)
-      case _                           => ???
+  ): Query[JsValue] = {
+    val (targetColumn, refModel) = arrayField.ptype match {
+      case PArray(PReference(refId)) =>
+        (("target_" + refId).withQuotes, st.modelsById.get(refId))
+      case _ => ("target", None)
     }
     val sql =
       s"DELETE FROM ${model.id.concat("_" + arrayField.id).withQuotes} WHERE ${"source_"
         .concat(model.id)
-        .withQuotes} = ? AND ${"target_".concat(refModel.id).withQuotes} = ?;"
-    val targetField = arrayField.ptype match {
-      case PArray(PReference(id)) => st.modelsById(id).primaryField
-      case _                      => arrayField
-    }
+        .withQuotes} = ? AND $targetColumn = ?;"
     val prep = setJsValue(sourcePkValue, model.primaryField, 1) *>
-      setJsValue(tergetPkValue, targetField, 2)
-    HC.updateWithGeneratedKeys(Nil)(sql, prep, 0).compile.drain *>
-      readOneRecord(model, sourcePkValue, innerReadOps)
+      setJsValue(
+        targetValue,
+        refModel.map(_.primaryField).getOrElse(arrayField),
+        2
+      )
+    HC.updateWithGeneratedKeys(Nil)(sql, prep, 0).compile.drain *> {
+      refModel match {
+        case None => targetValue.pure[Query]
+        case Some(m) =>
+          readOneRecord(m, targetValue, innerReadOps).widen[JsValue]
+      }
+    }
   }
 
   override def readManyRecords(
