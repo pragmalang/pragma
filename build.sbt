@@ -49,7 +49,7 @@ libraryDependencies ++= Seq(
   "com.github.t3hnar" %% "scala-bcrypt" % "4.3.0"
 )
 
-enablePlugins(DockerComposePlugin, GraalVMNativeImagePlugin)
+enablePlugins(DockerComposePlugin, GraalVMNativeImagePlugin, DockerPlugin)
 
 /*
   GraalVM Native Image Generation:
@@ -80,9 +80,16 @@ composeNoBuild := true
   Apache Bench benchmark:
   Run the ammonite script in `test/benchmark`:
   `amm PragmaBench.sc`
-  Make sure to have the server and the database running 
+  Make sure to have the server and the database running
   before running the benchmark:
   `dockerComposeUp;run "dev" "./src/test/benchmark/montajlink.pragma"`
   NOTE: Apache Bench must be installed:
   `sudo apt install apache2-utils`
-*/
+ */
+
+/*
+  For packaging Pragma using Docker:
+  `docker:publishLocal`
+ */
+dockerBaseImage := "oracle/graalvm-ce:latest"
+dockerExposedPorts := Seq(3030)
