@@ -87,13 +87,14 @@ abstract class QueryEngine[S, M[_]: Monad] {
       cascade: Boolean
   ): Query[JsObject]
 
+  /** Returns the pushed values */
   def pushManyTo(
       model: PModel,
       field: PModelField,
       items: Vector[JsValue],
       primaryKeyValue: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject]
+  ): Query[JsArray]
 
   def pushOneTo(
       model: PModel,
@@ -101,23 +102,25 @@ abstract class QueryEngine[S, M[_]: Monad] {
       item: JsValue,
       sourceId: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject]
+  ): Query[JsValue]
 
+  /** Returns the removed values */
   def removeManyFrom(
       model: PModel,
       arrayField: PModelField,
       sourcePkValue: JsValue,
       targetPkValues: Vector[JsValue],
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject]
+  ): Query[JsArray]
 
+  /** Returns the removed value */
   def removeOneFrom(
       model: PModel,
       arrayField: PModelField,
       sourcePkValue: JsValue,
       targetPkValue: JsValue,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject]
+  ): Query[JsValue]
 
   def readManyRecords(
       model: PModel,

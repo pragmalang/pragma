@@ -132,10 +132,10 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       createMany(items: [BusinessInput!]!): [Business!]!
       updateMany(items: [BusinessInput!]!): [Business!]!
       deleteMany(items: [String!]!): [Business!]!
-      pushToBranches(email: String!, item: BranchInput!): Business!
-      pushManyToBranches(email: String!, items: [BranchInput!]!): Business!
-      removeFromBranches(email: String!, item: String!): Business!
-      removeManyFromBranches(email: String!, filter: BranchFilter!): Business!
+      pushToBranches(email: String!, item: BranchInput!): [Branch!]!
+      pushManyToBranches(email: String!, items: [BranchInput!]!): [Branch!]!
+      removeFromBranches(email: String!, item: String!): [Branch!]!
+      removeManyFromBranches(email: String!, filter: BranchFilter!): [Branch!]!
       loginByEmail(email: String!, password: String!): String!
     }
 

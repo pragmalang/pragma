@@ -415,32 +415,14 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
     mutation {
       Country {
         pushToCitizens(code: "US", item: { name: "Jackson" }) {
-          code
           name
-          citizens {
-            name
-          }
         }
       }
     }
     """
     val result = runGql(gqlQuery)
-    val expected = Map(
-      None -> Vector(
-        JsObject(
-          Map(
-            "code" -> JsString("US"),
-            "name" -> JsString("America"),
-            "citizens" -> JsArray(
-              Vector(
-                JsObject(Map("name" -> JsString("John"))),
-                JsObject(Map("name" -> JsString("Jackson")))
-              )
-            )
-          )
-        )
-      )
-    )
+    val expected =
+      Map(None -> Vector(JsObject(Map("name" -> JsString("Jackson")))))
 
     assert(result === expected)
   }
@@ -494,6 +476,10 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
     mutation {
       Country {
         removeFromCitizens(code: "US", item: "John") {
+          name
+        }
+
+        read(code: "US") {
           citizens {
             name
           }
@@ -501,14 +487,16 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
       }
     }
     """
-    val resultAfterDelete = runGql(gqlQuery)
+    val result = runGql(gqlQuery)
     val expected = Map(
       None -> Vector(
+        JsObject(Map("name" -> JsString("John"))),
+        // No "John" in `citizens`
         JsObject(Map("code" -> JsString("US"), "citizens" -> JsArray(Vector())))
       )
     )
 
-    assert(resultAfterDelete === expected)
+    assert(result === expected)
   }
 
   "PostgresQueryEngine#updateOneRecord" should "successfully patch a given row" taggedAs (dkr) in {
