@@ -143,7 +143,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
                     fieldTypeName => s"${fieldTypeName.capitalize}Input"
                 )
               ),
-              listFieldType(listFieldInnerType)
+              fieldType(listFieldInnerType)
             )(f.id)
           )
 
@@ -163,7 +163,7 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
                     fieldTypeName => s"${fieldTypeName.capitalize}Input"
                 )
               ),
-              listFieldType(listFieldInnerType)
+              fieldType(listFieldInnerType)
             )(f.id)
           )
 
