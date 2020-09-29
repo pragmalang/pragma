@@ -49,6 +49,6 @@ println("Starting Apache Bench...")
 val abCmd: Array[String] =
   Array("ab", "-p", "ab-query.json", "-T", "application/json") ++
     gqlHeaders.toArray.flatMap { case (h, v) => Array("-H", s"'$h:$v'") } ++
-    Array("-n", "50000", "-c", "10000", apiUrl)
+    Array("-n", "50000", "-c", "1000", apiUrl)
 
 %(Shellable.SeqShellable(abCmd))(pwd)
