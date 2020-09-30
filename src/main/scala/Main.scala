@@ -124,7 +124,7 @@ object Main extends IOApp {
       val onBuildTransactorError: PartialFunction[Throwable, IO[Unit]] = _ =>
         IO {
           printError(
-            "Unable to connect to PostgreSQL database, please make sure the info "
+            "Unable to connect to PostgreSQL database, please make sure the info is correct"
           )
           sys.exit(1)
         }
