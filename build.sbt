@@ -3,20 +3,53 @@ ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / organization := "com.pragmalang"
 ThisBuild / organizationName := "pragma"
 
-lazy val root = (project in file("."))
+import Dependencies._
+
+lazy val core = (project in file("core"))
   .settings(
-    name := "pragma",
+    name := "core",
     maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
-    packageSummary := "A language for building GraphQL APIs",
+    packageSummary := "Core abstractions used by other Pragma modules",
     packageDescription := "See https://docs.pragmalang.com for details.",
-    libraryDependencies ++= Seq(
-      "org.scalatest" %% "scalatest" % "3.0.8" % Test,
-      "com.lihaoyi" %% "pprint" % "0.5.6" % Test,
-      "org.tpolecat" %% "doobie-scalatest" % "0.9.0"
+    libraryDependencies ++= testDependencies ++ Seq(cats, spray, parboiled)
+  )
+
+lazy val daemon = (project in file("daemon"))
+  .settings(
+    name := "pragmad",
+    maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
+    packageSummary := "The daemon for Pragmalang",
+    packageDescription := "See https://docs.pragmalang.com for details.",
+    libraryDependencies ++= testDependencies ++ Seq(
+      cats,
+      catsEffect,
+      doobieCore,
+      doobieHikari,
+      doobiePostgres,
+      bcrypt,
+      jwtCore,
+      sangria,
+      sangriaSpray,
+      http4sDsl,
+      http4sBlazeServer,
+      logbackClassic
     ),
     mainClass in assembly := Some("com.pragmalang.Main"),
     test in assembly := {}
   )
+  .dependsOn(core)
+
+lazy val pragmaCLI = (project in file("cli"))
+  .settings(
+    name := "pragma",
+    maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
+    packageSummary := "The CLI for Pragmalang",
+    packageDescription := "See https://docs.pragmalang.com for details.",
+    libraryDependencies ++= testDependencies ++ Seq(scopt, osLib, catsEffect),
+    mainClass in assembly := Some("com.pragmalang.Main"),
+    test in assembly := {}
+  )
+  .dependsOn(core)
 
 scalacOptions ++= Seq(
   "-feature",
@@ -32,24 +65,6 @@ scalacOptions ++= Seq(
 
 // To suppress warnings in `sbt console`
 scalacOptions in (Compile, console) := Seq.empty
-
-libraryDependencies ++= Seq(
-  "org.parboiled" %% "parboiled" % "2.2.0",
-  "org.sangria-graphql" %% "sangria" % "2.0.0",
-  "io.spray" %% "spray-json" % "1.3.5",
-  "com.pauldijou" %% "jwt-core" % "4.3.0",
-  "org.http4s" %% "http4s-dsl" % "0.21.6",
-  "org.http4s" %% "http4s-blaze-server" % "0.21.6",
-  "ch.qos.logback" % "logback-classic" % "1.2.3",
-  "org.typelevel" %% "cats-effect" % "2.1.3",
-  "org.tpolecat" %% "doobie-core" % "0.9.0",
-  "org.tpolecat" %% "doobie-hikari" % "0.9.0",
-  "org.tpolecat" %% "doobie-postgres" % "0.9.0",
-  "com.lihaoyi" %% "os-lib" % "0.7.1",
-  "com.github.scopt" %% "scopt" % "3.7.1",
-  "org.sangria-graphql" %% "sangria-spray-json" % "1.0.2",
-  "com.github.t3hnar" %% "scala-bcrypt" % "4.3.0"
-)
 
 enablePlugins(DockerComposePlugin, GraalVMNativeImagePlugin, DockerPlugin)
 
