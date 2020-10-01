@@ -1,6 +1,6 @@
 package running.storage
 
-import domain.SyntaxTree
+import pragma.domain.SyntaxTree
 import running.storage.postgres._
 import cats.effect._
 import doobie._

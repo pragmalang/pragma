@@ -1,12 +1,12 @@
 package running
 
 import org.graalvm.polyglot._
-import domain.DomainImplicits.GraalValueJsonFormater
+import pragma.domain.DomainImplicits.GraalValueJsonFormater
 import spray.json._
-import domain.SyntaxTree
-import parsing.substitution.Substitutor
-import domain._
-import domain.PInterfaceValue
+import pragma.domain.SyntaxTree
+import pragma.parsing.substitution.Substitutor
+import pragma.domain._
+import pragma.domain.PInterfaceValue
 import org.scalatest.flatspec.AnyFlatSpec
 
 class GraalFunctions extends AnyFlatSpec {

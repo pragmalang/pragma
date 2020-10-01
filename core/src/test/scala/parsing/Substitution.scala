@@ -4,28 +4,11 @@ import pragma.domain._
 import pragma.parsing.substitution.Substitutor
 import spray.json._
 import scala.util.Success
-import org.graalvm.polyglot.Context
 import org.scalatest.flatspec.AnyFlatSpec
 
 class Substitution extends AnyFlatSpec {
 
-  "Substitutor" should "return an object containing all defined functions in a file as GraalFunctionValues using readGraalFunctions" in {
-    val pImport =
-      PImport("functions", "./core/src/test/scala/parsing/test-functions.js", None)
-    val graalCtx = Context.create()
-    val functionObject =
-      Substitutor.readGraalFunctionsIntoContext(pImport, graalCtx).get
-    val f = functionObject.value("f").asInstanceOf[GraalFunction]
-    val additionResult = f.execute(JsNumber(2))
-    assert(
-      additionResult.get.asInstanceOf[JsNumber].value == BigDecimal(
-        Success(3.0).value
-      )
-    )
-    graalCtx.close()
-  }
-
-  "Substitutor" should "substitute function references in directives with actual functions" in {
+  "Substitutor" should "substitute function references in directives with external functions" in {
     val code = """
     import "./core/src/test/scala/parsing/test-functions.js" as fns
 
@@ -37,37 +20,12 @@ class Substitution extends AnyFlatSpec {
     val substituted = Substitutor.substitute(syntaxTree).get
     val directive = substituted.models.head.directives.head
     directive.args.value("function") match {
-      case GraalFunction(id, _, filePath, _, _) => {
+      case ExternalFunction(id, filePath) => {
         assert(id == "validateCat")
         assert(filePath == "./core/src/test/scala/parsing/test-functions.js")
       }
       case _ => fail("Result should be a Graal function 'validateCat'")
     }
-  }
-
-  "Substitutor" should "be able to retrieve referenced data from context" in {
-    val code = """
-    import "./core/src/test/scala/parsing/test-functions.js" as fns
-    """
-    val syntaxTree = SyntaxTree.from(code).get
-    val graalCtx = Context.create()
-    val ctx =
-      Substitutor.getContext(syntaxTree.imports.toSeq, graalCtx).get
-    val ref = PragmaParser
-      .Reference(
-        List("fns", "validateCat"),
-        None
-      )
-    val retrieved = Substitutor.getReferencedFunction(ref, ctx.value)
-    retrieved match {
-      case Some(f: GraalFunction) => {
-        assert(f.filePath == "./core/src/test/scala/parsing/test-functions.js")
-        assert(f.id == "validateCat")
-      }
-      case None => fail("Should've found referenced value")
-      case _    => ()
-    }
-    graalCtx.close()
   }
 
   "Predicate references in permissions" should "be substituted with actual predicates correctly" in {
@@ -90,7 +48,7 @@ class Substitution extends AnyFlatSpec {
     val newGlobalTenant = syntaxTree.permissions.globalTenant
     val todoOwnershipPredicate =
       newGlobalTenant.roles.head.rules.head.predicate.get
-        .asInstanceOf[GraalFunction]
+        .asInstanceOf[ExternalFunction]
     assert(todoOwnershipPredicate.id == "isOwner")
   }
 

@@ -1,7 +1,7 @@
 package running
 
 import sangria.macros._
-import domain._
+import pragma.domain._
 import running._, running.operations._
 import spray.json._
 import scala.collection.immutable._

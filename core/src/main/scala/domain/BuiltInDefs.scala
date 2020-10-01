@@ -77,7 +77,4 @@ object BuiltInDefs {
     }
   }
 
-  // e.g. ifSelf & ifOwner
-  val builtinFunctions =
-    Map.empty[String, BuiltinFunction]
 }

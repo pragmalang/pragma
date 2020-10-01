@@ -1,7 +1,7 @@
 package running
 
 import org.scalatest.flatspec.AnyFlatSpec
-import domain.SyntaxTree
+import pragma.domain.SyntaxTree
 import running.TestUtils._
 import running.storage.TestStorage
 import sangria.macros._

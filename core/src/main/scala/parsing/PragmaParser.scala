@@ -13,20 +13,10 @@ object PragmaParser {
       position: Option[PositionRange] = None
   ) extends Identifiable
       with Positioned
-      with PFunctionValue[JsValue, Try[JsValue]]
+      with PFunctionValue
       with PShape
       with PShapeField {
     override val id = toString
-
-    override def execute(input: JsValue) =
-      Failure(
-        new Exception(
-          "Reference should not be executed before substitution"
-        )
-      )
-
-    override val ptype: PFunction =
-      PFunction(Map.empty, PAny)
 
     override def toString: String =
       path.head + path.tail.foldLeft("")(_ + "." + _)

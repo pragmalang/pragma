@@ -1,6 +1,6 @@
 package running.authorizer
 
-import domain._
+import pragma.domain._
 import org.scalatest.flatspec.AnyFlatSpec
 
 class PermissionTreeSpec extends AnyFlatSpec {

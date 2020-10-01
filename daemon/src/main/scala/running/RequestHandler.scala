@@ -137,7 +137,7 @@ class RequestHandler[S, M[_]: Monad](
       args: JsValue
   ): Either[Throwable, JsValue] =
     hooks.foldLeft(args.asRight[Throwable]) {
-      case (acc, hook) => acc.flatMap(hook(_).toEither)
+      case (acc, hook) => acc.flatMap(PFunctionValueExecutor.execute(hook, _).toEither)
     }
 
   /** Apples crud hooks to operation arguments */

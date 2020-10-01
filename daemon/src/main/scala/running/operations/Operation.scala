@@ -13,7 +13,7 @@ sealed trait Operation {
   val user: Option[(JwtPayload, PModel)]
   val targetsSelf: Boolean
   // Contains hooks used in @onRead, @onWrite, and @onDelete directives
-  val hooks: Seq[PFunctionValue[JsValue, Try[JsValue]]]
+  val hooks: Seq[ExternalFunction]
   val name: String
   val groupName: String
   val innerReadOps: Vector[InnerOperation]

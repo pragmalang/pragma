@@ -1,6 +1,6 @@
 package running.storage.postgres
 
-import domain.SyntaxTree
+import pragma.domain._
 import org.scalatest._
 import doobie.implicits._
 import spray.json._

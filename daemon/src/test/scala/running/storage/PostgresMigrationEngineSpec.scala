@@ -4,11 +4,10 @@ import running.storage._
 import running.storage.postgres._
 import org.scalatest._, funsuite.AnyFunSuite
 import SQLMigrationStep._
-import domain.SyntaxTree
 import AlterTableAction._
 import OnDeleteAction.Cascade
 
-import domain._
+import pragma.domain._
 import org.parboiled2.Position
 
 import doobie._

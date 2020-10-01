@@ -6,22 +6,23 @@ import scala.util._
 
 object ModelSubstitutor {
 
-  def apply(st: SyntaxTree, ctx: PInterfaceValue): Try[Seq[PModel]] = {
+  def apply(st: SyntaxTree): Try[Seq[PModel]] = {
+    val importsMap = st.imports.map(i => i.id -> i.filePath).toMap
     combineUserErrorTries(st.models.map { model =>
       substituteDirectiveFunctionRefs(
         substituteArrayFieldDefaultValue(model),
-        ctx
+        importsMap
       )
     }).map(_.map(substituteEnumTypeReferences(_, st.enums)))
   }
 
   private def substituteDirectiveFunctionRefs(
       model: PModel,
-      ctx: PInterfaceValue
+      imports: Map[String, String]
   ): Try[PModel] = {
-    val newModelLevel = model.directives.map(substituteDirectiveRefArgs(ctx))
+    val newModelLevel = model.directives.map(substituteDirectiveRefArgs(imports))
     val newFieldLevel = model.fields.map { field =>
-      field.directives.map(substituteDirectiveRefArgs(ctx))
+      field.directives.map(substituteDirectiveRefArgs(imports))
     }
     val errors = newModelLevel ++ newFieldLevel.flatten collect {
       case Failure(e: UserError) => e
@@ -51,13 +52,13 @@ object ModelSubstitutor {
   }
 
   private def substituteDirectiveRefArgs(
-      ctx: PInterfaceValue
+      imports: Map[String, String]
   )(
       dir: Directive
   ): Try[Directive] = {
     val newArgs = dir.args.value.map {
       case (argId, ref: Reference) =>
-        (argId, Substitutor.getReferencedFunction(ref, ctx.value))
+        (argId, Substitutor.getReferencedFunction(imports, ref))
       case (argId, v) => (argId, Some(v))
     }
     val argErrors = newArgs.collect {

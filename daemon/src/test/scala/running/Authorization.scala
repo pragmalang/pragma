@@ -1,6 +1,6 @@
 package running.authorizer
 
-import domain.SyntaxTree
+import pragma.domain.SyntaxTree
 import running._, running.storage._, running.operations._
 import sangria.macros._
 import spray.json._

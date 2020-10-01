@@ -16,7 +16,7 @@ object DomainImplicits {
         JsObject("id" -> JsString(f.id), "filePath" -> JsString(f.filePath))
       case PIntValue(value)   => value.toJson
       case PFloatValue(value) => value.toJson
-      case _: PFunctionValue[_, _] =>
+      case _: PFunctionValue =>
         throw InternalException("Functions are not serializable")
       case PDateValue(value) => value.toString.toJson
       case PBoolValue(value) => value.toJson

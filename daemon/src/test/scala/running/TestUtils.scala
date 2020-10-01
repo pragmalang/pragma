@@ -2,7 +2,7 @@ package running
 
 import spray.json.JsObject
 import sangria.ast.Document
-import domain.AccessRule
+import pragma.domain.AccessRule
 
 object TestUtils {
 

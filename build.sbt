@@ -32,6 +32,7 @@ lazy val daemon = (project in file("daemon"))
       sangriaSpray,
       http4sDsl,
       http4sBlazeServer,
+      http4sBlazeClient,
       logbackClassic
     ),
     mainClass in assembly := Some("com.pragmalang.Main"),
