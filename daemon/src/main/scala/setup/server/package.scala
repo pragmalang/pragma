@@ -13,7 +13,6 @@ import org.parboiled2.ParseError
 import cats.effect._, cats.implicits._
 import doobie._, doobie.hikari._
 import running.storage.postgres._
-import cli._, cli.RunMode._
 import org.http4s.HttpRoutes
 import cats.effect._
 import org.http4s._, org.http4s.dsl.io._
@@ -22,8 +21,13 @@ import org.http4s.util._, org.http4s.implicits._, org.http4s.server.middleware._
 import scala.concurrent.ExecutionContext.global
 import spray.json._
 import setup.server.implicits._
+import collection.mutable.{Map => MutMap}
 
 object SetupServer extends IOApp {
+
+  type ProjectId = Int
+
+  val projectServers: MutMap[ProjectId, Server] = MutMap.empty
 
   def routes(db: DaemonDB) = CORS {
     GZip {
@@ -32,7 +36,13 @@ object SetupServer extends IOApp {
         case req @ POST -> Root / "project" / "create" => {
           val project = req.bodyText.map(_.parseJson.convertTo[ProjectInput])
           val res =
-            project.map(project => db.createProject(project)).compile.drain
+            project
+              .map(project => db.runQuery(db.createProject(project)))
+              .compile
+              .toVector
+              .map(_.sequence)
+              .flatten
+              .void
 
           res.map { _ =>
             Response[IO](
@@ -42,13 +52,9 @@ object SetupServer extends IOApp {
             )
           }
         }
-        case req @ POST -> Root / "project" / "migrate"            => ???
-        case req @ GET -> Root / "project" / "run" / projectId     => ???
-        case req @ GET -> Root / "project" / "restart" / projectId => ???
-
-        // Running phase
-        case req @ POST -> Root / "project" / projectId / "graphql" => ???
-        case req @ GET -> Root / "project" / projectId / "graphql"  => ???
+        case req @ POST -> Root / "project" / "migrate"                   => ???
+        case req @ GET -> Root / "project" / "start-server" / projectId   => ???
+        case req @ GET -> Root / "project" / "restart-server" / projectId => ???
       }
     }
   }

@@ -85,6 +85,42 @@ package object implicits {
             )
         }
 
+      val pgUser = fields.get("pgUser") match {
+        case Some(JsString(value)) => value
+        case Some(_) =>
+          throw new DeserializationException(
+            "Couldn't parse the value of field `pgUser` since it is not a string."
+          )
+        case None =>
+          throw new DeserializationException(
+            "Couldn't find field `pgUser`."
+          )
+      }
+
+      val pgUri = fields.get("pgUri") match {
+        case Some(JsString(value)) => value
+        case Some(_) =>
+          throw new DeserializationException(
+            "Couldn't parse the value of field `pgUri` since it is not a string."
+          )
+        case None =>
+          throw new DeserializationException(
+            "Couldn't find field `pgUri`."
+          )
+      }
+
+      val pgPassword = fields.get("pgPassword") match {
+        case Some(JsString(value)) => value
+        case Some(_) =>
+          throw new DeserializationException(
+            "Couldn't parse the value of field `pgPassword` since it is not a string."
+          )
+        case None =>
+          throw new DeserializationException(
+            "Couldn't find field `pgPassword`."
+          )
+      }
+
       val currentMigration = fields
         .get("currentMigration")
         .map(_.convertTo[MigrationInput])
@@ -98,7 +134,14 @@ package object implicits {
           )
       }
 
-      ProjectInput(name, currentMigration, migrationHistory)
+      ProjectInput(
+        name,
+        pgUri,
+        pgUser,
+        pgPassword,
+        currentMigration,
+        migrationHistory
+      )
     }
   }
 

@@ -15,7 +15,10 @@ class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
       sql"""
         CREATE TABLE projects (
           id            SERIAL     PRIMARY KEY,
-          name          TEXT
+          name          TEXT,
+          pg_uri        TEXT       NOT NULL,
+          pg_user       TEXT       NOT NULL,
+          pg_passhash   TEXT       NOT NULL,
         );
 
         CREATE TABLE migrations (
@@ -42,10 +45,15 @@ class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
     query.transact(transactor).void
   }
 
+  def runQuery[T](query: ConnectionIO[T]) = query.transact(transactor)
+
   def createProject(project: ProjectInput): ConnectionIO[Int] = {
 
     val insertProject = sql"""
-          insert into projects (name) values (${project.name}) returning id;
+          insert into
+            projects (name, pg_user, pg_passhash, pg_uri) 
+            values (${project.name}, ${project.pgUser}, ${project.pgPassword}, ${project.pgUri})
+            returning id;
         """.update.run
 
     val insertMigrations: ConnectionIO[Int] = for {
@@ -111,12 +119,18 @@ case class ImportedFileInput(fileName: String, content: String)
 
 case class Project(
     id: Int,
+    pgUri: String,
+    pgUser: String,
+    pgPasshash: String,
     name: Option[String],
     currentMigration: Option[Migration],
     migrationHistory: List[Migration]
 )
 case class ProjectInput(
     name: Option[String],
+    pgUri: String,
+    pgUser: String,
+    pgPassword: String,
     currentMigration: Option[MigrationInput],
     migrationHistory: List[MigrationInput]
 )

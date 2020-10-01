@@ -11,6 +11,7 @@ import running.storage.postgres._
 import setup.schemaGenerator.ApiSchemaGenerator
 
 object Main extends IOApp {
+  override def run(args: List[String]): IO[ExitCode] = ???
 /*
   // To disable logging
   org.slf4j.LoggerFactory
