@@ -36,9 +36,11 @@ lazy val daemon = (project in file("daemon"))
       logbackClassic
     ),
     mainClass in assembly := Some("com.pragmalang.Main"),
-    test in assembly := {}
+    test in assembly := {},
+    composeNoBuild := true
   )
   .dependsOn(core)
+  .enablePlugins(DockerComposePlugin, DockerPlugin)
 
 lazy val pragmaCLI = (project in file("cli"))
   .settings(
@@ -67,8 +69,6 @@ scalacOptions ++= Seq(
 // To suppress warnings in `sbt console`
 scalacOptions in (Compile, console) := Seq.empty
 
-enablePlugins(DockerComposePlugin, GraalVMNativeImagePlugin, DockerPlugin)
-
 /*
   GraalVM Native Image Generation:
   Requires `native-image` utility from Graal
@@ -92,7 +92,6 @@ enablePlugins(DockerComposePlugin, GraalVMNativeImagePlugin, DockerPlugin)
   Run `docker ps` and then run `docker kill <postgres-containe-id>`
   to kill the postgres container to fix it.
  */
-composeNoBuild := true
 
 /*
   Apache Bench benchmark:

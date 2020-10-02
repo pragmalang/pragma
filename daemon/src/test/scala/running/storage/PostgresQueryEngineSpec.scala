@@ -46,7 +46,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
   import testStorage._
 
   migrationEngine.initialMigration
-    .getOrElse(fail())
+    .unsafeRunSync()
     .run(t)
     .unsafeRunSync()
 

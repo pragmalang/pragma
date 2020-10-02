@@ -29,10 +29,12 @@ class Authorization extends AnyFlatSpec {
     implicit val opParser = new OperationParser(syntaxTree)
     val testStorage = new TestStorage(syntaxTree)
     import testStorage._
+
     migrationEngine.initialMigration
-      .getOrElse(fail())
+      .unsafeRunSync()
       .run(t)
       .unsafeRunSync()
+
     val authorizer = new Authorizer(syntaxTree, testStorage.storage)
 
     val req = Request(
@@ -109,7 +111,8 @@ class Authorization extends AnyFlatSpec {
     implicit val opParser = new OperationParser(syntaxTree)
     val testStorage = new TestStorage(syntaxTree)
     import testStorage._
-    migrationEngine.initialMigration.getOrElse(fail()).run(t).unsafeRunSync()
+
+    migrationEngine.initialMigration.unsafeRunSync().run(t).unsafeRunSync()
 
     val reqWithoutRole = Request(
       hookData = None,

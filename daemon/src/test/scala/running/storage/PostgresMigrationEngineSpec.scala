@@ -90,17 +90,9 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
        |""".stripMargin
       )
 
-    assert(
-      expected == (migrationEngine.initialMigration match {
-        case Left(e)          => throw e
-        case Right(migration) => migration.renderSQL
-      })
-    )
-
-    migrationEngine.initialMigration
-      .getOrElse(fail())
-      .run(transactor)
-      .unsafeRunSync()
+    assert {
+      expected == migrationEngine.initialMigration.unsafeRunSync().renderSQL
+    }
   }
 
   test("PostgresMigrationEngine#migration works") {
@@ -368,12 +360,12 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     val migrationEngine = testStorage.migrationEngine
 
     val expected = Vector(DropTable("Admin"))
-    assert(
+    assert {
       migrationEngine
         .migration(prevSyntaxTree, Map.empty)
-        .getOrElse(fail())
+        .unsafeRunSync()
         .sqlSteps == expected
-    )
+    }
   }
 
   test("Renaming models in a migration works") {
@@ -426,7 +418,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     assert(
       migrationEngine
         .migration(prevSyntaxTree, Map.empty)
-        .getOrElse(fail())
+        .unsafeRunSync()
         .sqlSteps == expected
     )
   }
@@ -500,7 +492,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     assert(
       migrationEngine
         .migration(prevSyntaxTree, Map.empty)
-        .getOrElse(fail())
+        .unsafeRunSync()
         .sqlSteps == expected
     )
   }
@@ -556,7 +548,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     assert(
       migrationEngine
         .migration(prevSyntaxTree, Map.empty)
-        .getOrElse(fail())
+        .unsafeRunSync()
         .sqlSteps == expected
     )
   }
@@ -614,7 +606,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     assert(
       migrationEngine
         .migration(prevSyntaxTree, Map.empty)
-        .getOrElse(fail())
+        .unsafeRunSync()
         .sqlSteps == expected
     )
   }

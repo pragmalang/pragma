@@ -13,12 +13,12 @@ import cats.effect.IO
 class RequestHandler[S, M[_]: Async](
     syntaxTree: SyntaxTree,
     storage: Storage[S, M]
-)(implicit mError: MonadError[M, Throwable]) {
+)(implicit MError: MonadError[M, Throwable]) {
   val reqValidator = new RequestValidator(syntaxTree)
   val authorizer = new Authorizer[S, M](syntaxTree, storage)
   val opParser = new OperationParser(syntaxTree)
 
-  def handle(req: Request): M[Either[Throwable, JsObject]] = {
+  def handle(req: Request): M[JsObject] = {
     val ops: M[Operations.OperationsMap] = {
       val res = (
         for {
@@ -27,7 +27,7 @@ class RequestHandler[S, M[_]: Async](
           ops <- opParser.parse(reducedRequest)(syntaxTree)
         } yield ops
       ) match {
-        case Left(err)    => mError.raiseError(err)
+        case Left(err)    => MError.raiseError(err)
         case Right(value) => value.pure[M]
       }
       res.widen[Operations.OperationsMap]
@@ -59,43 +59,32 @@ class RequestHandler[S, M[_]: Async](
       }
     }
 
-    val storageResult = for {
-      opsAfterPreHooks <- opsAfterPreHooks
-    } yield
-      opsAfterPreHooks.map { ops =>
-        req.body.flatMap(_.fields.get("operationName")) match {
-          case Some(JsString(opName)) =>
-            ops.flatMap { ops =>
-              val op = ops.filter {
-                case (Some(op), _) => op == opName
-                case _             => false
-              }
-              storage.run(op)
-            }
-          case _ => ops.flatMap(storage.run)
-        }
+    val storageResult = opsAfterPreHooks.flatMap { ops =>
+      req.body.flatMap(_.fields.get("operationName")) match {
+        case Some(JsString(gqlOpName)) =>
+          storage.run(ops.filter(_._1 == Some(gqlOpName)))
+        case _ => storage.run(ops)
       }
+    }
 
-    val readHookResults = storageResult.map { result =>
-      result
-        .flatMap { transactionMap =>
-          transactionMap.traverse { (groupName, modelGroups) =>
-            modelGroups
-              .traverse {
-                case (modelGroupName, ops) =>
-                  ops
-                    .traverse {
-                      case (op, res) => applyReadHooks(op, res).map(op -> _)
-                    }
-                    .map(modelGroupName -> _)
-              }
-              .map(groupName -> _)
-          }
-        }
+    val readHookResults = storageResult.flatMap { result =>
+      result.traverse {
+        case (groupName, modelGroups) =>
+          modelGroups
+            .traverse {
+              case (modelGroupName, ops) =>
+                ops
+                  .traverse {
+                    case (op, res) => applyReadHooks(op, res).map(op -> _)
+                  }
+                  .map(modelGroupName -> _)
+            }
+            .map(groupName -> _)
+      }
     }
 
     readHookResults.map { result =>
-      result.map(data => JsObject(Map("data" -> transactionResultJson(data))))
+      JsObject(Map("data" -> transactionResultJson(result)))
     }
 
   }

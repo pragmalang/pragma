@@ -23,7 +23,7 @@ case class ReadOperation(
     opArguments: ReadArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    hooks: Seq[PFunctionValue],
+    hooks: Seq[ExternalFunction],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -36,7 +36,7 @@ case class ReadManyOperation(
     opArguments: ReadManyArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    hooks: Seq[PFunctionValue],
+    hooks: Seq[ExternalFunction],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -49,7 +49,7 @@ case class CreateOperation(
     opArguments: CreateArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    hooks: Seq[PFunctionValue],
+    hooks: Seq[ExternalFunction],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -62,7 +62,7 @@ case class CreateManyOperation(
     opArguments: CreateManyArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    hooks: Seq[PFunctionValue],
+    hooks: Seq[ExternalFunction],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -75,7 +75,7 @@ case class UpdateOperation(
     opArguments: UpdateArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    hooks: Seq[PFunctionValue],
+    hooks: Seq[ExternalFunction],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -89,7 +89,7 @@ case class UpdateManyOperation(
     opArguments: UpdateManyArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    hooks: Seq[PFunctionValue],
+    hooks: Seq[ExternalFunction],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -102,7 +102,7 @@ case class DeleteOperation(
     opArguments: DeleteArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    hooks: Seq[PFunctionValue],
+    hooks: Seq[ExternalFunction],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -115,7 +115,7 @@ case class DeleteManyOperation(
     opArguments: DeleteManyArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    hooks: Seq[PFunctionValue],
+    hooks: Seq[ExternalFunction],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -128,7 +128,7 @@ case class PushToOperation(
     opArguments: PushToArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    hooks: Seq[PFunctionValue],
+    hooks: Seq[ExternalFunction],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation],
@@ -142,7 +142,7 @@ case class PushManyToOperation(
     opArguments: PushManyToArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    hooks: Seq[PFunctionValue],
+    hooks: Seq[ExternalFunction],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation],
@@ -156,7 +156,7 @@ case class RemoveFromOperation(
     opArguments: RemoveFromArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    hooks: Seq[PFunctionValue],
+    hooks: Seq[ExternalFunction],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation],
@@ -170,7 +170,7 @@ case class RemoveManyFromOperation(
     opArguments: RemoveManyFromArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    hooks: Seq[PFunctionValue],
+    hooks: Seq[ExternalFunction],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation],
@@ -184,7 +184,7 @@ case class LoginOperation(
     opArguments: LoginArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    hooks: Seq[PFunctionValue],
+    hooks: Seq[ExternalFunction],
     name: String,
     groupName: String,
     innerReadOps: Vector[InnerOperation]
@@ -209,7 +209,7 @@ case class InnerReadOperation(
     targetField: Operations.AliasedField,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    hooks: Seq[PFunctionValue],
+    hooks: Seq[ExternalFunction],
     innerReadOps: Vector[InnerOperation]
 ) extends InnerOperation {
   override val event = Read
@@ -224,7 +224,7 @@ case class InnerReadManyOperation(
     opArguments: InnerListArgs,
     targetModel: PModel,
     user: Option[(JwtPayload, PModel)],
-    hooks: Seq[PFunctionValue],
+    hooks: Seq[ExternalFunction],
     innerReadOps: Vector[InnerOperation]
 ) extends InnerOperation {
   override val event = ReadMany

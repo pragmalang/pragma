@@ -139,20 +139,27 @@ class Authorizer[S, M[_]: Async](
     )
 
   private def inferredDenyError(op: Operation, denyRule: AccessRule) =
-    op.event match {
-      case Create if denyRule.permissions.contains(SetOnCreate) =>
+    op match {
+      case iop: InnerReadOperation =>
         AuthorizationError(
-          s"Denied setting field `${denyRule.resourcePath._2.get.id}` in `CREATE` operation"
+          s"`deny` rule exists that prohibits `READ` operations on `${iop.targetModel.id}.${iop.targetField.field.id}`"
         )
-      case Update | UpdateMany if denyRule.resourcePath._2.isDefined =>
-        AuthorizationError(
-          s"Denied updating `${denyRule.resourcePath._2.get.id}` field in `UPDATE` operation on `${denyRule.resourcePath._1.id}`"
-        )
-      case Update | UpdateMany =>
-        AuthorizationError(
-          s"Denied performing `${Update}` operation on `${denyRule.resourcePath._1.id}`"
-        )
-      case _ => AuthorizationError(s"`${op.event}` operation denied")
+      case _ =>
+        op.event match {
+          case Create if denyRule.permissions.contains(SetOnCreate) =>
+            AuthorizationError(
+              s"Denied setting field `${denyRule.resourcePath._2.get.id}` in `CREATE` operation"
+            )
+          case Update | UpdateMany if denyRule.resourcePath._2.isDefined =>
+            AuthorizationError(
+              s"Denied updating `${denyRule.resourcePath._2.get.id}` field in `UPDATE` operation on `${denyRule.resourcePath._1.id}`"
+            )
+          case Update | UpdateMany =>
+            AuthorizationError(
+              s"Denied performing `${Update}` operation on `${denyRule.resourcePath._1.id}`"
+            )
+          case _ => AuthorizationError(s"`${op.event}` operation denied")
+        }
     }
 
 }

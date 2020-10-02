@@ -11,7 +11,7 @@ import cats.implicits._
 class RequestHandlerSpec extends AnyFlatSpec {
   val code =
     """
-    import "./src/test/scala/running/req-handler-test-hooks.js" as rhHooks
+    import "./daemon/src/test/scala/running/req-handler-test-hooks.js" as rhHooks
 
     @onWrite(function: rhHooks.prependMrToUsername)
     @onWrite(function: rhHooks.setPriorityTodo)
@@ -35,15 +35,9 @@ class RequestHandlerSpec extends AnyFlatSpec {
   val syntaxTree = SyntaxTree.from(code).get
   val testStorage = new TestStorage(syntaxTree)
   import testStorage._
-  migrationEngine.initialMigration match {
-    case Right(mig) => mig.run(t).unsafeRunSync
-    case Left(err) => {
-      Console.err.println(
-        "Failed to perform initial migration in `RequestHandlerSpec`"
-      )
-      throw err
-    }
-  }
+
+  migrationEngine.initialMigration.unsafeRunSync.run(t).unsafeRunSync()
+
   val reqHandler = new RequestHandler(syntaxTree, storage)
 
   "RequestHandler" should "execute write hooks correctly" in {
@@ -69,13 +63,7 @@ class RequestHandlerSpec extends AnyFlatSpec {
       """
     }
 
-    val result = reqHandler.handle(req).unsafeRunSync match {
-      case Right(value) => value
-      case _ =>
-        fail {
-          "Req handler should return create op results successfully with hooks applied"
-        }
-    }
+    val result = reqHandler.handle(req).unsafeRunSync
 
     val expected = JsObject(
       Map(
@@ -115,13 +103,7 @@ class RequestHandlerSpec extends AnyFlatSpec {
       """
     }
 
-    val result = reqHandler.handle(req).unsafeRunSync match {
-      case Right(value) => value
-      case _ =>
-        fail {
-          "Request handler should not fail for RH_Todo read query"
-        }
-    }
+    val result = reqHandler.handle(req).unsafeRunSync
 
     val expected = JsObject(
       Map(

@@ -16,13 +16,12 @@ class Storage[S, M[_]: Monad](
   ): M[queryEngine.TransactionResultMap] =
     queryEngine.run(operations)
 
-  def migrate: M[Either[Throwable, Unit]] =
-    migrationEngine.migrate
+  def migrate: M[Unit] = migrationEngine.migrate
 
 }
 
 trait MigrationEngine[S, M[_]] {
-  def migrate: M[Either[Throwable, Unit]]
+  def migrate: M[Unit]
 }
 
 case class MigrationError(step: MigrationStep) extends Exception

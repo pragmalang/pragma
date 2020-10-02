@@ -68,10 +68,6 @@ class Server(
             )
             val resJson = reqHandler
               .handle(preq)
-              .map[JsValue] {
-                case Left(e)    => jsonFrom(e)
-                case Right(obj) => obj
-              }
               .recover {
                 case e: Throwable => jsonFrom(e)
               }
