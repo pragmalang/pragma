@@ -8,6 +8,7 @@ import cats.implicits._
 import scala.util._
 import spray.json._
 import cats.effect.Async
+import cats.effect.IO
 
 class RequestHandler[S, M[_]: Async](
     syntaxTree: SyntaxTree,
@@ -18,13 +19,22 @@ class RequestHandler[S, M[_]: Async](
   val opParser = new OperationParser(syntaxTree)
 
   def handle(req: Request): M[Either[Throwable, JsObject]] = {
-    val ops: M[Operations.OperationsMap] = for {
-      validationResult <- reqValidator(req).toEither
-      reducedRequest = RequestReducer(validationResult)
-      ops <- opParser.parse(reducedRequest)(syntaxTree)
-    } yield ops
+    val ops: M[Operations.OperationsMap] = {
+      val res = (
+        for {
+          validationResult <- reqValidator(req).toEither
+          reducedRequest = RequestReducer(validationResult)
+          ops <- opParser.parse(reducedRequest)(syntaxTree)
+        } yield ops
+      ) match {
+        case Left(err)    => mError.raiseError(err)
+        case Right(value) => value.pure[M]
+      }
+      res.widen[Operations.OperationsMap]
+    }
 
     val authResult = for {
+      ops <- ops
       result = authorizer(ops, req.user)
     } yield
       result flatMap [Operations.OperationsMap] { errors =>
@@ -33,7 +43,7 @@ class RequestHandler[S, M[_]: Async](
         else ops.pure[M]
       }
 
-    val opsAfterPreHooks = authResult.map { result =>
+    val opsAfterPreHooks = authResult.flatMap { result =>
       result.flatMap[Operations.OperationsMap] { opsMap =>
         opsMap.toVector
           .traverse {
@@ -49,8 +59,10 @@ class RequestHandler[S, M[_]: Async](
       }
     }
 
-    val storageResult =
-      opsAfterPreHooks.traverse { ops =>
+    val storageResult = for {
+      opsAfterPreHooks <- opsAfterPreHooks
+    } yield
+      opsAfterPreHooks.map { ops =>
         req.body.flatMap(_.fields.get("operationName")) match {
           case Some(JsString(opName)) =>
             ops.flatMap { ops =>
@@ -67,18 +79,17 @@ class RequestHandler[S, M[_]: Async](
     val readHookResults = storageResult.map { result =>
       result
         .flatMap { transactionMap =>
-          transactionMap.traverse {
-            case (groupName, modelGroups) =>
-              modelGroups
-                .traverse {
-                  case (modelGroupName, ops) =>
-                    ops
-                      .traverse {
-                        case (op, res) => applyReadHooks(op, res).map(op -> _)
-                      }
-                      .map(modelGroupName -> _)
-                }
-                .map(groupName -> _)
+          transactionMap.traverse { (groupName, modelGroups) =>
+            modelGroups
+              .traverse {
+                case (modelGroupName, ops) =>
+                  ops
+                    .traverse {
+                      case (op, res) => applyReadHooks(op, res).map(op -> _)
+                    }
+                    .map(modelGroupName -> _)
+              }
+              .map(groupName -> _)
           }
         }
     }

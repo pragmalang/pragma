@@ -25,6 +25,7 @@ import cats.effect._
 import spray.json._
 import cats._
 import running.PFunctionExecutor
+import doobie.free.Embedded.Connection
 
 case class PostgresMigration[M[_]: Monad: Async](
     private val unorderedSteps: Vector[MigrationStep],
@@ -102,7 +103,7 @@ case class PostgresMigration[M[_]: Monad: Async](
                 queryEngine
               )
 
-            val stream =
+            val stream: fs2.Stream[ConnectionIO, M[Unit]] =
               // Load rows of prev table as a stream in memory
               HC.stream[JsObject](
                   s"SELECT * FROM ${prevModel.id.withQuotes};",
@@ -176,8 +177,11 @@ case class PostgresMigration[M[_]: Monad: Async](
                   }
                 }
 
-            val transformFieldValuesAndMoveToNewTable =
-              stream.compile.toList.map(_.head).flatten
+            val transformFieldValuesAndMoveToNewTable = stream.compile.toVector
+              .map(_.sequence)
+              .transact(transactor)
+              .flatten
+              .void
 
             val dropPrevTable = PostgresMigration[M](
               DeleteModel(prevModel),
@@ -192,12 +196,10 @@ case class PostgresMigration[M[_]: Monad: Async](
               queryEngine
             )
 
-            for {
-              _ <- createTempTable.run(transactor)
-              _ <- transformFieldValuesAndMoveToNewTable.transact(transactor)
-              _ <- dropPrevTable.run(transactor)
-              _ <- renameNewTable.run(transactor)
-            } yield ()
+            createTempTable.run(transactor) *>
+              transformFieldValuesAndMoveToNewTable *>
+              dropPrevTable.run(transactor) *>
+              renameNewTable.run(transactor)
           }
           case step: DirectSQLMigrationStep =>
             Fragment(step.renderSQL, Nil).update.run
