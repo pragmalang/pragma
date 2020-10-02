@@ -1,14 +1,13 @@
 package running
 
 import pragma.domain._
-import cats.Monad
+import cats.implicits._
 import cats.effect.Async
 import spray.json._
-import org.http4s.dsl._
 
-object PFunctionValueExecutor {
-  def execute[M[_]: Monad: Async](
+object PFunctionExecutor {
+  def execute[M[_]: Async](
       function: PFunctionValue,
       argList: List[JsValue]
-  ): M[JsValue] = ???
+  ): M[JsValue] = JsNull.pure[M].widen[JsValue]
 }

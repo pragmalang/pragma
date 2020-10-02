@@ -20,10 +20,12 @@ class PostgresMigrationEngine[M[_]: Monad](
     queryEngine: PostgresQueryEngine[M]
 )(
     implicit bracket: Bracket[M, Throwable],
-    cs: ContextShift[M]
+    cs: ContextShift[M],
+    MError: MonadError[M, Throwable],
+    async: Async[M]
 ) extends MigrationEngine[Postgres[M], M] {
 
-  override def migrate: M[Either[Throwable, Unit]] = {
+  override def migrate: M[Unit] = {
     val thereExistDataM: M[Map[ModelId, Boolean]] =
       (
         for {
@@ -45,11 +47,8 @@ class PostgresMigrationEngine[M[_]: Monad](
 
     for {
       thereExistData <- thereExistDataM
-      result <- migration(prevSyntaxTree, thereExistData) match {
-        case Left(e)          => Monad[M].pure(e.asLeft)
-        case Right(migration) => migration.run(transactor).map(_.asRight)
-      }
-    } yield result
+      result <- migration(prevSyntaxTree, thereExistData)
+    } yield ()
   }
 
   def initialMigration =
@@ -58,14 +57,16 @@ class PostgresMigrationEngine[M[_]: Monad](
   def migration(
       prevTree: SyntaxTree,
       thereExistData: Map[ModelId, Boolean]
-  ): Either[Throwable, PostgresMigration[M]] =
-    inferedMigrationSteps(currentSyntaxTree, prevTree, thereExistData) map {
-      PostgresMigration(
-        _,
-        prevTree,
-        currentSyntaxTree,
-        queryEngine
-      )
+  ): M[PostgresMigration[M]] =
+    inferedMigrationSteps(currentSyntaxTree, prevTree, thereExistData) match {
+      case Left(err) => MError.raiseError(err)
+      case Right(steps) =>
+        PostgresMigration[M](
+          steps,
+          prevTree,
+          currentSyntaxTree,
+          queryEngine
+        ).pure[M]
     }
 
   private[postgres] def inferedMigrationSteps(
@@ -207,7 +208,6 @@ class PostgresMigrationEngine[M[_]: Monad](
                     case Some(typeTransformerDir) =>
                       typeTransformerDir.args.value("typeTransformer") match {
                         case func: ExternalFunction => Some(func)
-                        case func: BuiltinFunction  => Some(func)
                         case pvalue => {
                           val found = displayPType(pvalue.ptype)
                           val required =
@@ -289,7 +289,12 @@ object PostgresMigrationEngine {
       t: Transactor[M],
       st: SyntaxTree,
       queryEngine: PostgresQueryEngine[M]
-  )(implicit bracket: Bracket[M, Throwable], cs: ContextShift[M]) =
+  )(
+      implicit bracket: Bracket[M, Throwable],
+      cs: ContextShift[M],
+      MError: MonadError[M, Throwable],
+      async: Async[M]
+  ) =
     new PostgresMigrationEngine[M](t, SyntaxTree.empty, st, queryEngine)
 }
 

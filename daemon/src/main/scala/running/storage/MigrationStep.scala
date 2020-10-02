@@ -44,5 +44,5 @@ case class ChangeManyFieldTypes(
 case class ChangeFieldType(
     field: PModelField,
     newType: PType,
-    transformer: Option[PFunctionValue[JsValue, Try[JsValue]]]
+    transformer: Option[PFunctionValue]
 )
