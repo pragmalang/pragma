@@ -2,7 +2,6 @@ package running.storage
 
 import running.operations._
 import spray.json._
-import scala.util._
 import pragma.domain._
 import cats.Monad
 

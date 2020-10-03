@@ -1,23 +1,13 @@
 package setup.server
 
-import running.storage._, setup.schemaGenerator.ApiSchemaGenerator
-import pragma.domain._, DomainImplicits._
-import pragma.domain.utils.UserError
-import cats.Monad
-
-import scala.util._, scala.io.StdIn
-import pragma.domain._, pragma.domain.utils._
-import org.parboiled2.Position
 import running._
-import org.parboiled2.ParseError
-import cats.effect._, cats.implicits._
+import cats.implicits._
 import doobie._, doobie.hikari._
-import running.storage.postgres._
 import org.http4s.HttpRoutes
 import cats.effect._
 import org.http4s._, org.http4s.dsl.io._
 import org.http4s.server.blaze._, org.http4s.server.Router
-import org.http4s.util._, org.http4s.implicits._, org.http4s.server.middleware._
+import org.http4s.implicits._, org.http4s.server.middleware._
 import scala.concurrent.ExecutionContext.global
 import spray.json._
 import setup.server.implicits._

@@ -16,23 +16,19 @@ import running.storage._
 import SQLMigrationStep._
 
 import pragma.domain._
-import scala.util.Success
-import scala.util.Failure
 import spray.json.JsValue
-import scala.util.Try
 import pragma.domain.utils.typeCheckJson
 import cats.effect._
 import spray.json._
 import cats._
 import running.PFunctionExecutor
-import doobie.free.Embedded.Connection
 
 case class PostgresMigration[M[_]: Monad: Async](
     private val unorderedSteps: Vector[MigrationStep],
     private val prevSyntaxTree: SyntaxTree,
     private val currentSyntaxTree: SyntaxTree,
     private val queryEngine: PostgresQueryEngine[M]
-)(implicit MError: MonadError[M, Throwable]) {
+) {
 
   lazy val unorderedSQLSteps =
     unorderedSteps.flatMap(fromMigrationStepToSqlMigrationSteps)
@@ -77,8 +73,7 @@ case class PostgresMigration[M[_]: Monad: Async](
   def run(
       transactor: Transactor[M]
   )(
-      implicit bracket: Bracket[M, Throwable],
-      cs: ContextShift[M]
+      implicit cs: ContextShift[M]
   ): M[Unit] = renderSQL match {
     case Some(sql) =>
       Fragment(sql, Nil).update.run.map(_ => ()).transact(transactor)

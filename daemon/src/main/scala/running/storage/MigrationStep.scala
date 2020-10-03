@@ -1,8 +1,6 @@
 package running.storage
 
 import pragma.domain._
-import spray.json.JsValue
-import scala.util.Try
 
 sealed trait MigrationStep
 

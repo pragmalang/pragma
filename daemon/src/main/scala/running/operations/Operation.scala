@@ -3,7 +3,6 @@ package running.operations
 import pragma.domain._
 import running._
 import spray.json._
-import scala.util.Try
 import cats.implicits._
 
 sealed trait Operation {

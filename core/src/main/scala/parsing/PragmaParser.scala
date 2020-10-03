@@ -2,8 +2,6 @@ package pragma.parsing
 
 import org.parboiled2._
 import pragma.domain._, utils.{Identifiable, UserError}
-import spray.json.JsValue
-import scala.util.{Try, Failure}
 import scala.language.implicitConversions
 
 object PragmaParser {

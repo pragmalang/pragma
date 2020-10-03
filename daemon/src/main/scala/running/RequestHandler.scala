@@ -8,7 +8,6 @@ import cats.implicits._
 import scala.util._
 import spray.json._
 import cats.effect.Async
-import cats.effect.IO
 
 class RequestHandler[S, M[_]: Async](
     syntaxTree: SyntaxTree,

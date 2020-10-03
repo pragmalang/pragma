@@ -1,11 +1,8 @@
 package pragma.domain
 
-import pragma.domain.utils._, pragma.domain.DomainImplicits._
+import pragma.domain.utils._
 import scala.util.matching.Regex
 import java.io.File
-import scala.util._
-import spray.json._
-import org.graalvm.polyglot
 
 sealed trait PValue {
   val ptype: PType

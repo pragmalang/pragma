@@ -2,11 +2,8 @@ package setup.server
 
 import doobie._
 import doobie.implicits._
-import cats._
 import cats.effect._
 import cats.implicits._
-import doobie.util.ExecutionContexts
-import spray.json._
 
 class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
 

@@ -2,8 +2,6 @@ package pragma.parsing
 
 import pragma.domain._
 import pragma.parsing.substitution.Substitutor
-import spray.json._
-import scala.util.Success
 import org.scalatest.flatspec.AnyFlatSpec
 
 class Substitution extends AnyFlatSpec {

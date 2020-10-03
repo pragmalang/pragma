@@ -1,7 +1,7 @@
 package pragma.domain
 
 import pragma.domain.utils._
-import pragma.parsing.{PragmaParser, Validator, substitution}
+import pragma.parsing.{PragmaParser, Validator}
 import pragma.parsing.substitution._
 import scala.util.Try
 

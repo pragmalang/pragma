@@ -19,9 +19,7 @@ class PostgresMigrationEngine[M[_]: Monad](
     currentSyntaxTree: SyntaxTree,
     queryEngine: PostgresQueryEngine[M]
 )(
-    implicit bracket: Bracket[M, Throwable],
-    cs: ContextShift[M],
-    MError: MonadError[M, Throwable],
+    implicit MError: MonadError[M, Throwable],
     async: Async[M]
 ) extends MigrationEngine[Postgres[M], M] {
 
@@ -47,7 +45,7 @@ class PostgresMigrationEngine[M[_]: Monad](
 
     for {
       thereExistData <- thereExistDataM
-      result <- migration(prevSyntaxTree, thereExistData)
+      _ <- migration(prevSyntaxTree, thereExistData)
     } yield ()
   }
 
@@ -285,17 +283,11 @@ class PostgresMigrationEngine[M[_]: Monad](
 }
 
 object PostgresMigrationEngine {
-  def initialMigration[M[_]: Monad](
+  def initialMigration[M[_]: Async](
       t: Transactor[M],
       st: SyntaxTree,
       queryEngine: PostgresQueryEngine[M]
-  )(
-      implicit bracket: Bracket[M, Throwable],
-      cs: ContextShift[M],
-      MError: MonadError[M, Throwable],
-      async: Async[M]
-  ) =
-    new PostgresMigrationEngine[M](t, SyntaxTree.empty, st, queryEngine)
+  ) = new PostgresMigrationEngine[M](t, SyntaxTree.empty, st, queryEngine)
 }
 
 /**

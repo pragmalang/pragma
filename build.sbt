@@ -5,12 +5,25 @@ ThisBuild / organizationName := "pragma"
 
 import Dependencies._
 
+lazy val commonScalacOptions = Seq(
+  "-feature",
+  "-deprecation",
+  "-Wunused:imports,patvars,privates,locals,explicits,implicits,params",
+  "-Xlint",
+  "-explaintypes",
+  "-Wdead-code",
+  "-Wextra-implicit",
+  "-Wnumeric-widen",
+  "-Wself-implicit"
+)
+
 lazy val core = (project in file("core"))
   .settings(
     name := "core",
     maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
     packageSummary := "Core abstractions used by other Pragma modules",
     packageDescription := "See https://docs.pragmalang.com for details.",
+    scalacOptions := commonScalacOptions,
     libraryDependencies ++= testDependencies ++ Seq(cats, spray, parboiled)
   )
 
@@ -20,6 +33,7 @@ lazy val daemon = (project in file("daemon"))
     maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
     packageSummary := "The daemon for Pragmalang",
     packageDescription := "See https://docs.pragmalang.com for details.",
+    scalacOptions := commonScalacOptions,
     libraryDependencies ++= testDependencies ++ Seq(
       cats,
       catsEffect,
@@ -48,23 +62,12 @@ lazy val pragmaCLI = (project in file("cli"))
     maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
     packageSummary := "The CLI for Pragmalang",
     packageDescription := "See https://docs.pragmalang.com for details.",
+    scalacOptions := commonScalacOptions,
     libraryDependencies ++= testDependencies ++ Seq(scopt, osLib, catsEffect),
     mainClass in assembly := Some("com.pragmalang.Main"),
     test in assembly := {}
   )
   .dependsOn(core)
-
-scalacOptions ++= Seq(
-  "-feature",
-  "-deprecation",
-  "-Wunused:imports,patvars,privates,locals,explicits,implicits,params",
-  "-Xlint",
-  "-explaintypes",
-  "-Wdead-code",
-  "-Wextra-implicit",
-  "-Wnumeric-widen",
-  "-Wself-implicit"
-)
 
 // To suppress warnings in `sbt console`
 scalacOptions in (Compile, console) := Seq.empty

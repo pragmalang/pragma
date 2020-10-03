@@ -4,7 +4,6 @@ import pragma.domain._, utils._
 import running.operations._, running.storage._
 import spray.json._
 import running.JwtPayload
-import scala.util._
 import cats.Monad
 import cats.implicits._
 import cats.MonadError
