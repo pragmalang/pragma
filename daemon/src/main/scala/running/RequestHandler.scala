@@ -13,10 +13,11 @@ import cats.effect.ConcurrentEffect
 
 class RequestHandler[S, M[_]: Async: ConcurrentEffect](
     syntaxTree: SyntaxTree,
-    storage: Storage[S, M]
+    storage: Storage[S, M],
+    funcExecutor: PFunctionExecutor[M]
 )(implicit MError: MonadError[M, Throwable]) {
   val reqValidator = new RequestValidator(syntaxTree)
-  val authorizer = new Authorizer[S, M](syntaxTree, storage)
+  val authorizer = new Authorizer[S, M](syntaxTree, storage, funcExecutor)
   val opParser = new OperationParser(syntaxTree)
 
   def handle(req: Request): M[JsObject] = {
@@ -138,7 +139,7 @@ class RequestHandler[S, M[_]: Async: ConcurrentEffect](
   ): M[JsValue] =
     hooks.foldLeft(arg.pure[M]) {
       case (acc, hook) =>
-        acc.flatMap(a => PFunctionExecutor.execute[M](hook, a :: Nil))
+        acc.flatMap(a => funcExecutor.execute(hook, a :: Nil))
     }
 
   /** Apples crud hooks to operation arguments */

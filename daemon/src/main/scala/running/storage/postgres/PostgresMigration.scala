@@ -31,7 +31,8 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
     private val unorderedSteps: Vector[MigrationStep],
     private val prevSyntaxTree: SyntaxTree,
     private val currentSyntaxTree: SyntaxTree,
-    private val queryEngine: PostgresQueryEngine[M]
+    private val queryEngine: PostgresQueryEngine[M],
+    private val funcExecutor: PFunctionExecutor[M]
 )(implicit MError: MonadError[M, Throwable]) {
 
   lazy val unorderedSQLSteps =
@@ -100,7 +101,8 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
                 CreateModel(tempTableModelDef),
                 prevSyntaxTree,
                 currentSyntaxTree,
-                queryEngine
+                queryEngine,
+                funcExecutor
               )
 
             val stream: fs2.Stream[ConnectionIO, M[Unit]] =
@@ -118,8 +120,8 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
                     .collect { (change: ChangeFieldType) =>
                       change.transformer match {
                         case Some(transformer) =>
-                          PFunctionExecutor
-                            .execute[M](
+                          funcExecutor
+                            .execute(
                               transformer,
                               row.fields(change.field.id) :: Nil
                             )
@@ -187,13 +189,15 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
               DeleteModel(prevModel),
               prevSyntaxTree,
               currentSyntaxTree,
-              queryEngine
+              queryEngine,
+              funcExecutor
             )
             val renameNewTable = PostgresMigration[M](
               RenameModel(tempTableName, prevModel.id),
               prevSyntaxTree,
               currentSyntaxTree,
-              queryEngine
+              queryEngine,
+              funcExecutor
             )
 
             createTempTable.run(transactor) *>
@@ -335,13 +339,15 @@ object PostgresMigration {
       step: MigrationStep,
       prevSyntaxTree: SyntaxTree,
       currentSyntaxTree: SyntaxTree,
-      queryEngine: PostgresQueryEngine[M]
+      queryEngine: PostgresQueryEngine[M],
+      funcExecutor: PFunctionExecutor[M]
   ): PostgresMigration[M] =
     PostgresMigration(
       Vector(step),
       prevSyntaxTree,
       currentSyntaxTree,
-      queryEngine
+      queryEngine,
+      funcExecutor
     )
 }
 

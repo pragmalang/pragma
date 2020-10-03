@@ -12,12 +12,14 @@ import doobie.util.transactor.Transactor
 import cats.effect._
 import doobie.implicits._
 import doobie.util.fragment.Fragment
+import running.PFunctionExecutor
 
 class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
     transactor: Transactor[M],
     prevSyntaxTree: SyntaxTree,
     currentSyntaxTree: SyntaxTree,
-    queryEngine: PostgresQueryEngine[M]
+    queryEngine: PostgresQueryEngine[M],
+    funcExecutor: PFunctionExecutor[M]
 )(
     implicit bracket: Bracket[M, Throwable],
     cs: ContextShift[M],
@@ -65,7 +67,8 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
           steps,
           prevTree,
           currentSyntaxTree,
-          queryEngine
+          queryEngine,
+          funcExecutor
         ).pure[M]
     }
 
@@ -288,14 +291,21 @@ object PostgresMigrationEngine {
   def initialMigration[M[_]: Monad: ConcurrentEffect](
       t: Transactor[M],
       st: SyntaxTree,
-      queryEngine: PostgresQueryEngine[M]
+      queryEngine: PostgresQueryEngine[M],
+      funcExecutor: PFunctionExecutor[M]
   )(
       implicit bracket: Bracket[M, Throwable],
       cs: ContextShift[M],
       MError: MonadError[M, Throwable],
       async: Async[M]
   ) =
-    new PostgresMigrationEngine[M](t, SyntaxTree.empty, st, queryEngine)
+    new PostgresMigrationEngine[M](
+      t,
+      SyntaxTree.empty,
+      st,
+      queryEngine,
+      funcExecutor
+    )
 }
 
 /**

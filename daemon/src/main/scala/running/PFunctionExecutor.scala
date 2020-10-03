@@ -14,19 +14,23 @@ import org.http4s.implicits._
 import org.http4s.headers._
 import org.http4s.MediaType
 
-object PFunctionExecutor {
-  def execute[M[_]: Monad: Async: ConcurrentEffect](
+case class PFunctionExecutor[M[_]: Monad: Async: ConcurrentEffect](
+    config: Config
+) {
+  def execute(
       function: PFunctionValue,
       argList: List[JsValue]
   ): M[JsValue] = {
     val clientResource = BlazeClientBuilder[M](global).resource
 
     clientResource.use { client =>
-      val namespace: String = ???
-      val actionName: String = ???
-      val wskApiVersion: Int = ???
+      val wskApiVersion: Int = config.wskApiVersion
 
-      val wskApiUri = uri"https://localhost:2345/api" / s"v$wskApiVersion"
+      val wskApiUri = config.wskApiHost / s"v$wskApiVersion"
+
+      val namespace: String = config.projectId.toString()
+
+      val actionName: String = function.id
 
       val actionEndpoint =
         (wskApiUri / "namespaces" / namespace / "actions" / actionName)
@@ -53,3 +57,5 @@ object PFunctionExecutor {
     }
   }
 }
+
+case class Config(wskApiVersion: Int, projectId: Int, wskApiHost: Uri)

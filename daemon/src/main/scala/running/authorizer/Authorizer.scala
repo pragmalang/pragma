@@ -14,7 +14,8 @@ import cats.effect.ConcurrentEffect
 
 class Authorizer[S, M[_]: Async: ConcurrentEffect](
     syntaxTree: SyntaxTree,
-    storage: Storage[S, M]
+    storage: Storage[S, M],
+    funcExecutor: PFunctionExecutor[M]
 )(implicit MError: MonadError[M, Throwable]) {
 
   val permissionTree = new PermissionTree(syntaxTree)
@@ -114,8 +115,8 @@ class Authorizer[S, M[_]: Async: ConcurrentEffect](
     case None => true.pure[M]
     case Some(predicate) => {
       val predicateResult =
-        PFunctionExecutor
-          .execute[M](predicate, userObject :: Nil)
+        funcExecutor
+          .execute(predicate, userObject :: Nil)
           .map {
             case JsTrue => true
             case _      => false
