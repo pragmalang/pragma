@@ -13,7 +13,7 @@ import cats.effect._
 import doobie.implicits._
 import doobie.util.fragment.Fragment
 
-class PostgresMigrationEngine[M[_]: Monad](
+class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
     transactor: Transactor[M],
     prevSyntaxTree: SyntaxTree,
     currentSyntaxTree: SyntaxTree,
@@ -285,7 +285,7 @@ class PostgresMigrationEngine[M[_]: Monad](
 }
 
 object PostgresMigrationEngine {
-  def initialMigration[M[_]: Monad](
+  def initialMigration[M[_]: Monad: ConcurrentEffect](
       t: Transactor[M],
       st: SyntaxTree,
       queryEngine: PostgresQueryEngine[M]

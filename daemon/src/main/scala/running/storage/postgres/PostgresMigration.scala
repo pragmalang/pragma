@@ -27,7 +27,7 @@ import cats._
 import running.PFunctionExecutor
 import doobie.free.Embedded.Connection
 
-case class PostgresMigration[M[_]: Monad: Async](
+case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
     private val unorderedSteps: Vector[MigrationStep],
     private val prevSyntaxTree: SyntaxTree,
     private val currentSyntaxTree: SyntaxTree,
@@ -331,7 +331,7 @@ case class PostgresMigration[M[_]: Monad: Async](
 }
 
 object PostgresMigration {
-  def apply[M[_]: Monad: Async](
+  def apply[M[_]: Monad: Async: ConcurrentEffect](
       step: MigrationStep,
       prevSyntaxTree: SyntaxTree,
       currentSyntaxTree: SyntaxTree,

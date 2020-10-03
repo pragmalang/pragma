@@ -10,8 +10,9 @@ import cats.implicits._
 import cats.MonadError
 import running.PFunctionExecutor
 import cats.effect.Async
+import cats.effect.ConcurrentEffect
 
-class Authorizer[S, M[_]: Async](
+class Authorizer[S, M[_]: Async: ConcurrentEffect](
     syntaxTree: SyntaxTree,
     storage: Storage[S, M]
 )(implicit MError: MonadError[M, Throwable]) {

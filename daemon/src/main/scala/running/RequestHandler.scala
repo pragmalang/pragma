@@ -9,8 +9,9 @@ import scala.util._
 import spray.json._
 import cats.effect.Async
 import cats.effect.IO
+import cats.effect.ConcurrentEffect
 
-class RequestHandler[S, M[_]: Async](
+class RequestHandler[S, M[_]: Async: ConcurrentEffect](
     syntaxTree: SyntaxTree,
     storage: Storage[S, M]
 )(implicit MError: MonadError[M, Throwable]) {
@@ -137,7 +138,7 @@ class RequestHandler[S, M[_]: Async](
   ): M[JsValue] =
     hooks.foldLeft(arg.pure[M]) {
       case (acc, hook) =>
-        acc.flatMap(a => PFunctionExecutor.execute(hook, a :: Nil))
+        acc.flatMap(a => PFunctionExecutor.execute[M](hook, a :: Nil))
     }
 
   /** Apples crud hooks to operation arguments */
