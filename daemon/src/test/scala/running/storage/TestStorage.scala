@@ -1,10 +1,11 @@
 package running.storage
 
 import pragma.domain.SyntaxTree
-import running.storage.postgres._
+import running._, running.storage.postgres._
 import cats.effect._
 import doobie._
 import running.JwtCodec
+import org.http4s.Uri
 
 class TestStorage(st: SyntaxTree) {
   implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
@@ -20,6 +21,19 @@ class TestStorage(st: SyntaxTree) {
   )
 
   val queryEngine = new PostgresQueryEngine(t, st, jc)
-  val migrationEngine = PostgresMigrationEngine.initialMigration[IO](t, st, queryEngine)
+  val migrationEngine = PostgresMigrationEngine.initialMigration[IO](
+    t,
+    st,
+    queryEngine,
+    new PFunctionExecutor[IO](
+      WskConfig(
+        1,
+        1,
+        Uri
+          .fromString("http://localhost/")
+          .getOrElse(throw new Exception("Invalid WSK host URI"))
+      )
+    )
+  )
   val storage = new Postgres[IO](migrationEngine, queryEngine)
 }

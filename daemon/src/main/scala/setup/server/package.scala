@@ -43,8 +43,8 @@ object SetupServer extends IOApp {
           }
         }
         case req @ POST -> Root / "project" / "migrate"                   => ???
-        case req @ GET -> Root / "project" / "start-server" / projectId   => ???
-        case req @ GET -> Root / "project" / "restart-server" / projectId => ???
+        case req @ POST -> Root / "project" / "start-server" / projectId  => ???
+        case req @ PUT -> Root / "project" / "restart-server" / projectId => ???
       }
     }
   }

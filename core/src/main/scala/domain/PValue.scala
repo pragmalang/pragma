@@ -41,6 +41,7 @@ case class PInterfaceValue(value: Map[String, PValue], ptype: PInterface)
     extends PValue
 
 trait PFunctionValue extends PValue {
+  val id: String
   val ptype = PAny
 }
 

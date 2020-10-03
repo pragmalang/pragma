@@ -20,7 +20,8 @@ import sangria.schema.Schema, sangria.execution.Executor
 class Server(
     jwtCodec: JwtCodec,
     storage: Postgres[IO],
-    currentSyntaxTree: SyntaxTree
+    currentSyntaxTree: SyntaxTree,
+    funcExecutor: PFunctionExecutor[IO]
 )(implicit cs: ContextShift[IO], t: Timer[IO]) {
   import Server._
 
@@ -30,7 +31,11 @@ class Server(
     )
 
   val reqHandler =
-    new RequestHandler[Postgres[IO], IO](currentSyntaxTree, storage)
+    new RequestHandler[Postgres[IO], IO](
+      currentSyntaxTree,
+      storage,
+      funcExecutor
+    )
 
   val routes =
     HttpRoutes.of[IO] {

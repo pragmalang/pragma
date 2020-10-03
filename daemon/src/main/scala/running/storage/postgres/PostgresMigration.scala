@@ -23,11 +23,12 @@ import spray.json._
 import cats._
 import running.PFunctionExecutor
 
-case class PostgresMigration[M[_]: Monad: Async](
+case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
     private val unorderedSteps: Vector[MigrationStep],
     private val prevSyntaxTree: SyntaxTree,
     private val currentSyntaxTree: SyntaxTree,
-    private val queryEngine: PostgresQueryEngine[M]
+    private val queryEngine: PostgresQueryEngine[M],
+    private val funcExecutor: PFunctionExecutor[M]
 ) {
 
   lazy val unorderedSQLSteps =
@@ -95,7 +96,8 @@ case class PostgresMigration[M[_]: Monad: Async](
                 CreateModel(tempTableModelDef),
                 prevSyntaxTree,
                 currentSyntaxTree,
-                queryEngine
+                queryEngine,
+                funcExecutor
               )
 
             val stream: fs2.Stream[ConnectionIO, M[Unit]] =
@@ -113,8 +115,8 @@ case class PostgresMigration[M[_]: Monad: Async](
                     .collect { (change: ChangeFieldType) =>
                       change.transformer match {
                         case Some(transformer) =>
-                          PFunctionExecutor
-                            .execute[M](
+                          funcExecutor
+                            .execute(
                               transformer,
                               row.fields(change.field.id) :: Nil
                             )
@@ -182,13 +184,15 @@ case class PostgresMigration[M[_]: Monad: Async](
               DeleteModel(prevModel),
               prevSyntaxTree,
               currentSyntaxTree,
-              queryEngine
+              queryEngine,
+              funcExecutor
             )
             val renameNewTable = PostgresMigration[M](
               RenameModel(tempTableName, prevModel.id),
               prevSyntaxTree,
               currentSyntaxTree,
-              queryEngine
+              queryEngine,
+              funcExecutor
             )
 
             createTempTable.run(transactor) *>
@@ -326,17 +330,19 @@ case class PostgresMigration[M[_]: Monad: Async](
 }
 
 object PostgresMigration {
-  def apply[M[_]: Monad: Async](
+  def apply[M[_]: Monad: Async: ConcurrentEffect](
       step: MigrationStep,
       prevSyntaxTree: SyntaxTree,
       currentSyntaxTree: SyntaxTree,
-      queryEngine: PostgresQueryEngine[M]
+      queryEngine: PostgresQueryEngine[M],
+      funcExecutor: PFunctionExecutor[M]
   ): PostgresMigration[M] =
     PostgresMigration(
       Vector(step),
       prevSyntaxTree,
       currentSyntaxTree,
-      queryEngine
+      queryEngine,
+      funcExecutor
     )
 }
 

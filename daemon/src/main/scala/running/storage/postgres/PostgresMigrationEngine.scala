@@ -12,15 +12,16 @@ import doobie.util.transactor.Transactor
 import cats.effect._
 import doobie.implicits._
 import doobie.util.fragment.Fragment
+import running.PFunctionExecutor
 
-class PostgresMigrationEngine[M[_]: Monad](
+class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
     transactor: Transactor[M],
     prevSyntaxTree: SyntaxTree,
     currentSyntaxTree: SyntaxTree,
-    queryEngine: PostgresQueryEngine[M]
+    queryEngine: PostgresQueryEngine[M],
+    funcExecutor: PFunctionExecutor[M]
 )(
-    implicit MError: MonadError[M, Throwable],
-    async: Async[M]
+    implicit MError: MonadError[M, Throwable]
 ) extends MigrationEngine[Postgres[M], M] {
 
   override def migrate: M[Unit] = {
@@ -63,7 +64,8 @@ class PostgresMigrationEngine[M[_]: Monad](
           steps,
           prevTree,
           currentSyntaxTree,
-          queryEngine
+          queryEngine,
+          funcExecutor
         ).pure[M]
     }
 
@@ -283,11 +285,19 @@ class PostgresMigrationEngine[M[_]: Monad](
 }
 
 object PostgresMigrationEngine {
-  def initialMigration[M[_]: Async](
+  def initialMigration[M[_]: Monad: ConcurrentEffect](
       t: Transactor[M],
       st: SyntaxTree,
-      queryEngine: PostgresQueryEngine[M]
-  ) = new PostgresMigrationEngine[M](t, SyntaxTree.empty, st, queryEngine)
+      queryEngine: PostgresQueryEngine[M],
+      funcExecutor: PFunctionExecutor[M]
+  ) =
+    new PostgresMigrationEngine[M](
+      t,
+      SyntaxTree.empty,
+      st,
+      queryEngine,
+      funcExecutor
+    )
 }
 
 /**

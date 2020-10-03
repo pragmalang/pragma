@@ -8,6 +8,8 @@ import scala.util._
 import cats.implicits._
 import org.scalatest._
 import flatspec.AnyFlatSpec
+import org.http4s.Uri
+import cats.effect.IO
 
 class Authorization extends AnyFlatSpec {
   "Authorizer" should "authorize requests correctly" in {
@@ -35,7 +37,17 @@ class Authorization extends AnyFlatSpec {
       .run(t)
       .unsafeRunSync()
 
-    val authorizer = new Authorizer(syntaxTree, testStorage.storage)
+    val authorizer = new Authorizer(
+      syntaxTree,
+      testStorage.storage,
+      new PFunctionExecutor[IO](
+        WskConfig(
+          1,
+          1,
+          Uri.fromString("http://localhost/").getOrElse(fail("Invalid URI"))
+        )
+      )
+    )
 
     val req = Request(
       None,
@@ -173,7 +185,17 @@ class Authorization extends AnyFlatSpec {
       hostname = ""
     )
 
-    val authorizer = new Authorizer(syntaxTree, testStorage.storage)
+    val authorizer = new Authorizer(
+      syntaxTree,
+      testStorage.storage,
+      new PFunctionExecutor[IO](
+        WskConfig(
+          1,
+          1,
+          Uri.fromString("http://localhost/").getOrElse(fail("Invalid URI"))
+        )
+      )
+    )
 
     val withoutRoleOps = opParser.parse(reqWithoutRole)
     val withRoleOps = opParser.parse(reqWithRole)
