@@ -24,6 +24,7 @@ lazy val core = (project in file("core"))
     packageSummary := "Core abstractions used by other Pragma modules",
     packageDescription := "See https://docs.pragmalang.com for details.",
     scalacOptions := commonScalacOptions,
+    scalacOptions in (Compile, console) := Seq.empty,
     libraryDependencies ++= testDependencies ++ Seq(cats, spray, parboiled)
   )
 
@@ -34,6 +35,7 @@ lazy val daemon = (project in file("daemon"))
     packageSummary := "The daemon for Pragmalang",
     packageDescription := "See https://docs.pragmalang.com for details.",
     scalacOptions := commonScalacOptions,
+    scalacOptions in (Compile, console) := Seq.empty,
     libraryDependencies ++= testDependencies ++ Seq(
       cats,
       catsEffect,
@@ -63,14 +65,12 @@ lazy val pragmaCLI = (project in file("cli"))
     packageSummary := "The CLI for Pragmalang",
     packageDescription := "See https://docs.pragmalang.com for details.",
     scalacOptions := commonScalacOptions,
+    scalacOptions in (Compile, console) := Seq.empty,
     libraryDependencies ++= testDependencies ++ Seq(scopt, osLib, catsEffect),
     mainClass in assembly := Some("com.pragmalang.Main"),
     test in assembly := {}
   )
   .dependsOn(core)
-
-// To suppress warnings in `sbt console`
-scalacOptions in (Compile, console) := Seq.empty
 
 /*
   GraalVM Native Image Generation:
