@@ -118,7 +118,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
                           funcExecutor
                             .execute(
                               transformer,
-                              row.fields(change.field.id) :: Nil
+                              row.fields(change.field.id)
                             )
                             .map(result => change -> result)
                             .widen[(ChangeFieldType, JsValue)]

@@ -138,7 +138,7 @@ class RequestHandler[S, M[_]: Async: ConcurrentEffect](
   ): M[JsValue] =
     hooks.foldLeft(arg.pure[M]) {
       case (acc, hook) =>
-        acc.flatMap(a => funcExecutor.execute(hook, a :: Nil))
+        acc.flatMap(a => funcExecutor.execute(hook, a))
     }
 
   /** Apples crud hooks to operation arguments */

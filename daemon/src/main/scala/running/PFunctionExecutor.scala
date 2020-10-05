@@ -9,13 +9,14 @@ import cats.effect.ConcurrentEffect
 import org.http4s._, EntityDecoder.byteArrayDecoder
 import org.http4s.headers._
 import org.http4s.MediaType
+import running.utils.QueryError
 
 class PFunctionExecutor[M[_]: ConcurrentEffect](config: WskConfig) {
   private val clientResource = BlazeClientBuilder[M](global).resource
 
   def execute(
       function: PFunctionValue,
-      argList: List[JsValue]
+      args: JsValue
   ): M[JsValue] = {
     clientResource.use { client =>
       val wskApiVersion: Int = config.wskApiVersion
@@ -31,7 +32,9 @@ class PFunctionExecutor[M[_]: ConcurrentEffect](config: WskConfig) {
           .withQueryParam(key = "blocking", value = true)
           .withQueryParam(key = "result", value = true)
 
-      val actionArgs = JsObject.empty
+      val actionArgs = JsObject(
+        "data" -> args
+      )
 
       val request = Request[M]()
         .withUri(actionEndpoint)
@@ -46,7 +49,12 @@ class PFunctionExecutor[M[_]: ConcurrentEffect](config: WskConfig) {
       for {
         bytes <- client.expect(request)(byteArrayDecoder)
         stringResult = bytes.toVector.map(_.toChar).foldLeft("")(_ + _)
-        jsonResult = stringResult.parseJson
+        jsonResult <- stringResult.parseJson.asJsObject.fields
+          .get("data") match {
+          case Some(value) => value.pure[M]
+          case None =>
+            implicitly[ConcurrentEffect[M]].raiseError[JsValue](QueryError(""))
+        }
       } yield jsonResult
     }
   }
