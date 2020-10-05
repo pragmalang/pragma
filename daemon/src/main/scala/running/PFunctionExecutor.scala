@@ -27,10 +27,15 @@ class PFunctionExecutor[M[_]: ConcurrentEffect](config: WskConfig) {
 
       val actionName: String = function.id
 
+      val wskCredentials =
+        BasicCredentials(config.wskUsername, config.wskPassword)
+
       val actionEndpoint =
         (wskApiUri / "namespaces" / namespace / "actions" / actionName)
           .withQueryParam(key = "blocking", value = true)
           .withQueryParam(key = "result", value = true)
+
+      val `application/json` = MediaType.application.json
 
       val actionArgs = JsObject(
         "data" -> args
@@ -39,7 +44,8 @@ class PFunctionExecutor[M[_]: ConcurrentEffect](config: WskConfig) {
       val request = Request[M]()
         .withUri(actionEndpoint)
         .withMethod(Method.POST)
-        .withContentType(`Content-Type`(MediaType.application.json))
+        .withHeaders(Authorization(wskCredentials))
+        .withContentType(`Content-Type`(`application/json`))
         .withBodyStream {
           fs2.Stream
             .fromIterator(actionArgs.compactPrint.iterator)
@@ -60,4 +66,10 @@ class PFunctionExecutor[M[_]: ConcurrentEffect](config: WskConfig) {
   }
 }
 
-case class WskConfig(wskApiVersion: Int, projectId: Int, wskApiHost: Uri)
+case class WskConfig(
+    wskApiVersion: Int,
+    projectId: Int,
+    wskApiHost: Uri,
+    wskUsername: String,
+    wskPassword: String
+)
