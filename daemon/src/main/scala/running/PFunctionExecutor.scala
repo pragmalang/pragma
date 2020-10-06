@@ -23,12 +23,12 @@ class PFunctionExecutor[M[_]: ConcurrentEffect](config: WskConfig) {
 
       val wskApiUri = config.wskApiHost / s"v$wskApiVersion"
 
-      val namespace: String = config.projectId.toString()
+      val namespace: String = config.projectName
 
       val actionName: String = function.id
 
       val wskCredentials =
-        BasicCredentials(config.wskUsername, config.wskPassword)
+        BasicCredentials(config.wskAuthToken)
 
       val actionEndpoint =
         (wskApiUri / "namespaces" / namespace / "actions" / actionName)
@@ -68,8 +68,7 @@ class PFunctionExecutor[M[_]: ConcurrentEffect](config: WskConfig) {
 
 case class WskConfig(
     wskApiVersion: Int,
-    projectId: Int,
+    projectName: String,
     wskApiHost: Uri,
-    wskUsername: String,
-    wskPassword: String
+    wskAuthToken: String
 )

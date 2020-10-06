@@ -96,12 +96,12 @@ class Server(
         ).pure[IO]
     }
 
-  val routesWithMiddleware = CORS(GZip(routes))
+  val handle = CORS(GZip(routes))
 
   def run: IO[ExitCode] =
     BlazeServerBuilder[IO](global)
       .bindHttp(3030, "localhost")
-      .withHttpApp(Router("/graphql" -> routesWithMiddleware).orNotFound)
+      .withHttpApp(Router("/graphql" -> handle).orNotFound)
       .serve
       .compile
       .drain

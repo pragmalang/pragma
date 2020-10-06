@@ -234,10 +234,11 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       new PFunctionExecutor[IO](
         WskConfig(
           1,
-          1,
+          "1",
           Uri
             .fromString("http://localhost/")
-            .getOrElse(fail("Invalid WSK host URI"))
+            .getOrElse(fail("Invalid WSK host URI")),
+          ""
         )
       )
     )

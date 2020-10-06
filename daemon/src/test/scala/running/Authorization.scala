@@ -43,8 +43,9 @@ class Authorization extends AnyFlatSpec {
       new PFunctionExecutor[IO](
         WskConfig(
           1,
-          1,
-          Uri.fromString("http://localhost/").getOrElse(fail("Invalid URI"))
+          "1",
+          Uri.fromString("http://localhost/").getOrElse(fail("Invalid URI")),
+          ""
         )
       )
     )
@@ -191,8 +192,9 @@ class Authorization extends AnyFlatSpec {
       new PFunctionExecutor[IO](
         WskConfig(
           1,
-          1,
-          Uri.fromString("http://localhost/").getOrElse(fail("Invalid URI"))
+          "1",
+          Uri.fromString("http://localhost/").getOrElse(fail("Invalid URI")),
+          ""
         )
       )
     )

@@ -28,10 +28,11 @@ class TestStorage(st: SyntaxTree) {
     new PFunctionExecutor[IO](
       WskConfig(
         1,
-        1,
+        "1",
         Uri
           .fromString("http://localhost/")
-          .getOrElse(throw new Exception("Invalid WSK host URI"))
+          .getOrElse(throw new Exception("Invalid WSK host URI")),
+        ""
       )
     )
   )

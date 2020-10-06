@@ -35,4 +35,7 @@ object Dependencies {
     "com.lihaoyi" %% "pprint" % "0.5.6" % Test,
     "org.tpolecat" %% "doobie-scalatest" % doobieVersion % Test
   )
+
+  lazy val kebsSprayJson = "pl.iterators" %% "kebs-spray-json" % "1.8.1"
+
 }

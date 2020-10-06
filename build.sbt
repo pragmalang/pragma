@@ -49,7 +49,8 @@ lazy val daemon = (project in file("daemon"))
       http4sDsl,
       http4sBlazeServer,
       http4sBlazeClient,
-      logbackClassic
+      logbackClassic,
+      kebsSprayJson
     ),
     mainClass in assembly := Some("com.pragmalang.Main"),
     test in assembly := {},
