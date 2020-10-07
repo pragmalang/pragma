@@ -1,0 +1,79 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+version: '3'
+services:
+  alarmsprovider:
+    image: ${DOCKER_IMAGE_PREFIX:-openwhisk}/alarmprovider
+    ports:
+      - "8081:8080"
+    links:
+      - db:db.docker
+      - apigateway:apigateway.docker
+      - redis:redis.docker
+    environment:
+      DB_PROTOCOL: http
+      DB_HOST: db.docker:5984
+      DB_USERNAME: whisk_admin
+      DB_PASSWORD: some_passw0rd
+      DB_PREFIX: ${OPEN_WHISK_DB_PREFIX:-local_}
+      HOST_MACHINE: ${HOST_MACHINE}
+      ROUTER_HOST: apigateway.docker
+      ENDPOINT_AUTH: ${ENDPOINT_AUTH}
+      REDIS_URL: redis://redis.docker:6379
+    volumes:
+      - ~/tmp/openwhisk/alarmsprovider:/logs
+  cloudantprovider:
+    image: ${DOCKER_IMAGE_PREFIX:-openwhisk}/cloudantprovider
+    ports:
+      - "8082:8080"
+    links:
+      - db:db.docker
+      - apigateway:apigateway.docker
+      - redis:redis.docker
+    environment:
+      DB_PROTOCOL: http
+      DB_HOST: db.docker:5984
+      DB_USERNAME: whisk_admin
+      DB_PASSWORD: some_passw0rd
+      DB_PREFIX: ${OPEN_WHISK_DB_PREFIX:-local_}
+      HOST_MACHINE: ${HOST_MACHINE}
+      ROUTER_HOST: apigateway.docker
+      ENDPOINT_AUTH: ${ENDPOINT_AUTH}
+      REDIS_URL: redis://redis.docker:6379
+    volumes:
+      - ~/tmp/openwhisk/cloudantprovider:/logs
+  kafkaprovider:
+    image: ${DOCKER_IMAGE_PREFIX:-openwhisk}/kafkaprovider
+    command: /bin/bash -c "cd KafkaFeedProvider && python -u app.py >> /logs/kafkaTrigger_logs.log 2>&1"
+    ports:
+      - "5000:5000"
+    links:
+      - db:db.docker
+      - apigateway:apigateway.docker
+      - redis:redis.docker
+    environment:
+      DB_URL: http://db.docker:5984
+      DB_USER: whisk_admin
+      DB_PASS: some_passw0rd
+      DB_PREFIX: ${OPEN_WHISK_DB_PREFIX:-local_}
+      LOCAL_DEV: "True"
+      HOST_MACHINE: ${HOST_MACHINE}
+      ROUTER_HOST: apigateway.docker
+      ENDPOINT_AUTH: ${ENDPOINT_AUTH}
+      REDIS_URL: redis://redis.docker:6379
+    volumes:
+      - ~/tmp/openwhisk/kafkaprovider:/logs

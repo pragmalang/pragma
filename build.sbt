@@ -28,6 +28,8 @@ lazy val core = (project in file("core"))
     libraryDependencies ++= testDependencies ++ Seq(cats, spray, parboiled)
   )
 
+import com.typesafe.sbt.packager.docker.DockerPermissionStrategy
+
 lazy val daemon = (project in file("daemon"))
   .settings(
     name := "pragmad",
@@ -52,12 +54,15 @@ lazy val daemon = (project in file("daemon"))
       logbackClassic,
       kebsSprayJson
     ),
-    mainClass in assembly := Some("com.pragmalang.Main"),
-    test in assembly := {},
+    dockerExposedPorts := Seq(3030, 3030),
+    version in Docker := "latest",
+    dockerExposedVolumes := Seq("/var/run/docker.sock"),
+    dockerPermissionStrategy := DockerPermissionStrategy.None,
+    daemonUser in Docker := "root",
     composeNoBuild := true
   )
   .dependsOn(core)
-  .enablePlugins(DockerComposePlugin, DockerPlugin)
+  .enablePlugins(DockerComposePlugin, JavaAppPackaging, DockerPlugin)
 
 lazy val pragmaCLI = (project in file("cli"))
   .settings(
@@ -67,9 +72,7 @@ lazy val pragmaCLI = (project in file("cli"))
     packageDescription := "See https://docs.pragmalang.com for details.",
     scalacOptions := commonScalacOptions,
     scalacOptions in (Compile, console) := Seq.empty,
-    libraryDependencies ++= testDependencies ++ Seq(scopt, osLib, catsEffect),
-    mainClass in assembly := Some("com.pragmalang.Main"),
-    test in assembly := {}
+    libraryDependencies ++= testDependencies ++ Seq(scopt, osLib, catsEffect)
   )
   .dependsOn(core)
 
