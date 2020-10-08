@@ -25,7 +25,7 @@ class RequestHandler[S, M[_]: Async: ConcurrentEffect](
         for {
           validationResult <- reqValidator(req).toEither
           reducedRequest = RequestReducer(validationResult)
-          ops <- opParser.parse(reducedRequest)(syntaxTree)
+          ops <- opParser.parse(reducedRequest)
         } yield ops
       ) match {
         case Left(err)    => MError.raiseError(err)

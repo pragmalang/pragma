@@ -107,83 +107,76 @@ object SetupServer extends IOApp {
   def bodyStream(s: String) =
     fs2.Stream.fromIterator[IO](s.getBytes().iterator)
 
-  def response(status: Status, body: JsValue) =
+  def response(status: Status, body: Option[JsValue] = None) =
     Response[IO](
       status,
       HttpVersion.`HTTP/1.1`,
       Headers(List(Header("Content-Type", "application/json"))),
-      body = bodyStream(body.prettyPrint)
+      body = body match {
+        case Some(body) => bodyStream(body.prettyPrint)
+        case None       => bodyStream("")
+      }
     )
 
-  // def migrate(
-  //     db: DaemonDB,
-  //     wskApiHost: Uri,
-  //     wskAuthToken: String,
-  //     wskApiVersion: Int,
-  //     projectPgUri: Uri,
-  //     projectPgUser: String,
-  //     projectPgPassword: String,
-  //     migration: MigrationInput,
-      
-  // ) =
-  //   (migration match {
-  //     case Some(value) => Success(value)
-  //     case None        => Failure(new Exception(""))
-  //   }) flatMap { mig =>
-  //     val jc = new JwtCodec(project.secret)
-  //     val firstSyntaxTree = SyntaxTree.from(mig.code)
-  //     val funcExecutor = new PFunctionExecutor[IO](
-  //       WskConfig(
-  //         wskApiVersion,
-  //         project.name,
-  //         wskApiHost,
-  //         wskAuthToken
-  //       )
-  //     )
+  def migrate(
+      projectName: String,
+      migration: MigrationInput,
+      wskApiHost: Uri,
+      wskAuthToken: String,
+      wskApiVersion: Int,
+      db: DaemonDB
+  ) =
+    db.getProject(projectName) flatMap { projectOption =>
+      val project = projectOption match {
+        case Some(value) => value
+        case None =>
+          throw new Exception(s"Project doesn't `$projectName` exist")
+      }
+      val prevSt =
+        SyntaxTree.from(project.migrationHistory.last.code).get
+      val currentSt =
+        SyntaxTree.from(migration.code).get
 
-  //     val transactor = for {
-  //       exCtx <- ExecutionContexts.fixedThreadPool[IO](
-  //         Runtime.getRuntime.availableProcessors * 10
-  //       )
-  //       blocker <- Blocker[IO]
-  //       transactor <- HikariTransactor.newHikariTransactor[IO](
-  //         "org.postgresql.Driver",
-  //         pgUri,
-  //         pgUser,
-  //         pgPassword,
-  //         exCtx,
-  //         blocker
-  //       )
-  //     } yield transactor
+      val jc = new JwtCodec(project.secret)
+      val funcExecutor = new PFunctionExecutor[IO](
+        WskConfig(
+          wskApiVersion,
+          project.name,
+          wskApiHost,
+          wskAuthToken
+        )
+      )
 
-  //     for {
-  //       st <- firstSyntaxTree
-  //       storage = buildStorage(
-  //         SyntaxTree.empty,
-  //         st,
-  //         transactor,
-  //         jc,
-  //         funcExecutor
-  //       )
-  //       server = storage.use[IO, Server] { s =>
-  //         new Server(jc, s, st, funcExecutor).pure[IO]
-  //       }
-  //       _ = server.map { server =>
-  //         projectServers.addOne(project.name -> server)
-  //       }
-  //     } yield ()
-  //   } match {
-  //     case Failure(exception) =>
-  //       response(
-  //         Status.BadRequest,
-  //         exception.getMessage().toJson
-  //       ).pure[IO]
-  //     case Success(_) =>
-  //       response(
-  //         Status.Ok,
-  //         s"Project `${project.name}` created!".toJson
-  //       ).pure[IO]
-  //   }
+      val transactor = for {
+        exCtx <- ExecutionContexts.fixedThreadPool[IO](
+          Runtime.getRuntime.availableProcessors * 10
+        )
+        blocker <- Blocker[IO]
+        transactor <- HikariTransactor.newHikariTransactor[IO](
+          "org.postgresql.Driver",
+          project.pgUri,
+          project.pgUser,
+          project.pgPassword,
+          exCtx,
+          blocker
+        )
+      } yield transactor
+
+      val storage = buildStorage(
+        prevSt,
+        currentSt,
+        transactor,
+        jc,
+        funcExecutor
+      )
+      val server = storage.use[IO, Server] { s =>
+        new Server(jc, s, currentSt, funcExecutor).pure[IO]
+      }
+
+      server.map { server =>
+        projectServers.addOne(project.name -> server)
+      }.void
+    }
 
   def routes(
       db: DaemonDB,
@@ -203,76 +196,18 @@ object SetupServer extends IOApp {
 
           for {
             project <- project
-            _ <- db.runQuery(db.createProject(project))
-            addServer <- (project.currentMigration match {
-              case Some(value) => Success(value)
-              case None        => Failure(new Exception(""))
-            }) flatMap { mig =>
-              val jc = new JwtCodec(project.secret)
-              val firstSyntaxTree = SyntaxTree.from(mig.code)
-              val funcExecutor = new PFunctionExecutor[IO](
-                WskConfig(
-                  wskApiVersion,
-                  project.name,
-                  wskApiHost,
-                  wskAuthToken
-                )
-              )
-
-              val transactor = for {
-                exCtx <- ExecutionContexts.fixedThreadPool[IO](
-                  Runtime.getRuntime.availableProcessors * 10
-                )
-                blocker <- Blocker[IO]
-                transactor <- HikariTransactor.newHikariTransactor[IO](
-                  "org.postgresql.Driver",
-                  project.pgUri,
-                  project.pgUser,
-                  project.pgPassword,
-                  exCtx,
-                  blocker
-                )
-              } yield transactor
-
-              for {
-                st <- firstSyntaxTree
-                storage = buildStorage(
-                  SyntaxTree.empty,
-                  st,
-                  transactor,
-                  jc,
-                  funcExecutor
-                )
-                server = storage.use[IO, Server] { s =>
-                  new Server(jc, s, st, funcExecutor).pure[IO]
-                }
-                _ = server.map { server =>
-                  projectServers.addOne(project.name -> server)
-                }
-              } yield ()
-            } match {
-              case Failure(exception) =>
-                response(
-                  Status.BadRequest,
-                  exception.getMessage().toJson
-                ).pure[IO]
-              case Success(_) =>
-                response(
-                  Status.Ok,
-                  s"Project `${project.name}` created!".toJson
-                ).pure[IO]
-            }
-          } yield addServer
+            _ <- db.createProject(project)
+          } yield response(Status.Ok)
         }
         case req @ POST -> Root / "project" / "migrate" / projectName => ???
-        case req @ POST -> Root / "project" / projectName => {
+        case req @ POST -> Root / "project" / projectName / "graphql" => {
 
           val projectServerNotFound =
             response(
               Status.NotFound,
-              s"Project ${projectName} doesn't exist".toJson
+              s"Project ${projectName} doesn't exist".toJson.some
             )
-          val notFound404 = response(Status.NotFound, JsNull)
+          val notFound404 = response(Status.NotFound)
 
           projectServers.get(projectName) match {
             case Some(server) =>

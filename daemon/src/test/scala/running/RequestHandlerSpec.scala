@@ -56,7 +56,7 @@ class RequestHandlerSpec extends AnyFlatSpec {
   )
 
   "RequestHandler" should "execute write hooks correctly" in {
-    val req = bareReqFrom {
+    val req = Request.bareReqFrom {
       gql"""
       mutation createFathi {
         user: RH_User {
@@ -105,7 +105,7 @@ class RequestHandlerSpec extends AnyFlatSpec {
   }
 
   "Request handler" should "apply read hooks correctly" in {
-    val req = bareReqFrom {
+    val req = Request.bareReqFrom {
       gql"""
       query readGetPizza {
         RH_Todo {

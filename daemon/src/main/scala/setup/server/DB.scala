@@ -18,6 +18,13 @@ import running.WskConfig
 import org.http4s.Uri
 import running.storage.postgres.PostgresMigrationEngine
 import setup.server.DaemonJsonProtocol._
+import running.operations.InnerOperation
+import pragma.domain.PModel
+import running.operations.InnerReadOperation
+import running.operations.Operations.AliasedField
+import running.operations.OperationParser
+import sangria.parser.QueryParser
+import pragma.domain.utils.InternalException
 
 class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
 
@@ -47,138 +54,91 @@ class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
   """
 
   val prevSyntaxTree = SyntaxTree.empty
-  val syntaxTree = SyntaxTree.from(schema).get
+  implicit val syntaxTree = SyntaxTree.from(schema).get
 
-  val Project = syntaxTree.modelsById("Project")
-  val Migration = syntaxTree.modelsById("Migration")
-  val ImportedFile = syntaxTree.modelsById("ImportedFile")
+  val ProjectModel = syntaxTree.modelsById("Project")
+  val MigrationModel = syntaxTree.modelsById("Migration")
+  val ImportedFileModel = syntaxTree.modelsById("ImportedFile")
 
   val jc = new JwtCodec("1234567")
   val queryEngine = new PostgresQueryEngine(transactor, syntaxTree, jc)
-  val dummyFuncExecutor = new PFunctionExecutor[IO](
-    WskConfig(
-      1,
-      "",
-      Uri.fromString("http://localhost:6000").toTry.get,
-      "2112ssdf"
-    )
-  )
+  val funcExecutor = PFunctionExecutor.dummy[IO]
   val migrationEngine = new PostgresMigrationEngine[IO](
     transactor,
     prevSyntaxTree,
     syntaxTree,
     queryEngine,
-    dummyFuncExecutor
+    funcExecutor
   )
+  val opParser = new OperationParser(syntaxTree)
 
-  def migrate: IO[Unit] = {
-    // val query =
-    //   sql"""
-    //     CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
-    //     CREATE TABLE projects (
-    //       name          TEXT       PRIMARY KEY,
-    //       pg_uri        TEXT       NOT NULL,
-    //       pg_user       TEXT       NOT NULL,
-    //       pg_password   TEXT       NOT NULL,
-    //       secret        TEXT       NOT NULL
-    //     );
-
-    //     CREATE TABLE migrations (
-    //       id            uuid       DEFAULT uuid_generate_v4 () PRIMARY KEY,
-    //       code          TEXT       NOT NULL,
-    //       timestamp     TIMESTAMP  DEFAULT (now() at time zone 'utc')
-    //     );
-
-    //     CREATE TABLE imported_files (
-    //       id            uuid       DEFAULT uuid_generate_v4 () PRIMARY KEY,
-    //       content       TEXT       NOT NULL,
-    //       file_name     TEXT       NOT NULL,
-    //       migration_id  uuid        REFERENCES migrations(id)
-    //     );
-
-    //     ALTER TABLE projects
-    //       ADD COLUMN
-    //         current_migration uuid REFERENCES migrations(id);
-
-    //     ALTER TABLE migrations
-    //       ADD COLUMN project_name
-    //         TEXT NOT NULL REFERENCES projects(name);
-    //   """.update.run
-    // query.transact(transactor).void
-    migrationEngine.migrate
-  }
+  def migrate: IO[Unit] = migrationEngine.migrate
 
   def runQuery[T](query: ConnectionIO[T]) = query.transact(transactor)
 
-  def createProject(project: ProjectInput): ConnectionIO[Unit] = {
-
-    // val insertProject = sql"""
-    //       insert into
-    //         projects (name, pg_user, pg_password, pg_uri)
-    //         values (${project.name}, ${project.pgUser}, ${project.pgPassword}, ${project.pgUri});
-    //     """.update.run.void
-
-    // val insertMigrations = for {
-    //   _ <- insertProject
-    //   _ <- project.migrationHistory
-    //     .traverse(m => createMigration(project.name, m))
-    // } yield ()
-
-    // insertMigrations
-
+  def createProject(project: ProjectInput): IO[Unit] = {
     val record = project.toJson.asJsObject
-    queryEngine.createOneRecord(Project, record, Vector.empty).void
+    queryEngine
+      .createOneRecord(ProjectModel, record, Vector.empty)
+      .void
+      .transact(transactor)
   }
 
-  def getCurrentMigration(projectName: String) = {
-    val query =
-      sql"""
-        SELECT
-          *
-        FROM projects p
-        INNER JOIN migrations m ON $projectName = m.project_name
-        INNER JOIN imported_files f ON f.migration_id = m.id;
-        WHERE p.name = $projectName
-      """.query[JsObject]
+  def getProject(
+      projectName: String
+  ): IO[Option[Project]] = {
+    val currentMigrationQuery = opParser
+      .parse {
+        running.Request.bareReqFrom {
+          QueryParser.parse {
+            s"""
+              {
+                Project {
+                  read(name: $projectName) {
+                    name
+                    secret
+                    pgUri
+                    pgUser
+                    pgPassword
+                    migrationHistory {
+                      id
+                      migrationTimestamp
+                      code
+                      importedFiles {
+                        id
+                        fileName
+                        content
+                      }
+                    }
+                    currentMigration {
+                      id
+                      migrationTimestamp
+                      code
+                      importedFiles {
+                        id
+                        fileName
+                        content
+                      }
+                    }
+                  }
+                }
+              }
+             """
+          }.get
+        }
+      }
+      .getOrElse {
+        throw new InternalException("Invalid hard-coded query to fetch project")
+      }
 
-    print(query)
-    ???
+    queryEngine.run(currentMigrationQuery).map { query =>
+      query.head._2.toMap
+        .apply("Project")
+        .head
+        ._2
+        .convertTo[Option[Project]]
+    }
   }
-
-  private def updateCurrentMigration(projectName: String, migrationId: UUID) =
-    sql"""
-      update projects set current_migration = $migrationId where name = $projectName;
-    """.update.run.void
-
-  def createMigration(
-      projectName: String,
-      migration: MigrationInput
-  ): ConnectionIO[UUID] = {
-
-    val insertMigration =
-      sql"""
-        insert into migrations (code, project_name) values (${migration.code}, $projectName) returning id;
-      """.update.withUniqueGeneratedKeys[UUID]("id")
-
-    val insertImportedFiles = for {
-      migrationId <- insertMigration
-      _ <- updateCurrentMigration(projectName, migrationId)
-      _ <- migration.importedFiles
-        .traverse(f => createImportedFile(migrationId, f))
-    } yield migrationId
-
-    insertImportedFiles
-  }
-
-  private def createImportedFile(
-      migrationId: UUID,
-      importedFile: ImportedFileInput
-  ): ConnectionIO[String] =
-    sql"""
-      insert into imported_files (content, file_name, migration_id)
-        values (${importedFile.content}, ${importedFile.fileName}, $migrationId) returning id;
-    """.update.withUniqueGeneratedKeys("id")
 
 }
 

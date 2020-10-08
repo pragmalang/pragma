@@ -65,6 +65,22 @@ class PFunctionExecutor[M[_]: ConcurrentEffect](config: WskConfig) {
     }
   }
 }
+object PFunctionExecutor {
+  def dummy[M[_]: ConcurrentEffect] =
+    new PFunctionExecutor[M](
+      WskConfig(
+        1,
+        "",
+        Uri.fromString("http://localhost:6000").toTry.get,
+        "2112ssdf"
+      )
+    ) {
+      override def execute(
+          function: PFunctionValue,
+          args: JsValue
+      ): M[JsValue] = JsNull.pure[M].widen[JsValue]
+    }
+}
 
 case class WskConfig(
     wskApiVersion: Int,
