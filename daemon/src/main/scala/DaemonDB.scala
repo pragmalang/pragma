@@ -1,5 +1,3 @@
-package setup.server
-
 import doobie._
 import doobie.implicits._
 import cats.effect._
@@ -10,7 +8,7 @@ import running.storage.postgres.PostgresQueryEngine
 import running.JwtCodec
 import running.PFunctionExecutor
 import running.storage.postgres.PostgresMigrationEngine
-import setup.server.DaemonJsonProtocol._
+import DaemonJsonProtocol._
 import running.operations.OperationParser
 import sangria.parser.QueryParser
 import pragma.domain.utils.InternalException
@@ -30,8 +28,7 @@ class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
   @2 model Migration {
     @1 id: String @primary @uuid
     @2 code: String
-    @3 migrationTimestamp: Long
-    @4 importedFiles: [ImportedFile]
+    @3 importedFiles: [ImportedFile]
   }
 
   @3 model ImportedFile {

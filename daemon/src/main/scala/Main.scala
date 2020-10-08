@@ -5,14 +5,14 @@ package pragma
 // import org.parboiled2.Position
 // import running._
 // import org.parboiled2.ParseError
-import cats.effect._, cats.implicits._
+// import cats.effect._, cats.implicits._
 // import doobie._, doobie.hikari._
 // import running.storage.postgres._
 // import setup.schemaGenerator.ApiSchemaGenerator
 
-object Main extends IOApp {
-  override def run(args: List[String]): IO[ExitCode] = ???
-/*
+object Main {
+  // override def run(args: List[String]): IO[ExitCode] = ???
+  /*
   // To disable logging
   org.slf4j.LoggerFactory
     .getILoggerFactory()
@@ -373,7 +373,7 @@ object Main extends IOApp {
 
                   ${Console.GREEN}${Console.BOLD}http://localhost:3030/graphql${Console.RESET}
 
-          Enter 'q' to quit, or anything else to reload  
+          Enter 'q' to quit, or anything else to reload
       """
-*/
+ */
 }

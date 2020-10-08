@@ -54,11 +54,8 @@ lazy val daemon = (project in file("daemon"))
       logbackClassic,
       kebsSprayJson
     ),
-    dockerExposedPorts := Seq(3030, 3030),
+    dockerExposedPorts := Seq(3030),
     version in Docker := "latest",
-    dockerExposedVolumes := Seq("/var/run/"),
-    dockerPermissionStrategy := DockerPermissionStrategy.None,
-    daemonUser in Docker := "root",
     composeNoBuild := true
   )
   .dependsOn(core)
@@ -75,10 +72,3 @@ lazy val pragmaCLI = (project in file("cli"))
     libraryDependencies ++= testDependencies ++ Seq(scopt, osLib, catsEffect)
   )
   .dependsOn(core)
-
-/*
-  For packaging Pragma using Docker:
-  `docker:publishLocal`
- */
-dockerBaseImage := "oracle/graalvm-ce:latest"
-dockerExposedPorts := Seq(3030)

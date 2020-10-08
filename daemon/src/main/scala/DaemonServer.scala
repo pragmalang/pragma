@@ -1,5 +1,3 @@
-package setup.server
-
 import running._
 import cats.implicits._
 import doobie._, doobie.hikari._
@@ -10,7 +8,7 @@ import org.http4s.server.blaze._, org.http4s.server.Router
 import org.http4s.implicits._, org.http4s.server.middleware._
 import scala.concurrent.ExecutionContext.global
 import spray.json._
-import setup.server.DaemonJsonProtocol._
+import DaemonJsonProtocol._
 import collection.mutable.{Map => MutMap}
 import pragma.domain._
 import running.storage.postgres._
@@ -340,7 +338,6 @@ object DeamonServer extends IOApp {
           IO {
             val isPlural = missingEnvVars.length > 1
             val `variable/s` = if (isPlural) "variables" else "variable"
-            val `is/are` = if (isPlural) "are" else "is"
             val missingVarNames = missingEnvVars map (_._1)
             val renderedVarsWithDescription =
               missingEnvVars.map(v => s"${v._1}=<${v._2}>").mkString(" ")
@@ -348,7 +345,7 @@ object DeamonServer extends IOApp {
             val renderedCliArgs = args.mkString(" ")
             val errMsg =
               s"""
-              |Environment ${`variable/s`} $renderedVarNames ${`is/are`} must be specified when in production mode.
+              |Environment ${`variable/s`} $renderedVarNames must be specified.
               |Try: $renderedVarsWithDescription pragma $renderedCliArgs
               """.stripMargin
 

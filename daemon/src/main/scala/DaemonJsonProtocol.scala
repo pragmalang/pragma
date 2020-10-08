@@ -1,5 +1,3 @@
-package setup.server
-
 import spray.json._
 import pl.iterators.kebs.json._
 

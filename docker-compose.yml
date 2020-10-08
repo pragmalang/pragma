@@ -1,0 +1,37 @@
+version: '3'
+
+services:
+  pragma-postgres:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: test
+    ports:
+      - 5433:5432
+    command: [ "postgres",  "-c", "log_statement=all" ]
+
+  openwhisk:
+    image: openwhisk/standalone:nightly
+    ports:
+      - 3233:3233
+      - 3232:3232
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  pragmad:
+    image: pragmad
+    restart: always
+    ports: 
+      - 3030:3030
+    environment:
+      DAEMON_PG_URI: 'jdbc:postgresql://pragma-postgres:5432/test' 
+      DAEMON_PG_USER: 'test' 
+      DAEMON_WSK_API_HOST: 'openwhisk:3233' 
+      DAEMON_WSK_AUTH_TOKEN: '23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP' 
+      DAEMON_PG_PASSWORD: 'test' 
+      DAEMON_WSK_API_VERSION: 1 
+    depends_on:
+      - openwhisk
+      - pragma-postgres
