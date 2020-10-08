@@ -78,7 +78,7 @@ class RequestOperations extends AnyFlatSpec {
       "http://localhost:8080/gql",
       "localhost"
     )
-    val ops = opParser.parse(request)(syntaxTree)
+    val ops = opParser.parse(request)
 
     ops match {
       case Left(err) =>

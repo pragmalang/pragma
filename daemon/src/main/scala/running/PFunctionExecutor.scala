@@ -11,7 +11,10 @@ import org.http4s.headers._
 import org.http4s.MediaType
 import running.utils.QueryError
 
-class PFunctionExecutor[M[_]: ConcurrentEffect](config: WskConfig) {
+class PFunctionExecutor[M[_]: ConcurrentEffect](
+    config: WskConfig,
+    projectName: String
+) {
   private val clientResource = BlazeClientBuilder[M](global).resource
 
   def execute(
@@ -23,7 +26,7 @@ class PFunctionExecutor[M[_]: ConcurrentEffect](config: WskConfig) {
 
       val wskApiUri = config.wskApiHost / s"v$wskApiVersion"
 
-      val namespace: String = config.projectName
+      val namespace: String = projectName
 
       val actionName: String = function.id
 
@@ -70,10 +73,10 @@ object PFunctionExecutor {
     new PFunctionExecutor[M](
       WskConfig(
         1,
-        "",
         Uri.fromString("http://localhost:6000").toTry.get,
         "2112ssdf"
-      )
+      ),
+      "<DUMMY PROJECT>"
     ) {
       override def execute(
           function: PFunctionValue,
@@ -84,7 +87,6 @@ object PFunctionExecutor {
 
 case class WskConfig(
     wskApiVersion: Int,
-    projectName: String,
     wskApiHost: Uri,
     wskAuthToken: String
 )

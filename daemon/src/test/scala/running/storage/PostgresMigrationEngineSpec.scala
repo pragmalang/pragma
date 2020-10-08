@@ -16,8 +16,6 @@ import cats.effect._
 import cats.implicits._
 import running.JwtCodec
 import running.PFunctionExecutor
-import running.WskConfig
-import org.http4s.Uri
 
 class PostgresMigrationEngineSpec extends AnyFunSuite {
 
@@ -231,16 +229,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       SyntaxTree.empty,
       syntaxTree,
       testStorage.queryEngine,
-      new PFunctionExecutor[IO](
-        WskConfig(
-          1,
-          "1",
-          Uri
-            .fromString("http://localhost/")
-            .getOrElse(fail("Invalid WSK host URI")),
-          ""
-        )
-      )
+      PFunctionExecutor.dummy[IO]
     )
 
     assert(postgresMigration.sqlSteps == expected)

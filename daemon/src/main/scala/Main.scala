@@ -1,14 +1,14 @@
 package pragma
 
-import scala.util._, scala.io.StdIn
-import pragma.domain._, pragma.domain.utils._
-import org.parboiled2.Position
-import running._
-import org.parboiled2.ParseError
+// import scala.util._, scala.io.StdIn
+// import pragma.domain._, pragma.domain.utils._
+// import org.parboiled2.Position
+// import running._
+// import org.parboiled2.ParseError
 import cats.effect._, cats.implicits._
-import doobie._, doobie.hikari._
-import running.storage.postgres._
-import setup.schemaGenerator.ApiSchemaGenerator
+// import doobie._, doobie.hikari._
+// import running.storage.postgres._
+// import setup.schemaGenerator.ApiSchemaGenerator
 
 object Main extends IOApp {
   override def run(args: List[String]): IO[ExitCode] = ???

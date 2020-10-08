@@ -5,7 +5,6 @@ import running._, running.storage.postgres._
 import cats.effect._
 import doobie._
 import running.JwtCodec
-import org.http4s.Uri
 
 class TestStorage(st: SyntaxTree) {
   implicit val cs = IO.contextShift(ExecutionContexts.synchronous)
@@ -25,16 +24,7 @@ class TestStorage(st: SyntaxTree) {
     t,
     st,
     queryEngine,
-    new PFunctionExecutor[IO](
-      WskConfig(
-        1,
-        "1",
-        Uri
-          .fromString("http://localhost/")
-          .getOrElse(throw new Exception("Invalid WSK host URI")),
-        ""
-      )
-    )
+    PFunctionExecutor.dummy[IO]
   )
   val storage = new Postgres[IO](migrationEngine, queryEngine)
 }

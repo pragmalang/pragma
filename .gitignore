@@ -7,5 +7,3 @@ docs/book
 output.gql
 todos.md
 project/metals.sbt
-daemon/src/main/resources/openwhisk-src/
-daemon/src/main/resources/.wskprops

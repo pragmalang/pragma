@@ -4,24 +4,13 @@ import doobie._
 import doobie.implicits._
 import cats.effect._
 import cats.implicits._
-import java.util.UUID
-import doobie.postgres.implicits._
 import spray.json._
-import running.storage.postgres.instances.jsObjectRead
-import pragma.domain.SyntaxTree
-import scala.util.Failure
-import scala.util.Success
+import pragma.domain.SyntaxTree, pragma.domain.DomainImplicits._
 import running.storage.postgres.PostgresQueryEngine
 import running.JwtCodec
 import running.PFunctionExecutor
-import running.WskConfig
-import org.http4s.Uri
 import running.storage.postgres.PostgresMigrationEngine
 import setup.server.DaemonJsonProtocol._
-import running.operations.InnerOperation
-import pragma.domain.PModel
-import running.operations.InnerReadOperation
-import running.operations.Operations.AliasedField
 import running.operations.OperationParser
 import sangria.parser.QueryParser
 import pragma.domain.utils.InternalException
@@ -35,8 +24,7 @@ class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
     @3 pgUri: String
     @4 pgUser: String
     @5 pgPassword: String
-    @6 currentMigration: Migration?
-    @7 migrationHistory: [Migration]
+    @6 previousMigration: Migration?
   }
 
   @2 model Migration {
@@ -48,13 +36,13 @@ class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
 
   @3 model ImportedFile {
     @1 id: String @primary @uuid
-    @2 fileName: String
+    @2 functionNames: [String]
     @3 content: String
   }
   """
 
   val prevSyntaxTree = SyntaxTree.empty
-  implicit val syntaxTree = SyntaxTree.from(schema).get
+  val syntaxTree = SyntaxTree.from(schema).get
 
   val ProjectModel = syntaxTree.modelsById("Project")
   val MigrationModel = syntaxTree.modelsById("Migration")
@@ -87,36 +75,26 @@ class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
   def getProject(
       projectName: String
   ): IO[Option[Project]] = {
-    val currentMigrationQuery = opParser
+    val projectQuery = opParser
       .parse {
         running.Request.bareReqFrom {
           QueryParser.parse {
             s"""
               {
                 Project {
-                  read(name: $projectName) {
+                  read(name: ${projectName.withQuotes}) {
                     name
                     secret
                     pgUri
                     pgUser
                     pgPassword
-                    migrationHistory {
+                    previousMigration {
                       id
                       migrationTimestamp
                       code
                       importedFiles {
                         id
-                        fileName
-                        content
-                      }
-                    }
-                    currentMigration {
-                      id
-                      migrationTimestamp
-                      code
-                      importedFiles {
-                        id
-                        fileName
+                        functionNames
                         content
                       }
                     }
@@ -131,13 +109,44 @@ class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
         throw new InternalException("Invalid hard-coded query to fetch project")
       }
 
-    queryEngine.run(currentMigrationQuery).map { query =>
+    queryEngine.run(projectQuery).map { query =>
       query.head._2.toMap
         .apply("Project")
         .head
         ._2
         .convertTo[Option[Project]]
     }
+  }
+
+  def persistPreviousMigration(
+      projectName: String,
+      previousMigration: MigrationInput
+  ): IO[Unit] = {
+    val queryVars = JsObject(
+      "projectName" -> projectName.toJson,
+      "project" -> JsObject("previousMigration" -> previousMigration.toJson)
+    )
+    val gqlMut = QueryParser.parse {
+      s"""
+      mutation UpdatePrevious($$projectName: String!, $$project: ProjectInput!) {
+        Project {
+          update(name: $$projectName, project: $$project) {
+            name
+          }
+        }
+      }
+      """
+    }.get
+    val mut =
+      running.Request.bareReqFrom(gqlMut).copy(queryVariables = queryVars)
+
+    val ops = opParser
+      .parse(mut)
+      .getOrElse {
+        throw new InternalException("Invalid hard-coded query to fetch project")
+      }
+
+    queryEngine.run(ops).void
   }
 
 }
@@ -153,8 +162,12 @@ case class MigrationInput(
     importedFiles: List[ImportedFileInput]
 )
 
-case class ImportedFile(id: String, fileName: String, content: String)
-case class ImportedFileInput(fileName: String, content: String)
+case class ImportedFile(
+    id: String,
+    content: String,
+    functionNames: List[String]
+)
+case class ImportedFileInput(content: String, functionNames: List[String])
 
 case class Project(
     name: String,
@@ -162,8 +175,7 @@ case class Project(
     pgUri: String,
     pgUser: String,
     pgPassword: String,
-    currentMigration: Option[Migration],
-    migrationHistory: List[Migration]
+    previousMigration: Option[Migration]
 )
 case class ProjectInput(
     name: String,
@@ -171,13 +183,12 @@ case class ProjectInput(
     pgUri: String,
     pgUser: String,
     pgPassword: String,
-    currentMigration: Option[MigrationInput],
-    migrationHistory: List[MigrationInput]
+    previousMigration: Option[MigrationInput]
 )
 
 object DaemonDB {
 
-  trait ImportedFileT
+  sealed trait ImportedFileT
   case class ImportedFile(fileName: String, content: String)
       extends ImportedFileT
   case class ImportedFileAuto(id: String, file: ImportedFile)
@@ -207,4 +218,5 @@ object DaemonDB {
   trait ProjectT
   case class Project(project: NewProject[Migration]) extends ProjectT
   case class ProjectAuto(project: NewProject[MigrationAuto]) extends ProjectT
+
 }

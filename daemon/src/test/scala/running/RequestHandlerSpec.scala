@@ -2,13 +2,11 @@ package running
 
 import org.scalatest.flatspec.AnyFlatSpec
 import pragma.domain.SyntaxTree
-import running.TestUtils._
 import running.storage.TestStorage
 import sangria.macros._
 import spray.json._
 import cats.implicits._
 import cats.effect.IO
-import org.http4s.Uri
 
 class RequestHandlerSpec extends AnyFlatSpec {
   val code =
@@ -43,16 +41,7 @@ class RequestHandlerSpec extends AnyFlatSpec {
   val reqHandler = new RequestHandler(
     syntaxTree,
     storage,
-    new PFunctionExecutor[IO](
-      WskConfig(
-        1,
-        "1",
-        Uri
-          .fromString("http://localhost/")
-          .getOrElse(fail("Invalid WSK host URI")),
-        ""
-      )
-    )
+    PFunctionExecutor.dummy[IO]
   )
 
   "RequestHandler" should "execute write hooks correctly" in {
