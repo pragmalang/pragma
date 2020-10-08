@@ -1,12 +1,6 @@
 version: '3'
 
 services:
-  pragmad:
-    image: pragmad:latest
-    restart: always
-    ports: 
-      - "3030:3030"
-
   pragma-postgres:
     image: postgres
     restart: always

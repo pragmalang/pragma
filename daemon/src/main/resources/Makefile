@@ -356,12 +356,12 @@ init-couchdb:
 	echo 'Setting up db using ansible container....'; \
     compose_network=$$(docker-compose --project-name openwhisk ps -q db 2>/dev/null | xargs docker inspect -f '{{range $$index, $$element := .NetworkSettings.Networks}}{{$$index}}{{end}}' | head -n 1); \
     db_ip_address=$$(docker-compose --project-name openwhisk ps -q db 2>/dev/null | xargs docker inspect -f "{{.NetworkSettings.Networks.$${compose_network}.IPAddress}}"); \
-	docker run --rm -v $(TMP_HOME)/tmp/openwhisk/src:/openwhisk -w /openwhisk/ansible \
+	docker run --volumes-from pragma -w $(TMP_HOME)/tmp/openwhisk/src/ansible/ --rm \
 		--network="$${compose_network}" -t \
 		--add-host="db:$${db_ip_address}" \
 		ddragosd/ansible:2.4.0.0-debian8  \
 		sh -c "ansible-playbook setup.yml && ansible-playbook couchdb.yml --tags=ini && ansible-playbook initdb.yml wipe.yml \
-			-e db_host=db -e openwhisk_home=/openwhisk -e db_prefix=$(OPEN_WHISK_DB_PREFIX)"
+			-e db_host=db -e openwhisk_home=/root/tmp/openwhisk/src -e db_prefix=$(OPEN_WHISK_DB_PREFIX)"
 
 .PHONY: init-whisk-cli
 init-whisk-cli:
@@ -374,6 +374,13 @@ init-whisk-cli:
 .PHONY: init-api-management
 init-api-management:
 	touch $(OPENWHISK_PROJECT_HOME)/whisk.properties
+	echo 'WSK Project Home:' 
+	echo $(OPENWHISK_PROJECT_HOME)
+	ls -la $(OPENWHISK_PROJECT_HOME)
+	echo 'ANSIBLE/FILES:'
+	ls -la $(OPENWHISK_PROJECT_HOME)/ansible/files
+	echo 'AUTH:'
+	cat $(OPENWHISK_PROJECT_HOME)/ansible/files/auth.whisk.system
 	GW_USER="" \
 	GW_PWD="" \
 	GW_HOST_V2="http://$(DOCKER_HOST_IP):9000/v2" \
