@@ -15,6 +15,8 @@ import running.storage.postgres._
 import running.PFunctionExecutor
 import scala.concurrent.ExecutionContext
 import java.nio.charset.StandardCharsets.UTF_8
+import org.http4s.client.blaze.BlazeClientBuilder
+import org.http4s.headers.Authorization
 
 object DeamonServer extends IOApp {
 
@@ -276,6 +278,14 @@ object DeamonServer extends IOApp {
       val DAEMON_WSK_API_HOST = sys.env.get("DAEMON_WSK_API_HOST")
       val DAEMON_WSK_AUTH_TOKEN = sys.env.get("DAEMON_WSK_AUTH_TOKEN")
       val DAEMON_WSK_API_VERSION = sys.env.get("DAEMON_WSK_API_VERSION")
+      val DAEMON_HOSTNAME = sys.env.get("DAEMON_HOSTNAME") match {
+        case Some(value) => value.some
+        case None        => "localhost".some
+      }
+      val DAEMON_PORT = sys.env.get("DAEMON_PORT") match {
+        case Some(value) => value.some
+        case None        => "3030".some
+      }
 
       val missingEnvVars =
         List(
@@ -300,6 +310,16 @@ object DeamonServer extends IOApp {
             "DAEMON_WSK_API_VERSION",
             DAEMON_WSK_API_VERSION,
             "OpenWhisk's API version"
+          ),
+          (
+            "DAEMON_HOSTNAME",
+            DAEMON_HOSTNAME,
+            "Daemon host name"
+          ),
+          (
+            "DAEMON_PORT",
+            DAEMON_PORT,
+            "Daemon port"
           )
         ).collect {
           case (name, None, desc) => name -> desc
@@ -311,7 +331,9 @@ object DeamonServer extends IOApp {
         DAEMON_PG_PASSWORD,
         DAEMON_WSK_API_HOST,
         DAEMON_WSK_AUTH_TOKEN,
-        DAEMON_WSK_API_VERSION
+        DAEMON_WSK_API_VERSION,
+        DAEMON_HOSTNAME,
+        DAEMON_PORT
       ) match {
         case (
             Some(pgUser),
@@ -319,7 +341,9 @@ object DeamonServer extends IOApp {
             Some(pgPassword),
             Some(wskApiHost),
             Some(wskAuthToken),
-            Some(wskApiVersion)
+            Some(wskApiVersion),
+            Some(hostname),
+            Some(port)
             ) => {
           val t = for {
             transactor <- HikariTransactor.newHikariTransactor[IO](
@@ -331,7 +355,7 @@ object DeamonServer extends IOApp {
               blocker
             )
           } yield transactor
-          IO((t, (wskApiHost, wskAuthToken, wskApiVersion)))
+          IO((t, (wskApiHost, wskAuthToken, wskApiVersion), hostname, port))
         }
 
         case _ =>
@@ -365,6 +389,44 @@ object DeamonServer extends IOApp {
         }
       val wskAuthToken = transactorAndWskConfig.map(_._2._2)
       val wskApiVersion = transactorAndWskConfig.map(_._2._3).map(_.toInt)
+      val hostname = transactorAndWskConfig.map(_._3)
+      val port = transactorAndWskConfig.map(_._4.toInt)
+
+      val clientResource = BlazeClientBuilder[IO](execCtx).resource
+      def pingWsk(token: String, wskApiHost: Uri) =
+        clientResource
+          .use { client =>
+            val base64Token: String =
+              java.util.Base64.getEncoder.encodeToString(
+                token.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+              )
+
+            client.expect[String] {
+              org.http4s
+                .Request[IO]()
+                .withMethod(GET)
+                .withUri(
+                  Uri
+                    .fromString(
+                      s"http://${wskApiHost.renderString}/api/v1/namespaces/guest/actions"
+                    )
+                    .toTry
+                    .get
+                )
+                .withHeaders(
+                  Authorization(BasicCredentials(base64Token)),
+                  Header("Accept", "application/json")
+                )
+                .pure[IO]
+            }
+          }
+          .map { res =>
+            println("Pinging Whisk namespaces:")
+            println(res)
+          }
+          .handleError { err =>
+            println("Request failed1:" + err.getMessage).pure[IO]
+          }
 
       for {
         t <- transactor
@@ -372,10 +434,13 @@ object DeamonServer extends IOApp {
         wskApiHost <- wskApiHost
         wskAuthToken <- wskAuthToken
         wskApiVersion <- wskApiVersion
+        _ <- pingWsk(wskAuthToken, wskApiHost)
+        hostname <- hostname
+        port <- port
         wskConfig = WskConfig(wskApiVersion, wskApiHost, wskAuthToken)
         daemonConfig = DaemonConfig(wskConfig, execCtx, blocker, db)
         runServer <- BlazeServerBuilder[IO](global)
-          .bindHttp(3030, "localhost")
+          .bindHttp(port, hostname)
           .withHttpApp {
             Router("/" -> GZip(routes(daemonConfig))).orNotFound
           }

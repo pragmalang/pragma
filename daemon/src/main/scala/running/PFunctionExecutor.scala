@@ -6,7 +6,7 @@ import spray.json._
 import org.http4s.client.blaze._
 import scala.concurrent.ExecutionContext.global
 import cats.effect.ConcurrentEffect
-import org.http4s._, EntityDecoder.byteArrayDecoder
+import org.http4s._
 import org.http4s.headers._
 import org.http4s.MediaType
 import running.utils.QueryError
@@ -56,8 +56,7 @@ class PFunctionExecutor[M[_]: ConcurrentEffect](
         }
 
       for {
-        bytes <- client.expect(request)(byteArrayDecoder)
-        stringResult = bytes.toVector.map(_.toChar).foldLeft("")(_ + _)
+        stringResult <- client.expect[String](request)
         jsonResult <- stringResult.parseJson.asJsObject.fields
           .get("data") match {
           case Some(value) => value.pure[M]
