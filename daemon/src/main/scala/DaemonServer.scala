@@ -150,7 +150,13 @@ object DeamonServer extends IOApp {
 
         val jc = new JwtCodec(project.secret)
         val funcExecutor =
-          new PFunctionExecutor[IO](daemonConfig.wskConfig, project.name)
+          BlazeClientBuilder[IO](daemonConfig.execCtx).resource.map { client =>
+            new PFunctionExecutor[IO](
+              daemonConfig.wskConfig,
+              project.name,
+              client
+            )
+          }
 
         val transactor = for {
           transactor <- HikariTransactor.newHikariTransactor[IO](
@@ -169,20 +175,22 @@ object DeamonServer extends IOApp {
             daemonConfig.db.persistPreviousMigration(projectName, migration)
         }
 
-        val storage = buildStorage(
-          prevSt,
-          currentSt,
-          transactor,
-          jc,
-          funcExecutor
-        )
+        val storage = funcExecutor.flatMap { fnExec =>
+          buildStorage(
+            prevSt,
+            currentSt,
+            transactor,
+            jc,
+            fnExec
+          ).map(fnExec -> _)
+        }
 
         val server = storage.use[IO, Server] { s =>
           for {
-            _ <- s.migrationEngine.migrate
+            _ <- s._2.migrationEngine.migrate
             _ <- persistPreviousMigration
             _ <- createWskActions(migration.importedFiles)
-          } yield new Server(jc, s, currentSt, funcExecutor)
+          } yield new Server(jc, s._2, currentSt, s._1)
         }
 
         server.map { server =>
@@ -388,7 +396,16 @@ object DeamonServer extends IOApp {
             case Right(value) => value.pure[IO]
           }
         }
-      val wskAuthToken = transactorAndWskConfig.map(_._2._2)
+      val wskAuthToken =
+        transactorAndWskConfig.map(_._2._2.split(":").toList).flatMap {
+          case user :: pw :: Nil => BasicCredentials(user, pw).pure[IO]
+          case _ =>
+            IO.raiseError {
+              new IllegalArgumentException(
+                "Invalid OpenWhisk auth: must consist of a username followed by ':' and a password"
+              )
+            }
+        }
       val wskApiVersion = transactorAndWskConfig.map(_._2._3).map(_.toInt)
       val hostname = transactorAndWskConfig.map(_._3)
       val port = transactorAndWskConfig.map(_._4.toInt)
@@ -402,7 +419,10 @@ object DeamonServer extends IOApp {
         wskAuthToken <- wskAuthToken
         wskApiVersion <- wskApiVersion
         wskConfig = WskConfig(wskApiVersion, wskApiHost, wskAuthToken)
-        _ <- clientResource.use(client => pingWsk(client, wskConfig))
+        _ <- IO {
+          println(s"Pinging OpenWhisk at ${wskConfig.wskApiHost.renderString}")
+        }
+        _ <- clientResource.use(pingWsk(_, wskConfig))
         hostname <- hostname
         port <- port
         daemonConfig = DaemonConfig(wskConfig, execCtx, blocker, db)
@@ -423,11 +443,6 @@ object DeamonServer extends IOApp {
       wskConfig: WskConfig,
       retries: Int = 5
   ): IO[Unit] = {
-    val base64Token: String =
-      java.util.Base64.getEncoder.encodeToString(
-        wskConfig.wskAuthToken.getBytes(java.nio.charset.StandardCharsets.UTF_8)
-      )
-
     val request = org.http4s
       .Request[IO]()
       .withMethod(GET)
@@ -440,24 +455,26 @@ object DeamonServer extends IOApp {
           .get
       )
       .withHeaders(
-        Authorization(BasicCredentials(base64Token)),
+        Authorization(wskConfig.wskAuthToken),
         Header("Accept", "application/json")
       )
 
-    println(s"PING WSK - At ${wskConfig.wskApiHost.renderString}")
-      .pure[IO] *> client.toHttpApp
-      .run(request)
-      .map(_ => println(s"PING WSK - All Good!!"))
-      .handleError { err =>
-        println(s"PING WSK - Error")
-        println("PING WSK: RETRYING")
-        if (retries != 0)
-          pingWsk(client, wskConfig, retries - 1)
-        else
-          println(s"PING WSK - Failed, exiting")
-            .pure[IO] *>
-            IO(sys.exit(1)).void
+    for {
+      isSuccess <- client.successful(request).handleError(_ => false)
+      _ <- {
+        if (isSuccess)
+          println("Ping successful").pure[IO]
+        else {
+          if (retries > 0)
+            IO.sleep(3.seconds) *> pingWsk(client, wskConfig, retries - 1)
+          else
+            IO {
+              println(s"Unable to connect to OpenWhisk... Abborting")
+              sys.exit(1)
+            }
+        }
       }
+    } yield ()
   }
 
 }
