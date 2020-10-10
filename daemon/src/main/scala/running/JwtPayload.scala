@@ -9,9 +9,9 @@ case class JwtPayload(userId: JsValue, role: String)
 class JwtCodec(secret: String) {
   def decode(token: String) =
     Jwt
-      .decodeRawAll(token, secret, Seq(JwtAlgorithm.HS256))
+      .decodeRawAll(token, secret, Seq(JwtAlgorithm.RS256))
       .map(_._2.parseJson.convertTo[JwtPayload])
 
   def encode(jwtPayload: JwtPayload) =
-    Jwt.encode(jwtPayload.toJson.toString, secret, JwtAlgorithm.HS256)
+    Jwt.encode(jwtPayload.toJson.toString, secret, JwtAlgorithm.RS256)
 }
