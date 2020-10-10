@@ -11,7 +11,7 @@ import cats.effect.IO
 class RequestHandlerSpec extends AnyFlatSpec {
   val code =
     """
-    import "./daemon/src/test/scala/running/req-handler-test-hooks.js" as rhHooks
+    import "./daemon/src/test/scala/running/req-handler-test-hooks.js" as rhHooks { runtime = "nodejs:14" }
 
     @onWrite(function: rhHooks.prependMrToUsername)
     @onWrite(function: rhHooks.setPriorityTodo)

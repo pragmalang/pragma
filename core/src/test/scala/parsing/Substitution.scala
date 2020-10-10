@@ -7,8 +7,9 @@ import org.scalatest.flatspec.AnyFlatSpec
 class Substitution extends AnyFlatSpec {
 
   "Substitutor" should "substitute function references in directives with external functions" in {
-    val code = """
-    import "./core/src/test/scala/parsing/test-functions.js" as fns
+    val code =
+      """
+    import "./core/src/test/scala/parsing/test-functions.js" as fns { runtime = "nodejs:14" }
 
     @1
     @onWrite(function: fns.validateCat)
@@ -17,10 +18,12 @@ class Substitution extends AnyFlatSpec {
     val syntaxTree = SyntaxTree.from(code).get
     val substituted = Substitutor.substitute(syntaxTree).get
     val directive = substituted.models.head.directives.head
+
     directive.args.value("function") match {
-      case ExternalFunction(id, filePath) => {
+      case ExternalFunction(id, filePath, runtime) => {
         assert(id == "validateCat")
         assert(filePath == "./core/src/test/scala/parsing/test-functions.js")
+        assert(runtime == "nodejs:14")
       }
       case _ => fail("Result should be a Graal function 'validateCat'")
     }
@@ -36,7 +39,7 @@ class Substitution extends AnyFlatSpec {
 
     @2 model Todo { @1 title: String @primary }
 
-    import "./core/src/test/scala/parsing/test-functions.js" as fns
+    import "./core/src/test/scala/parsing/test-functions.js" as fns { runtime = "nodejs:14" }
 
     role User {
       allow ALL Todo.title if fns.isOwner

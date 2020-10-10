@@ -45,7 +45,7 @@ trait PFunctionValue extends PValue {
   val ptype = PAny
 }
 
-case class ExternalFunction(id: String, filePath: String)
+case class ExternalFunction(id: String, filePath: String, runtime: String)
     extends PFunctionValue
     with Identifiable
 

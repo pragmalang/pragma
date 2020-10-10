@@ -3,11 +3,12 @@ package pragma.parsing.substitution
 import pragma.domain._, utils._
 import pragma.parsing.PragmaParser.Reference
 import scala.util._
+import cats.implicits._
 
 object ModelSubstitutor {
 
   def apply(st: SyntaxTree): Try[Seq[PModel]] = {
-    val importsMap = st.imports.map(i => i.id -> i.filePath).toMap
+    val importsMap = st.imports.map(i => i.id -> i).toMap
     combineUserErrorTries(st.models.map { model =>
       substituteDirectiveFunctionRefs(
         substituteArrayFieldDefaultValue(model),
@@ -18,9 +19,10 @@ object ModelSubstitutor {
 
   private def substituteDirectiveFunctionRefs(
       model: PModel,
-      imports: Map[String, String]
+      imports: Map[String, PImport]
   ): Try[PModel] = {
-    val newModelLevel = model.directives.map(substituteDirectiveRefArgs(imports))
+    val newModelLevel =
+      model.directives.map(substituteDirectiveRefArgs(imports))
     val newFieldLevel = model.fields.map { field =>
       field.directives.map(substituteDirectiveRefArgs(imports))
     }
@@ -52,30 +54,25 @@ object ModelSubstitutor {
   }
 
   private def substituteDirectiveRefArgs(
-      imports: Map[String, String]
+      imports: Map[String, PImport]
   )(
       dir: Directive
   ): Try[Directive] = {
-    val newArgs = dir.args.value.map {
+    val newArgs = dir.args.value.toVector.traverse {
       case (argId, ref: Reference) =>
-        (argId, Substitutor.getReferencedFunction(imports, ref))
-      case (argId, v) => (argId, Some(v))
+        Substitutor.getReferencedFunction(imports, ref).map(argId -> _)
+      case (argId, v) => Right((argId, v))
     }
-    val argErrors = newArgs.collect {
-      case (name, None) =>
-        (
-          s"Argument `${dir.args.value(name).toString}` is not defined",
-          dir.position
-        )
-    }
-    if (!argErrors.isEmpty) Failure(UserError(argErrors.toList))
-    else
-      Success(
-        dir.copy(
-          args =
-            PInterfaceValue(newArgs.map(p => (p._1, p._2.get)), dir.args.ptype)
-        )
+    val newDir = newArgs.map { newArgs =>
+      dir.copy(
+        args = PInterfaceValue(newArgs.toMap, dir.args.ptype)
       )
+    }
+
+    newDir match {
+      case Right(dir) => Success(dir)
+      case Left(err)  => Failure(UserError(err :: Nil))
+    }
   }
 
   private def substituteArrayFieldDefaultValue(

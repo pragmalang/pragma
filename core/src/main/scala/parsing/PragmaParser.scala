@@ -295,25 +295,34 @@ class PragmaParser(val input: ParserInput) extends Parser {
   def importDef: Rule1[PImport] = rule {
     "import" ~ wsWithoutEndline() ~ stringVal ~
       wsWithoutEndline("as") ~
-      push(cursor) ~ identifier ~ push(cursor) ~> {
+      push(cursor) ~ identifier ~ push(cursor) ~
+      wsWithoutEndline() ~ optional(configBlock) ~> {
       (
           file: PStringValue,
           start: Int,
           id: String,
-          end: Int
+          end: Int,
+          config: Option[PConfig]
       ) =>
-        PImport(id, file.value, Some(PositionRange(start, end)))
+        PImport(id, file.value, config, Some(PositionRange(start, end)))
     }
+  }
+
+  def configBlock: Rule1[PConfig] = rule {
+    push(cursor) ~ '{' ~ wsWithEndline() ~
+      zeroOrMore(configEntry)
+        .separatedBy(wsWithEndline(",") | wsWithEndline()) ~
+      wsWithEndline() ~ '}' ~ push(cursor) ~>
+      ((start: Int, entries: Seq[ConfigEntry], end: Int) => {
+        PConfig(entries.toList, Some(PositionRange(start, end)))
+      })
   }
 
   def configDef: Rule1[PConfig] = rule {
     push(cursor) ~ "config" ~ push(cursor) ~
-      wsWithoutEndline() ~ '{' ~ wsWithEndline() ~
-      zeroOrMore(configEntry)
-        .separatedBy(wsWithEndline(",") | wsWithEndline()) ~
-      wsWithEndline() ~ '}' ~>
-      ((start: Int, end: Int, entries: Seq[ConfigEntry]) => {
-        PConfig(entries.toList, Some(PositionRange(start, end)))
+      wsWithoutEndline() ~ configBlock ~>
+      ((start: Int, end: Int, config: PConfig) => {
+        config.copy(position = Some(PositionRange(start, end)))
       })
   }
 

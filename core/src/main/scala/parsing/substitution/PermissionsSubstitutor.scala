@@ -3,12 +3,13 @@ package pragma.parsing.substitution
 import pragma.domain._, utils._
 import pragma.parsing.PragmaParser.Reference
 import scala.util.{Try, Success, Failure}
+import cats.implicits._
 
 object PermissionsSubstitutor {
 
   /** Combines all other `PermissionsSubstitutor` methods */
   def apply(st: SyntaxTree): Try[Permissions] = {
-    val imports = st.imports.map(i => i.id -> i.filePath).toMap
+    val imports = st.imports.map(i => i.id -> i).toMap
     val newGlobalRules = combineUserErrorTries {
       st.permissions.globalTenant.rules
         .map(substituteAccessRule(_, None, st, imports))
@@ -55,7 +56,7 @@ object PermissionsSubstitutor {
       rule: AccessRule,
       selfRole: Option[PModel],
       st: SyntaxTree,
-      imports: Map[String, String]
+      imports: Map[String, PImport]
   ): Try[AccessRule] = {
     val parentName = rule.resourcePath._1.asInstanceOf[Reference].path.head
     val childRef = rule.resourcePath._2.asInstanceOf[Option[Reference]]
@@ -105,19 +106,19 @@ object PermissionsSubstitutor {
   /** Used as a part of access rule substitution */
   private def substituteRulePredicate(
       rule: AccessRule,
-      imports: Map[String, String]
+      imports: Map[String, PImport]
   ): Try[AccessRule] = {
-    val userPredicate = rule.predicate match {
-      case Some(ref: Reference) =>
-        Substitutor.getReferencedFunction(imports, ref) match {
-          case None =>
-            return Failure(UserError(s"Predicate `$ref` is not defined"))
-          case somePredicate => somePredicate
-        }
-      case someFunction => someFunction
-    }
+    val userPredicate: Either[ErrorMessage, Option[PFunctionValue]] =
+      rule.predicate match {
+        case Some(ref: Reference) =>
+          Substitutor.getReferencedFunction(imports, ref).map(_.some)
+        case someFunction => someFunction.asRight
+      }
 
-    Success(rule.copy(predicate = userPredicate))
+    userPredicate match {
+      case Right(pred) => Success(rule.copy(predicate = pred))
+      case Left(err)   => Failure(UserError(err :: Nil))
+    }
   }
 
   /** Used as a part of access rule substitution */

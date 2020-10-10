@@ -54,13 +54,55 @@ object Substitutor {
   }
 
   def getReferencedFunction(
-      imports: Map[String, String],
+      imports: Map[String, PImport],
       ref: Reference
-  ): Option[ExternalFunction] =
+  ): Either[ErrorMessage, ExternalFunction] =
     ref.path match {
-      case importAs :: fnName :: Nil if imports.contains(importAs) =>
-        Some(ExternalFunction(fnName, imports(importAs)))
-      case _ => None
+      case importAs :: fnName :: Nil =>
+        for {
+          imp <- imports.get(importAs) match {
+            case Some(i) => i.asRight
+            case None =>
+              (
+                s"Import with identifier `$importAs` is not defined",
+                ref.position
+              ).asLeft
+          }
+          config <- imp.config match {
+            case Some(c) => c.asRight
+            case None =>
+              (
+                s"Import `$importAs` must have a configuration block specifying a runtime for the functions defined in `${imp.filePath}`",
+                ref.position
+              ).asLeft
+          }
+          runtimeEntry <- config.entryMap.get("runtime") match {
+            case Some(entry) => entry.asRight
+            case None =>
+              (
+                s"Config block of import `$importAs` must contain a `runtime` entry",
+                config.position
+              ).asLeft
+          }
+          runtimeStr <- runtimeEntry.value match {
+            case PStringValue(s) => s.asRight
+            case _ =>
+              (
+                s"`runtime` entry in config block of import `$importAs` must be a `String`",
+                runtimeEntry.position
+              ).asLeft
+          }
+        } yield
+          ExternalFunction(
+            fnName,
+            imports(importAs).filePath,
+            runtimeStr
+          )
+      case _ =>
+        (
+          s"`${ref.toString}` is referencing a function, but it is not of the form `importID.functionID`",
+          ref.position
+        ).asLeft
     }
 
 }
