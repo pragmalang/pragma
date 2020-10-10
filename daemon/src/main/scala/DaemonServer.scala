@@ -17,6 +17,7 @@ import scala.concurrent.ExecutionContext
 import java.nio.charset.StandardCharsets.UTF_8
 import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.headers.Authorization
+import scala.concurrent.duration._
 
 object DeamonServer extends IOApp {
 
@@ -393,40 +394,6 @@ object DeamonServer extends IOApp {
       val port = transactorAndWskConfig.map(_._4.toInt)
 
       val clientResource = BlazeClientBuilder[IO](execCtx).resource
-      def pingWsk(token: String, wskApiHost: Uri) =
-        clientResource
-          .use { client =>
-            val base64Token: String =
-              java.util.Base64.getEncoder.encodeToString(
-                token.getBytes(java.nio.charset.StandardCharsets.UTF_8)
-              )
-
-            client.expect[String] {
-              org.http4s
-                .Request[IO]()
-                .withMethod(GET)
-                .withUri(
-                  Uri
-                    .fromString(
-                      s"http://${wskApiHost.renderString}/api/v1/namespaces/guest/actions"
-                    )
-                    .toTry
-                    .get
-                )
-                .withHeaders(
-                  Authorization(BasicCredentials(base64Token)),
-                  Header("Accept", "application/json")
-                )
-                .pure[IO]
-            }
-          }
-          .map { res =>
-            println("Pinging Whisk namespaces:")
-            println(res)
-          }
-          .handleError { err =>
-            println("Request failed1:" + err.getMessage).pure[IO]
-          }
 
       for {
         t <- transactor
@@ -434,10 +401,10 @@ object DeamonServer extends IOApp {
         wskApiHost <- wskApiHost
         wskAuthToken <- wskAuthToken
         wskApiVersion <- wskApiVersion
-        _ <- pingWsk(wskAuthToken, wskApiHost)
+        wskConfig = WskConfig(wskApiVersion, wskApiHost, wskAuthToken)
+        _ <- clientResource.use(client => pingWsk(client, wskConfig))
         hostname <- hostname
         port <- port
-        wskConfig = WskConfig(wskApiVersion, wskApiHost, wskAuthToken)
         daemonConfig = DaemonConfig(wskConfig, execCtx, blocker, db)
         runServer <- BlazeServerBuilder[IO](global)
           .bindHttp(port, hostname)
@@ -450,6 +417,48 @@ object DeamonServer extends IOApp {
           .as(ExitCode.Success)
       } yield runServer
     }
+
+  def pingWsk(
+      client: org.http4s.client.Client[IO],
+      wskConfig: WskConfig,
+      retries: Int = 5
+  ): IO[Unit] = {
+    val base64Token: String =
+      java.util.Base64.getEncoder.encodeToString(
+        wskConfig.wskAuthToken.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+      )
+
+    val request = org.http4s
+      .Request[IO]()
+      .withMethod(GET)
+      .withUri(
+        Uri
+          .fromString(
+            s"http://${wskConfig.wskApiHost.renderString}/api/v${wskConfig.wskApiVersion}/namespaces/guest/actions"
+          )
+          .toTry
+          .get
+      )
+      .withHeaders(
+        Authorization(BasicCredentials(base64Token)),
+        Header("Accept", "application/json")
+      )
+
+    println(s"PING WSK - At ${wskConfig.wskApiHost.renderString}")
+      .pure[IO] *> client.toHttpApp
+      .run(request)
+      .map(_ => println(s"PING WSK - All Good!!"))
+      .handleError { err =>
+        println(s"PING WSK - Error")
+        println("PING WSK: RETRYING")
+        if (retries != 0)
+          pingWsk(client, wskConfig, retries - 1)
+        else
+          println(s"PING WSK - Failed, exiting")
+            .pure[IO] *>
+            IO(sys.exit(1)).void
+      }
+  }
 
 }
 
