@@ -298,64 +298,6 @@ object Main {
       }
     } *> initiate(args)
 
-  lazy val errSep = Console.RED + ("━" * 100) + Console.RESET
-
-  def printError(
-      message: String,
-      position: Option[PositionRange] = None,
-      code: Option[String] = None
-  ) = {
-    val errTag = s"\n[${Console.RED}error${Console.RESET}]"
-    val errorCodeRegion = position match {
-      case Some(
-          PositionRange(
-            Position(_, lineIndex, charIndex),
-            Position(_, lineIndex2, charIndex2)
-          )
-          ) =>
-        for {
-          code <- code
-          lines = code.split("\n").toList
-          errorLine = lines(lineIndex - 1)
-          msg = if (lineIndex != lineIndex2) {
-            val firstErrorLine = errorLine
-            val midErrorLines = lines
-              .slice(lineIndex, lineIndex2 - 1)
-              .map(line => line + "\n" + ("^" * line.length))
-              .mkString("\n")
-            val lastErrorLine = lines(lineIndex2 - 1)
-            s"""|From line $lineIndex character $charIndex to line $lineIndex2 character $charIndex2
-                |
-                |$firstErrorLine
-                |${" " * (charIndex - 1)}${"^" * ((firstErrorLine.length - 1) - charIndex)}
-                |${midErrorLines}
-                |${lastErrorLine}
-                |${Console.RED}${"^" * charIndex2}${Console.RED}
-                |""".stripMargin
-          } else if (charIndex != charIndex2) {
-            s"""|at line $lineIndex
-                |
-                |$errorLine
-                |${Console.RED}${" " * (charIndex - 1)}${"^" * (charIndex2 - charIndex)}${Console.RED}
-                |""".stripMargin
-          } else {
-            s"""|at line $lineIndex
-                |
-                |$errorLine
-                |${Console.RED}${" " * (charIndex - 2)}^${Console.RESET}
-                |""".stripMargin
-          }
-
-        } yield ": " + msg
-      case _ => None
-    }
-
-    val styledErrorMessage =
-      s"""|$errSep
-          |$errTag $message ${errorCodeRegion.getOrElse("")}
-          |$errSep""".stripMargin
-    println(styledErrorMessage)
-  }
 
   private def startDevServer(server: IO[_], rerun: IO[ExitCode]): IO[ExitCode] =
     IO(println(welcomeMsq)) *> server.start
@@ -368,12 +310,5 @@ object Main {
         }
       }
 
-  val welcomeMsq = s"""
-        Pragma GraphQL server is now running on port 3030
-
-                  ${Console.GREEN}${Console.BOLD}http://localhost:3030/graphql${Console.RESET}
-
-          Enter 'q' to quit, or anything else to reload
-      """
  */
 }

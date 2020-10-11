@@ -61,14 +61,19 @@ lazy val daemon = (project in file("daemon"))
   .dependsOn(core)
   .enablePlugins(DockerComposePlugin, JavaAppPackaging, DockerPlugin)
 
-lazy val pragmaCLI = (project in file("cli"))
+lazy val cli = (project in file("cli"))
   .settings(
-    name := "pragma",
+    name := "cli",
     maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
     packageSummary := "The CLI for Pragmalang",
     packageDescription := "See https://docs.pragmalang.com for details.",
     scalacOptions := commonScalacOptions,
     scalacOptions in (Compile, console) := Seq.empty,
-    libraryDependencies ++= testDependencies ++ Seq(scopt, osLib, catsEffect)
+    libraryDependencies ++= testDependencies ++ Seq(
+      scopt,
+      osLib,
+      osLibWatch,
+      catsEffect
+    )
   )
   .dependsOn(core)
