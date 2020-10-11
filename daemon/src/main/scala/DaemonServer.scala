@@ -130,7 +130,8 @@ object DeamonServer extends IOApp {
       projectName: String,
       migration: MigrationInput,
       daemonConfig: DaemonConfig,
-      mode: Mode
+      mode: Mode,
+      wskClient: WskClient[IO]
   ) =
     daemonConfig.db
       .getProject(projectName)
@@ -145,18 +146,15 @@ object DeamonServer extends IOApp {
           case (_, Dev)              => SyntaxTree.empty
           case (None, _)             => SyntaxTree.empty
         }
+
         val currentSt =
           SyntaxTree.from(migration.code).get
 
         val jc = new JwtCodec(project.secret)
-        val funcExecutor =
-          BlazeClientBuilder[IO](daemonConfig.execCtx).resource.map { client =>
-            new PFunctionExecutor[IO](
-              daemonConfig.wskConfig,
-              project.name,
-              client
-            )
-          }
+        val funcExecutor = new PFunctionExecutor[IO](
+          project.name,
+          wskClient
+        )
 
         val transactor = for {
           transactor <- HikariTransactor.newHikariTransactor[IO](
@@ -175,22 +173,20 @@ object DeamonServer extends IOApp {
             daemonConfig.db.persistPreviousMigration(projectName, migration)
         }
 
-        val storage = funcExecutor.flatMap { fnExec =>
-          buildStorage(
-            prevSt,
-            currentSt,
-            transactor,
-            jc,
-            fnExec
-          ).map(fnExec -> _)
-        }
+        val storage = buildStorage(
+          prevSt,
+          currentSt,
+          transactor,
+          jc,
+          funcExecutor
+        )
 
         val server = storage.use[IO, Server] { s =>
           for {
-            _ <- s._2.migrationEngine.migrate
+            _ <- s.migrationEngine.migrate
             _ <- persistPreviousMigration
             _ <- createWskActions(migration.importedFiles)
-          } yield new Server(jc, s._2, currentSt, s._1)
+          } yield new Server(jc, s, currentSt, funcExecutor)
         }
 
         server.map { server =>
@@ -212,7 +208,7 @@ object DeamonServer extends IOApp {
       .toVector
       .map(_.head)
 
-  def routes(daemonConfig: DaemonConfig) = HttpRoutes.of[IO] {
+  def routes(daemonConfig: DaemonConfig, wskClient: WskClient[IO]) = HttpRoutes.of[IO] {
     // Setup phase
     case req @ POST -> Root / "project" / "create" => {
       val project = parseBody[ProjectInput](req)
@@ -244,7 +240,8 @@ object DeamonServer extends IOApp {
           projectName,
           migration,
           daemonConfig,
-          mode
+          mode,
+          wskClient
         )
       } yield response
 
@@ -275,7 +272,7 @@ object DeamonServer extends IOApp {
         case None => projectServerNotFound.pure[IO]
       }
     }
-
+    case GET -> Root / "ping" => response(Status.Ok).pure[IO]
   }
 
   override def run(args: List[String]): IO[ExitCode] =
@@ -422,14 +419,16 @@ object DeamonServer extends IOApp {
         _ <- IO {
           println(s"Pinging OpenWhisk at ${wskConfig.wskApiHost.renderString}")
         }
-        _ <- clientResource.use(pingWsk(_, wskConfig))
+        httpClient <- clientResource.use(_.pure[IO])
+        _ <- pingWsk(httpClient, wskConfig)
+        wskClient = new WskClient(wskConfig, httpClient)
         hostname <- hostname
         port <- port
         daemonConfig = DaemonConfig(wskConfig, execCtx, blocker, db)
         runServer <- BlazeServerBuilder[IO](global)
           .bindHttp(port, hostname)
           .withHttpApp {
-            Router("/" -> GZip(routes(daemonConfig))).orNotFound
+            Router("/" -> GZip(routes(daemonConfig, wskClient))).orNotFound
           }
           .serve
           .compile
