@@ -9,10 +9,11 @@ class ConfigParsing extends AnyFlatSpec {
         config {
             someKey = "some value"
             someOtherKey = 42
+            projectName = "TEST"
         }
         """
     val syntaxTree = SyntaxTree.from(code).get
-    val entries = syntaxTree.config.get.values
+    val entries = syntaxTree.config.values
 
     assert(entries(0).key == "someKey")
     assert(entries(0).value == PStringValue("some value"))

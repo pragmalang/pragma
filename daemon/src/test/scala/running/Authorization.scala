@@ -24,6 +24,8 @@ class Authorization extends AnyFlatSpec {
     deny SET_ON_CREATE AU_User.isVerified
     allow READ AU_User
     deny READ AU_User.password
+
+    config { projectName = "test" }
     """
 
     val syntaxTree = SyntaxTree.from(code).get
@@ -110,6 +112,8 @@ class Authorization extends AnyFlatSpec {
       deny UPDATE self.username # Like Twitter
       allow [REMOVE_FROM, PUSH_TO] self.todos
     }
+
+    config { projectName = "test" }
     """
 
     implicit val syntaxTree = SyntaxTree.from(code).get

@@ -14,7 +14,6 @@ class ImportParsing extends AnyFlatSpec {
         """
     val parser = new PragmaParser(code)
     val syntaxTree = parser.syntaxTree.run()
-    pprint.pprintln(syntaxTree.get(1))
     val expected = Success(
       List(
         PImport(

@@ -38,6 +38,8 @@ class PermissionTreeSpec extends AnyFlatSpec {
         deny READ User.password
         allow ALL Todo 
     }
+
+    config { projectName = "test" }
     """
 
   implicit val syntaxTree = SyntaxTree.from(code).get

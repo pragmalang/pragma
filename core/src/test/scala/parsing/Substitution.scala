@@ -14,6 +14,8 @@ class Substitution extends AnyFlatSpec {
     @1
     @onWrite(function: fns.validateCat)
     model Cat { @1 name: String @primary }
+
+    config { projectName = "test" }
     """
     val syntaxTree = SyntaxTree.from(code).get
     val substituted = Substitutor.substitute(syntaxTree).get
@@ -44,6 +46,8 @@ class Substitution extends AnyFlatSpec {
     role User {
       allow ALL Todo.title if fns.isOwner
     }
+
+    config { projectName = "test" }
     """
     val syntaxTree = SyntaxTree.from(code).get
     val newGlobalTenant = syntaxTree.permissions.globalTenant
@@ -64,6 +68,8 @@ class Substitution extends AnyFlatSpec {
       role User {
         allow UPDATE self.bio
       }
+
+      config { projectName = "test" }
     """
     val st = SyntaxTree.from(code).get
     val permissions = st.permissions

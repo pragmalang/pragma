@@ -3,52 +3,58 @@ package cli
 import pragma.domain._, pragma.domain.utils.UserError
 import cats.implicits._
 import org.parboiled2.{Position, ParseError}
-import scala.util._
+import scala.util._, scala.io.StdIn.readLine
 
 object Main {
 
   def main(args: Array[String]): Unit = {
     val config = tryOrExit(CLIConfig.parse(args.toList))
-
     config.command match {
-      case CLICommand.Dev(true) => {
+      case CLICommand.Dev => {
         println(renderLogo)
-        run(config)
-        os.watch
-          .watch(Seq(os.Path(config.filePath.wrapped.getParent())), _ => {
-            run(config)
-          })
-      }
-      case CLICommand.Dev(false) => {
-        println(renderLogo)
-        tryOrExit(run(config))
+        run(config, withReload = true)
       }
       case CLICommand.Prod => tryOrExit(run(config))
-      case CLICommand.Root => println(CLIConfig.usageWithAsciiLogo)
+      case CLICommand.Root => ()
     }
   }
 
-  def run(config: CLIConfig): Try[Unit] = {
+  def run(config: CLIConfig, withReload: Boolean = false): Try[Unit] = {
     val code = tryOrExit(
       Try(os.read(config.filePath)),
       Some(s"Could not read ${config.filePath.toString}")
     )
 
-    SyntaxTree.from(code).as(())
+    val st = SyntaxTree.from(code)
+    val projectName = st.map(_.config.entryMap("projectName"))
+    println(projectName)
+
+    if (!withReload) sys.exit(0)
+    else
+      readLine("(r)eload, (q)uit: ") match {
+        case "r" | "R" => {
+          println("Reloading...")
+          run(config, withReload)
+        }
+        case "q" | "Q" => {
+          println("Come back soon!")
+          sys.exit(0)
+        }
+      }
+
   }
 
   def tryOrExit[A](
       t: Try[A],
       messagePrefix: Option[String] = None,
       code: Option[String] = None
-  ): A =
-    t match {
-      case Success(value) => value
-      case Failure(err) => {
-        println(renderThrowable(err, messagePrefix, code))
-        sys.exit(1)
-      }
+  ): A = t match {
+    case Success(value) => value
+    case Failure(err) => {
+      println(renderThrowable(err, messagePrefix, code))
+      sys.exit(1)
     }
+  }
 
   def renderError(
       message: String,
@@ -56,7 +62,7 @@ object Main {
       code: Option[String] = None
   ): String = {
     val errSep = Console.RED + ("━" * 100) + Console.RESET
-    val errTag = s"\n[${Console.RED}Error${Console.RESET}]"
+    val errTag = s"[${Console.RED}Error${Console.RESET}]"
     val errorCodeRegion = position match {
       case Some(
           PositionRange(

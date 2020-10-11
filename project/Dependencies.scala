@@ -25,7 +25,8 @@ object Dependencies {
   lazy val doobiePostgres = "org.tpolecat" %% "doobie-postgres" % doobieVersion
 
   lazy val osLib = "com.lihaoyi" %% "os-lib" % "0.7.1"
-  lazy val osLibWatch = "com.lihaoyi" %% "os-lib-watch" % "0.4.2"
+
+  lazy val requests = "com.lihaoyi" %% "requests" % "0.6.5"
 
   lazy val scopt = "com.github.scopt" %% "scopt" % "3.7.1"
 

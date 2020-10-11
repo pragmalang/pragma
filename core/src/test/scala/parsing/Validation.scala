@@ -44,6 +44,8 @@ class Validation extends AnyFlatSpec {
     role Todo {
       allow ALL self
     }
+
+    config { projectName = "test" }
     """
     val syntaxTree = SyntaxTree.from(code)
     val expected = Failure(
@@ -72,6 +74,8 @@ class Validation extends AnyFlatSpec {
       @3 user: User
       @4 id: String @primary
     }
+
+    config { projectName = "test" }
     """
     val syntaxTree = SyntaxTree.from(code)
     val expected = List(
@@ -100,6 +104,8 @@ class Validation extends AnyFlatSpec {
     @1 model Admin {
       @1 username: String @primary
     }
+
+    config { projectName = "test" }
     """
 
     val st = SyntaxTree.from(code)

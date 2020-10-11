@@ -25,6 +25,8 @@ object MockSyntaxTree {
       CLOTHING
       OTHER
     }
+
+    config { projectName = "test" }
     """
   lazy val syntaxTree = SyntaxTree.from(code).get
 }

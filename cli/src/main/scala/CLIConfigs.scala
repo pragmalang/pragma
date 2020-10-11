@@ -31,23 +31,10 @@ object CLIConfig {
 
       cmd("dev")
         .action { (_, configs) =>
-          configs.copy(command = CLICommand.Dev())
+          configs.copy(command = CLICommand.Dev)
         }
         .text("Runs the app in development mode")
-        .children(fileArg, watchOpt)
-
-      def watchOpt =
-        opt[Unit]("watch")
-          .abbr("w")
-          .optional()
-          .action { (_, config) =>
-            config
-              .copy(command = config.command match {
-                case CLICommand.Dev(_) => CLICommand.Dev(true)
-                case command           => command
-              })
-          }
-          .text("Restarts the server on every change in <file>")
+        .children(fileArg)
 
       def fileArg =
         arg[File]("<file>")
@@ -94,7 +81,7 @@ object CLIConfig {
 
 sealed trait CLICommand
 object CLICommand {
-  case class Dev(watch: Boolean = false) extends CLICommand
+  case object Dev extends CLICommand
   case object Prod extends CLICommand
   case object Root extends CLICommand
 }

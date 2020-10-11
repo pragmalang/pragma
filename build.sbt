@@ -72,8 +72,7 @@ lazy val cli = (project in file("cli"))
     libraryDependencies ++= testDependencies ++ Seq(
       scopt,
       osLib,
-      osLibWatch,
-      catsEffect
+      requests
     )
   )
   .dependsOn(core)

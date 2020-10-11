@@ -39,6 +39,8 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
     @4 gnp: Float?
     @5 citizens: [Citizen]
   }
+
+  config { projectName = "test" }
   """
 
   implicit val syntaxTree = SyntaxTree.from(code).get

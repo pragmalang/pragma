@@ -10,7 +10,7 @@ case class SyntaxTree(
     models: Seq[PModel],
     enums: Seq[PEnum],
     permissions: Permissions,
-    config: Option[PConfig] = None
+    config: PConfig
 ) {
   lazy val modelsById: Map[ID, PModel] = models.map(_.id).zip(models).toMap
 
@@ -25,9 +25,6 @@ case class SyntaxTree(
     (models ++ enums)
       .map(displayPType(_, true))
       .mkString("\n\n")
-
-  def getConfigEntry(key: String): Option[ConfigEntry] =
-    config.flatMap(_.getConfigEntry(key))
 }
 object SyntaxTree {
   // The resulting syntax tree is validated and substituted
@@ -45,7 +42,7 @@ object SyntaxTree {
     val imports = constructs.collect { case i: PImport         => i }
     val models = constructs.collect { case m: PModel           => m }
     val enums = constructs.collect { case e: PEnum             => e }
-    val config = constructs.collect { case cfg: PConfig        => cfg }
+    val config = constructs.collectFirst { case cfg: PConfig   => cfg }
     val accessRules = constructs.collect { case ar: AccessRule => ar }
     val roles = constructs.collect { case r: Role              => r }
     lazy val permissions = Permissions(
@@ -57,10 +54,10 @@ object SyntaxTree {
       models,
       enums,
       permissions,
-      if (config.isEmpty) None else Some(config.head)
+      if (config.isDefined) config.get else PConfig(Nil, None)
     )
   }
 
   def empty: SyntaxTree =
-    SyntaxTree(Seq.empty, Seq.empty, Seq.empty, Permissions.empty, None)
+    SyntaxTree(Seq.empty, Seq.empty, Seq.empty, Permissions.empty, PConfig(Nil, None))
 }

@@ -28,6 +28,8 @@ class RequestOperations extends AnyFlatSpec {
         @1 title: String @primary
         @2 content: String
     }
+
+    config { projectName = "test" }
     """
     val syntaxTree = SyntaxTree.from(code).get
     val opParser = new OperationParser(syntaxTree)

@@ -30,6 +30,8 @@ class RequestHandlerSpec extends AnyFlatSpec {
 
     allow ALL RH_User
     allow ALL RH_Todo
+
+    config { projectName = "test" }
     """
 
   val syntaxTree = SyntaxTree.from(code).get

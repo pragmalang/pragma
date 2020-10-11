@@ -25,7 +25,8 @@ class Validator(constructs: List[PConstruct]) {
       checkRolesBelongToUserModels,
       checkCreateAccessRules,
       checkModelIndexUniqueness,
-      checkFieldIndexUniqueness
+      checkFieldIndexUniqueness,
+      checkConfigRequiredProperties
     )
     val errors = results.flatMap {
       case Failure(err: UserError) => err.errors
@@ -351,6 +352,31 @@ class Validator(constructs: List[PConstruct]) {
     else Failure(UserError(errors))
   }
 
+  def checkConfigRequiredProperties: Try[Unit] = {
+    val config = constructs.collectFirst { case c: PConfig => c }
+    config match {
+      case None =>
+        Failure(UserError(("`config` block is not defined", None) :: Nil))
+      case Some(conf) => {
+        val errors = requiredConfigEntries.toList
+          .collect {
+            case (key, ptype) if !conf.entryMap.contains(key) =>
+              (
+                s"`config` block must contain an entry named `$key` of type `${displayPType(ptype)}",
+                conf.position
+              )
+            case (key, ptype) if conf.entryMap(key).value.ptype != ptype =>
+              (
+                s"Invalid value for `config` entry `$key` of type `${displayPType(ptype)}`",
+                conf.entryMap(key).position
+              )
+          }
+        if (errors.isEmpty) Success(())
+        else Failure(UserError(errors))
+      }
+    }
+  }
+
 }
 object Validator {
 
@@ -371,6 +397,10 @@ object Validator {
     "Query",
     "Mutation",
     "Subscription"
+  )
+
+  val requiredConfigEntries: Map[String, PType] = Map(
+    "projectName" -> PString
   )
 
 }
