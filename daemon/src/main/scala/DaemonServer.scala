@@ -156,16 +156,14 @@ object DeamonServer extends IOApp {
           wskClient
         )
 
-        val transactor = for {
-          transactor <- HikariTransactor.newHikariTransactor[IO](
-            "org.postgresql.Driver",
-            project.pgUri,
-            project.pgUser,
-            project.pgPassword,
-            daemonConfig.execCtx,
-            daemonConfig.blocker
-          )
-        } yield transactor
+        val transactor = HikariTransactor.newHikariTransactor[IO](
+          "org.postgresql.Driver",
+          project.pgUri,
+          project.pgUser,
+          project.pgPassword,
+          daemonConfig.execCtx,
+          daemonConfig.blocker
+        )
 
         val storageWithTransactor = buildStorage(
           prevSt,
@@ -355,16 +353,15 @@ object DeamonServer extends IOApp {
             Some(hostname),
             Some(port)
             ) => {
-          val t = for {
-            transactor <- HikariTransactor.newHikariTransactor[IO](
-              "org.postgresql.Driver",
-              pgUri,
-              pgUser,
-              pgPassword,
-              execCtx,
-              blocker
-            )
-          } yield transactor
+          val t = HikariTransactor.newHikariTransactor[IO](
+            "org.postgresql.Driver",
+            pgUri,
+            pgUser,
+            pgPassword,
+            execCtx,
+            blocker
+          )
+
           IO((t, (wskApiHost, wskAuthToken, wskApiVersion), hostname, port))
         }
 
