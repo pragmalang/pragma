@@ -156,37 +156,38 @@ object DeamonServer extends IOApp {
           wskClient
         )
 
-        val transactor = for {
-          transactor <- HikariTransactor.newHikariTransactor[IO](
-            "org.postgresql.Driver",
-            project.pgUri,
-            project.pgUser,
-            project.pgPassword,
-            daemonConfig.execCtx,
-            daemonConfig.blocker
-          )
-        } yield transactor
+        val transactor = HikariTransactor.newHikariTransactor[IO](
+          "org.postgresql.Driver",
+          project.pgUri,
+          project.pgUser,
+          project.pgPassword,
+          daemonConfig.execCtx,
+          daemonConfig.blocker
+        )
 
-        val persistPreviousMigration = mode match {
-          case Dev => IO.unit
-          case Prod =>
-            daemonConfig.db.persistPreviousMigration(projectName, migration)
-        }
-
-        val storage = buildStorage(
+        val storageWithTransactor = buildStorage(
           prevSt,
           currentSt,
           transactor,
           jc,
           funcExecutor
-        )
+        ).flatMap(s => transactor.map(s -> _))
 
-        val server = storage.use[IO, Server] { s =>
+        val server = storageWithTransactor.use[IO, Server] { s =>
+          val storage = s._1
+          val transactor = s._2
+          val removeAllTables = removeAllTablesFromDb(transactor)
+          val persistPrevMigration =
+            daemonConfig.db.persistPreviousMigration(projectName, migration)
+          val migrate = storage.migrate
+
           for {
-            _ <- s.migrationEngine.migrate
-            _ <- persistPreviousMigration
+            _ <- mode match {
+              case Dev  => removeAllTables *> migrate
+              case Prod => migrate *> persistPrevMigration
+            }
             _ <- createWskActions(migration.importedFiles)
-          } yield new Server(jc, s, currentSt, funcExecutor)
+          } yield new Server(jc, storage, currentSt, funcExecutor)
         }
 
         server.map { server =>
@@ -208,72 +209,73 @@ object DeamonServer extends IOApp {
       .toVector
       .map(_.head)
 
-  def routes(daemonConfig: DaemonConfig, wskClient: WskClient[IO]) = HttpRoutes.of[IO] {
-    // Setup phase
-    case req @ POST -> Root / "project" / "create" => {
-      val project = parseBody[ProjectInput](req)
-      val res = for {
-        project <- project
-        _ <- daemonConfig.db.createProject(project)
-      } yield ()
+  def routes(daemonConfig: DaemonConfig, wskClient: WskClient[IO]) =
+    HttpRoutes.of[IO] {
+      // Setup phase
+      case req @ POST -> Root / "project" / "create" => {
+        val project = parseBody[ProjectInput](req)
+        val res = for {
+          project <- project
+          _ <- daemonConfig.db.createProject(project)
+        } yield ()
 
-      res.as(response(Status.Ok)).handleError { err =>
-        response(
-          Status.Conflict,
-          s"Failed to create project: ${err.getMessage}".toJson.some
-        )
+        res.as(response(Status.Ok)).handleError { err =>
+          response(
+            Status.Conflict,
+            s"Failed to create project: ${err.getMessage}".toJson.some
+          )
+        }
       }
+      case req @ POST -> Root / "project" / "migrate" / modeStr / projectName => {
+        val mode: IO[Mode] = modeStr match {
+          case "dev"  => IO(Dev)
+          case "prod" => IO(Prod)
+          case _      => IO.raiseError(new Exception("Invalid mode route"))
+        }
+
+        val migration = parseBody[MigrationInput](req)
+
+        val res = for {
+          mode <- mode
+          migration <- migration
+          response <- migrate(
+            projectName,
+            migration,
+            daemonConfig,
+            mode,
+            wskClient
+          )
+        } yield response
+
+        res.handleError { err =>
+          response(Status.InternalServerError, err.getMessage().toJson.some)
+        }
+      }
+      case req @ POST -> Root / "project" / projectName / mode / "graphql" => {
+        val projectServerNotFound =
+          response(
+            Status.NotFound,
+            s"Project ${projectName} doesn't exist".toJson.some
+          )
+        val notFound404 = response(Status.NotFound)
+
+        val servers = mode match {
+          case "dev"  => Some(devProjectServers)
+          case "prod" => Some(prodProjectServers)
+          case _      => None
+        }
+
+        servers.flatMap(_.get(projectName)) match {
+          case Some(server) =>
+            server.handle.run(req).value.map {
+              case None           => notFound404
+              case Some(response) => response
+            }
+          case None => projectServerNotFound.pure[IO]
+        }
+      }
+      case GET -> Root / "ping" => response(Status.Ok).pure[IO]
     }
-    case req @ POST -> Root / "project" / "migrate" / modeStr / projectName => {
-      val mode: IO[Mode] = modeStr match {
-        case "dev"  => IO(Dev)
-        case "prod" => IO(Prod)
-        case _      => IO.raiseError(new Exception("Invalid mode route"))
-      }
-
-      val migration = parseBody[MigrationInput](req)
-
-      val res = for {
-        mode <- mode
-        migration <- migration
-        response <- migrate(
-          projectName,
-          migration,
-          daemonConfig,
-          mode,
-          wskClient
-        )
-      } yield response
-
-      res.handleError { err =>
-        response(Status.InternalServerError, err.getMessage().toJson.some)
-      }
-    }
-    case req @ POST -> Root / "project" / projectName / mode / "graphql" => {
-      val projectServerNotFound =
-        response(
-          Status.NotFound,
-          s"Project ${projectName} doesn't exist".toJson.some
-        )
-      val notFound404 = response(Status.NotFound)
-
-      val servers = mode match {
-        case "dev"  => Some(devProjectServers)
-        case "prod" => Some(prodProjectServers)
-        case _      => None
-      }
-
-      servers.flatMap(_.get(projectName)) match {
-        case Some(server) =>
-          server.handle.run(req).value.map {
-            case None           => notFound404
-            case Some(response) => response
-          }
-        case None => projectServerNotFound.pure[IO]
-      }
-    }
-    case GET -> Root / "ping" => response(Status.Ok).pure[IO]
-  }
 
   override def run(args: List[String]): IO[ExitCode] =
     (executionContext, blocker).bisequence.use { ctx =>
@@ -351,16 +353,15 @@ object DeamonServer extends IOApp {
             Some(hostname),
             Some(port)
             ) => {
-          val t = for {
-            transactor <- HikariTransactor.newHikariTransactor[IO](
-              "org.postgresql.Driver",
-              pgUri,
-              pgUser,
-              pgPassword,
-              execCtx,
-              blocker
-            )
-          } yield transactor
+          val t = HikariTransactor.newHikariTransactor[IO](
+            "org.postgresql.Driver",
+            pgUri,
+            pgUser,
+            pgPassword,
+            execCtx,
+            blocker
+          )
+
           IO((t, (wskApiHost, wskAuthToken, wskApiVersion), hostname, port))
         }
 
