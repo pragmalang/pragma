@@ -35,6 +35,7 @@ class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
     @1 id: String @primary @uuid
     @2 functionNames: [String]
     @3 content: String
+    @4 runtime: String
   }
   """
 
@@ -93,6 +94,7 @@ class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
                         id
                         functionNames
                         content
+                        runtime
                       }
                     }
                   }
@@ -162,9 +164,14 @@ case class MigrationInput(
 case class ImportedFile(
     id: String,
     content: String,
-    functionNames: List[String]
+    functionNames: List[String],
+    runtime: String
 )
-case class ImportedFileInput(content: String, functionNames: List[String])
+case class ImportedFileInput(
+    content: String,
+    functionNames: List[String],
+    runtime: String
+)
 
 case class Project(
     name: String,
