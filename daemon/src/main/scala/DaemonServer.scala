@@ -124,8 +124,6 @@ object DeamonServer extends IOApp {
       }
     )
 
-  def createWskActions(importedFiles: List[ImportedFileInput]): IO[Unit] = ???
-
   def migrate(
       projectName: String,
       migration: MigrationInput,
@@ -181,12 +179,23 @@ object DeamonServer extends IOApp {
             daemonConfig.db.persistPreviousMigration(projectName, migration)
           val migrate = storage.migrate
 
+          val createWskActions: IO[Unit] =
+            migration.functions.traverse { function =>
+              wskClient.createAction(
+                function.name,
+                function.content,
+                function.runtime,
+                function.binary,
+                projectName
+              )
+            }.void
+
           for {
             _ <- mode match {
               case Dev  => removeAllTables *> migrate
               case Prod => migrate *> persistPrevMigration
             }
-            _ <- createWskActions(migration.importedFiles)
+            _ <- createWskActions
           } yield new Server(jc, storage, currentSt, funcExecutor)
         }
 
@@ -252,18 +261,13 @@ object DeamonServer extends IOApp {
         }
       }
       case req @ POST -> Root / "project" / projectName / mode / "graphql" => {
-        val projectServerNotFound =
-          response(
-            Status.NotFound,
-            s"Project ${projectName} doesn't exist".toJson.some
-          )
-        val notFound404 = response(Status.NotFound)
-
         val servers = mode match {
           case "dev"  => Some(devProjectServers)
           case "prod" => Some(prodProjectServers)
           case _      => None
         }
+
+        val notFound404 = response(Status.NotFound)
 
         servers.flatMap(_.get(projectName)) match {
           case Some(server) =>
@@ -271,7 +275,7 @@ object DeamonServer extends IOApp {
               case None           => notFound404
               case Some(response) => response
             }
-          case None => projectServerNotFound.pure[IO]
+          case None => notFound404.pure[IO]
         }
       }
       case GET -> Root / "ping" => response(Status.Ok).pure[IO]

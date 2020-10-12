@@ -28,14 +28,15 @@ class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
   @2 model Migration {
     @1 id: String @primary @uuid
     @2 code: String
-    @3 importedFiles: [ImportedFile]
+    @3 functions: [ImportedFunction]
   }
 
-  @3 model ImportedFile {
+  @3 model ImportedFunction {
     @1 id: String @primary @uuid
-    @2 functionNames: [String]
+    @2 name: String
     @3 content: String
     @4 runtime: String
+    @5 binary: Boolean
   }
   """
 
@@ -154,23 +155,25 @@ case class Migration(
     id: String,
     code: String,
     migrationTimestamp: Long,
-    importedFiles: List[ImportedFile]
+    functions: List[ImportedFunction]
 )
 case class MigrationInput(
     code: String,
-    importedFiles: List[ImportedFileInput]
+    functions: List[ImportedFunctionInput]
 )
 
-case class ImportedFile(
+case class ImportedFunction(
     id: String,
+    name: String,
     content: String,
-    functionNames: List[String],
-    runtime: String
+    runtime: String,
+    binary: Boolean
 )
-case class ImportedFileInput(
+case class ImportedFunctionInput(
+    name: String,
     content: String,
-    functionNames: List[String],
-    runtime: String
+    runtime: String,
+    binary: Boolean
 )
 
 case class Project(

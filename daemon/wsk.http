@@ -1,0 +1,26 @@
+### Create Actions
+PUT /api/v1/namespaces/_/actions/action1?overwrite=true HTTP/1.1
+Host: localhost:3233
+Authorization: Basic MjNiYzQ2YjEtNzFmNi00ZWQ1LThjNTQtODE2YWE0ZjhjNTAyOjEyM3pPM3haQ0xyTU42djJCS0sxZFhZRnBYbFBrY2NPRnFtMTJDZEFzTWdSVTRWck5aOWx5R1ZDR3VNREdJd1A=
+Content-Type: application/json
+
+{
+    "namespace": "_",
+    "name": "action1",
+    "exec": {
+        "kind": "nodejs:12",
+        "code": "function hello() { return { data: \"hi\" } }",
+        "main": "hello",
+        "binary": false
+    }
+}
+
+### Invoke Action
+POST /api/v1/namespaces/_/actions/action1?blocking=true&result=true HTTP/1.1
+Host: localhost:3233
+Authorization: Basic MjNiYzQ2YjEtNzFmNi00ZWQ1LThjNTQtODE2YWE0ZjhjNTAyOjEyM3pPM3haQ0xyTU42djJCS0sxZFhZRnBYbFBrY2NPRnFtMTJDZEFzTWdSVTRWck5aOWx5R1ZDR3VNREdJd1A=
+Content-Type: application/json
+
+{
+    "msg": "Khaled"
+}
