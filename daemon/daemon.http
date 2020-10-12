@@ -34,4 +34,8 @@ POST /project/p1/dev/graphql HTTP/1.1
 Host: localhost:3030
 Content-Type: application/json
 
-{"operationName":null,"variables":{},"query":"{\n  User {\n    list {\n      username\n    }\n  }\n}\n"}
+{
+    "operationName":null,
+    "variables":{},
+    "query": "{\n  User {\n    list {\n      username\n    }\n  }\n}\n"
+}
