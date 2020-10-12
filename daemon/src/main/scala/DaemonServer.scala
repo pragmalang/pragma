@@ -285,8 +285,10 @@ object DeamonServer extends IOApp {
     (executionContext, blocker).bisequence.use { ctx =>
       val (execCtx, blocker) = ctx
       val DAEMON_PG_USER = sys.env.get("DAEMON_PG_USER")
-      val DAEMON_PG_URI = sys.env.get("DAEMON_PG_URI")
       val DAEMON_PG_PASSWORD = sys.env.get("DAEMON_PG_PASSWORD")
+      val DAEMON_PG_HOST = sys.env.get("DAEMON_PG_HOST")
+      val DAEMON_PG_PORT = sys.env.get("DAEMON_PG_PORT")
+      val DAEMON_PG_DB_NAME = sys.env.get("DAEMON_PG_DB_NAME")
       val DAEMON_WSK_API_HOST = sys.env.get("DAEMON_WSK_API_HOST")
       val DAEMON_WSK_AUTH_TOKEN = sys.env.get("DAEMON_WSK_AUTH_TOKEN")
       val DAEMON_WSK_API_VERSION = sys.env.get("DAEMON_WSK_API_VERSION")
@@ -301,7 +303,9 @@ object DeamonServer extends IOApp {
 
       val missingEnvVars =
         List(
-          ("DAEMON_PG_URI", DAEMON_PG_URI, "PostgreSQL DB URL"),
+          ("DAEMON_PG_HOST", DAEMON_PG_HOST, "PostgreSQL Host"),
+          ("DAEMON_PG_PORT", DAEMON_PG_PORT, "PostgreSQL Port"),
+          ("DAEMON_PG_DB_NAME", DAEMON_PG_DB_NAME, "PostgreSQL DB Name"),
           ("DAEMON_PG_USER", DAEMON_PG_USER, "PostgreSQL DB username"),
           (
             "DAEMON_WSK_API_HOST",
@@ -339,7 +343,9 @@ object DeamonServer extends IOApp {
 
       val transactorAndWskConfig = (
         DAEMON_PG_USER,
-        DAEMON_PG_URI,
+        DAEMON_PG_HOST,
+        DAEMON_PG_PORT,
+        DAEMON_PG_DB_NAME,
         DAEMON_PG_PASSWORD,
         DAEMON_WSK_API_HOST,
         DAEMON_WSK_AUTH_TOKEN,
@@ -349,7 +355,9 @@ object DeamonServer extends IOApp {
       ) match {
         case (
             Some(pgUser),
-            Some(pgUri),
+            Some(pgHost),
+            Some(pgPort),
+            Some(pgDbName),
             Some(pgPassword),
             Some(wskApiHost),
             Some(wskAuthToken),
@@ -359,7 +367,7 @@ object DeamonServer extends IOApp {
             ) => {
           val t = HikariTransactor.newHikariTransactor[IO](
             "org.postgresql.Driver",
-            pgUri,
+            s"jdbc:postgresql://$pgHost:$pgPort/$pgDbName",
             pgUser,
             pgPassword,
             execCtx,
@@ -421,24 +429,29 @@ object DeamonServer extends IOApp {
         wskAuthToken <- wskAuthToken
         wskApiVersion <- wskApiVersion
         wskConfig = WskConfig(wskApiVersion, wskApiHost, wskAuthToken)
+        wskClientResource = clientResource.map[IO, WskClient[IO]] { c =>
+          new WskClient(wskConfig, c)
+        }
         _ <- IO {
           println(s"Pinging OpenWhisk at ${wskConfig.wskApiHost.renderString}")
         }
-        httpClient <- clientResource.use(_.pure[IO])
-        _ <- pingWsk(httpClient, wskConfig)
-        wskClient = new WskClient(wskConfig, httpClient)
+        _ <- clientResource.use(client => pingWsk(client, wskConfig))
         hostname <- hostname
         port <- port
         daemonConfig = DaemonConfig(wskConfig, execCtx, blocker, db)
-        runServer <- BlazeServerBuilder[IO](global)
-          .bindHttp(port, hostname)
-          .withHttpApp {
-            Router("/" -> GZip(routes(daemonConfig, wskClient))).orNotFound
-          }
-          .serve
-          .compile
-          .drain
-          .as(ExitCode.Success)
+        runServer <- wskClientResource.use { wsk =>
+          BlazeServerBuilder[IO](global)
+            .bindHttp(port, hostname)
+            .withHttpApp {
+              Router(
+                "/" -> GZip(routes(daemonConfig, wsk))
+              ).orNotFound
+            }
+            .serve
+            .compile
+            .drain
+            .as(ExitCode.Success)
+        }
       } yield runServer
     }
 
@@ -453,7 +466,7 @@ object DeamonServer extends IOApp {
       .withUri(
         Uri
           .fromString(
-            s"http://${wskConfig.wskApiHost.renderString}/api/v${wskConfig.wskApiVersion}/namespaces/guest/actions"
+            s"http://${wskConfig.wskApiHost.renderString}/api/v${wskConfig.wskApiVersion}"
           )
           .toTry
           .get
