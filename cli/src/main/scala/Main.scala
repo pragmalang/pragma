@@ -30,19 +30,24 @@ object Main {
     println(projectName)
 
     if (!withReload) sys.exit(0)
-    else
-      readLine("(r)eload, (q)uit: ") match {
-        case "r" | "R" => {
-          println("Reloading...")
-          run(config, withReload)
-        }
-        case "q" | "Q" => {
-          println("Come back soon!")
-          sys.exit(0)
-        }
-      }
-
+    else reloadPrompt(config)
   }
+
+  def reloadPrompt(config: CLIConfig): Try[Unit] =
+    readLine("(r)eload, (q)uit: ") match {
+      case "r" | "R" => {
+        println("Reloading...")
+        run(config, withReload = true)
+      }
+      case "q" | "Q" => {
+        println("Come back soon!")
+        sys.exit(0)
+      }
+      case unknown => {
+        println(s"I do not know what `$unknown` means")
+        reloadPrompt(config)
+      }
+    }
 
   def tryOrExit[A](
       t: Try[A],
