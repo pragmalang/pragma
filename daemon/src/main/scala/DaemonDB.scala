@@ -16,6 +16,10 @@ import pragma.domain.utils.InternalException
 class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
 
   val schema = """
+  config {
+    projectName = "daemon-db"
+  }
+
   @1 model Project {
     @1 name: String @primary
     @2 secret: String
@@ -45,7 +49,7 @@ class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
 
   val ProjectModel = syntaxTree.modelsById("Project")
   val MigrationModel = syntaxTree.modelsById("Migration")
-  val ImportedFileModel = syntaxTree.modelsById("ImportedFile")
+  val ImportedFunctionModel = syntaxTree.modelsById("ImportedFunction")
 
   val jc = new JwtCodec("1234567")
   val queryEngine = new PostgresQueryEngine(transactor, syntaxTree, jc)
