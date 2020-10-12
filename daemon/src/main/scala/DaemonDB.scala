@@ -13,7 +13,9 @@ import running.operations.OperationParser
 import sangria.parser.QueryParser
 import pragma.domain.utils.InternalException
 
-class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
+class DaemonDB(transactor: Resource[IO, Transactor[IO]])(
+    implicit cs: ContextShift[IO]
+) {
 
   val schema = """
   config {
@@ -52,27 +54,36 @@ class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
   val ImportedFunctionModel = syntaxTree.modelsById("ImportedFunction")
 
   val jc = new JwtCodec("1234567")
-  val queryEngine = new PostgresQueryEngine(transactor, syntaxTree, jc)
+  val queryEngine = transactor.map(new PostgresQueryEngine(_, syntaxTree, jc))
   val funcExecutor = PFunctionExecutor.dummy[IO]
-  val migrationEngine = new PostgresMigrationEngine[IO](
-    transactor,
-    prevSyntaxTree,
-    syntaxTree,
-    queryEngine,
-    funcExecutor
-  )
+  val migrationEngine = for {
+    t <- transactor
+    qe <- queryEngine
+  } yield
+    new PostgresMigrationEngine[IO](
+      t,
+      prevSyntaxTree,
+      syntaxTree,
+      qe,
+      funcExecutor
+    )
+
   val opParser = new OperationParser(syntaxTree)
 
-  def migrate: IO[Unit] = migrationEngine.migrate
+  def migrate: IO[Unit] = migrationEngine.use(_.migrate)
 
-  def runQuery[T](query: ConnectionIO[T]) = query.transact(transactor)
+  def runQuery[T](query: ConnectionIO[T]) = transactor.use(query.transact(_))
 
   def createProject(project: ProjectInput): IO[Unit] = {
     val record = project.toJson.asJsObject
     queryEngine
-      .createOneRecord(ProjectModel, record, Vector.empty)
-      .void
-      .transact(transactor)
+      .use { qe =>
+        transactor.use { t =>
+          qe.createOneRecord(ProjectModel, record, Vector.empty)
+            .void
+            .transact(t)
+        }
+      }
   }
 
   def getProject(
@@ -113,12 +124,14 @@ class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
         throw new InternalException("Invalid hard-coded query to fetch project")
       }
 
-    queryEngine.run(projectQuery).map { query =>
-      query.head._2.toMap
-        .apply("Project")
-        .head
-        ._2
-        .convertTo[Option[Project]]
+    queryEngine.use {
+      _.run(projectQuery).map { query =>
+        query.head._2.toMap
+          .apply("Project")
+          .head
+          ._2
+          .convertTo[Option[Project]]
+      }
     }
   }
 
@@ -150,7 +163,7 @@ class DaemonDB(transactor: Transactor[IO])(implicit cs: ContextShift[IO]) {
         throw new InternalException("Invalid hard-coded query to fetch project")
       }
 
-    queryEngine.run(ops).void
+    queryEngine.use(_.run(ops).void)
   }
 
 }

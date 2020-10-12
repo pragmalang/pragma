@@ -424,7 +424,8 @@ object DeamonServer extends IOApp {
 
       for {
         t <- transactor
-        db <- t.use(tx => IO(new DaemonDB(tx)))
+        db = new DaemonDB(t)
+        _ <- db.migrate
         wskApiHost <- wskApiHost
         wskAuthToken <- wskAuthToken
         wskApiVersion <- wskApiVersion

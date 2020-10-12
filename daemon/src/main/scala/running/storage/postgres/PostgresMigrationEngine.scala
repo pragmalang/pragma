@@ -21,7 +21,8 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
     queryEngine: PostgresQueryEngine[M],
     funcExecutor: PFunctionExecutor[M]
 )(
-    implicit MError: MonadError[M, Throwable]
+    implicit MError: MonadError[M, Throwable],
+    cs: ContextShift[M]
 ) extends MigrationEngine[Postgres[M], M] {
 
   override def migrate: M[Unit] = {
@@ -46,7 +47,8 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
 
     for {
       thereExistData <- thereExistDataM
-      _ <- migration(prevSyntaxTree, thereExistData)
+      migration <- migration(prevSyntaxTree, thereExistData)
+      _ <- migration.run(transactor)
     } yield ()
   }
 
@@ -290,7 +292,7 @@ object PostgresMigrationEngine {
       st: SyntaxTree,
       queryEngine: PostgresQueryEngine[M],
       funcExecutor: PFunctionExecutor[M]
-  ) =
+  )(implicit cs: ContextShift[M]) =
     new PostgresMigrationEngine[M](
       t,
       SyntaxTree.empty,
