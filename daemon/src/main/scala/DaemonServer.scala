@@ -140,8 +140,6 @@ object DeamonServer extends IOApp {
             throw new Exception(s"Project `$projectName` doesn't exist")
         }
 
-        println("Project:" + project)
-
         val prevSt = (project.previousMigration, mode) match {
           case (Some(prevMig), Prod) => SyntaxTree.from(prevMig.code).get
           case (_, Dev)              => SyntaxTree.empty
@@ -152,7 +150,6 @@ object DeamonServer extends IOApp {
           SyntaxTree.from(migration.code).get
 
         val jc = new JwtCodec(project.secret)
-        println("JWT Codec:" + jc)
         val funcExecutor = new PFunctionExecutor[IO](
           project.name,
           wskClient
@@ -205,18 +202,16 @@ object DeamonServer extends IOApp {
           } yield new Server(jc, storage, currentSt, funcExecutor)
         }
 
-        server.map { server =>
-          mode match {
-            case Dev  => devProjectServers.addOne(project.name -> server)
-            case Prod => prodProjectServers.addOne(project.name -> server)
+        server
+          .map { server =>
+            mode match {
+              case Dev  => devProjectServers.addOne(project.name -> server)
+              case Prod => prodProjectServers.addOne(project.name -> server)
+            }
           }
-        }.void
+          .map(_ => response(Status.Ok))
       }
-      .as(response(Status.Ok))
-      .handleError { err =>
-        err.printStackTrace
-        response(Status.BadRequest)
-      }
+      .handleError(err => response(Status.BadRequest, err.getMessage().toJson.some))
 
   def parseBody[A: JsonReader](req: org.http4s.Request[IO]) =
     req.bodyText
@@ -264,22 +259,27 @@ object DeamonServer extends IOApp {
           )
         } yield response
       }
-      case req @ POST -> Root / "project" / projectName / mode / "graphql" => {
+      case req @ (POST |
+          GET) -> Root / "project" / projectName / mode / "graphql" => {
         val servers = mode match {
           case "dev"  => Some(devProjectServers)
           case "prod" => Some(prodProjectServers)
           case _      => None
         }
 
-        val notFound404 = response(Status.NotFound)
+        val notFound404 = response(Status.NotFound, "Not Found".toJson.some)
+        val projectNotFound404 = response(
+          Status.NotFound,
+          s"Project $projectName Not Found".toJson.some
+        )
 
         servers.flatMap(_.get(projectName)) match {
           case Some(server) =>
-            server.handle.run(req).value.map {
-              case None           => notFound404
-              case Some(response) => response
+            Router(req.uri.renderString -> server.routes).run(req).value.map {
+              case Some(v) => v
+              case None    => notFound404
             }
-          case None => notFound404.pure[IO]
+          case None => projectNotFound404.pure[IO]
         }
       }
       case GET -> Root / "ping" => response(Status.Ok).pure[IO]
