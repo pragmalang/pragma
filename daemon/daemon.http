@@ -1,3 +1,7 @@
+### Ping Pragma Daemon
+GET /ping
+Host: localhost:3030
+
 ### Create project
 POST /project/create HTTP/1.1
 Host: localhost:3030
@@ -11,6 +15,12 @@ Content-Type: application/json
     "pgPassword": "p1"
 }
 
-### Ping Pragma Daemon
-GET /ping
+### Migrate project
+POST /project/migrate/dev/p1 HTTP/1.1
 Host: localhost:3030
+Content-Type: application/json
+
+{
+    "code": "config { projectName=\"p1\" }\n@1 model User { @1 username: String @primary, @2 password: String, @3 friend: User? }",
+    "functions": []
+}

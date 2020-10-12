@@ -12,6 +12,48 @@ import DaemonJsonProtocol._
 import running.operations.OperationParser
 import sangria.parser.QueryParser
 import pragma.domain.utils.InternalException
+import running.RequestReducer
+case class Migration(
+    id: String,
+    code: String,
+    migrationTimestamp: Long,
+    functions: List[ImportedFunction]
+)
+case class MigrationInput(
+    code: String,
+    functions: List[ImportedFunctionInput]
+)
+
+case class ImportedFunction(
+    id: String,
+    name: String,
+    content: String,
+    runtime: String,
+    binary: Boolean
+)
+case class ImportedFunctionInput(
+    name: String,
+    content: String,
+    runtime: String,
+    binary: Boolean
+)
+
+case class Project(
+    name: String,
+    secret: String,
+    pgUri: String,
+    pgUser: String,
+    pgPassword: String,
+    previousMigration: Option[Migration]
+)
+case class ProjectInput(
+    name: String,
+    secret: String,
+    pgUri: String,
+    pgUser: String,
+    pgPassword: String,
+    previousMigration: Option[MigrationInput]
+)
 
 class DaemonDB(transactor: Resource[IO, Transactor[IO]])(
     implicit cs: ContextShift[IO]
@@ -104,13 +146,13 @@ class DaemonDB(transactor: Resource[IO, Transactor[IO]])(
                     pgPassword
                     previousMigration {
                       id
-                      migrationTimestamp
                       code
-                      importedFiles {
+                      functions {
                         id
-                        functionNames
+                        name
                         content
                         runtime
+                        binary
                       }
                     }
                   }
@@ -155,7 +197,7 @@ class DaemonDB(transactor: Resource[IO, Transactor[IO]])(
       """
     }.get
     val mut =
-      running.Request.bareReqFrom(gqlMut).copy(queryVariables = queryVars)
+      RequestReducer(running.Request.bareReqFrom(gqlMut).copy(queryVariables = queryVars))
 
     val ops = opParser
       .parse(mut)
@@ -167,48 +209,6 @@ class DaemonDB(transactor: Resource[IO, Transactor[IO]])(
   }
 
 }
-
-case class Migration(
-    id: String,
-    code: String,
-    migrationTimestamp: Long,
-    functions: List[ImportedFunction]
-)
-case class MigrationInput(
-    code: String,
-    functions: List[ImportedFunctionInput]
-)
-
-case class ImportedFunction(
-    id: String,
-    name: String,
-    content: String,
-    runtime: String,
-    binary: Boolean
-)
-case class ImportedFunctionInput(
-    name: String,
-    content: String,
-    runtime: String,
-    binary: Boolean
-)
-
-case class Project(
-    name: String,
-    secret: String,
-    pgUri: String,
-    pgUser: String,
-    pgPassword: String,
-    previousMigration: Option[Migration]
-)
-case class ProjectInput(
-    name: String,
-    secret: String,
-    pgUri: String,
-    pgUser: String,
-    pgPassword: String,
-    previousMigration: Option[MigrationInput]
-)
 
 object DaemonDB {
 

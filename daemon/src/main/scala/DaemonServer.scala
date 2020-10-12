@@ -137,8 +137,11 @@ object DeamonServer extends IOApp {
         val project = projectOption match {
           case Some(value) => value
           case None =>
-            throw new Exception(s"Project doesn't `$projectName` exist")
+            throw new Exception(s"Project `$projectName` doesn't exist")
         }
+
+        println("Project:" + project)
+
         val prevSt = (project.previousMigration, mode) match {
           case (Some(prevMig), Prod) => SyntaxTree.from(prevMig.code).get
           case (_, Dev)              => SyntaxTree.empty
@@ -149,6 +152,7 @@ object DeamonServer extends IOApp {
           SyntaxTree.from(migration.code).get
 
         val jc = new JwtCodec(project.secret)
+        println("JWT Codec:" + jc)
         val funcExecutor = new PFunctionExecutor[IO](
           project.name,
           wskClient
@@ -195,7 +199,9 @@ object DeamonServer extends IOApp {
               case Dev  => removeAllTables *> migrate
               case Prod => migrate *> persistPrevMigration
             }
+            _ = println(s"Migrated `$projectName`")
             _ <- createWskActions
+            _ = println(s"Created `$projectName`'s functions'")
           } yield new Server(jc, storage, currentSt, funcExecutor)
         }
 
@@ -208,7 +214,8 @@ object DeamonServer extends IOApp {
       }
       .as(response(Status.Ok))
       .handleError { err =>
-        response(Status.BadRequest, err.getMessage().toJson.some)
+        err.printStackTrace
+        response(Status.BadRequest)
       }
 
   def parseBody[A: JsonReader](req: org.http4s.Request[IO]) =
@@ -244,9 +251,10 @@ object DeamonServer extends IOApp {
 
         val migration = parseBody[MigrationInput](req)
 
-        val res = for {
+        for {
           mode <- mode
           migration <- migration
+          _ = println(migration)
           response <- migrate(
             projectName,
             migration,
@@ -255,10 +263,6 @@ object DeamonServer extends IOApp {
             wskClient
           )
         } yield response
-
-        res.handleError { err =>
-          response(Status.InternalServerError, err.getMessage().toJson.some)
-        }
       }
       case req @ POST -> Root / "project" / projectName / mode / "graphql" => {
         val servers = mode match {
