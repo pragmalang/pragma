@@ -59,11 +59,15 @@ lazy val daemon = (project in file("daemon"))
     composeNoBuild := true
   )
   .dependsOn(core)
-  .enablePlugins(DockerComposePlugin, JavaAppPackaging, DockerPlugin)
+  .enablePlugins(
+    DockerComposePlugin,
+    JavaAppPackaging,
+    DockerPlugin
+  )
 
 lazy val cli = (project in file("cli"))
   .settings(
-    name := "cli",
+    name := "pragma",
     maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
     packageSummary := "The CLI for Pragmalang",
     packageDescription := "See https://docs.pragmalang.com for details.",
@@ -73,6 +77,19 @@ lazy val cli = (project in file("cli"))
       scopt,
       osLib,
       requests
+    ),
+    graalVMNativeImageGraalVersion := Some("20.1.0-java11"),
+    graalVMNativeImageOptions := Seq(
+      "--static",
+      "--no-fallback",
+      "--allow-incomplete-classpath",
+      "--initialize-at-build-time=scala.runtime.Statics$VM",
+      "-H:+ReportExceptionStackTraces",
+      "-H:+AddAllCharsets",
+      "--enable-http",
+      "--enable-https",
+      "--enable-all-security-services"
     )
   )
   .dependsOn(core)
+  .enablePlugins(GraalVMNativeImagePlugin)
