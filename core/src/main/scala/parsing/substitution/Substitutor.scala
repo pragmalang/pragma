@@ -6,26 +6,34 @@ import cats.implicits._
 
 object Substitutor {
 
-  def substitute(st: SyntaxTree): Try[SyntaxTree] = {
+  def substitute(
+      st: SyntaxTree,
+      checkImportedFiles: Boolean = true
+  ): Try[SyntaxTree] = {
     val imports = st.imports.toList.traverse { imp =>
-      Try(new java.io.File(imp.filePath)).flatMap { file =>
-        if (!file.canRead)
-          Failure(
-            UserError(
-              (
-                "Cannot read file/directory: " + imp.filePath,
-                imp.position
-              ) :: Nil
+      if (!checkImportedFiles) Success(imp)
+      else
+        Try(new java.io.File(imp.filePath)).flatMap { file =>
+          if (!file.canRead)
+            Failure(
+              UserError(
+                (
+                  "Cannot read file/directory: " + imp.filePath,
+                  imp.position
+                ) :: Nil
+              )
             )
-          )
-        else if (!file.exists)
-          Failure(
-            UserError(
-              (s"File/directory `${imp.filePath}` does not exist", imp.position) :: Nil
+          else if (!file.exists)
+            Failure(
+              UserError(
+                (
+                  s"File/directory `${imp.filePath}` does not exist",
+                  imp.position
+                ) :: Nil
+              )
             )
-          )
-        else Success(imp)
-      }
+          else Success(imp)
+        }
     }
 
     val substitutedModels = imports.flatMap(_ => ModelSubstitutor(st))
