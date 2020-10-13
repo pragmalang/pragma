@@ -25,7 +25,12 @@ lazy val core = (project in file("core"))
     packageDescription := "See https://docs.pragmalang.com for details.",
     scalacOptions := commonScalacOptions,
     scalacOptions in (Compile, console) := Seq.empty,
-    libraryDependencies ++= testDependencies ++ Seq(cats, spray, parboiled)
+    libraryDependencies ++= testDependencies ++ Seq(
+      cats,
+      spray,
+      parboiled,
+      kebsSprayJson
+    )
   )
 
 import com.typesafe.sbt.packager.docker.DockerPermissionStrategy
@@ -51,8 +56,7 @@ lazy val daemon = (project in file("daemon"))
       http4sDsl,
       http4sBlazeServer,
       http4sBlazeClient,
-      logbackClassic,
-      kebsSprayJson
+      logbackClassic
     ),
     dockerExposedPorts := Seq(3030),
     version in Docker := "latest",

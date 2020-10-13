@@ -1,4 +1,5 @@
 import running._
+import pragma.daemonProtocol._
 import cats.implicits._
 import doobie._, doobie.hikari._
 import org.http4s.HttpRoutes

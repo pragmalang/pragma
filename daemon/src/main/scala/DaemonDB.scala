@@ -8,52 +8,11 @@ import running.storage.postgres.PostgresQueryEngine
 import running.JwtCodec
 import running.PFunctionExecutor
 import running.storage.postgres.PostgresMigrationEngine
-import DaemonJsonProtocol._
 import running.operations.OperationParser
 import sangria.parser.QueryParser
 import pragma.domain.utils.InternalException
 import running.RequestReducer
-case class Migration(
-    id: String,
-    code: String,
-    migrationTimestamp: Long,
-    functions: List[ImportedFunction]
-)
-case class MigrationInput(
-    code: String,
-    functions: List[ImportedFunctionInput]
-)
-
-case class ImportedFunction(
-    id: String,
-    name: String,
-    content: String,
-    runtime: String,
-    binary: Boolean
-)
-case class ImportedFunctionInput(
-    name: String,
-    content: String,
-    runtime: String,
-    binary: Boolean
-)
-
-case class Project(
-    name: String,
-    secret: String,
-    pgUri: String,
-    pgUser: String,
-    pgPassword: String,
-    previousMigration: Option[Migration]
-)
-case class ProjectInput(
-    name: String,
-    secret: String,
-    pgUri: String,
-    pgUser: String,
-    pgPassword: String,
-    previousMigration: Option[MigrationInput]
-)
+import pragma.daemonProtocol._, DaemonJsonProtocol._
 
 class DaemonDB(transactor: Resource[IO, Transactor[IO]])(
     implicit cs: ContextShift[IO]

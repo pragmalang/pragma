@@ -10,9 +10,9 @@ Content-Type: application/json
 {
     "name": "p1",
     "secret": "123456",
-    "pgUri": "jdbc:postgresql://localhost:5432/p1",
-    "pgUser": "p1",
-    "pgPassword": "p1"
+    "pgUri": "jdbc:postgresql://localhost:5432/test",
+    "pgUser": "test",
+    "pgPassword": "test"
 }
 
 ### Migrate project

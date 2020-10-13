@@ -1,11 +1,10 @@
 package running
 
-import pragma.domain._
+import pragma.domain._, pragma.daemonProtocol.DaemonJsonProtocol._
 import cats.implicits._, cats.effect._
 import org.http4s._, org.http4s.headers._, org.http4s.client._
 import spray.json._
 import running.utils.QueryError
-import DaemonJsonProtocol._
 
 class WskClient[M[_]: Sync](val config: WskConfig, val httpClient: Client[M]) {
 
