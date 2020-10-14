@@ -36,6 +36,12 @@ object CLIConfig {
         .text("Runs the app in development mode")
         .children(fileArg)
 
+      cmd("create")
+        .action { (_, configs) =>
+          configs.copy(command = CLICommand.Create)
+        }
+        .text("Initialize a new project")
+
       def fileArg =
         arg[File]("<file>")
           .optional()
@@ -49,20 +55,6 @@ object CLIConfig {
         .optional()
         .action((_, config) => config.copy(isHelp = true))
         .text("Prints usage")
-
-      checkConfig { conf =>
-        if (!conf.isHelp) {
-          if (os.exists(conf.filePath) && os.isFile(conf.filePath)) success
-          else if (os.isDir(conf.filePath))
-            failure(s"${conf.filePath} is a directory.")
-          else if (os.isLink(conf.filePath))
-            failure(s"${conf.filePath} is not a file.")
-          else if (conf.filePath.last == "Pragmafile" &&
-                   !os.exists(conf.filePath))
-            failure(s"Pragmafile doesn't exist.")
-          else failure(s"${conf.filePath} doesn't exist.")
-        } else success
-      }
     }
 
   def parse(args: List[String]): Try[CLIConfig] =
@@ -83,5 +75,6 @@ sealed trait CLICommand
 object CLICommand {
   case object Dev extends CLICommand
   case object Prod extends CLICommand
+  case object Create extends CLICommand
   case object Root extends CLICommand
 }

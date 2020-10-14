@@ -33,8 +33,6 @@ lazy val core = (project in file("core"))
     )
   )
 
-import com.typesafe.sbt.packager.docker.DockerPermissionStrategy
-
 lazy val daemon = (project in file("daemon"))
   .settings(
     name := "pragmad",

@@ -1,9 +1,10 @@
 package cli
 
-import pragma.domain._, pragma.domain.utils.UserError
+import pragma.domain._
+import pragma.daemonProtocol._
 import cats.implicits._
-import org.parboiled2.{Position, ParseError}
 import scala.util._, scala.io.StdIn.readLine
+import cli.utils._
 
 object Main {
 
@@ -14,23 +15,58 @@ object Main {
         println(renderLogo)
         run(config, withReload = true)
       }
-      case CLICommand.Prod => tryOrExit(run(config))
-      case CLICommand.Root => ()
+      case CLICommand.Prod   => tryOrExit(run(config))
+      case CLICommand.Create => createNewProject()
+      case CLICommand.Root   => ()
     }
   }
 
   def run(config: CLIConfig, withReload: Boolean = false): Try[Unit] = {
-    val code = tryOrExit(
+    lazy val code = tryOrExit(
       Try(os.read(config.filePath)),
       Some(s"Could not read ${config.filePath.toString}")
     )
 
-    val st = SyntaxTree.from(code)
-    val projectName = st.map(_.config.entryMap("projectName"))
-    println(projectName)
+    lazy val syntaxTree = SyntaxTree.from(code)
 
-    if (!withReload) sys.exit(0)
-    else reloadPrompt(config)
+    lazy val devMigration = for {
+      st <- syntaxTree
+      projectName = st.config
+        .entryMap("projectName")
+        .value
+        .asInstanceOf[PStringValue]
+      functions <- st.functions.toList.traverse {
+        case ExternalFunction(id, filePath, runtime) =>
+          for {
+            (content, isBinary) <- readContent(os.pwd / os.RelPath(filePath))
+          } yield ImportedFunctionInput(id, content, runtime, isBinary)
+        case otherFn =>
+          Failure {
+            new Exception {
+              s"Unsupported function type `${otherFn.getClass.getCanonicalName}`"
+            }
+          }
+      }
+      migration = MigrationInput(code, functions.toList)
+      _ <- DaemonClient.devMigrate(migration, projectName.value)
+    } yield ()
+
+    config.command match {
+      case CLICommand.Dev =>
+        devMigration match {
+          case Success(_)   => ()
+          case Failure(err) => println(renderThrowable(err, code = Some(code)))
+        }
+      case CLICommand.Prod => {
+        println("Sorry, production mode is not yet implemented.")
+        sys.exit(0)
+      }
+      case CLICommand.Create => createNewProject()
+      case _                 => ()
+    }
+
+    if (withReload) reloadPrompt(config)
+    else sys.exit(0)
   }
 
   def reloadPrompt(config: CLIConfig): Try[Unit] =
@@ -44,102 +80,43 @@ object Main {
         sys.exit(0)
       }
       case unknown => {
-        println(s"I do not know what `$unknown` means")
+        println(s"I do not know what `$unknown` means...")
         reloadPrompt(config)
       }
     }
 
-  def tryOrExit[A](
-      t: Try[A],
-      messagePrefix: Option[String] = None,
-      code: Option[String] = None
-  ): A = t match {
-    case Success(value) => value
-    case Failure(err) => {
-      println(renderThrowable(err, messagePrefix, code))
+  def createNewProject(): Try[Unit] = Try {
+    val newProjectName = readLine("What's the name of your new project?:").trim
+    if (newProjectName.isEmpty) {
+      println("A project's name cannot be an empty string...")
       sys.exit(1)
     }
-  }
-
-  def renderError(
-      message: String,
-      position: Option[PositionRange] = None,
-      code: Option[String] = None
-  ): String = {
-    val errSep = Console.RED + ("━" * 100) + Console.RESET
-    val errTag = s"[${Console.RED}Error${Console.RESET}]"
-    val errorCodeRegion = position match {
-      case Some(
-          PositionRange(
-            Position(_, lineIndex, charIndex),
-            Position(_, lineIndex2, charIndex2)
-          )
-          ) =>
-        for {
-          code <- code
-          lines = code.split("\n").toList
-          errorLine = lines(lineIndex - 1)
-          msg = if (lineIndex != lineIndex2) {
-            val firstErrorLine = errorLine
-            val midErrorLines = lines
-              .slice(lineIndex, lineIndex2 - 1)
-              .map(line => line + "\n" + ("^" * line.length))
-              .mkString("\n")
-            val lastErrorLine = lines(lineIndex2 - 1)
-            s"""|From line $lineIndex character $charIndex to line $lineIndex2 character $charIndex2
-                |
-                |$firstErrorLine
-                |${" " * (charIndex - 1)}${"^" * ((firstErrorLine.length - 1) - charIndex)}
-                |${midErrorLines}
-                |${lastErrorLine}
-                |${Console.RED}${"^" * charIndex2}${Console.RED}
-                |""".stripMargin
-          } else if (charIndex != charIndex2) {
-            s"""|at line $lineIndex
-                |
-                |$errorLine
-                |${Console.RED}${" " * (charIndex - 1)}${"^" * (charIndex2 - charIndex)}${Console.RED}
-                |""".stripMargin
-          } else {
-            s"""|at line $lineIndex
-                |
-                |$errorLine
-                |${Console.RED}${" " * (charIndex - 2)}^${Console.RESET}
-                |""".stripMargin
-          }
-
-        } yield ": " + msg
-      case _ => None
-    }
-
-    s"""|$errSep
-        |$errTag $message ${errorCodeRegion.getOrElse("")}
-        |$errSep""".stripMargin
-  }
-
-  def renderThrowable(
-      err: Throwable,
-      messagePrefix: Option[String] = None,
-      code: Option[String] = None
-  ): String =
-    err match {
-      case userErr: UserError =>
-        userErr.errors
-          .map {
-            case (msg, pos) => renderError(msg, pos, code)
-          }
-          .mkString("\n")
-      case ParseError(pos, pos2, _) =>
-        renderError(
-          "Parse error",
-          Some(PositionRange(pos, pos2)),
-          code
+    val projectDir = os.pwd / newProjectName
+    val createProj =
+      DaemonClient.createProject(
+        ProjectInput(
+          newProjectName,
+          "DUMMY_SECRET",
+          "jdbc:postgresql://localhost:5433/test",
+          "test",
+          "test"
         )
-      case otherErr =>
-        renderError {
-          messagePrefix.map(_ + "\n").getOrElse("") + otherErr.getMessage
-        }
+      ) *> Try {
+        os.makeDir(projectDir)
+        val pragmafile =
+          s"""
+        |config { projectName = "$newProjectName" }
+        |""".stripMargin
+        os.write(projectDir / "Pragmafile", pragmafile)
+      }
+
+    createProj.handleErrorWith {
+      case err => {
+        println(renderThrowable(err))
+        sys.exit(1)
+      }
     }
+  }
 
   val renderLogo =
     assets.asciiLogo
