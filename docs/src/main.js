@@ -14,7 +14,7 @@ function highlightPragmaCode() {
 }
 
 function addLinkToMenuTitle() {
-  const menuBar = document.getElementById("menu-bar-sticky-container");
+  const menuBar = document.getElementById("menu-bar");
   const a = document.createElement("a");
   const title = menuBar.children.item(1).innerText
   const newMenuTitle = menuBar.children.item(1).cloneNode()
