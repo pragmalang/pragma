@@ -11,7 +11,6 @@ import scala.util.Try
 import doobie.util.transactor.Transactor
 import cats.effect._
 import doobie.implicits._
-import doobie.util.fragment.Fragment
 import running.PFunctionExecutor
 
 class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
@@ -27,23 +26,52 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
 
   override def migrate: M[Unit] = {
     val thereExistDataM: M[Map[ModelId, Boolean]] =
-      (
-        for {
-          model <- prevSyntaxTree.models
-        } yield
-          Fragment(
-            s"SELECT COUNT(*) FROM ${model.id.withQuotes};",
-            Nil,
-            None
-          ).query[Int]
+      prevSyntaxTree.models
+        .map { model =>
+          sql"select count(*) from ${model.id.withQuotes} limit 1;"
+            .query[Int]
             .stream
             .compile
             .toList
             .map(count => model.id -> (count.head > 0))
-      ).map(d => d.transact(transactor))
+        }
         .toVector
-        .sequence
+        .traverse(d => d.transact(transactor))
         .map(_.toMap)
+
+    val createMigrationsTable =
+      sql"""
+        create table if not exists ___pragma_migrations___ (
+          id serial primary,
+          code text not null,
+          timestamp timestamp without time zone not null default (now() at time zone 'utc')
+        );
+        """
+        .update
+        .run
+        .void
+        .transact(transactor)
+
+    val checkForPrevTree =
+      sql"""
+          select count(*) from ___pragma_migrations___ limit 1;
+        """
+        .query[Int]
+        .stream
+        .compile
+        .toList
+        .map(_.head > 0)
+        .transact(transactor)
+
+    val prevTree = 
+        sql"""
+          select code from ___pragma_migrations___
+            where 
+          """
+
+    println(checkForPrevTree)
+    println(createMigrationsTable)
+    println(prevTree)
 
     for {
       thereExistData <- thereExistDataM
