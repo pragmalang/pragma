@@ -36,7 +36,7 @@ class OperationParser(st: SyntaxTree) {
     */
   def parse(
       request: Request
-  )(implicit st: SyntaxTree): Either[Exception, Operations.OperationsMap] =
+  ): Either[Exception, Operations.OperationsMap] =
     request.query.operations.toVector
       .traverse {
         case (name, op) => {

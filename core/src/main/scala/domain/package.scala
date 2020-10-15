@@ -14,6 +14,7 @@ trait Positioned {
 case class PImport(
     id: String,
     filePath: String,
+    config: Option[PConfig],
     position: Option[PositionRange]
 ) extends PConstruct
     with Identifiable
@@ -42,6 +43,8 @@ case class PConfig(values: List[ConfigEntry], position: Option[PositionRange])
     extends PConstruct {
   def getConfigEntry(key: String): Option[ConfigEntry] =
     values.find(configEntry => configEntry.key == key)
+
+  lazy val entryMap = values.map(entry => entry.key -> entry).toMap
 }
 
 case class ConfigEntry(

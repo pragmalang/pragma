@@ -16,6 +16,20 @@ case class Request(
 )
 
 object Request {
+
+  /** Helper to construct simple `Request`s */
+  def bareReqFrom(gqlQuery: Document) =
+    Request(
+      hookData = None,
+      body = None,
+      user = None,
+      query = gqlQuery,
+      queryVariables = JsObject.empty,
+      cookies = Map.empty,
+      url = "",
+      hostname = ""
+    )
+
   lazy val pType: PInterface = PInterface(
     "Request",
     List(

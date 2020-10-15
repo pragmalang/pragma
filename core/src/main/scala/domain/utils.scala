@@ -160,10 +160,7 @@ package object utils {
     case PStringValue(value) => s""""$value""""
     case PDateValue(value)   => value.toString
     case PBoolValue(value)   => value.toString
-    case f: PFunctionValue[_, _] =>
-      s"(${f.ptype.args.map(
-        arg => s"${arg._1}: ${displayPType(arg._2, isVerbose = false)}"
-      )}) => ${displayPType(f.ptype.returnType, isVerbose = false)}"
+    case _: PFunctionValue => "<Function>"
     case PInterfaceValue(value, _) =>
       s"{\n${value.map(v => s" ${v._1}: ${v._2}").mkString(",\n")}\n}"
     case PArrayValue(values, _) =>

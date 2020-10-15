@@ -4,11 +4,10 @@ import running.storage._
 import running.storage.postgres._
 import org.scalatest._, funsuite.AnyFunSuite
 import SQLMigrationStep._
-import domain.SyntaxTree
 import AlterTableAction._
 import OnDeleteAction.Cascade
 
-import domain._
+import pragma.domain._
 import org.parboiled2.Position
 
 import doobie._
@@ -16,6 +15,7 @@ import doobie.implicits._
 import cats.effect._
 import cats.implicits._
 import running.JwtCodec
+import running.PFunctionExecutor
 
 class PostgresMigrationEngineSpec extends AnyFunSuite {
 
@@ -56,6 +56,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
         @2 model Todo_renderSQL {
           @1 title: String @primary
         }
+
+        config { projectName = "test" }
         """
     val syntaxTree = SyntaxTree.from(code).get
 
@@ -91,17 +93,9 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
        |""".stripMargin
       )
 
-    assert(
-      expected == (migrationEngine.initialMigration match {
-        case Left(e)          => throw e
-        case Right(migration) => migration.renderSQL
-      })
-    )
-
-    migrationEngine.initialMigration
-      .getOrElse(fail())
-      .run(transactor)
-      .unsafeRunSync()
+    assert {
+      expected == migrationEngine.initialMigration.unsafeRunSync().renderSQL
+    }
   }
 
   test("PostgresMigrationEngine#migration works") {
@@ -119,6 +113,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
         @2 model Todo {
           @1 title: String @primary
         }
+
+        config { projectName = "test" }
         """
     val syntaxTree = SyntaxTree.from(code).get
 
@@ -236,7 +232,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       Vector(createTodoModel, createUserModel),
       SyntaxTree.empty,
       syntaxTree,
-      testStorage.queryEngine
+      testStorage.queryEngine,
+      PFunctionExecutor.dummy[IO]
     )
 
     assert(postgresMigration.sqlSteps == expected)
@@ -257,6 +254,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     @2 model Todo {
       @1 title: String @primary
     }
+
+    config { projectName = "test" }
     """
     val prevSyntaxTree = SyntaxTree.from(prevCode).get
 
@@ -277,6 +276,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     @3 model Admin {
       @1 username: String @primary
     }
+
+    config { projectName = "test" }
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
@@ -345,6 +346,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     @3 model Admin {
       @1 username: String @primary
     }
+
+    config { projectName = "test" }
     """
     val prevSyntaxTree = SyntaxTree.from(prevCode).get
 
@@ -361,6 +364,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     @2 model Todo {
       @1 title: String @primary
     }
+
+    config { projectName = "test" }
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
@@ -369,12 +374,12 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     val migrationEngine = testStorage.migrationEngine
 
     val expected = Vector(DropTable("Admin"))
-    assert(
+    assert {
       migrationEngine
         .migration(prevSyntaxTree, Map.empty)
-        .getOrElse(fail())
+        .unsafeRunSync()
         .sqlSteps == expected
-    )
+    }
   }
 
   test("Renaming models in a migration works") {
@@ -396,6 +401,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     @3 model Admin {
       @1 username: String @primary
     }
+
+    config { projectName = "test" }
     """
     val prevSyntaxTree = SyntaxTree.from(prevCode).get
 
@@ -416,6 +423,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     @3 model Admin1 {
       @1 username: String @primary
     }
+
+    config { projectName = "test" }
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
@@ -427,7 +436,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     assert(
       migrationEngine
         .migration(prevSyntaxTree, Map.empty)
-        .getOrElse(fail())
+        .unsafeRunSync()
         .sqlSteps == expected
     )
   }
@@ -451,6 +460,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     @3 model Admin {
       @1 username: String @primary
     }
+
+    config { projectName = "test" }
     """
     val prevSyntaxTree = SyntaxTree.from(prevCode).get
 
@@ -472,6 +483,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 username: String @primary @publicCredential
       @2 password: String @secretCredential
     }
+
+    config { projectName = "test" }
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
@@ -501,7 +514,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     assert(
       migrationEngine
         .migration(prevSyntaxTree, Map.empty)
-        .getOrElse(fail())
+        .unsafeRunSync()
         .sqlSteps == expected
     )
   }
@@ -526,6 +539,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 username: String @primary @publicCredential
       @2 password: String @secretCredential
     }
+
+    config { projectName = "test" }
     """
     val prevSyntaxTree = SyntaxTree.from(prevCode).get
 
@@ -546,6 +561,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     @3 model Admin {
       @1 username: String @primary
     }
+
+    config { projectName = "test" }
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
@@ -557,7 +574,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     assert(
       migrationEngine
         .migration(prevSyntaxTree, Map.empty)
-        .getOrElse(fail())
+        .unsafeRunSync()
         .sqlSteps == expected
     )
   }
@@ -582,6 +599,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 username: String @primary @publicCredential
       @2 password: String @secretCredential
     }
+
+    config { projectName = "test" }
     """
     val prevSyntaxTree = SyntaxTree.from(prevCode).get
 
@@ -603,6 +622,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 username: String @primary @publicCredential
       @2 passcode: String @secretCredential
     }
+
+    config { projectName = "test" }
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
@@ -615,7 +636,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     assert(
       migrationEngine
         .migration(prevSyntaxTree, Map.empty)
-        .getOrElse(fail())
+        .unsafeRunSync()
         .sqlSteps == expected
     )
   }
@@ -642,6 +663,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 username: String @primary @publicCredential
       @2 password: String @secretCredential
     }
+
+    config { projectName = "test" }
     """
     val prevSyntaxTree = SyntaxTree.from(prevCode).get
 
@@ -663,6 +686,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 username: String @primary @publicCredential
       @2 password: String @secretCredential
     }
+
+    config { projectName = "test" }
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
@@ -701,6 +726,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 username: String @primary @publicCredential
       @2 password: String @secretCredential
     }
+
+    config { projectName = "test" }
     """
     val prevSyntaxTree = SyntaxTree.from(prevCode).get
 
@@ -722,6 +749,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 username: String @primary @publicCredential
       @2 password: String @secretCredential
     }
+
+    config { projectName = "test" }
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 
@@ -775,6 +804,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 username: String @primary @publicCredential
       @2 password: String @secretCredential
     }
+
+    config { projectName = "test" }
     """
     val prevSyntaxTree = SyntaxTree.from(prevCode).get
 
@@ -797,6 +828,8 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 username: String @primary @publicCredential
       @2 password: String @secretCredential
     }
+
+    config { projectName = "test" }
     """
     val newSyntaxTree = SyntaxTree.from(code).get
 

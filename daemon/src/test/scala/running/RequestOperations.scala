@@ -1,7 +1,7 @@
 package running
 
 import sangria.macros._
-import domain._
+import pragma.domain._
 import running._, running.operations._
 import spray.json._
 import scala.collection.immutable._
@@ -12,7 +12,7 @@ import cats.implicits._
 class RequestOperations extends AnyFlatSpec {
   "Request operations" should "be computed from user GraphQL query" in {
     val code = """
-    import "./core/src/test/scala/parsing/test-functions.js" as fns
+    import "./core/src/test/scala/parsing/test-functions.js" as fns { runtime = "nodejs:14" }
 
     @user @1 model User {
         @1 username: String @publicCredential @primary
@@ -28,6 +28,8 @@ class RequestOperations extends AnyFlatSpec {
         @1 title: String @primary
         @2 content: String
     }
+
+    config { projectName = "test" }
     """
     val syntaxTree = SyntaxTree.from(code).get
     val opParser = new OperationParser(syntaxTree)
@@ -78,7 +80,7 @@ class RequestOperations extends AnyFlatSpec {
       "http://localhost:8080/gql",
       "localhost"
     )
-    val ops = opParser.parse(request)(syntaxTree)
+    val ops = opParser.parse(request)
 
     ops match {
       case Left(err) =>

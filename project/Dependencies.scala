@@ -16,6 +16,7 @@ object Dependencies {
   lazy val http4sVersion = "0.21.6"
   lazy val http4sDsl = "org.http4s" %% "http4s-dsl" % http4sVersion
   lazy val http4sBlazeServer = "org.http4s" %% "http4s-blaze-server" % http4sVersion
+  lazy val http4sBlazeClient = "org.http4s" %% "http4s-blaze-client" % http4sVersion
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.3"
 
   lazy val doobieVersion = "0.9.0"
@@ -24,6 +25,8 @@ object Dependencies {
   lazy val doobiePostgres = "org.tpolecat" %% "doobie-postgres" % doobieVersion
 
   lazy val osLib = "com.lihaoyi" %% "os-lib" % "0.7.1"
+
+  lazy val requests = "com.lihaoyi" %% "requests" % "0.6.5"
 
   lazy val scopt = "com.github.scopt" %% "scopt" % "3.7.1"
 
@@ -34,4 +37,7 @@ object Dependencies {
     "com.lihaoyi" %% "pprint" % "0.5.6" % Test,
     "org.tpolecat" %% "doobie-scalatest" % doobieVersion % Test
   )
+
+  lazy val kebsSprayJson = "pl.iterators" %% "kebs-spray-json" % "1.8.1"
+
 }

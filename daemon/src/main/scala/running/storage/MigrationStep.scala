@@ -1,8 +1,6 @@
 package running.storage
 
 import pragma.domain._
-import spray.json.JsValue
-import scala.util.Try
 
 sealed trait MigrationStep
 
@@ -44,5 +42,5 @@ case class ChangeManyFieldTypes(
 case class ChangeFieldType(
     field: PModelField,
     newType: PType,
-    transformer: Option[PFunctionValue[JsValue, Try[JsValue]]]
+    transformer: Option[PFunctionValue]
 )

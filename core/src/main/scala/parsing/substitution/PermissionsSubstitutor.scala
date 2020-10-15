@@ -3,14 +3,16 @@ package pragma.parsing.substitution
 import pragma.domain._, utils._
 import pragma.parsing.PragmaParser.Reference
 import scala.util.{Try, Success, Failure}
+import cats.implicits._
 
 object PermissionsSubstitutor {
 
   /** Combines all other `PermissionsSubstitutor` methods */
-  def apply(st: SyntaxTree, ctx: PInterfaceValue): Try[Permissions] = {
+  def apply(st: SyntaxTree): Try[Permissions] = {
+    val imports = st.imports.map(i => i.id -> i).toMap
     val newGlobalRules = combineUserErrorTries {
       st.permissions.globalTenant.rules
-        .map(substituteAccessRule(_, None, st, ctx.value))
+        .map(substituteAccessRule(_, None, st, imports))
     }
     val substitutedRoles = st.permissions.globalTenant.roles.map { role =>
       val roleModel =
@@ -26,7 +28,7 @@ object PermissionsSubstitutor {
         case Some(userModel) =>
           combineUserErrorTries {
             role.rules.map(
-              substituteAccessRule(_, Some(userModel), st, ctx.value)
+              substituteAccessRule(_, Some(userModel), st, imports)
             )
           } map { newRules =>
             role.copy(rules = newRules.toSeq)
@@ -54,7 +56,7 @@ object PermissionsSubstitutor {
       rule: AccessRule,
       selfRole: Option[PModel],
       st: SyntaxTree,
-      ctx: Map[String, PValue]
+      imports: Map[String, PImport]
   ): Try[AccessRule] = {
     val parentName = rule.resourcePath._1.asInstanceOf[Reference].path.head
     val childRef = rule.resourcePath._2.asInstanceOf[Option[Reference]]
@@ -97,26 +99,26 @@ object PermissionsSubstitutor {
 
     val newRule = rule.copy(resourcePath = (parent, child))
 
-    substituteRulePredicate(newRule, ctx)
+    substituteRulePredicate(newRule, imports)
       .flatMap(substituteAccessRulePermissions(_))
   }
 
   /** Used as a part of access rule substitution */
   private def substituteRulePredicate(
       rule: AccessRule,
-      ctx: Map[String, PValue]
+      imports: Map[String, PImport]
   ): Try[AccessRule] = {
-    val userPredicate = rule.predicate match {
-      case Some(ref: Reference) =>
-        Substitutor.getReferencedFunction(ref, ctx) match {
-          case None =>
-            return Failure(UserError(s"Predicate `$ref` is not defined"))
-          case somePredicate => somePredicate
-        }
-      case someFunction => someFunction
-    }
+    val userPredicate: Either[ErrorMessage, Option[PFunctionValue]] =
+      rule.predicate match {
+        case Some(ref: Reference) =>
+          Substitutor.getReferencedFunction(imports, ref).map(_.some)
+        case someFunction => someFunction.asRight
+      }
 
-    Success(rule.copy(predicate = userPredicate))
+    userPredicate match {
+      case Right(pred) => Success(rule.copy(predicate = pred))
+      case Left(err)   => Failure(UserError(err :: Nil))
+    }
   }
 
   /** Used as a part of access rule substitution */

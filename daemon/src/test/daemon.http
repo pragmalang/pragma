@@ -1,0 +1,41 @@
+### Ping Pragma Daemon
+GET /ping
+Host: localhost:3030
+
+### Create project
+POST /project/create HTTP/1.1
+Host: localhost:3030
+Content-Type: application/json
+
+{
+    "name": "p1",
+    "secret": "123456",
+    "pgUri": "jdbc:postgresql://localhost:5432/test",
+    "pgUser": "test",
+    "pgPassword": "test"
+}
+
+### Migrate project
+POST /project/migrate/dev/p1 HTTP/1.1
+Host: localhost:3030
+Content-Type: application/json
+
+{
+    "code": "config { projectName=\"p1\" }\n@1 model User { @1 username: String @primary, @2 password: String, @3 friend: User? }",
+    "functions": []
+}
+
+### Get Playground
+GET /project/p1/dev/graphql HTTP/1.1
+Host: localhost:3030
+
+### Execute Playground
+POST /project/p1/dev/graphql HTTP/1.1
+Host: localhost:3030
+Content-Type: application/json
+
+{
+    "operationName":null,
+    "variables":{},
+    "query": "{\n  User {\n    list {\n      username\n    }\n  }\n}\n"
+}

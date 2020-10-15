@@ -4,14 +4,18 @@ import pragma.domain._, utils._
 import running.operations._, running.storage._
 import spray.json._
 import running.JwtPayload
-import scala.util._
 import cats.Monad
 import cats.implicits._
+import cats.MonadError
+import running.PFunctionExecutor
+import cats.effect.Async
+import cats.effect.ConcurrentEffect
 
-class Authorizer[S, M[_]: Monad](
+class Authorizer[S, M[_]: Async: ConcurrentEffect](
     syntaxTree: SyntaxTree,
-    storage: Storage[S, M]
-) {
+    storage: Storage[S, M],
+    funcExecutor: PFunctionExecutor[M]
+)(implicit MError: MonadError[M, Throwable]) {
 
   val permissionTree = new PermissionTree(syntaxTree)
 
@@ -20,7 +24,7 @@ class Authorizer[S, M[_]: Monad](
       user: Option[JwtPayload]
   ): M[Vector[AuthorizationError]] = user match {
     case None =>
-      results(ops.values.flatMap(_.values).flatten.toVector, JsNull).pure[M]
+      results(ops.values.flatMap(_.values).flatten.toVector, JsObject.empty)
     case Some(jwt) => {
       val userModel = syntaxTree.modelsById.get(jwt.role) match {
         case Some(model) => model
@@ -36,7 +40,7 @@ class Authorizer[S, M[_]: Monad](
 
       val user = userReadQuery(userModel, jwt.userId)
 
-      user.map { userJson =>
+      user.flatMap { userJson =>
         results(ops.values.flatMap(_.values).flatten.toVector, userJson)
       }
     }
@@ -44,95 +48,59 @@ class Authorizer[S, M[_]: Monad](
 
   def results(
       ops: Vector[Operation],
-      predicateArg: JsValue
-  ): Vector[AuthorizationError] =
-    ops.flatMap { op =>
-      outerOpResults(op, predicateArg) ++ innerReadResults(op, predicateArg)
+      userObj: JsObject
+  ): M[Vector[AuthorizationError]] =
+    ops.flatTraverse { op =>
+      (
+        outerOpResults(op, permissionTree.rulesOf(op).toList, userObj),
+        innerReadResults(op, userObj)
+      ) mapN (_ ++ _)
     }
 
+  /** Returns only the results of the outer operation **/
   private def outerOpResults(
       op: Operation,
-      predicateArg: JsValue
-  ): Vector[AuthorizationError] = {
-    val (allows, denies) = permissionTree
-      .rulesOf(op)
-      .view
-      .map(rule => rule -> userPredicateResult(rule, predicateArg))
-      .filter {
-        case (_, Right(bool)) => bool
-        case _                => false
-      }
-      .partition(_._1.ruleKind == Allow)
-
-    val allowErrors =
-      if (allows.isEmpty) Vector {
-        AuthorizationError(
-          s"No `allow` rule exists that allows `${op.event}` operations on `${op.targetModel.id}`"
-        )
-      } else
-        allows.collectFirst {
-          case (_, Left(err)) => err
-        } match {
-          case Some(err) => Vector(err)
-          case None      => Vector.empty
-        }
-
-    val denyErrors =
-      if (denies.isEmpty) Vector.empty
+      rules: List[AccessRule],
+      userObj: JsObject
+  ): M[Vector[AuthorizationError]] =
+    for {
+      ruleResults <- rules
+        .traverse(rule => userPredicateResult(rule, userObj).map(rule -> _))
+        .map(_.partition(_._1.ruleKind == Allow))
+      (allows, denies) = ruleResults
+      allowErrors = if (allows.exists(_._2)) Vector.empty
       else
-        denies.head match {
-          case (rule, Right(_)) => Vector(inferredDenyError(op, rule))
-          case (_, Left(err))   => Vector(err)
+        Vector {
+          AuthorizationError(
+            s"No `allow` rule exists that allows `${op.event}` operations on `${op.targetModel.id}`"
+          )
         }
 
-    allowErrors ++ denyErrors
-  }
+      denyErrors = denies.collect {
+        case (rule, true) => inferredDenyError(op, rule)
+      }
+    } yield allowErrors ++ denyErrors
 
+  /** Returns only the results of inner read operations **/
   private def innerReadResults(
       op: Operation,
-      predicateArg: JsValue
-  ): Vector[AuthorizationError] =
-    if (op.innerReadOps.isEmpty) Vector.empty
-    else {
-      val results = for {
-        innerOp <- op.innerReadOps
-        rules = permissionTree.innerReadRules(op, innerOp)
-        (allows, denies) = rules.partition(_.ruleKind == Allow)
-        allowExists = allows.exists { allow =>
-          userPredicateResult(allow, predicateArg) match {
-            case Right(value) => value
-            case Left(_)      => false
-          }
-        }
-        denyExists = denies.exists { deny =>
-          userPredicateResult(deny, predicateArg) match {
-            case Right(value) => value
-            case Left(_)      => true
-          }
-        }
-      } yield (innerOp, allowExists, denyExists)
-
-      val roleStr = op.user.map(" for " + _._2.id).getOrElse("")
-
-      val errors = results.collect {
-        case (innerOp, false, false) =>
-          AuthorizationError(
-            s"No `allow` rule exists to allow `${innerOp.event}` operations on `${innerOp.displayTargetResource}`$roleStr"
+      userObj: JsObject
+  ): M[Vector[AuthorizationError]] =
+    op.innerReadOps.flatTraverse { iop =>
+      for {
+        iopResults <- outerOpResults(
+          iop,
+          permissionTree.innerReadRules(op, iop).toList,
+          userObj
+        )
+        innerIopResults <- iop.innerReadOps.flatTraverse { innerIop =>
+          outerOpResults(
+            innerIop,
+            permissionTree.innerReadRules(iop, innerIop).toList,
+            userObj
           )
-        case (innerOp, _, true) =>
-          AuthorizationError(
-            s"`deny` rule exists that prohibits `${innerOp.event}` operations on `${innerOp.displayTargetResource}`$roleStr",
-            Some(
-              "Try removing this rule if you would like this operation to be allowed"
-            )
-          )
-      }
-
-      val innerResults = op.innerReadOps.flatMap { innerOp =>
-        innerReadResults(innerOp, predicateArg)
-      }
-
-      errors ++ innerResults
+        }
+      } yield iopResults ++ innerIopResults
     }
 
   /**
@@ -141,19 +109,20 @@ class Authorizer[S, M[_]: Monad](
     */
   def userPredicateResult(
       rule: AccessRule,
-      argument: JsValue
-  ): Either[AuthorizationError, Boolean] = rule.predicate match {
-    case None => Right(true)
+      userObject: JsObject
+  ): M[Boolean] = rule.predicate match {
+    case None => true.pure[M]
     case Some(predicate) => {
-      val predicateResult = predicate
-        .execute(argument)
-        .map {
-          case JsTrue => true
-          case _      => false
-        }
-      predicateResult match {
-        case Success(value) => Right(value)
-        case Failure(err)   => Left(AuthorizationError(err.getMessage))
+      val predicateResult =
+        funcExecutor
+          .execute(predicate, userObject)
+          .map {
+            case JsTrue => true
+            case _      => false
+          }
+      predicateResult.recoverWith {
+        case err: Throwable =>
+          MError.raiseError(AuthorizationError(err.getMessage))
       }
     }
   }
@@ -171,20 +140,27 @@ class Authorizer[S, M[_]: Monad](
     )
 
   private def inferredDenyError(op: Operation, denyRule: AccessRule) =
-    op.event match {
-      case Create if denyRule.permissions.contains(SetOnCreate) =>
+    op match {
+      case iop: InnerReadOperation =>
         AuthorizationError(
-          s"Denied setting field `${denyRule.resourcePath._2.get.id}` in `CREATE` operation"
+          s"`deny` rule exists that prohibits `READ` operations on `${iop.targetModel.id}.${iop.targetField.field.id}`"
         )
-      case Update | UpdateMany if denyRule.resourcePath._2.isDefined =>
-        AuthorizationError(
-          s"Denied updating `${denyRule.resourcePath._2.get.id}` field in `UPDATE` operation on `${denyRule.resourcePath._1.id}`"
-        )
-      case Update | UpdateMany =>
-        AuthorizationError(
-          s"Denied performing `${Update}` operation on `${denyRule.resourcePath._1.id}`"
-        )
-      case _ => AuthorizationError(s"`${op.event}` operation denied")
+      case _ =>
+        op.event match {
+          case Create if denyRule.permissions.contains(SetOnCreate) =>
+            AuthorizationError(
+              s"Denied setting field `${denyRule.resourcePath._2.get.id}` in `CREATE` operation"
+            )
+          case Update | UpdateMany if denyRule.resourcePath._2.isDefined =>
+            AuthorizationError(
+              s"Denied updating `${denyRule.resourcePath._2.get.id}` field in `UPDATE` operation on `${denyRule.resourcePath._1.id}`"
+            )
+          case Update | UpdateMany =>
+            AuthorizationError(
+              s"Denied performing `${Update}` operation on `${denyRule.resourcePath._1.id}`"
+            )
+          case _ => AuthorizationError(s"`${op.event}` operation denied")
+        }
     }
 
 }

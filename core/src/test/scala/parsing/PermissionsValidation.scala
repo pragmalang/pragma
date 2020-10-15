@@ -27,6 +27,8 @@ class PermissionsValidation extends AnyFlatSpec {
       deny MUTATE self.password
       deny MUTATE self.tweets
     }
+
+    config { projectName = "test" }
     """
     val syntaxTree = SyntaxTree.from(code)
     val expectedErrors = List(

@@ -7,20 +7,35 @@ import cats._
 import cats.implicits._
 import scala.util._
 import spray.json._
+import cats.effect.Async
+import cats.effect.ConcurrentEffect
 
-class RequestHandler[S, M[_]: Monad](
+class RequestHandler[S, M[_]: Async: ConcurrentEffect](
     syntaxTree: SyntaxTree,
-    storage: Storage[S, M]
-)(implicit mError: MonadError[M, Throwable]) {
+    storage: Storage[S, M],
+    funcExecutor: PFunctionExecutor[M]
+)(implicit MError: MonadError[M, Throwable]) {
   val reqValidator = new RequestValidator(syntaxTree)
-  val authorizer = new Authorizer[S, M](syntaxTree, storage)
+  val authorizer = new Authorizer[S, M](syntaxTree, storage, funcExecutor)
   val opParser = new OperationParser(syntaxTree)
 
-  def handle(req: Request): M[Either[Throwable, JsObject]] = {
+  def handle(req: Request): M[JsObject] = {
+    val ops: M[Operations.OperationsMap] = {
+      val res = (
+        for {
+          validationResult <- reqValidator(req).toEither
+          reducedRequest = RequestReducer(validationResult)
+          ops <- opParser.parse(reducedRequest)
+        } yield ops
+      ) match {
+        case Left(err)    => MError.raiseError(err)
+        case Right(value) => value.pure[M]
+      }
+      res.widen[Operations.OperationsMap]
+    }
+
     val authResult = for {
-      validationResult <- reqValidator(req).toEither
-      reducedRequest = RequestReducer(validationResult)
-      ops <- opParser.parse(reducedRequest)(syntaxTree)
+      ops <- ops
       result = authorizer(ops, req.user)
     } yield
       result flatMap [Operations.OperationsMap] { errors =>
@@ -29,9 +44,9 @@ class RequestHandler[S, M[_]: Monad](
         else ops.pure[M]
       }
 
-    val opsAfterPreHooks = authResult.map { result =>
+    val opsAfterPreHooks = authResult.flatMap { result =>
       result.flatMap[Operations.OperationsMap] { opsMap =>
-        val newOps = opsMap.toVector
+        opsMap.toVector
           .traverse {
             case (groupName, opModelGroups) =>
               opModelGroups.toVector
@@ -42,50 +57,35 @@ class RequestHandler[S, M[_]: Monad](
                 .map(groupName -> _.toMap)
           }
           .map(_.toMap)
-
-        newOps match {
-          case Left(t)    => mError.raiseError(t)
-          case Right(ops) => Monad[M].pure(ops)
-        }
       }
     }
 
-    val storageResult =
-      opsAfterPreHooks.traverse { ops =>
-        req.body.flatMap(_.fields.get("operationName")) match {
-          case Some(JsString(opName)) =>
-            ops.flatMap { ops =>
-              val op = ops.filter {
-                case (Some(op), _) => op == opName
-                case _             => false
-              }
-              storage.run(op)
-            }
-          case _ => ops.flatMap(storage.run)
-        }
+    val storageResult = opsAfterPreHooks.flatMap { ops =>
+      req.body.flatMap(_.fields.get("operationName")) match {
+        case Some(JsString(gqlOpName)) =>
+          storage.run(ops.filter(_._1 == Some(gqlOpName)))
+        case _ => storage.run(ops)
       }
+    }
 
-    val readHookResults = storageResult.map { result =>
-      result
-        .flatMap { transactionMap =>
-          transactionMap.traverse {
-            case (groupName, modelGroups) =>
-              modelGroups
-                .traverse {
-                  case (modelGroupName, ops) =>
-                    ops
-                      .traverse {
-                        case (op, res) => applyReadHooks(op, res).map(op -> _)
-                      }
-                      .map(modelGroupName -> _)
-                }
-                .map(groupName -> _)
-          }
-        }
+    val readHookResults = storageResult.flatMap { result =>
+      result.traverse {
+        case (groupName, modelGroups) =>
+          modelGroups
+            .traverse {
+              case (modelGroupName, ops) =>
+                ops
+                  .traverse {
+                    case (op, res) => applyReadHooks(op, res).map(op -> _)
+                  }
+                  .map(modelGroupName -> _)
+            }
+            .map(groupName -> _)
+      }
     }
 
     readHookResults.map { result =>
-      result.map(data => JsObject(Map("data" -> transactionResultJson(data))))
+      JsObject(Map("data" -> transactionResultJson(result)))
     }
 
   }
@@ -133,24 +133,27 @@ class RequestHandler[S, M[_]: Monad](
   }
 
   private def applyHooks(
-      hooks: Seq[PFunctionValue[JsValue, Try[JsValue]]],
-      args: JsValue
-  ): Either[Throwable, JsValue] =
-    hooks.foldLeft(args.asRight[Throwable]) {
-      case (acc, hook) => acc.flatMap(hook(_).toEither)
+      hooks: Seq[PFunctionValue],
+      arg: JsValue
+  ): M[JsValue] =
+    hooks.foldLeft(arg.pure[M]) {
+      case (acc, hook) =>
+        acc.flatMap(a => funcExecutor.execute(hook, a))
     }
 
   /** Apples crud hooks to operation arguments */
-  private def applyPreHooks(op: Operation): Either[Throwable, Operation] =
+  private def applyPreHooks(op: Operation): M[Operation] =
     op match {
       case createOp: CreateOperation =>
         applyHooks(createOp.hooks, createOp.opArguments.obj)
           .flatMap {
-            case obj: JsObject => obj.asRight
+            case obj: JsObject => obj.pure[M]
             case _ =>
-              UserError(
-                s"Result of write hooks applied to ${createOp.event} operation arguments must be an object"
-              ).asLeft
+              MonadError[M, Throwable].raiseError[JsObject] {
+                UserError(
+                  s"Result of write hooks applied to ${createOp.event} operation arguments must be an object"
+                )
+              }
           }
           .map { res =>
             createOp.copy(opArguments = createOp.opArguments.copy(obj = res))
@@ -159,11 +162,13 @@ class RequestHandler[S, M[_]: Monad](
         createManyOp.opArguments.items.toVector
           .traverse { item =>
             applyHooks(createManyOp.hooks, item).flatMap {
-              case obj: JsObject => obj.asRight
+              case obj: JsObject => obj.pure[M]
               case _ =>
-                UserError(
-                  s"Result of write hooks applied to ${createManyOp.event} must be an object"
-                ).asLeft
+                MonadError[M, Throwable].raiseError[JsObject] {
+                  UserError(
+                    s"Result of write hooks applied to ${createManyOp.event} must be an object"
+                  )
+                }
             }
           }
           .map { newItems =>
@@ -179,21 +184,26 @@ class RequestHandler[S, M[_]: Monad](
                 opArguments = updateOp.opArguments
                   .copy(obj = updateOp.opArguments.obj.copy(obj = obj))
               )
-              .asRight
+              .pure[M]
+              .widen[Operation]
           case _ =>
-            UserError(
-              s"Result of write hooks applied to ${updateOp.event} argument must be an object"
-            ).asLeft
+            MonadError[M, Throwable].raiseError[Operation] {
+              UserError(
+                s"Result of write hooks applied to ${updateOp.event} argument must be an object"
+              )
+            }
         }
       case updateManyOp: UpdateManyOperation =>
         updateManyOp.opArguments.items.toVector
           .traverse { obj =>
             applyHooks(updateManyOp.hooks, obj.obj).flatMap {
-              case newObj: JsObject => obj.copy(obj = newObj).asRight
+              case newObj: JsObject => obj.copy(obj = newObj).pure[M]
               case _ =>
-                UserError(
-                  s"Result of write hooks applied to ${updateManyOp.event} argument must be an object"
-                ).asLeft
+                MonadError[M, Throwable].raiseError[ObjectWithId] {
+                  UserError(
+                    s"Result of write hooks applied to ${updateManyOp.event} argument must be an object"
+                  )
+                }
             }
           }
           .map { newItems =>
@@ -239,12 +249,15 @@ class RequestHandler[S, M[_]: Monad](
                       Some(secretValue)
                     )
                   )
-                  .asRight
+                  .pure[M]
+                  .widen[Operation]
               }
               .getOrElse {
-                UserError(
-                  s"Invalid secret credential field in `LOGIN` hook result on model `${loginOp.targetModel.id}`"
-                ).asLeft
+                MonadError[M, Throwable].raiseError[Operation] {
+                  UserError(
+                    s"Invalid secret credential field in `LOGIN` hook result on model `${loginOp.targetModel.id}`"
+                  )
+                }
               }
           case JsObject(fields)
               if fields.contains(
@@ -258,21 +271,24 @@ class RequestHandler[S, M[_]: Monad](
                   None
                 )
               )
-              .asRight
+              .pure[M]
+              .widen[Operation]
           case _ =>
-            UserError(
-              s"Invalid credentials returned from `LOGIN` hook on model `${loginOp.targetModel.id}`"
-            ).asLeft
+            MonadError[M, Throwable].raiseError[Operation] {
+              UserError(
+                s"Invalid credentials returned from `LOGIN` hook on model `${loginOp.targetModel.id}`"
+              )
+            }
         }
       }
-      case _ => op.asRight
+      case _ => op.pure[M]
     }
 
   /** Applies read hooks to operation results */
   private def applyReadHooks(
       op: Operation,
       opResult: JsValue
-  ): Either[Throwable, JsValue] =
+  ): M[JsValue] =
     opResult match {
       case JsObject(fields) =>
         op.innerReadOps
@@ -280,25 +296,30 @@ class RequestHandler[S, M[_]: Monad](
             val fieldValue = fields.get(iop.targetField.field.id)
             fieldValue
               .map(applyInnerOpHooks(iop, _).map(iop.targetField.field.id -> _))
-              .getOrElse((iop.targetField.field.id -> JsNull).asRight)
+              .getOrElse(
+                (iop.targetField.field.id -> JsNull).widen[JsValue].pure[M]
+              )
           }
           .flatMap { newFields =>
             applyHooks(op.targetModel.readHooks, JsObject(newFields.toMap))
           }
       case JsArray(elements) =>
-        elements.traverse(applyReadHooks(op, _)).map(JsArray(_))
-      case s: JsString => s.asRight
+        elements.traverse(applyReadHooks(op, _)).map(JsArray(_)).widen[JsValue]
+      case s: JsString => s.pure[M].widen[JsValue]
       case _ =>
-        InternalException(
-          s"Result of ${op.event} operation must either be an array or an object"
-        ).asLeft
+        MonadError[M, Throwable].raiseError[JsValue] {
+          InternalException(
+            s"Result of ${op.event} operation must either be an array or an object"
+          )
+        }
     }
 
   protected def applyInnerOpHooks(
       iop: InnerOperation,
       iopResult: JsValue
-  ): Either[Throwable, JsValue] = iop match {
-    case _: InnerReadOperation if iopResult == JsNull => JsNull.asRight
+  ): M[JsValue] = iop match {
+    case _: InnerReadOperation if iopResult == JsNull =>
+      JsNull.pure[M].widen[JsValue]
     case innerReadOp: InnerReadOperation => {
       val iopFieldIsRef = innerReadOp.targetField.field.ptype match {
         case PReference(refId) if syntaxTree.modelsById.contains(refId) => true
@@ -309,11 +330,13 @@ class RequestHandler[S, M[_]: Monad](
       }
       if (iopFieldIsRef) for {
         oldFields <- iopResult match {
-          case JsObject(fields) => fields.asRight
+          case JsObject(fields) => fields.pure[M]
           case nonObj =>
-            InternalException(
-              s"Result of inner read operation must be an object, but $nonObj was passed to inner operation hook application function"
-            ).asLeft
+            MonadError[M, Throwable].raiseError[Map[String, JsValue]] {
+              InternalException(
+                s"Result of inner read operation must be an object, but $nonObj was passed to inner operation hook application function"
+              )
+            }
         }
         newFields <- innerReadOp.innerReadOps
           .traverse { iiop =>
@@ -323,11 +346,13 @@ class RequestHandler[S, M[_]: Monad](
                 applyInnerOpHooks(iiop, fieldValue)
                   .map(iiop.targetField.field.id -> _)
               }
-              .getOrElse((iiop.targetField.field.id -> JsNull).asRight)
+              .getOrElse {
+                (iiop.targetField.field.id -> JsNull).widen[JsValue].pure[M]
+              }
           }
         newObj <- applyHooks(innerReadOp.hooks, JsObject(newFields.toMap))
       } yield newObj
-      else iopResult.asRight
+      else iopResult.pure[M]
     }
     case innerReadManyOp: InnerReadManyOperation => {
       val fieldIsRefArray = innerReadManyOp.targetField.field.ptype match {
@@ -349,9 +374,11 @@ class RequestHandler[S, M[_]: Monad](
             .traverse(applyInnerOpHooks(innerReadOneOp, _))
             .map(JsArray(_))
         }
-        case nonRefArray: JsArray => nonRefArray.asRight
+        case nonRefArray: JsArray => nonRefArray.pure[M].widen[JsValue]
         case _ =>
-          InternalException("Result of list operation must be an array").asLeft
+          MonadError[M, Throwable].raiseError[JsValue] {
+            InternalException("Result of list operation must be an array")
+          }
       }
     }
   }

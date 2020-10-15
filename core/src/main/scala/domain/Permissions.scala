@@ -1,8 +1,6 @@
 package pragma.domain
 
 import pragma.domain.utils._
-import spray.json._
-import scala.util.Try
 
 sealed trait PEvent {
   override def toString(): String = this match {
@@ -143,7 +141,7 @@ case class AccessRule(
     ruleKind: RuleKind,
     resourcePath: (PShape, Option[PShapeField]),
     permissions: Set[PPermission],
-    predicate: Option[PFunctionValue[JsValue, Try[JsValue]]],
+    predicate: Option[PFunctionValue],
     isSlefRule: Boolean,
     position: Option[PositionRange]
 ) extends PConstruct

@@ -2,57 +2,45 @@ package cli
 
 import scopt._
 import os._
-import cats.effect._
 import java.io.File
 import assets.asciiLogo
+import scala.util.Try
 
 case class CLIConfig(
     command: CLICommand,
     filePath: Path,
-    isHelp: Boolean,
-    mode: RunMode,
-    writeGqlSchema: Boolean
+    isHelp: Boolean
 )
 
 object CLIConfig {
-  def default =
+  val default =
     CLIConfig(
-      command = CLICommand.RootCommand,
+      command = CLICommand.Root,
       filePath = os.pwd / "Pragmafile",
-      isHelp = false,
-      mode = RunMode.fromEnv,
-      writeGqlSchema = false
+      isHelp = false
     )
 
   val parser: OptionParser[CLIConfig] =
     new OptionParser[CLIConfig]("pragma") {
-
       cmd("prod")
         .action { (_, configs) =>
-          configs.copy(command = CLICommand.Prod, mode = RunMode.Prod)
+          configs.copy(command = CLICommand.Prod)
         }
         .text("Runs the app in production mode")
-        .children(fileArg, writeGraphQLSchema)
+        .children(fileArg)
 
       cmd("dev")
         .action { (_, configs) =>
-          configs.copy(command = CLICommand.Dev(), mode = RunMode.Dev)
+          configs.copy(command = CLICommand.Dev)
         }
         .text("Runs the app in development mode")
-        .children(fileArg, watchOpt, writeGraphQLSchema)
+        .children(fileArg)
 
-      def watchOpt =
-        opt[Unit]("watch")
-          .abbr("w")
-          .optional()
-          .action { (_, configs) =>
-            configs
-              .copy(command = configs.command match {
-                case CLICommand.Dev(_) => CLICommand.Dev(true)
-                case command           => command
-              })
-          }
-          .text("Restarts the server on every change in <file>")
+      cmd("create")
+        .action { (_, configs) =>
+          configs.copy(command = CLICommand.Create)
+        }
+        .text("Initialize a new project")
 
       def fileArg =
         arg[File]("<file>")
@@ -62,35 +50,15 @@ object CLIConfig {
           }
           .text(s"Defaults to ./Pragmafile")
 
-      def writeGraphQLSchema =
-        opt[Unit]("write-gql-schema")
-          .optional()
-          .action((_, config) => config.copy(writeGqlSchema = true))
-          .text("Generates Typescript type definitions")
-
       opt[Unit]("help")
         .abbr("h")
         .optional()
         .action((_, config) => config.copy(isHelp = true))
         .text("Prints usage")
-
-      checkConfig { conf =>
-        if (!conf.isHelp) {
-          if (os.exists(conf.filePath) && os.isFile(conf.filePath)) success
-          else if (os.isDir(conf.filePath))
-            failure(s"${conf.filePath} is a directory.")
-          else if (os.isLink(conf.filePath))
-            failure(s"${conf.filePath} is not a file.")
-          else if (conf.filePath.last == "Pragmafile" &&
-                   !os.exists(conf.filePath))
-            failure(s"Pragmafile doesn't exist.")
-          else failure(s"${conf.filePath} doesn't exist.")
-        } else success
-      }
     }
 
-  def parse(args: List[String]): IO[Option[CLIConfig]] =
-    IO(parser.parse(args, CLIConfig.default))
+  def parse(args: List[String]): Try[CLIConfig] =
+    Try(parser.parse(args, CLIConfig.default).getOrElse(CLIConfig.default))
 
   def usage: String = parser.renderTwoColumnsUsage
 
@@ -105,21 +73,8 @@ object CLIConfig {
 
 sealed trait CLICommand
 object CLICommand {
-  case class Dev(watch: Boolean = false) extends CLICommand
+  case object Dev extends CLICommand
   case object Prod extends CLICommand
-  case object RootCommand extends CLICommand
-}
-
-sealed trait RunMode
-object RunMode {
-  case object Dev extends RunMode
-  case object Prod extends RunMode
-
-  def fromEnv: RunMode = sys.env.get("PRAGMA_ENV") match {
-    case Some("production")  => Prod
-    case Some("prod")        => Prod
-    case Some("development") => Dev
-    case Some("dev")         => Dev
-    case _                   => Dev
-  }
+  case object Create extends CLICommand
+  case object Root extends CLICommand
 }

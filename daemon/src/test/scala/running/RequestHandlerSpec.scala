@@ -1,17 +1,17 @@
 package running
 
 import org.scalatest.flatspec.AnyFlatSpec
-import domain.SyntaxTree
-import running.TestUtils._
+import pragma.domain.SyntaxTree
 import running.storage.TestStorage
 import sangria.macros._
 import spray.json._
 import cats.implicits._
+import cats.effect.IO
 
 class RequestHandlerSpec extends AnyFlatSpec {
   val code =
     """
-    import "./src/test/scala/running/req-handler-test-hooks.js" as rhHooks
+    import "./daemon/src/test/scala/running/req-handler-test-hooks.js" as rhHooks { runtime = "nodejs:14" }
 
     @onWrite(function: rhHooks.prependMrToUsername)
     @onWrite(function: rhHooks.setPriorityTodo)
@@ -30,24 +30,24 @@ class RequestHandlerSpec extends AnyFlatSpec {
 
     allow ALL RH_User
     allow ALL RH_Todo
+
+    config { projectName = "test" }
     """
 
   val syntaxTree = SyntaxTree.from(code).get
   val testStorage = new TestStorage(syntaxTree)
   import testStorage._
-  migrationEngine.initialMigration match {
-    case Right(mig) => mig.run(t).unsafeRunSync
-    case Left(err) => {
-      Console.err.println(
-        "Failed to perform initial migration in `RequestHandlerSpec`"
-      )
-      throw err
-    }
-  }
-  val reqHandler = new RequestHandler(syntaxTree, storage)
+
+  migrationEngine.initialMigration.unsafeRunSync.run(t).unsafeRunSync()
+
+  val reqHandler = new RequestHandler(
+    syntaxTree,
+    storage,
+    PFunctionExecutor.dummy[IO]
+  )
 
   "RequestHandler" should "execute write hooks correctly" in {
-    val req = bareReqFrom {
+    val req = Request.bareReqFrom {
       gql"""
       mutation createFathi {
         user: RH_User {
@@ -69,13 +69,7 @@ class RequestHandlerSpec extends AnyFlatSpec {
       """
     }
 
-    val result = reqHandler.handle(req).unsafeRunSync match {
-      case Right(value) => value
-      case _ =>
-        fail {
-          "Req handler should return create op results successfully with hooks applied"
-        }
-    }
+    val result = reqHandler.handle(req).unsafeRunSync
 
     val expected = JsObject(
       Map(
@@ -102,7 +96,7 @@ class RequestHandlerSpec extends AnyFlatSpec {
   }
 
   "Request handler" should "apply read hooks correctly" in {
-    val req = bareReqFrom {
+    val req = Request.bareReqFrom {
       gql"""
       query readGetPizza {
         RH_Todo {
@@ -115,13 +109,7 @@ class RequestHandlerSpec extends AnyFlatSpec {
       """
     }
 
-    val result = reqHandler.handle(req).unsafeRunSync match {
-      case Right(value) => value
-      case _ =>
-        fail {
-          "Request handler should not fail for RH_Todo read query"
-        }
-    }
+    val result = reqHandler.handle(req).unsafeRunSync
 
     val expected = JsObject(
       Map(

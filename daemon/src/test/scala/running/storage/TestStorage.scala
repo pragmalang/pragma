@@ -1,7 +1,7 @@
 package running.storage
 
-import domain.SyntaxTree
-import running.storage.postgres._
+import pragma.domain.SyntaxTree
+import running._, running.storage.postgres._
 import cats.effect._
 import doobie._
 import running.JwtCodec
@@ -20,6 +20,11 @@ class TestStorage(st: SyntaxTree) {
   )
 
   val queryEngine = new PostgresQueryEngine(t, st, jc)
-  val migrationEngine = PostgresMigrationEngine.initialMigration[IO](t, st, queryEngine)
+  val migrationEngine = PostgresMigrationEngine.initialMigration[IO](
+    t,
+    st,
+    queryEngine,
+    PFunctionExecutor.dummy[IO]
+  )
   val storage = new Postgres[IO](migrationEngine, queryEngine)
 }

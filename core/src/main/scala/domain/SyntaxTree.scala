@@ -1,7 +1,7 @@
 package pragma.domain
 
 import pragma.domain.utils._
-import pragma.parsing.{PragmaParser, Validator, substitution}
+import pragma.parsing.{PragmaParser, Validator}
 import pragma.parsing.substitution._
 import scala.util.Try
 
@@ -10,7 +10,7 @@ case class SyntaxTree(
     models: Seq[PModel],
     enums: Seq[PEnum],
     permissions: Permissions,
-    config: Option[PConfig] = None
+    config: PConfig
 ) {
   lazy val modelsById: Map[ID, PModel] = models.map(_.id).zip(models).toMap
 
@@ -21,21 +21,29 @@ case class SyntaxTree(
   def findTypeById(id: String): Option[PType] =
     modelsById.get(id) orElse enumsById.get(id)
 
+  lazy val functions: Seq[PFunctionValue] = models.flatMap { model =>
+    model.readHooks ++ model.writeHooks ++ model.deleteHooks ++ model.loginHooks
+  } ++ {
+    val fnsFrom: Seq[AccessRule] => Seq[PFunctionValue] = rules =>
+      rules.collect {
+        case AccessRule(_, _, _, Some(fn), _, _) => fn
+      }
+    fnsFrom(permissions.globalTenant.rules) ++
+      fnsFrom(permissions.globalTenant.roles.flatMap(_.rules).toSeq).toSeq
+  }
+
   def render: String =
     (models ++ enums)
       .map(displayPType(_, true))
       .mkString("\n\n")
-
-  def getConfigEntry(key: String): Option[ConfigEntry] =
-    config.flatMap(_.getConfigEntry(key))
 }
 object SyntaxTree {
   // The resulting syntax tree is validated and substituted
-  def from(code: String): Try[SyntaxTree] =
+  def from(code: String, checkFileImports: Boolean = true): Try[SyntaxTree] =
     new PragmaParser(code).syntaxTree
       .run()
       .flatMap(new Validator(_).validSyntaxTree)
-      .flatMap(Substitutor.substitute)
+      .flatMap(Substitutor.substitute(_, checkFileImports))
 
   /**
     * The resulting syntax tree is not validated or substituted
@@ -45,7 +53,7 @@ object SyntaxTree {
     val imports = constructs.collect { case i: PImport         => i }
     val models = constructs.collect { case m: PModel           => m }
     val enums = constructs.collect { case e: PEnum             => e }
-    val config = constructs.collect { case cfg: PConfig        => cfg }
+    val config = constructs.collectFirst { case cfg: PConfig   => cfg }
     val accessRules = constructs.collect { case ar: AccessRule => ar }
     val roles = constructs.collect { case r: Role              => r }
     lazy val permissions = Permissions(
@@ -57,10 +65,16 @@ object SyntaxTree {
       models,
       enums,
       permissions,
-      if (config.isEmpty) None else Some(config.head)
+      if (config.isDefined) config.get else PConfig(Nil, None)
     )
   }
 
   def empty: SyntaxTree =
-    SyntaxTree(Seq.empty, Seq.empty, Seq.empty, Permissions.empty, None)
+    SyntaxTree(
+      Seq.empty,
+      Seq.empty,
+      Seq.empty,
+      Permissions.empty,
+      PConfig(Nil, None)
+    )
 }

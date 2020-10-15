@@ -1,6 +1,6 @@
 package running.authorizer
 
-import domain.SyntaxTree
+import pragma.domain.SyntaxTree
 import running._, running.storage._, running.operations._
 import sangria.macros._
 import spray.json._
@@ -8,6 +8,7 @@ import scala.util._
 import cats.implicits._
 import org.scalatest._
 import flatspec.AnyFlatSpec
+import cats.effect.IO
 
 class Authorization extends AnyFlatSpec {
   "Authorizer" should "authorize requests correctly" in {
@@ -23,17 +24,25 @@ class Authorization extends AnyFlatSpec {
     deny SET_ON_CREATE AU_User.isVerified
     allow READ AU_User
     deny READ AU_User.password
+
+    config { projectName = "test" }
     """
 
     val syntaxTree = SyntaxTree.from(code).get
     implicit val opParser = new OperationParser(syntaxTree)
     val testStorage = new TestStorage(syntaxTree)
     import testStorage._
+
     migrationEngine.initialMigration
-      .getOrElse(fail())
+      .unsafeRunSync()
       .run(t)
       .unsafeRunSync()
-    val authorizer = new Authorizer(syntaxTree, testStorage.storage)
+
+    val authorizer = new Authorizer(
+      syntaxTree,
+      testStorage.storage,
+      PFunctionExecutor.dummy[IO]
+    )
 
     val req = Request(
       None,
@@ -65,7 +74,7 @@ class Authorization extends AnyFlatSpec {
       "",
       ""
     )
-    val reqOps = opParser.parse(req)(syntaxTree)
+    val reqOps = opParser.parse(req)
 
     val result = reqOps.map { ops =>
       authorizer(ops, req.user).unsafeRunSync.map(_.message)
@@ -103,13 +112,16 @@ class Authorization extends AnyFlatSpec {
       deny UPDATE self.username # Like Twitter
       allow [REMOVE_FROM, PUSH_TO] self.todos
     }
+
+    config { projectName = "test" }
     """
 
     implicit val syntaxTree = SyntaxTree.from(code).get
     implicit val opParser = new OperationParser(syntaxTree)
     val testStorage = new TestStorage(syntaxTree)
     import testStorage._
-    migrationEngine.initialMigration.getOrElse(fail()).run(t).unsafeRunSync()
+
+    migrationEngine.initialMigration.unsafeRunSync().run(t).unsafeRunSync()
 
     val reqWithoutRole = Request(
       hookData = None,
@@ -170,7 +182,11 @@ class Authorization extends AnyFlatSpec {
       hostname = ""
     )
 
-    val authorizer = new Authorizer(syntaxTree, testStorage.storage)
+    val authorizer = new Authorizer(
+      syntaxTree,
+      testStorage.storage,
+      PFunctionExecutor.dummy[IO]
+    )
 
     val withoutRoleOps = opParser.parse(reqWithoutRole)
     val withRoleOps = opParser.parse(reqWithRole)

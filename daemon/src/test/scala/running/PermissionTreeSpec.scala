@@ -1,6 +1,6 @@
 package running.authorizer
 
-import domain._
+import pragma.domain._
 import org.scalatest.flatspec.AnyFlatSpec
 
 class PermissionTreeSpec extends AnyFlatSpec {
@@ -38,6 +38,8 @@ class PermissionTreeSpec extends AnyFlatSpec {
         deny READ User.password
         allow ALL Todo 
     }
+
+    config { projectName = "test" }
     """
 
   implicit val syntaxTree = SyntaxTree.from(code).get

@@ -1,6 +1,6 @@
 package setup
 
-import domain._
+import pragma.domain._
 
 object MockSyntaxTree {
   lazy val code =
@@ -25,6 +25,8 @@ object MockSyntaxTree {
       CLOTHING
       OTHER
     }
+
+    config { projectName = "test" }
     """
   lazy val syntaxTree = SyntaxTree.from(code).get
 }

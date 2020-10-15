@@ -5,13 +5,32 @@ ThisBuild / organizationName := "pragma"
 
 import Dependencies._
 
+lazy val commonScalacOptions = Seq(
+  "-feature",
+  "-deprecation",
+  "-Wunused:imports,patvars,privates,locals,explicits,implicits,params",
+  "-Xlint",
+  "-explaintypes",
+  "-Wdead-code",
+  "-Wextra-implicit",
+  "-Wnumeric-widen",
+  "-Wself-implicit"
+)
+
 lazy val core = (project in file("core"))
   .settings(
     name := "core",
     maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
     packageSummary := "Core abstractions used by other Pragma modules",
     packageDescription := "See https://docs.pragmalang.com for details.",
-    libraryDependencies ++= testDependencies ++ Seq(cats, spray, parboiled)
+    scalacOptions := commonScalacOptions,
+    scalacOptions in (Compile, console) := Seq.empty,
+    libraryDependencies ++= testDependencies ++ Seq(
+      cats,
+      spray,
+      parboiled,
+      kebsSprayJson
+    )
   )
 
 lazy val daemon = (project in file("daemon"))
@@ -20,6 +39,8 @@ lazy val daemon = (project in file("daemon"))
     maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
     packageSummary := "The daemon for Pragmalang",
     packageDescription := "See https://docs.pragmalang.com for details.",
+    scalacOptions := commonScalacOptions,
+    scalacOptions in (Compile, console) := Seq.empty,
     libraryDependencies ++= testDependencies ++ Seq(
       cats,
       catsEffect,
@@ -32,81 +53,45 @@ lazy val daemon = (project in file("daemon"))
       sangriaSpray,
       http4sDsl,
       http4sBlazeServer,
+      http4sBlazeClient,
       logbackClassic
     ),
-    mainClass in assembly := Some("com.pragmalang.Main"),
-    test in assembly := {}
+    dockerExposedPorts := Seq(3030),
+    version in Docker := "latest",
+    composeNoBuild := true
   )
   .dependsOn(core)
+  .enablePlugins(
+    DockerComposePlugin,
+    JavaAppPackaging,
+    DockerPlugin
+  )
 
-lazy val pragmaCLI = (project in file("cli"))
+lazy val cli = (project in file("cli"))
   .settings(
     name := "pragma",
     maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
     packageSummary := "The CLI for Pragmalang",
     packageDescription := "See https://docs.pragmalang.com for details.",
-    libraryDependencies ++= testDependencies ++ Seq(scopt, osLib, catsEffect),
-    mainClass in assembly := Some("com.pragmalang.Main"),
-    test in assembly := {}
+    scalacOptions := commonScalacOptions,
+    scalacOptions in (Compile, console) := Seq.empty,
+    libraryDependencies ++= testDependencies ++ Seq(
+      scopt,
+      osLib,
+      requests
+    ),
+    graalVMNativeImageGraalVersion := Some("20.1.0-java11"),
+    graalVMNativeImageOptions := Seq(
+      "--static",
+      "--no-fallback",
+      "--allow-incomplete-classpath",
+      "--initialize-at-build-time=scala.runtime.Statics$VM",
+      "-H:+ReportExceptionStackTraces",
+      "-H:+AddAllCharsets",
+      "--enable-http",
+      "--enable-https",
+      "--enable-all-security-services"
+    )
   )
   .dependsOn(core)
-
-scalacOptions ++= Seq(
-  "-feature",
-  "-deprecation",
-  "-Wunused:imports,patvars,privates,locals,explicits,implicits,params",
-  "-Xlint",
-  "-explaintypes",
-  "-Wdead-code",
-  "-Wextra-implicit",
-  "-Wnumeric-widen",
-  "-Wself-implicit"
-)
-
-// To suppress warnings in `sbt console`
-scalacOptions in (Compile, console) := Seq.empty
-
-enablePlugins(DockerComposePlugin, GraalVMNativeImagePlugin, DockerPlugin)
-
-/*
-  GraalVM Native Image Generation:
-  Requires `native-image` utility from Graal
-  Run `gu install native-image` to install it (`gu` comes with Graal)
-  Run `sbt graalvm-native-image:packageBin` to generate native binary
-  See: https://www.scala-sbt.org/sbt-native-packager/index.html
-  To generate META-INF:
-  java -agentlib:native-image-agent=config-merge-dir="./src/main/resources/META-INF/native-image/",config-write-initial-delay-secs=0 -jar "./target/scala-2.13/<pragma-jar>" dev <pragmafile>
-  See https://www.graalvm.org/reference-manual/native-image/Configuration/#assisted-configuration-of-native-image-builds
-      https://noelwelsh.com/posts/2020-02-06-serverless-scala-services.html
-
-  Also: Make sure everthing else other than this process is canceled. It needs all the memory it can get.
- */
-
-/*
-  To run tests within a Docker container (for Postgres):
-  `sbt dockerComposeTest`
-  See https://github.com/Tapad/sbt-docker-compose
-  NOTE: If the docker containers cannot be started
-  it's most likely because the port 5433 is already in use.
-  Run `docker ps` and then run `docker kill <postgres-containe-id>`
-  to kill the postgres container to fix it.
- */
-composeNoBuild := true
-
-/*
-  Apache Bench benchmark:
-  Run the ammonite script in `test/benchmark`:
-  `amm PragmaBench.sc`
-  Make sure to have the server and the database running
-  before running the benchmark:
-  `dockerComposeUp;run "dev" "./src/test/benchmark/montajlink.pragma"`
-  NOTE: Apache Bench must be installed:
-  `sudo apt install apache2-utils`
- */
-
-/*
-  For packaging Pragma using Docker:
-  `docker:publishLocal`
- */
-dockerBaseImage := "oracle/graalvm-ce:latest"
-dockerExposedPorts := Seq(3030)
+  .enablePlugins(GraalVMNativeImagePlugin)

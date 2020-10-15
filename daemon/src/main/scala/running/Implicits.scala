@@ -29,7 +29,7 @@ object RunningImplicits {
         JsObject(value.map {
           case (key, value) => (key, PValueJsonWriter.write(value))
         })
-      case _: PFunctionValue[_, _] =>
+      case _: PFunctionValue =>
         throw new SerializationException(
           "Pragma functions are not serializable"
         )

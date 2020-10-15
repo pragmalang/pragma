@@ -20,7 +20,8 @@ import sangria.schema.Schema, sangria.execution.Executor
 class Server(
     jwtCodec: JwtCodec,
     storage: Postgres[IO],
-    currentSyntaxTree: SyntaxTree
+    currentSyntaxTree: SyntaxTree,
+    funcExecutor: PFunctionExecutor[IO]
 )(implicit cs: ContextShift[IO], t: Timer[IO]) {
   import Server._
 
@@ -30,7 +31,11 @@ class Server(
     )
 
   val reqHandler =
-    new RequestHandler[Postgres[IO], IO](currentSyntaxTree, storage)
+    new RequestHandler[Postgres[IO], IO](
+      currentSyntaxTree,
+      storage,
+      funcExecutor
+    )
 
   val routes =
     HttpRoutes.of[IO] {
@@ -68,10 +73,6 @@ class Server(
             )
             val resJson = reqHandler
               .handle(preq)
-              .map[JsValue] {
-                case Left(e)    => jsonFrom(e)
-                case Right(obj) => obj
-              }
               .recover {
                 case e: Throwable => jsonFrom(e)
               }
@@ -95,12 +96,12 @@ class Server(
         ).pure[IO]
     }
 
-  val routesWithMiddleware = CORS(GZip(routes))
+  val handle = CORS(GZip(routes))
 
   def run: IO[ExitCode] =
     BlazeServerBuilder[IO](global)
       .bindHttp(3030, "localhost")
-      .withHttpApp(Router("/graphql" -> routesWithMiddleware).orNotFound)
+      .withHttpApp(Router("/graphql" -> handle).orNotFound)
       .serve
       .compile
       .drain

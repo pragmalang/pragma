@@ -1,16 +1,17 @@
 package running.storage.postgres
 
-import domain.SyntaxTree
+import pragma.domain._
 import org.scalatest._
 import doobie.implicits._
 import spray.json._
 import sangria.macros._
-import running.TestUtils._, running.operations._
+import running.operations._
 import scala.util._
 import running.storage.postgres.instances._
 import running.storage.TestStorage
 import cats.implicits._
 import org.scalatest.flatspec.AnyFlatSpec
+import running.Request
 
 /** NOTE: These tests may fail if executed out of order
   * They also require a running Postgress instance
@@ -38,6 +39,8 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
     @4 gnp: Float?
     @5 citizens: [Citizen]
   }
+
+  config { projectName = "test" }
   """
 
   implicit val syntaxTree = SyntaxTree.from(code).get
@@ -46,7 +49,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
   import testStorage._
 
   migrationEngine.initialMigration
-    .getOrElse(fail())
+    .unsafeRunSync()
     .run(t)
     .unsafeRunSync()
 
@@ -97,7 +100,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
   def runGql(
       gqlQuery: sangria.ast.Document
   )(implicit opParser: OperationParser) = {
-    val req = bareReqFrom(gqlQuery)
+    val req = Request.bareReqFrom(gqlQuery)
     val reqOps = opParser.parse(req)
     val results = reqOps.map(queryEngine.run(_).unsafeRunSync) match {
       case Left(err) => throw err
@@ -121,7 +124,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
       }
     }
     """
-    val req = bareReqFrom(gqlQuery)
+    val req = Request.bareReqFrom(gqlQuery)
     val ops = opParser
       .parse(req)
       .getOrElse(fail("Ops should be constructed successfully"))
@@ -156,7 +159,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
       }
     }
     """
-    val req = bareReqFrom(gqlQuery)
+    val req = Request.bareReqFrom(gqlQuery)
     val iops = opParser
       .parse(req)
       .getOrElse(fail("Ops should be constructed successfully"))
@@ -188,7 +191,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
       }
     }
     """
-    val req = bareReqFrom(gqlQuery)
+    val req = Request.bareReqFrom(gqlQuery)
     val reqOps = opParser
       .parse(req)
       .getOrElse(fail("Ops should be constructed successfully"))
