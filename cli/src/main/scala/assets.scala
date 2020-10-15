@@ -1,3 +1,5 @@
+package cli
+
 package object assets {
   val asciiLogo = Console.BOLD + Console.MAGENTA + """
  __________________

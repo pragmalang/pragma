@@ -103,7 +103,7 @@ object utils {
 
     val indentedMessage = {
       val lines = message.split("\n")
-      (lines.head +: lines.tail.map((" " * errTag.length + 1) + _))
+      (lines.head +: lines.tail.map("\t" + _))
         .mkString("\n")
     }
 
@@ -135,5 +135,11 @@ object utils {
           messagePrefix.map(_ + "\n").getOrElse("") + otherErr.getMessage
         }
     }
+
+  def welcomeMsq(projectName: String) = s"""
+    |Pragma GraphQL server is now running on port 3030
+    |
+    |Visit the GraphQL Playground at ${Console.GREEN}${Console.BOLD}http://localhost:3030/$projectName/graphql${Console.RESET}
+    |""".stripMargin
 
 }

@@ -9,13 +9,17 @@ import cli.utils._
 object Main {
 
   def main(args: Array[String]): Unit = {
+    tryOrExit(DaemonClient.ping.void)
     val config = tryOrExit(CLIConfig.parse(args.toList))
     config.command match {
       case CLICommand.Dev => {
         println(renderLogo)
         run(config, withReload = true)
       }
-      case CLICommand.Prod   => tryOrExit(run(config))
+      case CLICommand.Prod => {
+        println("Production mode is not ready yet.")
+        sys.exit(1)
+      }
       case CLICommand.Create => createNewProject()
       case CLICommand.Root   => ()
     }
@@ -35,6 +39,7 @@ object Main {
         .entryMap("projectName")
         .value
         .asInstanceOf[PStringValue]
+        .value
       functions <- st.functions.toList.traverse {
         case ExternalFunction(id, filePath, runtime) =>
           for {
@@ -48,21 +53,16 @@ object Main {
           }
       }
       migration = MigrationInput(code, functions.toList)
-      _ <- DaemonClient.devMigrate(migration, projectName.value)
-    } yield ()
+      _ <- DaemonClient.devMigrate(migration, projectName)
+    } yield projectName
 
     config.command match {
       case CLICommand.Dev =>
         devMigration match {
-          case Success(_)   => ()
-          case Failure(err) => println(renderThrowable(err, code = Some(code)))
+          case Success(projectName) => println(welcomeMsq(projectName))
+          case Failure(err)         => println(renderThrowable(err, code = Some(code)))
         }
-      case CLICommand.Prod => {
-        println("Sorry, production mode is not yet implemented.")
-        sys.exit(0)
-      }
-      case CLICommand.Create => createNewProject()
-      case _                 => ()
+      case _ => ()
     }
 
     if (withReload) reloadPrompt(config)
@@ -123,13 +123,5 @@ object Main {
       .split("\n")
       .map(line => (" " * 24) + line)
       .mkString("\n")
-
-  val welcomeMsq = s"""
-        Pragma GraphQL server is now running on port 3030
-
-                  ${Console.GREEN}${Console.BOLD}http://localhost:3030/graphql${Console.RESET}
-
-          Enter 'q' to quit, or anything else to reload
-      """
 
 }
