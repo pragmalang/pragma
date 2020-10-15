@@ -1,5 +1,8 @@
 version: '3'
 
+volumes:
+  pragma_postgres_data:
+
 services:
   pragma_postgres:
     image: postgres
@@ -12,6 +15,8 @@ services:
       POSTGRES_DB: test
     ports:
       - 5433:5432
+    volumes:
+      - pragma_postgres_data:/var/lib/postgresql/data
     command: [ "postgres",  "-c", "log_statement=all" ]
 
   openwhisk:

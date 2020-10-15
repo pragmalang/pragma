@@ -27,15 +27,17 @@ object DaemonClient {
     }.handleErrorWith {
       case err =>
         Failure {
-          new Exception {
+          new Exception(
             s"Failed to migrate project $projectName\n${err.getMessage}"
-          }
+          )
         }
     }.void
 
   def ping = Try(get(daemonUri)).handleErrorWith { err =>
     Failure {
-      new Exception(s"Failed to connect to Pragma daemon\n${err.getMessage}")
+      new Exception(
+        s"Failed to reach Pragma daemon at $daemonUri. Please run the daemon and retry.\n${err.getMessage}"
+      )
     }
   }
 
