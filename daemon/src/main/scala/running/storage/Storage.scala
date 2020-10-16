@@ -4,6 +4,7 @@ import running.operations._
 import spray.json._
 import pragma.domain._
 import cats.Monad
+import running.utils._
 
 class Storage[S, M[_]: Monad](
     val queryEngine: QueryEngine[S, M],
@@ -15,12 +16,13 @@ class Storage[S, M[_]: Monad](
   ): M[queryEngine.TransactionResultMap] =
     queryEngine.run(operations)
 
-  def migrate: M[Unit] = migrationEngine.migrate
+  def migrate(mode: Mode, codeToPersist: String): M[Unit] =
+    migrationEngine.migrate(mode, codeToPersist)
 
 }
 
 trait MigrationEngine[S, M[_]] {
-  def migrate: M[Unit]
+  def migrate(mode: Mode, codeToPersist: String): M[Unit]
 }
 
 case class MigrationError(step: MigrationStep) extends Exception

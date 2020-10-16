@@ -1,24 +1,19 @@
-import running._
-import pragma.daemonProtocol._
-import cats.implicits._
+import running._, running.storage.postgres._
+import running.utils._, running.PFunctionExecutor
+import pragma.daemonProtocol._, pragma.domain._, DaemonJsonProtocol._
+import cats.implicits._, cats.effect._
 import doobie._, doobie.hikari._
-import org.http4s.HttpRoutes
-import cats.effect._
-import org.http4s._, org.http4s.dsl.io._
-import org.http4s.server.blaze._, org.http4s.server.Router
-import org.http4s.implicits._, org.http4s.server.middleware._
-import scala.concurrent.ExecutionContext.global
-import spray.json._
-import DaemonJsonProtocol._
-import collection.mutable.{Map => MutMap}
-import pragma.domain._
-import running.storage.postgres._
-import running.PFunctionExecutor
 import scala.concurrent.ExecutionContext
+import ExecutionContext.global, scala.concurrent.duration._
+import spray.json._
+import collection.mutable.{Map => MutMap}
 import java.nio.charset.StandardCharsets.UTF_8
+import org.http4s._, org.http4s.dsl.io._, org.http4s.implicits._
+import org.http4s.server.middleware._
+import org.http4s.server.blaze._, org.http4s.server.Router
 import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.headers.Authorization
-import scala.concurrent.duration._
+import org.postgresql.util.PSQLException
 
 object DeamonServer extends IOApp {
 
@@ -68,7 +63,6 @@ object DeamonServer extends IOApp {
   }
 
   def buildMigrationEngine(
-      prevTree: SyntaxTree,
       currentTree: SyntaxTree,
       transactor: Resource[IO, HikariTransactor[IO]],
       queryEngine: PostgresQueryEngine[IO],
@@ -77,7 +71,6 @@ object DeamonServer extends IOApp {
     transactor map { t =>
       new PostgresMigrationEngine[IO](
         t,
-        prevTree,
         currentTree,
         queryEngine,
         funcExecutor
@@ -94,7 +87,6 @@ object DeamonServer extends IOApp {
     }
 
   def buildStorage(
-      prevTree: SyntaxTree,
       currentTree: SyntaxTree,
       transactor: Resource[IO, HikariTransactor[IO]],
       jc: JwtCodec,
@@ -103,7 +95,6 @@ object DeamonServer extends IOApp {
     for {
       qe <- buildQueryEngine(currentTree, transactor, jc)
       me <- buildMigrationEngine(
-        prevTree,
         currentTree,
         transactor,
         qe,
@@ -141,12 +132,6 @@ object DeamonServer extends IOApp {
             throw new Exception(s"Project `$projectName` doesn't exist")
         }
 
-        val prevSt = (project.previousMigration, mode) match {
-          case (Some(prevMig), Prod) => SyntaxTree.from(prevMig.code).get
-          case (_, Dev)              => SyntaxTree.empty
-          case (None, _)             => SyntaxTree.empty
-        }
-
         val currentSt =
           SyntaxTree.from(migration.code).get
 
@@ -166,7 +151,6 @@ object DeamonServer extends IOApp {
         )
 
         val storageWithTransactor = buildStorage(
-          prevSt,
           currentSt,
           transactor,
           jc,
@@ -179,7 +163,7 @@ object DeamonServer extends IOApp {
           val removeAllTables = removeAllTablesFromDb(transactor)
           val persistPrevMigration =
             daemonConfig.db.persistPreviousMigration(projectName, migration)
-          val migrate = storage.migrate
+          val migrate = storage.migrate(mode, migration.code)
 
           val createWskActions: IO[Unit] =
             migration.functions.traverse { function =>
@@ -212,7 +196,9 @@ object DeamonServer extends IOApp {
           }
           .map(_ => response(Status.Ok))
       }
-      .handleError(err => response(Status.BadRequest, err.getMessage().toJson.some))
+      .handleError(
+        err => response(Status.BadRequest, err.getMessage().toJson.some)
+      )
 
   def parseBody[A: JsonReader](req: org.http4s.Request[IO]) =
     req.bodyText
@@ -231,11 +217,19 @@ object DeamonServer extends IOApp {
           _ <- daemonConfig.db.createProject(project)
         } yield ()
 
-        res.as(response(Status.Ok)).handleError { err =>
-          response(
-            Status.Conflict,
-            s"Failed to create project: ${err.getMessage}".toJson.some
-          )
+        res.as(response(Status.Ok)).handleErrorWith {
+          case e: PSQLException if e.getSQLState == "23505" =>
+            project.map { project =>
+              response(
+                Status.BadRequest,
+                s"Failed to create project: Project ${project.name} already exists".toJson.some
+              )
+            }
+          case e =>
+            response(
+              Status.InternalServerError,
+              s"Failed to create project: ${e.getMessage}".toJson.some
+            ).pure[IO]
         }
       }
       case req @ POST -> Root / "project" / "migrate" / modeStr / projectName => {
@@ -250,7 +244,6 @@ object DeamonServer extends IOApp {
         for {
           mode <- mode
           migration <- migration
-          _ = println(migration)
           response <- migrate(
             projectName,
             migration,
@@ -508,7 +501,3 @@ case class DaemonConfig(
     blocker: Blocker,
     db: DaemonDB
 )
-
-private sealed trait Mode
-private case object Dev extends Mode
-private case object Prod extends Mode

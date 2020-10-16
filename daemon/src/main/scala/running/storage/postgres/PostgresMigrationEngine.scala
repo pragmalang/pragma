@@ -11,12 +11,12 @@ import scala.util.Try
 import doobie.util.transactor.Transactor
 import cats.effect._
 import doobie.implicits._
-import doobie.util.fragment.Fragment
 import running.PFunctionExecutor
+import running.utils._
+import doobie.util.fragment.Fragment
 
 class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
     transactor: Transactor[M],
-    prevSyntaxTree: SyntaxTree,
     currentSyntaxTree: SyntaxTree,
     queryEngine: PostgresQueryEngine[M],
     funcExecutor: PFunctionExecutor[M]
@@ -25,30 +25,72 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
     cs: ContextShift[M]
 ) extends MigrationEngine[Postgres[M], M] {
 
-  override def migrate: M[Unit] = {
-    val thereExistDataM: M[Map[ModelId, Boolean]] =
-      (
-        for {
-          model <- prevSyntaxTree.models
-        } yield
-          Fragment(
-            s"SELECT COUNT(*) FROM ${model.id.withQuotes};",
-            Nil,
-            None
-          ).query[Int]
-            .stream
-            .compile
-            .toList
-            .map(count => model.id -> (count.head > 0))
-      ).map(d => d.transact(transactor))
-        .toVector
-        .sequence
-        .map(_.toMap)
+  override def migrate(mode: Mode, codeToPersist: String): M[Unit] = {
+
+    val createMigrationsTable =
+      sql"""
+        create table if not exists ___pragma_migrations___ (
+          id serial primary key,
+          code text not null,
+          timestamp timestamp without time zone not null default (now() at time zone 'utc')
+        );
+        """.update.run.void
+        .transact(transactor)
+
+    val checkForPrevTree =
+      sql"""
+          select count(*) from ___pragma_migrations___ limit 1;
+        """
+        .query[Int]
+        .unique
+        .transact(transactor)
+        .map(_ > 0)
+        .handleErrorWith(_ => createMigrationsTable *> false.pure[M])
+
+    val prevTree =
+      sql"""
+          select code from ___pragma_migrations___
+            where id = (select max(id) from ___pragma_migrations___);
+          """
+        .query[String]
+        .unique
+        .transact(transactor)
+        .map(SyntaxTree.from(_).get)
+
+    val insertMigration =
+      sql"""
+        insert into ___pragma_migrations___ (code) values ($codeToPersist);
+        """.update.run.void.transact(transactor)
 
     for {
-      thereExistData <- thereExistDataM
-      migration <- migration(prevSyntaxTree, thereExistData)
+      prevTreeExists <- mode match {
+        case Prod => checkForPrevTree
+        case Dev  => false.pure[M]
+      }
+      prevTree <- if (prevTreeExists) prevTree else SyntaxTree.empty.pure[M]
+      thereExistData <- if (prevTreeExists) {
+        prevTree.models
+          .map { model =>
+            Fragment(
+              s"select count(*) from ${model.id.withQuotes} limit 1;",
+              Nil,
+              None
+            ).query[Int]
+              .stream
+              .compile
+              .toList
+              .map(count => model.id -> (count.head > 0))
+          }
+          .toVector
+          .traverse(d => d.transact(transactor))
+          .map(_.toMap)
+      } else Map.empty[ModelId, Boolean].pure[M]
+      migration <- migration(prevTree, thereExistData)
       _ <- migration.run(transactor)
+      _ <- mode match {
+        case Prod if !migration.sqlSteps.isEmpty => insertMigration
+        case _                                   => ().pure[M]
+      }
     } yield ()
   }
 
@@ -201,63 +243,61 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
             ChangeManyFieldTypes(
               prevModel,
               currentModel,
-              Vector(
-                ChangeFieldType(
-                  prevField,
-                  currentField.ptype,
-                  currentField.directives
-                    .find(_.id == "typeTransformer") match {
-                    case Some(typeTransformerDir) =>
-                      typeTransformerDir.args.value("typeTransformer") match {
-                        case func: ExternalFunction => Some(func)
-                        case pvalue => {
-                          val found = displayPType(pvalue.ptype)
-                          val required =
-                            s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
-                          throw new InternalException(
-                            s"""
+              ChangeFieldType(
+                prevField,
+                currentField.ptype,
+                currentField.directives
+                  .find(_.id == "typeTransformer") match {
+                  case Some(typeTransformerDir) =>
+                    typeTransformerDir.args.value("typeTransformer") match {
+                      case func: ExternalFunction => Some(func)
+                      case pvalue => {
+                        val found = displayPType(pvalue.ptype)
+                        val required =
+                          s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
+                        throw new InternalException(
+                          s"""
                           |Type mismatch on directive `typeTransformer` on field `${currentModel}.${currentField}`
                           |found: `${found}`
                           |required: `${required}`
                           """.tail.stripMargin
-                          )
-                        }
+                        )
                       }
-                    /*
+                    }
+                  /*
                     No need for a transformation function, a `NOT NULL` constraint will be
                     added.
-                     */
-                    case None
-                        if `Field type has changed` `from A to A?` (prevField, currentField) =>
-                      None
-                    /*
+                   */
+                  case None
+                      if `Field type has changed` `from A to A?` (prevField, currentField) =>
+                    None
+                  /*
                     No need for a transformation function, the current value,
                     will be the first element of the array.
-                     */
-                    case None
-                        if `Field type has changed` `from A to [A]` (prevField, currentField) =>
-                      None
-                    /*
+                   */
+                  case None
+                      if `Field type has changed` `from A to [A]` (prevField, currentField) =>
+                    None
+                  /*
                       No need for a transformation function, the current value, if not null,
                       will be the first element in the array, and if it's null then the array
                       is empty.
-                     */
-                    case None
-                        if `Field type has changed` `from A? to [A]` (prevField, currentField) =>
-                      None
-                    case None
-                        if thereExistData
-                          .withDefault(_ => false)(prevModel.id) => {
-                      val requiredFunctionType =
-                        s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
-                      throw UserError(
-                        s"Field `${currentModel}.${currentField}` type has changed, and Pragma needs a transformation function `${requiredFunctionType}` to transform existing data to the new type"
-                      )
-                    }
-                    case _ => None
+                   */
+                  case None
+                      if `Field type has changed` `from A? to [A]` (prevField, currentField) =>
+                    None
+                  case None
+                      if thereExistData
+                        .withDefault(_ => false)(prevModel.id) => {
+                    val requiredFunctionType =
+                      s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
+                    throw UserError(
+                      s"Field `${currentModel}.${currentField}` type has changed, and Pragma needs a transformation function `${requiredFunctionType}` to transform existing data to the new type"
+                    )
                   }
-                )
-              )
+                  case _ => None
+                }
+              ).pure[Vector]
             )).foldLeft[Option[ChangeManyFieldTypes]](None) {
             case (Some(value), e) if value.prevModel == e.prevModel =>
               Some(
@@ -295,7 +335,6 @@ object PostgresMigrationEngine {
   )(implicit cs: ContextShift[M]) =
     new PostgresMigrationEngine[M](
       t,
-      SyntaxTree.empty,
       st,
       queryEngine,
       funcExecutor

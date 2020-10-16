@@ -8,9 +8,7 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - name: Setup GraalVM environment
@@ -18,4 +16,4 @@ jobs:
       with:
         graalvm-version: '20.0.0.java11' 
     - name: Build JAR
-      run: sbt assembly
+      run: sbt 'core/test;cli/test'
