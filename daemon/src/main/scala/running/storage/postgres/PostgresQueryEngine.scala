@@ -11,7 +11,6 @@ import cats.effect._
 import spray.json._
 import com.github.t3hnar.bcrypt._
 import scala.util._
-import running.utils.QueryError
 
 class PostgresQueryEngine[M[_]: Monad](
     transactor: Transactor[M],
@@ -282,12 +281,6 @@ class PostgresQueryEngine[M[_]: Monad](
         .compile
         .toList
         .map(_.head.fields(model.primaryField.id))
-        .recoverWith {
-          case e: Exception =>
-            queryError[JsValue] {
-              QueryError(s"Failed to create `${model.id}`: ${e.getMessage}")
-            }
-        }
     } yield rowId
 
     for {

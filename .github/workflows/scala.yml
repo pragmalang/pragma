@@ -18,4 +18,4 @@ jobs:
       with:
         graalvm-version: '20.0.0.java11' 
     - name: Build JAR
-      run: sbt assembly
+      run: sbt 'core/test;cli/test;daemon/dockerComposeTest'

@@ -10,7 +10,7 @@ Content-Type: application/json
 {
     "name": "p1",
     "secret": "123456",
-    "pgUri": "jdbc:postgresql://localhost:5432/test",
+    "pgUri": "jdbc:postgresql://localhost:5433/test",
     "pgUser": "test",
     "pgPassword": "test"
 }

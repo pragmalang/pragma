@@ -13,6 +13,7 @@ import sangria.parser.QueryParser
 import pragma.domain.utils.InternalException
 import running.RequestReducer
 import pragma.daemonProtocol._, DaemonJsonProtocol._
+import running.utils._
 
 class DaemonDB(transactor: Resource[IO, Transactor[IO]])(
     implicit cs: ContextShift[IO]
@@ -63,7 +64,6 @@ class DaemonDB(transactor: Resource[IO, Transactor[IO]])(
   } yield
     new PostgresMigrationEngine[IO](
       t,
-      prevSyntaxTree,
       syntaxTree,
       qe,
       funcExecutor
@@ -71,7 +71,7 @@ class DaemonDB(transactor: Resource[IO, Transactor[IO]])(
 
   val opParser = new OperationParser(syntaxTree)
 
-  def migrate: IO[Unit] = migrationEngine.use(_.migrate)
+  def migrate: IO[Unit] = migrationEngine.use(_.migrate(Prod, schema))
 
   def runQuery[T](query: ConnectionIO[T]) = transactor.use(query.transact(_))
 
@@ -156,7 +156,9 @@ class DaemonDB(transactor: Resource[IO, Transactor[IO]])(
       """
     }.get
     val mut =
-      RequestReducer(running.Request.bareReqFrom(gqlMut).copy(queryVariables = queryVars))
+      RequestReducer(
+        running.Request.bareReqFrom(gqlMut).copy(queryVariables = queryVars)
+      )
 
     val ops = opParser
       .parse(mut)

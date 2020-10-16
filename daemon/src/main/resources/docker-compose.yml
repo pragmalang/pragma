@@ -16,3 +16,16 @@ services:
       "-c", "max_connections=300",
       "-c", "shared_buffers=80MB"
     ]
+
+  openwhisk:
+    container_name: openwhisk
+    hostname: openwhisk
+    image: openwhisk/standalone:nightly
+    restart: always
+    ports:
+      - 3233:3233
+      - 3232:3232
+    network_mode: bridge
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ~/.openwhisk/:/root/.openwhisk

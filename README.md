@@ -17,8 +17,10 @@ curl -Lo cs https://git.io/coursier-cli-linux && chmod +x cs && ./cs setup
 Running the daemon using `sbt run` requires the following environment variables:
 ```sh
 export DAEMON_HOSTNAME=localhost && \
-export DAEMON_PORT=3040 && \
-export DAEMON_PG_URI='jdbc:postgresql://localhost:5432/test'  && \
+export DAEMON_PORT=3030 && \
+export DAEMON_PG_HOST='localhost' && \
+export DAEMON_PG_PORT=5433 && \
+export DAEMON_PG_DB_NAME='test' && \
 export DAEMON_PG_USER='test'  && \
 export DAEMON_WSK_API_HOST='localhost:3233'  && \
 export DAEMON_WSK_AUTH_TOKEN='23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP'  && \
