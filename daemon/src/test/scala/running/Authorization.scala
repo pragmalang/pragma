@@ -4,11 +4,11 @@ import pragma.domain.SyntaxTree
 import running._, running.storage._, running.operations._
 import sangria.macros._
 import spray.json._
-import scala.util._
 import cats.implicits._
 import org.scalatest._
 import flatspec.AnyFlatSpec
 import cats.effect.IO
+import running.utils._
 
 class Authorization extends AnyFlatSpec {
   "Authorizer" should "authorize requests correctly" in {
@@ -33,10 +33,7 @@ class Authorization extends AnyFlatSpec {
     val testStorage = new TestStorage(syntaxTree)
     import testStorage._
 
-    migrationEngine.initialMigration
-      .unsafeRunSync()
-      .run(t)
-      .unsafeRunSync()
+    migrationEngine.migrate(Mode.Dev, code).unsafeRunSync()
 
     val authorizer = new Authorizer(
       syntaxTree,
@@ -44,10 +41,23 @@ class Authorization extends AnyFlatSpec {
       PFunctionExecutor.dummy[IO]
     )
 
-    val req = Request(
-      None,
-      None,
-      None,
+    TestUtils.runGql {
+      gql"""
+       mutation createUser {
+        AU_User {
+          create(aU_User: {
+            username: "John Doe",
+            password: "password",
+            isVerified: true
+          }) {
+            username
+          }
+        }
+      }
+      """
+    }
+
+    val req = Request.bareReqFrom {
       gql"""
       mutation createUser {
         AU_User {
@@ -55,10 +65,12 @@ class Authorization extends AnyFlatSpec {
             username: "John Doe",
             password: "password",
             isVerified: true
-          })
+          }) {
+            username
+          }
         }
       }
-      
+
       query getUser {
         AU_User {
           read(username: "John Doe") {
@@ -68,25 +80,20 @@ class Authorization extends AnyFlatSpec {
           }
         }
       }
-      """,
-      JsObject(Map.empty[String, JsValue]),
-      Map.empty,
-      "",
-      ""
-    )
-    val reqOps = opParser.parse(req)
-
-    val result = reqOps.map { ops =>
-      authorizer(ops, req.user).unsafeRunSync.map(_.message)
+      """
     }
+    val reqOps = opParser
+      .parse(req)
+      .getOrElse(fail("Invalid query to fetch John Doe"))
+
+    val result =
+      authorizer(reqOps, req.user).unsafeRunSync.map(_.message)
 
     assert {
-      result == Right {
-        Vector(
-          "Denied setting field `isVerified` in `CREATE` operation",
-          "`deny` rule exists that prohibits `READ` operations on `AU_User.password`"
-        )
-      }
+      result == Vector(
+        "Denied setting field `isVerified` in `CREATE` operation",
+        "`deny` rule exists that prohibits `READ` operations on `AU_User.password`"
+      )
     }
 
   }
@@ -121,7 +128,7 @@ class Authorization extends AnyFlatSpec {
     val testStorage = new TestStorage(syntaxTree)
     import testStorage._
 
-    migrationEngine.initialMigration.unsafeRunSync().run(t).unsafeRunSync()
+    migrationEngine.migrate(Mode.Dev, code).unsafeRunSync()
 
     val reqWithoutRole = Request(
       hookData = None,

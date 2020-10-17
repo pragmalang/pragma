@@ -64,8 +64,8 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
 
     for {
       prevTreeExists <- mode match {
-        case Prod => checkForPrevTree
-        case Dev  => false.pure[M]
+        case Mode.Prod => checkForPrevTree
+        case Mode.Dev  => false.pure[M]
       }
       prevTree <- if (prevTreeExists) prevTree else SyntaxTree.empty.pure[M]
       thereExistData <- if (prevTreeExists) {
@@ -88,14 +88,11 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
       migration <- migration(prevTree, thereExistData)
       _ <- migration.run(transactor)
       _ <- mode match {
-        case Prod if !migration.sqlSteps.isEmpty => insertMigration
+        case Mode.Prod if !migration.sqlSteps.isEmpty => insertMigration
         case _                                   => ().pure[M]
       }
     } yield ()
   }
-
-  def initialMigration =
-    migration(SyntaxTree.empty, Map.empty)
 
   def migration(
       prevTree: SyntaxTree,
@@ -324,21 +321,6 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
         newModels ++ renamedModels ++ deletedModels ++ fieldMigrationSteps.flatten
       }
     }.toEither
-}
-
-object PostgresMigrationEngine {
-  def initialMigration[M[_]: Monad: ConcurrentEffect](
-      t: Transactor[M],
-      st: SyntaxTree,
-      queryEngine: PostgresQueryEngine[M],
-      funcExecutor: PFunctionExecutor[M]
-  )(implicit cs: ContextShift[M]) =
-    new PostgresMigrationEngine[M](
-      t,
-      st,
-      queryEngine,
-      funcExecutor
-    )
 }
 
 /**

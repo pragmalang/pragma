@@ -5,7 +5,7 @@ volumes:
 
 services:
   pragma_postgres:
-    image: postgres
+    image: postgres:9.6.19
     container_name: pragma_daemon_db
     restart: always
     network_mode: bridge
@@ -46,7 +46,7 @@ services:
       DAEMON_PG_DB_NAME: test
       DAEMON_PG_USER: test
       DAEMON_PG_PASSWORD: test 
-      DAEMON_WSK_API_HOST: localhost:3233
+      DAEMON_WSK_API_URL: http://localhost:3233
       DAEMON_WSK_AUTH_TOKEN: 23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP
       DAEMON_WSK_API_VERSION: 1
     depends_on:

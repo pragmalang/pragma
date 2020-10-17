@@ -6,12 +6,13 @@ import doobie.implicits._
 import spray.json._
 import sangria.macros._
 import running.operations._
-import scala.util._
 import running.storage.postgres.instances._
 import running.storage.TestStorage
 import cats.implicits._
 import org.scalatest.flatspec.AnyFlatSpec
 import running.Request
+import running.utils._
+import running.TestUtils._
 
 /** NOTE: These tests may fail if executed out of order
   * They also require a running Postgress instance
@@ -48,10 +49,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
   val testStorage = new TestStorage(syntaxTree)
   import testStorage._
 
-  migrationEngine.initialMigration
-    .unsafeRunSync()
-    .run(t)
-    .unsafeRunSync()
+  migrationEngine.migrate(Mode.Dev, code).unsafeRunSync()
 
   sql"""
     INSERT INTO  "Country" ("code", "name", "population", "gnp") 
@@ -94,22 +92,6 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
       val gnp = country.fields("gnp")
       assert(gnp == JsNull || gnp.isInstanceOf[JsNumber])
     }
-  }
-
-  /** Helper to run GQL queryies agains the `queryEngine` */
-  def runGql(
-      gqlQuery: sangria.ast.Document
-  )(implicit opParser: OperationParser) = {
-    val req = Request.bareReqFrom(gqlQuery)
-    val reqOps = opParser.parse(req)
-    val results = reqOps.map(queryEngine.run(_).unsafeRunSync) match {
-      case Left(err) => throw err
-      case Right(values) =>
-        values.map {
-          case (alias, vec) => alias -> vec.flatMap(_._2.map(_._2))
-        }
-    }
-    results.toMap
   }
 
   "Array-field population" should "read array fields from join tables" taggedAs (dkr) in {

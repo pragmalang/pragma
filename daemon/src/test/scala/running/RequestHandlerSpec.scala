@@ -7,6 +7,7 @@ import sangria.macros._
 import spray.json._
 import cats.implicits._
 import cats.effect.IO
+import running.utils._
 
 class RequestHandlerSpec extends AnyFlatSpec {
   val code =
@@ -38,7 +39,7 @@ class RequestHandlerSpec extends AnyFlatSpec {
   val testStorage = new TestStorage(syntaxTree)
   import testStorage._
 
-  migrationEngine.initialMigration.unsafeRunSync.run(t).unsafeRunSync()
+  migrationEngine.migrate(Mode.Dev, code).unsafeRunSync()
 
   val reqHandler = new RequestHandler(
     syntaxTree,

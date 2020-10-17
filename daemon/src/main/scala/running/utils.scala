@@ -7,8 +7,10 @@ import pragma.domain.utils.InternalException
 package utils {
 
   sealed trait Mode
-  case object Dev extends Mode
-  case object Prod extends Mode
+  object Mode {
+    case object Dev extends Mode
+    case object Prod extends Mode
+  }
 
   case class QueryError(messages: Vector[String])
       extends Exception(s"Query Error:\n${messages.mkString("; ")}")

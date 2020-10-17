@@ -41,6 +41,7 @@ lazy val daemon = (project in file("daemon"))
     packageDescription := "See https://docs.pragmalang.com for details.",
     scalacOptions := commonScalacOptions,
     scalacOptions in (Compile, console) := Seq.empty,
+    parallelExecution in Test := false,
     libraryDependencies ++= testDependencies ++ Seq(
       cats,
       catsEffect,

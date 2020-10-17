@@ -14,6 +14,7 @@ import org.http4s.server.blaze._, org.http4s.server.Router
 import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.headers.Authorization
 import org.postgresql.util.PSQLException
+import pragma.envUtils._
 
 object DeamonServer extends IOApp {
 
@@ -178,8 +179,8 @@ object DeamonServer extends IOApp {
 
           for {
             _ <- mode match {
-              case Dev  => removeAllTables *> migrate
-              case Prod => migrate *> persistPrevMigration
+              case Mode.Dev  => removeAllTables *> migrate
+              case Mode.Prod => migrate *> persistPrevMigration
             }
             _ = println(s"Migrated `$projectName`")
             _ <- createWskActions
@@ -190,8 +191,8 @@ object DeamonServer extends IOApp {
         server
           .map { server =>
             mode match {
-              case Dev  => devProjectServers.addOne(project.name -> server)
-              case Prod => prodProjectServers.addOne(project.name -> server)
+              case Mode.Dev  => devProjectServers.addOne(project.name -> server)
+              case Mode.Prod => prodProjectServers.addOne(project.name -> server)
             }
           }
           .map(_ => response(Status.Ok))
@@ -234,8 +235,8 @@ object DeamonServer extends IOApp {
       }
       case req @ POST -> Root / "project" / "migrate" / modeStr / projectName => {
         val mode: IO[Mode] = modeStr match {
-          case "dev"  => IO(Dev)
-          case "prod" => IO(Prod)
+          case "dev"  => IO(Mode.Dev)
+          case "prod" => IO(Mode.Prod)
           case _      => IO.raiseError(new Exception("Invalid mode route"))
         }
 
@@ -282,141 +283,84 @@ object DeamonServer extends IOApp {
   override def run(args: List[String]): IO[ExitCode] =
     (executionContext, blocker).bisequence.use { ctx =>
       val (execCtx, blocker) = ctx
-      val DAEMON_PG_USER = sys.env.get("DAEMON_PG_USER")
-      val DAEMON_PG_PASSWORD = sys.env.get("DAEMON_PG_PASSWORD")
-      val DAEMON_PG_HOST = sys.env.get("DAEMON_PG_HOST")
-      val DAEMON_PG_PORT = sys.env.get("DAEMON_PG_PORT")
-      val DAEMON_PG_DB_NAME = sys.env.get("DAEMON_PG_DB_NAME")
-      val DAEMON_WSK_API_HOST = sys.env.get("DAEMON_WSK_API_HOST")
-      val DAEMON_WSK_AUTH_TOKEN = sys.env.get("DAEMON_WSK_AUTH_TOKEN")
-      val DAEMON_WSK_API_VERSION = sys.env.get("DAEMON_WSK_API_VERSION")
-      val DAEMON_HOSTNAME = sys.env.get("DAEMON_HOSTNAME") match {
-        case Some(value) => value.some
-        case None        => "localhost".some
-      }
-      val DAEMON_PORT = sys.env.get("DAEMON_PORT") match {
-        case Some(value) => value.some
-        case None        => "3030".some
-      }
 
-      val missingEnvVars =
-        List(
-          ("DAEMON_PG_HOST", DAEMON_PG_HOST, "PostgreSQL Host"),
-          ("DAEMON_PG_PORT", DAEMON_PG_PORT, "PostgreSQL Port"),
-          ("DAEMON_PG_DB_NAME", DAEMON_PG_DB_NAME, "PostgreSQL DB Name"),
-          ("DAEMON_PG_USER", DAEMON_PG_USER, "PostgreSQL DB username"),
-          (
-            "DAEMON_WSK_API_HOST",
-            DAEMON_WSK_API_HOST,
-            "OpenWhisk's API Host"
-          ),
-          (
-            "DAEMON_WSK_AUTH_TOKEN",
-            DAEMON_WSK_AUTH_TOKEN,
-            "OpenWhisk's API Auth Token"
-          ),
-          (
-            "DAEMON_PG_PASSWORD",
-            DAEMON_PG_PASSWORD,
-            "Your PostgreSQL DB password"
-          ),
-          (
-            "DAEMON_WSK_API_VERSION",
-            DAEMON_WSK_API_VERSION,
-            "OpenWhisk's API version"
-          ),
-          (
-            "DAEMON_HOSTNAME",
-            DAEMON_HOSTNAME,
-            "Daemon host name"
-          ),
-          (
-            "DAEMON_PORT",
-            DAEMON_PORT,
-            "Daemon port"
-          )
-        ).collect {
-          case (name, None, desc) => name -> desc
-        }.toList
-
-      val transactorAndWskConfig = (
-        DAEMON_PG_USER,
-        DAEMON_PG_HOST,
-        DAEMON_PG_PORT,
-        DAEMON_PG_DB_NAME,
-        DAEMON_PG_PASSWORD,
-        DAEMON_WSK_API_HOST,
-        DAEMON_WSK_AUTH_TOKEN,
-        DAEMON_WSK_API_VERSION,
-        DAEMON_HOSTNAME,
-        DAEMON_PORT
-      ) match {
-        case (
-            Some(pgUser),
-            Some(pgHost),
-            Some(pgPort),
-            Some(pgDbName),
-            Some(pgPassword),
-            Some(wskApiHost),
-            Some(wskAuthToken),
-            Some(wskApiVersion),
-            Some(hostname),
-            Some(port)
-            ) => {
-          val t = HikariTransactor.newHikariTransactor[IO](
-            "org.postgresql.Driver",
-            s"jdbc:postgresql://$pgHost:$pgPort/$pgDbName",
-            pgUser,
-            pgPassword,
-            execCtx,
-            blocker
-          )
-
-          IO((t, (wskApiHost, wskAuthToken, wskApiVersion), hostname, port))
-        }
-
-        case _ =>
+      val getEnvVar = EnvVarDef.parseEnvVars(DaemonServer.envVarsDefs) match {
+        case Left(errors) =>
           IO {
-            val isPlural = missingEnvVars.length > 1
-            val `variable/s` = if (isPlural) "variables" else "variable"
-            val missingVarNames = missingEnvVars map (_._1)
-            val renderedVarsWithDescription =
-              missingEnvVars.map(v => s"${v._1}=<${v._2}>").mkString(" ")
-            val renderedVarNames = missingVarNames.mkString(", ")
-            val renderedCliArgs = args.mkString(" ")
-            val errMsg =
-              s"""
-              |Environment ${`variable/s`} $renderedVarNames must be specified.
-              |Try: $renderedVarsWithDescription pragma $renderedCliArgs
-              """.stripMargin
-
-            println(errMsg)
+            print(EnvVarError.render(errors))
             sys.exit(1)
           }
+        case Right(getter) => getter.pure[IO]
       }
 
-      val transactor = transactorAndWskConfig.map(_._1)
-      val wskApiHost = transactorAndWskConfig
-        .map(_._2._1)
+      val pgHost = getEnvVar
+        .map(getter => getter(DaemonServer.DAEMON_PG_HOST))
+
+      val pgPort = getEnvVar
+        .map(getter => getter(DaemonServer.DAEMON_PG_PORT))
+
+      val pgDbName = getEnvVar
+        .map(getter => getter(DaemonServer.DAEMON_PG_DB_NAME))
+
+      val pgUser = getEnvVar
+        .map(getter => getter(DaemonServer.DAEMON_PG_USER))
+
+      val pgPassword = getEnvVar
+        .map(getter => getter(DaemonServer.DAEMON_PG_PASSWORD))
+
+      val wskApiUrl = getEnvVar
+        .map(getter => getter(DaemonServer.DAEMON_WSK_API_URL))
         .flatMap { s =>
           Uri.fromString(s) match {
             case Left(value)  => IO.raiseError(value)
             case Right(value) => value.pure[IO]
           }
         }
+
       val wskAuthToken =
-        transactorAndWskConfig.map(_._2._2.split(":").toList).flatMap {
-          case user :: pw :: Nil => BasicCredentials(user, pw).pure[IO]
-          case _ =>
-            IO.raiseError {
-              new IllegalArgumentException(
-                "Invalid OpenWhisk auth: must consist of a username followed by ':' and a password"
-              )
-            }
-        }
-      val wskApiVersion = transactorAndWskConfig.map(_._2._3).map(_.toInt)
-      val hostname = transactorAndWskConfig.map(_._3)
-      val port = transactorAndWskConfig.map(_._4.toInt)
+        getEnvVar
+          .map(getter => getter(DaemonServer.DAEMON_WSK_AUTH_TOKEN))
+          .map(_.split(":").toList)
+          .flatMap {
+            case user :: pw :: Nil => BasicCredentials(user, pw).pure[IO]
+            case _ =>
+              IO.raiseError {
+                new IllegalArgumentException(
+                  "Invalid OpenWhisk auth: must consist of a username followed by ':' and a password"
+                )
+              }
+          }
+
+      val wskApiVersion = getEnvVar
+        .map(getter => getter(DaemonServer.DAEMON_WSK_API_VERSION).toInt)
+
+      val hostname = getEnvVar
+        .map(getter => getter(DaemonServer.DAEMON_HOSTNAME))
+
+      val port = getEnvVar
+        .map(getter => getter(DaemonServer.DAEMON_HOSTNAME).toInt)
+
+      val transactor = for {
+        pgHost <- pgHost
+        pgPort <- pgPort
+        pgDbName <- pgDbName
+        pgUser <- pgUser
+        pgPassword <- pgPassword
+      } yield
+        HikariTransactor.newHikariTransactor[IO](
+          "org.postgresql.Driver",
+          s"jdbc:postgresql://$pgHost:$pgPort/$pgDbName",
+          pgUser,
+          pgPassword,
+          execCtx,
+          blocker
+        )
+
+      val wskConfig = for {
+        wskApiUrl <- wskApiUrl
+        wskAuthToken <- wskAuthToken
+        wskApiVersion <- wskApiVersion
+      } yield WskConfig(wskApiVersion, wskApiUrl, wskAuthToken)
 
       val clientResource = BlazeClientBuilder[IO](execCtx).resource
 
@@ -424,15 +368,12 @@ object DeamonServer extends IOApp {
         t <- transactor
         db = new DaemonDB(t)
         _ <- db.migrate
-        wskApiHost <- wskApiHost
-        wskAuthToken <- wskAuthToken
-        wskApiVersion <- wskApiVersion
-        wskConfig = WskConfig(wskApiVersion, wskApiHost, wskAuthToken)
+        wskConfig <- wskConfig
         wskClientResource = clientResource.map[IO, WskClient[IO]] { c =>
           new WskClient(wskConfig, c)
         }
         _ <- IO {
-          println(s"Pinging OpenWhisk at ${wskConfig.wskApiHost.renderString}")
+          println(s"Pinging OpenWhisk at ${wskConfig.wskApiUrl.renderString}")
         }
         _ <- clientResource.use(client => pingWsk(client, wskConfig))
         hostname <- hostname
@@ -465,7 +406,7 @@ object DeamonServer extends IOApp {
       .withUri(
         Uri
           .fromString(
-            s"http://${wskConfig.wskApiHost.renderString}/api/v${wskConfig.wskApiVersion}"
+            s"${wskConfig.wskApiUrl.renderString}/api/v${wskConfig.wskApiVersion}"
           )
           .toTry
           .get
@@ -493,6 +434,73 @@ object DeamonServer extends IOApp {
     } yield ()
   }
 
+}
+object DaemonServer {
+  val DAEMON_PG_USER = EnvVarDef(
+    name = "DAEMON_PG_USER",
+    description = "PostgreSQL DB username",
+    isRequired = true
+  )
+  val DAEMON_PG_PASSWORD = EnvVarDef(
+    name = "DAEMON_PG_PASSWORD",
+    description = "PostgreSQL DB password",
+    isRequired = true
+  )
+  val DAEMON_PG_HOST = EnvVarDef(
+    name = "DAEMON_PG_HOST",
+    description = "PostgreSQL DB host",
+    isRequired = true
+  )
+  val DAEMON_PG_PORT = EnvVarDef(
+    name = "DAEMON_PG_PORT",
+    description = "PostgreSQL DB port",
+    isRequired = true
+  )
+  val DAEMON_PG_DB_NAME = EnvVarDef(
+    name = "DAEMON_PG_DB_NAME",
+    description = "PostgreSQL DB name",
+    isRequired = true
+  )
+  val DAEMON_WSK_API_URL = EnvVarDef(
+    name = "DAEMON_WSK_API_URL",
+    description = "OpenWhisk API URL",
+    isRequired = true
+  )
+  val DAEMON_WSK_API_VERSION = EnvVarDef(
+    name = "DAEMON_WSK_API_VERSION",
+    description = "OpenWhisk's API version",
+    isRequired = true
+  )
+  val DAEMON_WSK_AUTH_TOKEN = EnvVarDef(
+    name = "DAEMON_WSK_AUTH_TOKEN",
+    description = "OpenWhisk's auth token (in the form <user>:<password>)",
+    isRequired = true
+  )
+  val DAEMON_HOSTNAME = EnvVarDef(
+    name = "DAEMON_HOSTNAME",
+    description = "Pragma Daemon hostname",
+    isRequired = true,
+    defaultValue = "localhost".some
+  )
+  val DAEMON_PORT = EnvVarDef(
+    name = "DAEMON_PORT",
+    description = "Pragma Daemon port",
+    isRequired = true,
+    defaultValue = "3030".some
+  )
+
+  val envVarsDefs = List(
+    DAEMON_PG_USER,
+    DAEMON_PG_PASSWORD,
+    DAEMON_PG_HOST,
+    DAEMON_PG_PORT,
+    DAEMON_PG_DB_NAME,
+    DAEMON_WSK_API_URL,
+    DAEMON_WSK_API_VERSION,
+    DAEMON_WSK_AUTH_TOKEN,
+    DAEMON_HOSTNAME,
+    DAEMON_PORT
+  )
 }
 
 case class DaemonConfig(

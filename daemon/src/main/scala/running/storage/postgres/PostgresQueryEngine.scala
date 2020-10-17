@@ -197,105 +197,111 @@ class PostgresQueryEngine[M[_]: Monad](
       model: PModel,
       record: JsObject,
       innerReadOps: Vector[InnerOperation]
-  ): Query[JsObject] = {
-    val fieldTypeMap = fieldTypeMapFrom(record, model, withFieldDefaults = true)
+  ): Query[JsObject] =
+    if (!record.fields.isEmpty) {
+      val fieldTypeMap =
+        fieldTypeMapFrom(record, model, withFieldDefaults = true)
 
-    val refArrayInserts = fieldTypeMap(RefArray)
-      .traverse {
-        case (
-            field @ PModelField(_, PArray(PReference(refId)), _, _, _, _),
-            JsArray(rs)
-            ) => {
-          val refModel = st.modelsById(refId)
-          val createdRecords = rs.traverse {
-            case r: JsObject => refInsertReturningId(refModel, r)
-            case notObj =>
-              throw UserError(
-                s"Trying to insert non-object value $notObj as a record of type `$refId`"
-              )
+      val refArrayInserts = fieldTypeMap(RefArray)
+        .traverse {
+          case (
+              field @ PModelField(_, PArray(PReference(refId)), _, _, _, _),
+              JsArray(rs)
+              ) => {
+            val refModel = st.modelsById(refId)
+            val createdRecords = rs.traverse {
+              case r: JsObject => refInsertReturningId(refModel, r)
+              case notObj =>
+                throw UserError(
+                  s"Trying to insert non-object value $notObj as a record of type `$refId`"
+                )
+            }
+            createdRecords.map((field, _, refModel.primaryField.id))
           }
-          createdRecords.map((field, _, refModel.primaryField.id))
-        }
-        case (otherField, otherVal) =>
-          throw InternalException(
-            s"Invalid reference array insert of value `${otherVal}` on field `${otherField.id}`"
-          )
-      }
-
-    val refInserts = fieldTypeMap(Ref)
-      .traverse {
-        case (field, refRecord: JsObject) => {
-          val modelRef = field.ptype match {
-            case PReference(id)          => id
-            case POption(PReference(id)) => id
-            case _ =>
-              throw InternalException(
-                s"Invalid reference table insert: type `${displayPType(field.ptype)}` is being treated as a reference"
-              )
-          }
-          val refModel = st.modelsById(modelRef)
-
-          refInsertReturningId(refModel, refRecord)
-            .map(refModel.primaryField.copy(id = field.id) -> _)
-        }
-        case (field, JsNull) => (field, JsNull).widen[JsValue].pure[Query]
-        case _ =>
-          throw InternalException(
-            "Trying to insert a non-object value as a referenced object"
-          )
-      }
-
-    val primFields = refInserts.flatMap { refIns =>
-      val withHashedSecretCreds = fieldTypeMap(Prim).traverse {
-        case (field, JsString(secret)) if field.isSecretCredential =>
-          secret.bcryptSafeBounded.map(field -> JsString(_))
-        case otherwise => Success(otherwise)
-      }
-      withHashedSecretCreds match {
-        case Success(primFields) =>
-          (primFields ++ refIns).toVector
-            .filter(_._2 != JsNull)
-            .pure[Query]
-        case Failure(_) =>
-          queryError[Vector[(PModelField, JsValue)]] {
-            UserError(
-              s"Could not hash the value of secret credential${model.secretCredentialField
-                .map(f => s"`${f.id}`")
-                .getOrElse("")}. Secret credential values must consist of 71 or less non-UTF-8 characters"
+          case (otherField, otherVal) =>
+            throw InternalException(
+              s"Invalid reference array insert of value `${otherVal}` on field `${otherField.id}`"
             )
-          }
-      }
-    }
+        }
 
-    val insertedRecordId = for {
-      columns <- primFields
-      columnSql = columns.map(_._1.id.withQuotes).mkString(", ")
-      set = setJsValues(columns)
-      valuesSql = List.fill(columns.length)("?").mkString(", ")
-      insertSql = s"""|INSERT INTO ${model.id.withQuotes} ($columnSql) 
+      val refInserts = fieldTypeMap(Ref)
+        .traverse {
+          case (field, refRecord: JsObject) => {
+            val modelRef = field.ptype match {
+              case PReference(id)          => id
+              case POption(PReference(id)) => id
+              case _ =>
+                throw InternalException(
+                  s"Invalid reference table insert: type `${displayPType(field.ptype)}` is being treated as a reference"
+                )
+            }
+            val refModel = st.modelsById(modelRef)
+
+            refInsertReturningId(refModel, refRecord)
+              .map(refModel.primaryField.copy(id = field.id) -> _)
+          }
+          case (field, JsNull) => (field, JsNull).widen[JsValue].pure[Query]
+          case _ =>
+            throw InternalException(
+              "Trying to insert a non-object value as a referenced object"
+            )
+        }
+
+      val primFields = refInserts.flatMap { refIns =>
+        val withHashedSecretCreds = fieldTypeMap(Prim).traverse {
+          case (field, JsString(secret)) if field.isSecretCredential =>
+            secret.bcryptSafeBounded.map(field -> JsString(_))
+          case otherwise => Success(otherwise)
+        }
+        withHashedSecretCreds match {
+          case Success(primFields) =>
+            (primFields ++ refIns).toVector
+              .filter(_._2 != JsNull)
+              .pure[Query]
+          case Failure(_) =>
+            queryError[Vector[(PModelField, JsValue)]] {
+              UserError(
+                s"Could not hash the value of secret credential${model.secretCredentialField
+                  .map(f => s"`${f.id}`")
+                  .getOrElse("")}. Secret credential values must consist of 71 or less non-UTF-8 characters"
+              )
+            }
+        }
+      }
+
+      val insertedRecordId = for {
+        columns <- primFields
+        columnSql = columns.map(_._1.id.withQuotes).mkString(", ")
+        set = setJsValues(columns)
+        valuesSql = List.fill(columns.length)("?").mkString(", ")
+        insertSql = s"""|INSERT INTO ${model.id.withQuotes} ($columnSql) 
                       |VALUES ($valuesSql)
                       |RETURNING ${model.primaryField.id.withQuotes};""".stripMargin
-      rowId <- HC
-        .stream(insertSql, set, 1)
-        .head
-        .compile
-        .toList
-        .map(_.head.fields(model.primaryField.id))
-    } yield rowId
+        rowId <- HC
+          .stream(insertSql, set, 1)
+          .head
+          .compile
+          .toList
+          .map(_.head.fields(model.primaryField.id))
+      } yield rowId
 
-    for {
-      arrays <- refArrayInserts
-      id <- insertedRecordId
-      _ <- arrays.flatTraverse {
-        case (field, values, _) =>
-          values.traverse(joinInsert(model, field, id, _))
-      }
-      _ <- fieldTypeMap(PrimArray).traverse {
-        case (field, value) => joinInsert(model, field, id, value)
-      }
-      created <- readOneRecord(model, id, innerReadOps)
-    } yield created
-  }
+      for {
+        arrays <- refArrayInserts
+        id <- insertedRecordId
+        _ <- arrays.flatTraverse {
+          case (field, values, _) =>
+            values.traverse(joinInsert(model, field, id, _))
+        }
+        _ <- fieldTypeMap(PrimArray).traverse {
+          case (field, value) => joinInsert(model, field, id, value)
+        }
+        created <- readOneRecord(model, id, innerReadOps)
+      } yield created
+    } else {
+      queryError[JsObject](
+        new Exception(s"Cannot create empty record of type `${model.id}`")
+      )
+    }
 
   override def updateManyRecords(
       model: PModel,

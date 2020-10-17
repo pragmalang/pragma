@@ -11,8 +11,8 @@ class PFunctionExecutor[M[_]: Sync](
 ) {
   def execute(
       function: PFunctionValue,
-      args: JsValue
-  ): M[JsValue] = function match {
+      args: JsObject
+  ): M[JsObject] = function match {
     case function: ExternalFunction =>
       wskClient.invokeAction(function, args, projectName)
   }
@@ -35,14 +35,14 @@ object PFunctionExecutor {
     ) {
       override def execute(
           function: PFunctionValue,
-          args: JsValue
-      ): M[JsValue] = JsNull.pure[M].widen[JsValue]
+          args: JsObject
+      ): M[JsObject] = JsObject.empty.pure[M]
     }
   }
 }
 
 case class WskConfig(
     wskApiVersion: Int,
-    wskApiHost: Uri,
+    wskApiUrl: Uri,
     wskAuthToken: BasicCredentials
 )

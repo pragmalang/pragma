@@ -118,7 +118,10 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
                           funcExecutor
                             .execute(
                               transformer,
-                              row.fields(change.field.id)
+                              row.fields(change.field.id) match {
+                                case obj: JsObject => obj
+                                case value => JsObject("arg" -> value)
+                              }
                             )
                             .map(result => change -> result)
                             .widen[(ChangeFieldType, JsValue)]
@@ -275,7 +278,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
                   name = field.id,
                   dataType = postgresType,
                   isNotNull = !field.isOptional,
-                  isUnique = field.isUnique || field.isPublicCredential || field.isSecretCredential,
+                  isUnique = field.isUnique || field.isPublicCredential,
                   isPrimaryKey = field.isPrimary,
                   isAutoIncrement = field.isAutoIncrement,
                   isUUID = field.isUUID,

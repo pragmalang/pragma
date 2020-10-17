@@ -16,6 +16,7 @@ import cats.effect._
 import cats.implicits._
 import running.JwtCodec
 import running.PFunctionExecutor
+import running.utils._
 
 class PostgresMigrationEngineSpec extends AnyFunSuite {
 
@@ -81,7 +82,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
        |
        |ALTER TABLE "User_renderSQL" ADD COLUMN "username" TEXT NOT NULL UNIQUE PRIMARY KEY;
        |
-       |ALTER TABLE "User_renderSQL" ADD COLUMN "password" TEXT NOT NULL UNIQUE;
+       |ALTER TABLE "User_renderSQL" ADD COLUMN "password" TEXT NOT NULL;
        |
        |ALTER TABLE "User_renderSQL" ADD COLUMN "isVerified" BOOL NOT NULL;
        |
@@ -93,8 +94,10 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
        |""".stripMargin
       )
 
+    migrationEngine.migrate(Mode.Dev, code).unsafeRunSync()
+
     assert {
-      expected == migrationEngine.initialMigration.unsafeRunSync().renderSQL
+      expected == migrationEngine.migration(SyntaxTree.empty, Map.empty).unsafeRunSync().renderSQL
     }
   }
 
@@ -176,7 +179,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
             "password",
             PostgresType.TEXT,
             true,
-            true,
+            false,
             false,
             false,
             false,
@@ -501,7 +504,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
               "password",
               PostgresType.TEXT,
               true,
-              true,
+              false,
               false,
               false,
               false,

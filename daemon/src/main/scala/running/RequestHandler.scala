@@ -134,8 +134,8 @@ class RequestHandler[S, M[_]: Async: ConcurrentEffect](
 
   private def applyHooks(
       hooks: Seq[PFunctionValue],
-      arg: JsValue
-  ): M[JsValue] =
+      arg: JsObject
+  ): M[JsObject] =
     hooks.foldLeft(arg.pure[M]) {
       case (acc, hook) =>
         acc.flatMap(a => funcExecutor.execute(hook, a))
@@ -288,7 +288,7 @@ class RequestHandler[S, M[_]: Async: ConcurrentEffect](
   private def applyReadHooks(
       op: Operation,
       opResult: JsValue
-  ): M[JsValue] =
+  ): M[JsObject] =
     opResult match {
       case JsObject(fields) =>
         op.innerReadOps
@@ -304,10 +304,12 @@ class RequestHandler[S, M[_]: Async: ConcurrentEffect](
             applyHooks(op.targetModel.readHooks, JsObject(newFields.toMap))
           }
       case JsArray(elements) =>
-        elements.traverse(applyReadHooks(op, _)).map(JsArray(_)).widen[JsValue]
-      case s: JsString => s.pure[M].widen[JsValue]
+        elements
+          .traverse(applyReadHooks(op, _))
+          .map(resArr => JsObject("data" -> JsArray(resArr)))
+      case s: JsString => JsObject("token" -> s).pure[M]
       case _ =>
-        MonadError[M, Throwable].raiseError[JsValue] {
+        MonadError[M, Throwable].raiseError[JsObject] {
           InternalException(
             s"Result of ${op.event} operation must either be an array or an object"
           )

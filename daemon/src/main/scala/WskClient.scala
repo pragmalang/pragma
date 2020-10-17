@@ -4,7 +4,8 @@ import pragma.domain._, pragma.daemonProtocol.DaemonJsonProtocol._
 import cats.implicits._, cats.effect._
 import org.http4s._, org.http4s.headers._, org.http4s.client._
 import spray.json._
-import running.utils.QueryError
+import scala.util.{Success, Try}
+import cats.MonadError
 
 class WskClient[M[_]: Sync](val config: WskConfig, val httpClient: Client[M]) {
 
@@ -36,7 +37,7 @@ class WskClient[M[_]: Sync](val config: WskConfig, val httpClient: Client[M]) {
 
     val wskApiVersion: Int = config.wskApiVersion
 
-    val wskApiUri = config.wskApiHost / s"v$wskApiVersion"
+    val wskApiUri = config.wskApiUrl / s"v$wskApiVersion"
 
     val endpoint =
       (wskApiUri / "namespaces" / namespace / "actions" / actionName)
@@ -60,12 +61,12 @@ class WskClient[M[_]: Sync](val config: WskConfig, val httpClient: Client[M]) {
 
   def invokeAction(
       function: ExternalFunction,
-      args: JsValue,
+      args: JsObject,
       projectName: String
-  ): M[JsValue] = {
+  ): M[JsObject] = {
     val wskApiVersion: Int = config.wskApiVersion
 
-    val wskApiUri = config.wskApiHost / s"v$wskApiVersion"
+    val wskApiUri = config.wskApiUrl / s"v$wskApiVersion"
 
     val namespace: String = "_"
 
@@ -78,9 +79,13 @@ class WskClient[M[_]: Sync](val config: WskConfig, val httpClient: Client[M]) {
 
     val `application/json` = MediaType.application.json
 
-    val actionArgs = JsObject(
-      "data" -> args
-    )
+    val actionArgs = args match {
+      case obj: JsObject => obj
+      case args =>
+        JsObject(
+          "data" -> args
+        )
+    }
 
     val request = Request[M]()
       .withUri(actionEndpoint)
@@ -95,13 +100,18 @@ class WskClient[M[_]: Sync](val config: WskConfig, val httpClient: Client[M]) {
 
     for {
       stringResult <- httpClient.expect[String](request)
-      jsonResult <- stringResult.parseJson.asJsObject.fields
-        .get("data") match {
-        case Some(value) => value.pure[M]
-        case None =>
-          implicitly[Sync[M]].raiseError[JsValue] {
-            QueryError(
-              s"Function ${function.id} result doesn't contain a `data` field"
+      jsonResult <- Try(stringResult.parseJson) match {
+        case Success(obj: JsObject) => obj.pure[M]
+        case Success(invalid) =>
+          MonadError[M, Throwable].raiseError {
+            new Exception(
+              s"Invalid value `${invalid.compactPrint}` returned by function `${function.id}` (the return value must be an object)"
+            )
+          }
+        case _ =>
+          MonadError[M, Throwable].raiseError {
+            new Exception(
+              s"Invalid JSON result returned by call to `${function.id}`"
             )
           }
       }

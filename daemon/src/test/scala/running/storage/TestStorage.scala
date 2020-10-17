@@ -19,8 +19,8 @@ class TestStorage(st: SyntaxTree) {
     Blocker.liftExecutionContext(ExecutionContexts.synchronous)
   )
 
-  val queryEngine = new PostgresQueryEngine(t, st, jc)
-  val migrationEngine = PostgresMigrationEngine.initialMigration[IO](
+  implicit val queryEngine = new PostgresQueryEngine(t, st, jc)
+  val migrationEngine = new PostgresMigrationEngine(
     t,
     st,
     queryEngine,
