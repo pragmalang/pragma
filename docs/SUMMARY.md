@@ -1,8 +1,7 @@
 # Summary
 
-[Introduction](./introduction.md)
+- [Introduction](./introduction.md)
 - [Getting Started](./getting-started/index.md)
-    - [Basic Todo App](./getting-started/basic-todo-app.md)
     - [Data Validation and Transformation](./getting-started/data-validation-and-transformation.md)
 - [Language Features](./features/index.md)
     - [Models](./features/models.md)

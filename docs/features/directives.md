@@ -53,6 +53,9 @@ Marks a field as a public identifier for its user model.
 Marks a field as a secret credential for its user model.
 > *Note*: Can only be used on user model fields.
 
+### @unique
+Marks a field as being unique for each record.
+
 ### @autoIncrement
 Adds auto-increment functionality.
 > *Note*: Can only be used on `Int` fields.

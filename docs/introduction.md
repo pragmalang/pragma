@@ -1,5 +1,7 @@
 # Introduction
 
+## What is Pragma?
+
 Pragma is a language for building [GraphQL](https://spec.graphql.org/June2018/) APIs in no time, by defining data models and their associated validation, transformation, and authorization logic. For example, you can create a `Pragmafile` with the following content:
 
 ```pragma
@@ -23,7 +25,7 @@ allow CREATE User
 
 role User {
   allow [READ, UPDATE] self
-  deny READ self.password
+  allow READ User
 }
 ```
 
@@ -41,7 +43,7 @@ const setFullName = user =>
   ({...user, fullName: user.firstName + " " + user.lastName})
 ```
 
-These two functions are used to validate every user object and set its `fullName` field on every `CREATE`, `UPDATE`, or `MUTATE` operation.
+These two functions are used to validate every user object and set its `fullName` field on every `CREATE`, `UPDATE`, and `MUTATE` operations. See the [Generated API section](./api/index.md) .
 
 Notice the `allow CREATE User` line at the end of the `Pragmafile`. This is a security rule that specifies *anyone* can create a new `User` record. See [Permissions](./features/permissions.md) for more details on access permissions.
 
@@ -76,13 +78,13 @@ Pragma doesn't make you worry about networking, writing resolvers, or (when usin
 
 ### It's Declarative
 
-Definitions are concise, readable, and maintainable. It keeps configuration and boilerplate you need to write and keep in mind at a minimum. You focus on your business logic and nothing else.
+Definitions are concise, readable, high-level, and maintainable. It keeps configuration and boilerplate you need to write and keep in mind at a minimum (no code generation, all the complexity is abstracted). You focus on your business logic and nothing else.
 
 [A simple todo app](./getting-started/basic-todo-app.md) with user authentication and permissions can be expressed in under 30 lines of code.
 
 ### It Integrates with Many Languages
 
-You can define the functions used for data processing in many languages, including  JavaScript (NodeJS), Go, Java, Scala, PHP, Python, Ruby, Swift, Ballerina, .NET and Rust, and seamlessly compose them using [directives](./features/directives.md). This is thanks to Pragma being build on top of [Apache Openwhisk](https://openwhisk.apache.org/).
+You can define the functions used for data processing in many languages, including  JavaScript (NodeJS), Go, Java, Scala, PHP, Python, Ruby, Swift, Ballerina, .NET and Rust, and seamlessly compose them using [directives](./features/directives.md). This is due to Pragma being built on top of [Apache Openwhisk](https://openwhisk.apache.org/).
 
 ### It Runs Locally
 
