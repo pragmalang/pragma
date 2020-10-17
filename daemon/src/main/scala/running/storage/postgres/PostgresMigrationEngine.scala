@@ -37,7 +37,7 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
         """.update.run.void
         .transact(transactor)
 
-    val checkForPrevTree =
+    val prevTreeExists =
       sql"""
           select count(*) from ___pragma_migrations___ limit 1;
         """
@@ -64,7 +64,7 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
 
     for {
       prevTreeExists <- mode match {
-        case Mode.Prod => checkForPrevTree
+        case Mode.Prod => prevTreeExists
         case Mode.Dev  => false.pure[M]
       }
       prevTree <- if (prevTreeExists) prevTree else SyntaxTree.empty.pure[M]

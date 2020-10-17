@@ -338,7 +338,7 @@ object DeamonServer extends IOApp {
         .map(getter => getter(DaemonServer.DAEMON_HOSTNAME))
 
       val port = getEnvVar
-        .map(getter => getter(DaemonServer.DAEMON_HOSTNAME).toInt)
+        .map(getter => getter(DaemonServer.DAEMON_PORT).toInt)
 
       val transactor = for {
         pgHost <- pgHost

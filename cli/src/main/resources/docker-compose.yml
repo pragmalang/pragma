@@ -5,7 +5,7 @@ volumes:
 
 services:
   pragma_postgres:
-    image: postgres:9.6.19
+    image: postgres:13.0
     container_name: pragma_daemon_db
     restart: always
     network_mode: bridge

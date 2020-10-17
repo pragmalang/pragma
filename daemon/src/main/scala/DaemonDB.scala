@@ -48,7 +48,6 @@ class DaemonDB(transactor: Resource[IO, Transactor[IO]])(
   }
   """
 
-  val prevSyntaxTree = SyntaxTree.empty
   val syntaxTree = SyntaxTree.from(schema).get
 
   val ProjectModel = syntaxTree.modelsById("Project")
