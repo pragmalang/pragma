@@ -5,6 +5,7 @@ import pragma.daemonProtocol._
 import cats.implicits._
 import scala.util._, scala.io.StdIn.readLine
 import cli.utils._
+import os.Path
 
 object Main {
 
@@ -41,10 +42,19 @@ object Main {
         .asInstanceOf[PStringValue]
         .value
       functions <- st.functions.toList.traverse {
-        case ExternalFunction(id, scopeName, filePath, runtime) =>
+        case ExternalFunction(id, scopeName, filePathStr, runtime) => {
+          val filePath = os.FilePath(filePathStr)
           for {
-            (content, isBinary) <- readContent(os.pwd / os.RelPath(filePath))
-          } yield ImportedFunctionInput(id, scopeName, content, runtime, isBinary)
+            (content, isBinary) <- {
+              filePath match {
+                case path: Path => readContent(path)
+                case _ =>
+                  readContent(config.projectPath / os.RelPath(filePathStr))
+              }
+            }
+          } yield
+            ImportedFunctionInput(id, scopeName, content, runtime, isBinary)
+        }
         case otherFn =>
           Failure {
             new Exception {

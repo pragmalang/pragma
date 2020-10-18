@@ -10,7 +10,9 @@ case class CLIConfig(
     command: CLICommand,
     filePath: Path,
     isHelp: Boolean
-)
+) {
+  val projectPath = os.Path(filePath.wrapped.getParent().toAbsolutePath())
+}
 
 object CLIConfig {
   val default =

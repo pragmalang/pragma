@@ -2,9 +2,10 @@ package cli
 
 import pragma.domain.PositionRange, pragma.domain.utils.UserError
 import org.parboiled2.{Position, ParseError}
-import scala.util._
-import java.io.{ByteArrayOutputStream, FileInputStream}
+import java.io.ByteArrayOutputStream
 import java.util.zip.{ZipOutputStream, ZipEntry}
+import scala.util._
+import cats.implicits._
 import java.util.Base64
 
 object utils {
@@ -21,25 +22,54 @@ object utils {
     }
   }
 
+  /** Recursively measures the size of a file/directory */
+  private def size(path: os.Path): Long = {
+    if (os.isDir(path))
+      os.walk(path)
+        .filterNot(path => os.isDir(path) || os.isLink(path))
+        .foldLeft(0L)((acc, filePath) => acc + os.size(filePath))
+    else if (os.isLink(path)) {
+      os.followLink(path) match {
+        case Some(value) => size(value)
+        case None        => 0
+      }
+    } else os.size(path)
+  }
+
+  /** Returns a base-64 encoded string containing the zipped directory */
+  private def zipDir(path: os.Path) =
+    Try {
+      if (!os.isDir(path))
+        throw new Exception(
+          s"Trying to zip non-directory '$path' which is not a directory"
+        )
+      val bos = new ByteArrayOutputStream(size(path).toInt)
+      val zos = new ZipOutputStream(bos)
+      val paths = os.walk(path)
+      paths.map(_.relativeTo(path)).map { child =>
+        if (os.isDir(child.resolveFrom(path)))
+          zos.putNextEntry(new ZipEntry(child.toString + "/"))
+        if (os.isFile(child.resolveFrom(path))) {
+          zos.putNextEntry(new ZipEntry(child.toString))
+          val childContent = os.read(child.resolveFrom(path))
+          zos.write(childContent.getBytes, 0, childContent.length)
+        }
+        zos.closeEntry()
+      }
+      zos.close()
+      new String(Base64.getEncoder.encode(bos.toByteArray))
+    }.handleErrorWith {
+      case e: Exception =>
+        Failure(new Exception(s"Error while zipping $path\n${e.getMessage}"))
+    }
+
   /** The boolean in the return means "is binary"
     * @return the content of the path. If the path leads to a directory, the content will be
     * a base64-encoded string, and true. If the path leads to a file, the file content is returned with false.
     */
   def readContent(path: os.Path): Try[(String, Boolean)] =
     if (os.isDir(path)) Try {
-      val sub = os.list(path, sort = false)
-      val byteOutputStream = new ByteArrayOutputStream(2000)
-      val zipOutputStream = new ZipOutputStream(byteOutputStream)
-      sub foreach { file =>
-        zipOutputStream.putNextEntry(new ZipEntry(file.last))
-        val fileInputStream = new FileInputStream(file.toString)
-        zipOutputStream.write(fileInputStream.readAllBytes)
-        zipOutputStream.closeEntry()
-        fileInputStream.close()
-      }
-      val base64 = Base64.getEncoder.encode(byteOutputStream.toByteArray)
-      byteOutputStream.close()
-      (new String(base64), true)
+      (zipDir(path).get, true)
     } else if (os.isLink(path)) os.followLink(path) match {
       case Some(path) => readContent(path)
       case None =>

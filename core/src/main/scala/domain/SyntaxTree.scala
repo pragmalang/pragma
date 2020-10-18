@@ -39,11 +39,11 @@ case class SyntaxTree(
 }
 object SyntaxTree {
   // The resulting syntax tree is validated and substituted
-  def from(code: String, checkFileImports: Boolean = true): Try[SyntaxTree] =
+  def from(code: String): Try[SyntaxTree] =
     new PragmaParser(code).syntaxTree
       .run()
       .flatMap(new Validator(_).validSyntaxTree)
-      .flatMap(Substitutor.substitute(_, checkFileImports))
+      .flatMap(Substitutor.substitute)
 
   /**
     * The resulting syntax tree is not validated or substituted
