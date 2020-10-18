@@ -21,15 +21,15 @@ case class SyntaxTree(
   def findTypeById(id: String): Option[PType] =
     modelsById.get(id) orElse enumsById.get(id)
 
-  lazy val functions: Seq[PFunctionValue] = models.flatMap { model =>
+  lazy val functions: Set[PFunctionValue] = models.flatMap { model =>
     model.readHooks ++ model.writeHooks ++ model.deleteHooks ++ model.loginHooks
-  } ++ {
+  }.toSet ++ {
     val fnsFrom: Seq[AccessRule] => Seq[PFunctionValue] = rules =>
       rules.collect {
         case AccessRule(_, _, _, Some(fn), _, _) => fn
       }
-    fnsFrom(permissions.globalTenant.rules) ++
-      fnsFrom(permissions.globalTenant.roles.flatMap(_.rules).toSeq).toSeq
+    fnsFrom(permissions.globalTenant.rules).toSet ++
+      fnsFrom(permissions.globalTenant.roles.flatMap(_.rules)).toSet
   }
 
   def render: String =

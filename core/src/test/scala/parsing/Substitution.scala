@@ -22,8 +22,9 @@ class Substitution extends AnyFlatSpec {
     val directive = substituted.models.head.directives.head
 
     directive.args.value("function") match {
-      case ExternalFunction(id, filePath, runtime) => {
+      case ExternalFunction(id, scopeName, filePath, runtime) => {
         assert(id == "validateCat")
+        assert(scopeName == "fns")
         assert(filePath == "./core/src/test/scala/parsing/test-functions.js")
         assert(runtime == "nodejs:14")
       }
@@ -32,7 +33,8 @@ class Substitution extends AnyFlatSpec {
   }
 
   "Predicate references in permissions" should "be substituted with actual predicates correctly" in {
-    val code = """
+    val code =
+      """
     @1 @user model User {
       @1 username: String @publicCredential @primary
       @2 password: String @secretCredential

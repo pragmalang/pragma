@@ -20,9 +20,10 @@ class WskClient[M[_]: Sync](val config: WskConfig, val httpClient: Client[M]) {
       code: String,
       runtime: String,
       binary: Boolean,
-      projectName: String
+      projectName: String,
+      scopeName: String
   ): M[Unit] = {
-    val actionName = s"${projectName}_$name" // This is because wsk namespace don't work yet
+    val actionName = s"${projectName}_${scopeName}_$name" // This is because wsk namespace don't work yet
     val namespace = "_"
     val reqBody = JsObject(
       "namespace" -> namespace.toJson,
@@ -37,26 +38,28 @@ class WskClient[M[_]: Sync](val config: WskConfig, val httpClient: Client[M]) {
 
     val wskApiVersion: Int = config.wskApiVersion
 
-    val wskApiUri = config.wskApiUrl / s"v$wskApiVersion"
+    val wskApiUrl = config.wskApiUrl / "api" / s"v$wskApiVersion"
 
     val endpoint =
-      (wskApiUri / "namespaces" / namespace / "actions" / actionName)
+      (wskApiUrl / "namespaces" / namespace / "actions" / actionName)
         .withQueryParam(key = "overwrite", value = true)
 
-    val `application/json` = MediaType.application.json
+    val bodyBytes = reqBody.compactPrint
+      .getBytes(java.nio.charset.StandardCharsets.UTF_8)
 
-    val request = Request[M]()
-      .withUri(endpoint)
-      .withMethod(Method.PUT)
-      .withHeaders(Authorization(config.wskAuthToken))
-      .withContentType(`Content-Type`(`application/json`))
-      .withBodyStream {
-        fs2.Stream
-          .fromIterator(reqBody.compactPrint.iterator)
-          .map(_.toByte)
-      }
+    val request = Request[M](
+      method = Method.PUT,
+      uri = endpoint,
+      headers = Headers.of(
+        Authorization(config.wskAuthToken),
+        Header("Accept", "application/json"),
+        Header("Content-Type", "application/json"),
+        Header("Content-Length", bodyBytes.length.toString)
+      ),
+      body = fs2.Stream.emits(bodyBytes)
+    )
 
-    httpClient.expect[String](request).void
+    httpClient.expect[Unit](request)
   }
 
   def invokeAction(
@@ -66,18 +69,17 @@ class WskClient[M[_]: Sync](val config: WskConfig, val httpClient: Client[M]) {
   ): M[JsObject] = {
     val wskApiVersion: Int = config.wskApiVersion
 
-    val wskApiUri = config.wskApiUrl / s"v$wskApiVersion"
+    val wskApiUri = config.wskApiUrl / "api" / s"v$wskApiVersion"
 
     val namespace: String = "_"
 
-    val actionName: String = s"${projectName}_${function.id}"
+    val actionName: String =
+      s"${projectName}_${function.scopeName}_${function.id}"
 
     val actionEndpoint =
       (wskApiUri / "namespaces" / namespace / "actions" / actionName)
         .withQueryParam(key = "blocking", value = true)
         .withQueryParam(key = "result", value = true)
-
-    val `application/json` = MediaType.application.json
 
     val actionArgs = args match {
       case obj: JsObject => obj
@@ -87,19 +89,36 @@ class WskClient[M[_]: Sync](val config: WskConfig, val httpClient: Client[M]) {
         )
     }
 
-    val request = Request[M]()
-      .withUri(actionEndpoint)
-      .withMethod(Method.POST)
-      .withHeaders(Authorization(config.wskAuthToken))
-      .withContentType(`Content-Type`(`application/json`))
-      .withBodyStream {
-        fs2.Stream
-          .fromIterator(actionArgs.compactPrint.iterator)
-          .map(_.toByte)
+    val bodyBytes =
+      actionArgs.compactPrint.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+
+    val request = Request[M](
+      uri = actionEndpoint,
+      method = Method.POST,
+      headers = Headers.of(
+        Authorization(config.wskAuthToken),
+        Header("Content-Type", "application/json"),
+        Header("Accept", "application/json"),
+        Header("Content-Length", bodyBytes.length.toString)
+      ),
+      body = fs2.Stream.emits(bodyBytes)
+    )
+
+    val responseBodyString = httpClient.run(request).use { res =>
+      res.status.responseClass match {
+        case Status.Successful =>
+          res.bodyText.compile.toList.map(_.mkString)
+        case _ =>
+          MonadError[M, Throwable].raiseError[String] {
+            new Exception(
+              s"Request to OpenWhisk for invoking function `${function.scopeName}.${function.id}` failed with HTTP status code ${res.status.code}"
+            )
+          }
       }
+    }
 
     for {
-      stringResult <- httpClient.expect[String](request)
+      stringResult <- responseBodyString
       jsonResult <- Try(stringResult.parseJson) match {
         case Success(obj: JsObject) => obj.pure[M]
         case Success(invalid) =>

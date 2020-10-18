@@ -41,10 +41,10 @@ object Main {
         .asInstanceOf[PStringValue]
         .value
       functions <- st.functions.toList.traverse {
-        case ExternalFunction(id, filePath, runtime) =>
+        case ExternalFunction(id, scopeName, filePath, runtime) =>
           for {
             (content, isBinary) <- readContent(os.pwd / os.RelPath(filePath))
-          } yield ImportedFunctionInput(id, content, runtime, isBinary)
+          } yield ImportedFunctionInput(id, scopeName, content, runtime, isBinary)
         case otherFn =>
           Failure {
             new Exception {

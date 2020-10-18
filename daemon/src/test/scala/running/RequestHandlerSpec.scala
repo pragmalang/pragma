@@ -1,18 +1,21 @@
 package running
 
 import org.scalatest.flatspec.AnyFlatSpec
-import pragma.domain.SyntaxTree
-import running.storage.TestStorage
+import pragma.domain._
+import running.storage.TestStorage, running.utils._
 import sangria.macros._
 import spray.json._
-import cats.implicits._
-import cats.effect.IO
-import running.utils._
+import cats.implicits._, cats.effect.IO
+import cats.effect.Blocker
+import java.util.concurrent._
+import org.http4s._, org.http4s.client._
+import scala.io.Source
+import scala.concurrent.ExecutionContext
 
 class RequestHandlerSpec extends AnyFlatSpec {
   val code =
     """
-    import "./daemon/src/test/scala/running/req-handler-test-hooks.js" as rhHooks { runtime = "nodejs:14" }
+    import "./daemon/src/test/scala/running/req-handler-test-hooks.js" as rhHooks { runtime = "nodejs:10" }
 
     @onWrite(function: rhHooks.prependMrToUsername)
     @onWrite(function: rhHooks.setPriorityTodo)
@@ -32,7 +35,7 @@ class RequestHandlerSpec extends AnyFlatSpec {
     allow ALL RH_User
     allow ALL RH_Todo
 
-    config { projectName = "test" }
+    config { projectName = "RH" }
     """
 
   val syntaxTree = SyntaxTree.from(code).get
@@ -41,22 +44,63 @@ class RequestHandlerSpec extends AnyFlatSpec {
 
   migrationEngine.migrate(Mode.Dev, code).unsafeRunSync()
 
-  val reqHandler = new RequestHandler(
-    syntaxTree,
-    storage,
-    PFunctionExecutor.dummy[IO]
+  val blockingPool = Executors.newFixedThreadPool(5)
+  val blocker = Blocker.liftExecutorService(blockingPool)
+  implicit val cs = IO.contextShift(ExecutionContext.global)
+  val httpClient = JavaNetClientBuilder[IO](blocker).create
+
+  val wskClient = new WskClient[IO](
+    WskConfig(
+      1,
+      Uri.fromString("http://localhost:3233").toTry.get,
+      BasicCredentials(
+        "23bc46b1-71f6-4ed5-8c54-816aa4f8c502",
+        "123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP"
+      )
+    ),
+    httpClient
   )
 
+  val imp = syntaxTree.imports.head
+  val projectName = syntaxTree.config
+    .entryMap("projectName")
+    .value
+    .asInstanceOf[PStringValue]
+    .value
+  val runtimeStr =
+    imp.config.get.entryMap("runtime").value.asInstanceOf[PStringValue].value
+  val jsFileCode = Source.fromFile(imp.filePath).getLines.mkString("\n")
+
+  syntaxTree.functions.toVector.foreach { function =>
+    wskClient
+      .createAction(
+        function.id,
+        jsFileCode,
+        runtimeStr,
+        false,
+        projectName,
+        function.scopeName
+      )
+      .unsafeRunSync()
+  }
+
+  val reqHandler = new RequestHandler(
+      syntaxTree,
+      storage,
+      new PFunctionExecutor[IO](projectName, wskClient)
+    )
+
   "RequestHandler" should "execute write hooks correctly" in {
-    val req = Request.bareReqFrom {
+    val req = running.Request.bareReqFrom {
       gql"""
       mutation createFathi {
         user: RH_User {
           create(rH_User: {
-            username: "Fathi",
+     
+           username: "Fathi",
             todos: [
-              {title: "Get pizza", content: "We need to eat", done: false},
-              {title: "Dishes", content: "Wash em'", done: true}
+              { title: "Get pizza", content: "We need to eat", done: false },
+              { title: "Dishes", content: "Wash em'", done: true }
             ],
             priorityTodo: null
           }) {
@@ -70,7 +114,7 @@ class RequestHandlerSpec extends AnyFlatSpec {
       """
     }
 
-    val result = reqHandler.handle(req).unsafeRunSync
+    val result = reqHandler.handle(req).unsafeRunSync()
 
     val expected = JsObject(
       Map(
@@ -97,7 +141,7 @@ class RequestHandlerSpec extends AnyFlatSpec {
   }
 
   "Request handler" should "apply read hooks correctly" in {
-    val req = Request.bareReqFrom {
+    val req = running.Request.bareReqFrom {
       gql"""
       query readGetPizza {
         RH_Todo {

@@ -14,8 +14,9 @@ import pragma.domain.utils.InternalException
 import running.RequestReducer
 import pragma.daemonProtocol._, DaemonJsonProtocol._
 import running.utils.Mode
+import doobie.hikari._
 
-class DaemonDB(transactor: Resource[IO, Transactor[IO]])(
+class DaemonDB(transactor: Resource[IO, HikariTransactor[IO]])(
     implicit cs: ContextShift[IO]
 ) {
 
@@ -45,6 +46,7 @@ class DaemonDB(transactor: Resource[IO, Transactor[IO]])(
     @3 content: String
     @4 runtime: String
     @5 binary: Boolean
+    @6 scopeName: String
   }
   """
 

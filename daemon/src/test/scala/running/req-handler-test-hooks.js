@@ -1,4 +1,3 @@
-
 const prependMrToUsername = user =>
     ({ ...user, username: "Mr. " + user.username })
 

@@ -43,10 +43,15 @@ case class PInterfaceValue(value: Map[String, PValue], ptype: PInterface)
 trait PFunctionValue extends PValue {
   val id: String
   val ptype = PAny
+  val scopeName: String
 }
 
-case class ExternalFunction(id: String, filePath: String, runtime: String)
-    extends PFunctionValue
+case class ExternalFunction(
+    id: String,
+    scopeName: String,
+    filePath: String,
+    runtime: String
+) extends PFunctionValue
     with Identifiable
 
 case class POptionValue(value: Option[PValue], valueType: PType)

@@ -15,6 +15,7 @@ object PragmaParser {
       with PShape
       with PShapeField {
     override val id = toString
+    override val scopeName = path.head
 
     override def toString: String =
       path.head + path.tail.foldLeft("")(_ + "." + _)

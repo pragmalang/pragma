@@ -103,6 +103,7 @@ object Substitutor {
         } yield
           ExternalFunction(
             fnName,
+            importAs,
             imports(importAs).filePath,
             runtimeStr
           )

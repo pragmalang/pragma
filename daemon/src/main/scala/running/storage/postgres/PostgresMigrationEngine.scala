@@ -89,7 +89,7 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
       _ <- migration.run(transactor)
       _ <- mode match {
         case Mode.Prod if !migration.sqlSteps.isEmpty => insertMigration
-        case _                                   => ().pure[M]
+        case _                                        => ().pure[M]
       }
     } yield ()
   }

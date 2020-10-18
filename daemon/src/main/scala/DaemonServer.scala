@@ -173,7 +173,8 @@ object DeamonServer extends IOApp {
                 function.content,
                 function.runtime,
                 function.binary,
-                projectName
+                projectName,
+                function.scopeName
               )
             }.void
 

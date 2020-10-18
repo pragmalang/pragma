@@ -17,6 +17,7 @@ case class MigrationInput(
 case class ImportedFunction(
     id: String,
     name: String,
+    scopeName: String,
     content: String,
     runtime: String,
     binary: Boolean
@@ -24,6 +25,7 @@ case class ImportedFunction(
 
 case class ImportedFunctionInput(
     name: String,
+    scopeName: String,
     content: String,
     runtime: String,
     binary: Boolean
