@@ -144,7 +144,7 @@ object DeamonServer extends IOApp {
 
         val transactor = HikariTransactor.newHikariTransactor[IO](
           "org.postgresql.Driver",
-          project.pgUri,
+          s"jdbc:${project.pgUri}",
           project.pgUser,
           project.pgPassword,
           daemonConfig.execCtx,

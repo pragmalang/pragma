@@ -166,10 +166,16 @@ object utils {
         }
     }
 
-  def welcomeMsq(projectName: String) = s"""
-    |Pragma GraphQL server is now running on port 3030
-    |
-    |Visit the GraphQL Playground at ${Console.GREEN}${Console.BOLD}http://localhost:3030/$projectName/graphql${Console.RESET}
-    |""".stripMargin
+  def welcomeMsq(projectName: String, mode: RunMode) = {
+    val modeStr = mode match {
+      case Dev  => "dev"
+      case Prod => "prod"
+    }
+    s"""
+       |Pragma GraphQL server is now running on port 3030
+       |
+       |Visit the GraphQL Playground at ${Console.GREEN}${Console.BOLD}http://localhost:3030/$projectName/$modeStr/graphql${Console.RESET}
+       |""".stripMargin
+  }
 
 }

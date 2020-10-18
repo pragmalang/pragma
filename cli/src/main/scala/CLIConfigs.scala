@@ -75,8 +75,17 @@ object CLIConfig {
 
 sealed trait CLICommand
 object CLICommand {
-  case object Dev extends CLICommand
-  case object Prod extends CLICommand
+  val Dev = cli.Dev
+  val Prod = cli.Prod
   case object Create extends CLICommand
   case object Root extends CLICommand
 }
+
+sealed trait RunMode
+object RunMode {
+  val Dev = cli.Dev
+  val Prod = cli.Prod
+}
+
+case object Dev extends CLICommand with RunMode
+case object Prod extends CLICommand with RunMode

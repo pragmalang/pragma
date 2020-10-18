@@ -6,6 +6,7 @@ import cats.implicits._
 import scala.util._, scala.io.StdIn.readLine
 import cli.utils._
 import os.Path
+import requests.RequestFailedException
 
 object Main {
 
@@ -13,11 +14,11 @@ object Main {
     tryOrExit(DaemonClient.ping.void)
     val config = tryOrExit(CLIConfig.parse(args.toList))
     config.command match {
-      case CLICommand.Dev => {
+      case Dev => {
         println(renderLogo)
         run(config, withReload = true)
       }
-      case CLICommand.Prod => {
+      case Prod => {
         println("Production mode is not ready yet.")
         sys.exit(1)
       }
@@ -63,13 +64,28 @@ object Main {
           }
       }
       migration = MigrationInput(code, functions.toList)
+      _ <- DaemonClient
+        .createProject(
+          ProjectInput(
+            name = projectName,
+            secret = "DUMMY_SECRET",
+            pgUri = "postgresql://localhost:5433/test",
+            pgUser = "test",
+            pgPassword = "test"
+          )
+        )
+        .handleErrorWith {
+          case err: RequestFailedException if err.response.statusCode == 400 =>
+            Success(())
+          case err => Failure(err)
+        }
       _ <- DaemonClient.devMigrate(migration, projectName)
     } yield projectName
 
     config.command match {
-      case CLICommand.Dev =>
+      case Dev =>
         devMigration match {
-          case Success(projectName) => println(welcomeMsq(projectName))
+          case Success(projectName) => println(welcomeMsq(projectName, Dev))
           case Failure(err)         => println(renderThrowable(err, code = Some(code)))
         }
       case _ => ()
@@ -99,7 +115,7 @@ object Main {
     val newProjectName = readLine("What's the name of your new project?:").trim
     if (newProjectName.isEmpty) {
       println("A project's name cannot be an empty string...")
-      sys.exit(1)
+      createNewProject()
     }
     val projectDir = os.pwd / newProjectName
     val createProj =
@@ -107,7 +123,7 @@ object Main {
         ProjectInput(
           newProjectName,
           "DUMMY_SECRET",
-          "jdbc:postgresql://localhost:5433/test",
+          "postgresql://localhost:5433/test",
           "test",
           "test"
         )
