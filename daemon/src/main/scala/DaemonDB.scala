@@ -15,6 +15,8 @@ import running.RequestReducer
 import pragma.daemonProtocol._, DaemonJsonProtocol._
 import running.utils.Mode
 import doobie.hikari._
+import running.utils.Mode.Dev
+import running.utils.Mode.Prod
 
 class DaemonDB(transactor: Resource[IO, HikariTransactor[IO]])(
     implicit cs: ContextShift[IO]
@@ -27,11 +29,12 @@ class DaemonDB(transactor: Resource[IO, HikariTransactor[IO]])(
 
   @1 model Project {
     @1 name: String @primary
-    @2 secret: String
-    @3 pgUri: String
-    @4 pgUser: String
-    @5 pgPassword: String
-    @6 previousMigration: Migration?
+    @2 secret: String?
+    @3 pgUri: String?
+    @4 pgUser: String?
+    @5 pgPassword: String?
+    @6 previousDevMigration: Migration?
+    @7 previousProdMigration: Migration?
   }
 
   @2 model Migration {
@@ -88,6 +91,21 @@ class DaemonDB(transactor: Resource[IO, HikariTransactor[IO]])(
       }
   }
 
+  def deleteProject(projectName: String): IO[Unit] =
+    queryEngine
+      .use { qe =>
+        transactor.use { t =>
+          qe.deleteOneRecord(
+              model = ProjectModel,
+              primaryKeyValue = projectName.toJson,
+              innerReadOps = Vector.empty,
+              cascade = true
+            )
+            .void
+            .transact(t)
+        }
+      }
+
   def getProject(
       projectName: String
   ): IO[Option[Project]] = {
@@ -104,7 +122,18 @@ class DaemonDB(transactor: Resource[IO, HikariTransactor[IO]])(
                     pgUri
                     pgUser
                     pgPassword
-                    previousMigration {
+                    previousDevMigration {
+                      id
+                      code
+                      functions {
+                        id
+                        name
+                        content
+                        runtime
+                        binary
+                      }
+                    }
+                    previousProdMigration {
                       id
                       code
                       functions {
@@ -139,11 +168,19 @@ class DaemonDB(transactor: Resource[IO, HikariTransactor[IO]])(
 
   def persistPreviousMigration(
       projectName: String,
-      previousMigration: MigrationInput
+      previousMigration: MigrationInput,
+      mode: Mode
   ): IO[Unit] = {
     val queryVars = JsObject(
       "projectName" -> projectName.toJson,
-      "project" -> JsObject("previousMigration" -> previousMigration.toJson)
+      "project" -> {
+        mode match {
+          case Dev =>
+            JsObject("previousDevMigration" -> previousMigration.toJson)
+          case Prod =>
+            JsObject("previousProdMigration" -> previousMigration.toJson)
+        }
+      }
     )
     val gqlMut = QueryParser.parse {
       s"""

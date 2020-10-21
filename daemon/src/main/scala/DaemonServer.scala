@@ -15,6 +15,9 @@ import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.headers.Authorization
 import org.postgresql.util.PSQLException
 import pragma.envUtils._
+import java.sql._
+import daemon.utils._
+import daemon._
 
 object DeamonServer extends IOApp {
 
@@ -39,6 +42,34 @@ object DeamonServer extends IOApp {
     Runtime.getRuntime.availableProcessors * 10
   )
 
+  def createDatabase(
+      host: String,
+      port: String,
+      username: String,
+      password: String,
+      dbName: String
+  ) = IO {
+    val connection = DriverManager
+      .getConnection(jdbcPostgresUri(host, port), username, password)
+    val statement = connection.createStatement()
+    statement.executeUpdate(s"CREATE DATABASE $dbName;")
+    connection.close()
+  }
+
+  def dropDatabase(
+      host: String,
+      port: String,
+      username: String,
+      password: String,
+      dbName: String
+  ) = IO {
+    val connection = DriverManager
+      .getConnection(jdbcPostgresUri(host, port), username, password)
+    val statement = connection.createStatement()
+    statement.executeUpdate(s"DROP DATABASE IF EXISTS $dbName;")
+    connection.close()
+  }
+
   val blocker = Blocker[IO]
 
   def buildTransactor(
@@ -51,10 +82,7 @@ object DeamonServer extends IOApp {
       blocker <- Blocker[IO]
       transactor <- HikariTransactor.newHikariTransactor[IO](
         "org.postgresql.Driver",
-        if (uri.startsWith("postgresql://"))
-          s"jdbc:$uri"
-        else
-          s"jdbc:postgresql://$uri",
+        jdbcPostgresUri(uri),
         username,
         password,
         exCtx,
@@ -136,17 +164,41 @@ object DeamonServer extends IOApp {
         val currentSt =
           SyntaxTree.from(migration.code).get
 
-        val jc = new JwtCodec(project.secret)
+        val jc = project.secret match {
+          case Some(secret) => new JwtCodec(secret)
+          case None         => new JwtCodec("DUMMY_SECRET")
+        }
+
         val funcExecutor = new PFunctionExecutor[IO](
           project.name,
           wskClient
         )
 
+        val pgUri = project.pgUri match {
+          case Some(uri) => uri
+          case None =>
+            jdbcPostgresUri(
+              daemonConfig.dbInfo.host,
+              daemonConfig.dbInfo.port,
+              project.name.some
+            )
+        }
+
+        val pgUser = project.pgUser match {
+          case Some(user) => user
+          case None       => daemonConfig.dbInfo.user
+        }
+
+        val pgPassword = project.pgPassword match {
+          case Some(password) => password
+          case None           => daemonConfig.dbInfo.password
+        }
+
         val transactor = HikariTransactor.newHikariTransactor[IO](
           "org.postgresql.Driver",
-          s"jdbc:${project.pgUri}",
-          project.pgUser,
-          project.pgPassword,
+          jdbcPostgresUri(pgUri),
+          pgUser,
+          pgPassword,
           daemonConfig.execCtx,
           daemonConfig.blocker
         )
@@ -158,13 +210,22 @@ object DeamonServer extends IOApp {
           funcExecutor
         ).flatMap(s => transactor.map(s -> _))
 
-        val server = storageWithTransactor.use[IO, Server] { s =>
+        storageWithTransactor.use { s =>
           val storage = s._1
           val transactor = s._2
           val removeAllTables = removeAllTablesFromDb(transactor)
           val persistPrevMigration =
-            daemonConfig.db.persistPreviousMigration(projectName, migration)
-          val migrate = storage.migrate(mode, migration.code)
+            daemonConfig.db.persistPreviousMigration(
+              projectName,
+              migration,
+              mode
+            )
+          val migrate = mode match {
+            case Mode.Dev =>
+              removeAllTables *> storage.migrate(mode, migration.code)
+            case Mode.Prod =>
+              storage.migrate(mode, migration.code) *> persistPrevMigration
+          }
 
           val createWskActions: IO[Unit] =
             migration.functions.traverse { function =>
@@ -178,29 +239,25 @@ object DeamonServer extends IOApp {
               )
             }.void
 
-          for {
-            _ <- mode match {
-              case Mode.Dev  => removeAllTables *> migrate
-              case Mode.Prod => migrate *> persistPrevMigration
-            }
-            _ = println(s"Migrated `$projectName`")
-            _ <- createWskActions
-            _ = println(s"Created `$projectName`'s functions'")
-          } yield new Server(jc, storage, currentSt, funcExecutor)
-        }
+          val server = new Server(jc, storage, currentSt, funcExecutor)
 
-        server
-          .map { server =>
-            mode match {
-              case Mode.Dev  => devProjectServers.addOne(project.name -> server)
-              case Mode.Prod => prodProjectServers.addOne(project.name -> server)
-            }
+          val addServerToMap = mode match {
+            case Mode.Dev =>
+              devProjectServers.addOne(project.name -> server).pure[IO]
+            case Mode.Prod =>
+              prodProjectServers.addOne(project.name -> server).pure[IO]
           }
-          .map(_ => response(Status.Ok))
+
+          for {
+            _ <- migrate
+            _ <- createWskActions
+            _ <- addServerToMap
+          } yield response(Status.Ok)
+        }
       }
-      .handleError(
-        err => response(Status.BadRequest, err.getMessage().toJson.some)
-      )
+      .handleError { err =>
+        response(Status.BadRequest, err.getMessage().toJson.some)
+      }
 
   def parseBody[A: JsonReader](req: org.http4s.Request[IO]) =
     req.bodyText
@@ -214,10 +271,42 @@ object DeamonServer extends IOApp {
       // Setup phase
       case req @ POST -> Root / "project" / "create" => {
         val project = parseBody[ProjectInput](req)
-        val res = for {
+        val createProject = for {
           project <- project
           _ <- daemonConfig.db.createProject(project)
         } yield ()
+
+        val deleteProject = for {
+          project <- project
+          _ <- daemonConfig.db.createProject(project)
+        } yield ()
+
+        val createProjectDb = for {
+          project <- project
+          _ <- (project.pgUri, project.pgUser, project.pgPassword) match {
+            case (None, None, None) => {
+              val DBInfo(host, port, user, password, _) = daemonConfig.dbInfo
+              createDatabase(host, port, user, password, project.name)
+            }
+            case _ => ().pure[IO]
+          }
+        } yield ()
+
+        val dropProjectDb = for {
+          project <- project
+          _ <- (project.pgUri, project.pgUser, project.pgPassword) match {
+            case (None, None, None) => {
+              val DBInfo(host, port, user, password, _) = daemonConfig.dbInfo
+              dropDatabase(host, port, user, password, project.name)
+            }
+            case _ => ().pure[IO]
+          }
+        } yield ()
+
+        val res = transaction(
+          Step(run = createProject, rollback = deleteProject),
+          Step(run = createProjectDb, rollback = dropProjectDb)
+        ).run
 
         res.as(response(Status.Ok)).handleErrorWith {
           case e: PSQLException if e.getSQLState == "23505" =>
@@ -341,18 +430,22 @@ object DeamonServer extends IOApp {
       val port = getEnvVar
         .map(getter => getter(DaemonServer.DAEMON_PORT).toInt)
 
-      val transactor = for {
+      val dbInfo = for {
         pgHost <- pgHost
         pgPort <- pgPort
         pgDbName <- pgDbName
         pgUser <- pgUser
         pgPassword <- pgPassword
+      } yield DBInfo(pgHost, pgPort, pgUser, pgPassword, pgDbName.some)
+
+      val transactor = for {
+        info <- dbInfo
       } yield
         HikariTransactor.newHikariTransactor[IO](
           "org.postgresql.Driver",
-          s"jdbc:postgresql://$pgHost:$pgPort/$pgDbName",
-          pgUser,
-          pgPassword,
+          info.jdbcPostgresUri,
+          info.user,
+          info.password,
           execCtx,
           blocker
         )
@@ -369,6 +462,7 @@ object DeamonServer extends IOApp {
         t <- transactor
         db = new DaemonDB(t)
         _ <- db.migrate
+        dbInfo <- dbInfo
         wskConfig <- wskConfig
         wskClientResource = clientResource.map[IO, WskClient[IO]] { c =>
           new WskClient(wskConfig, c)
@@ -379,7 +473,7 @@ object DeamonServer extends IOApp {
         _ <- clientResource.use(client => pingWsk(client, wskConfig))
         hostname <- hostname
         port <- port
-        daemonConfig = DaemonConfig(wskConfig, execCtx, blocker, db)
+        daemonConfig = DaemonConfig(wskConfig, execCtx, blocker, db, dbInfo)
         runServer <- wskClientResource.use { wsk =>
           BlazeServerBuilder[IO](global)
             .bindHttp(port, hostname)
@@ -508,5 +602,16 @@ case class DaemonConfig(
     wskConfig: WskConfig,
     execCtx: ExecutionContext,
     blocker: Blocker,
-    db: DaemonDB
+    db: DaemonDB,
+    dbInfo: DBInfo
 )
+
+case class DBInfo(
+    host: String,
+    port: String,
+    user: String,
+    password: String,
+    dbName: Option[String]
+) {
+  def jdbcPostgresUri: String = daemon.utils.jdbcPostgresUri(host, port, dbName)
+}
