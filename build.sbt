@@ -1,5 +1,5 @@
 ThisBuild / scalaVersion := "2.13.2"
-ThisBuild / version := "0.1.0-SNAPSHOT"
+ThisBuild / version := "0.0.1"
 ThisBuild / organization := "com.pragmalang"
 ThisBuild / organizationName := "pragma"
 
@@ -57,8 +57,9 @@ lazy val daemon = (project in file("daemon"))
       http4sBlazeClient,
       logbackClassic
     ),
+    dockerRepository in Docker := Some("pragmalang"),
     dockerExposedPorts := Seq(3030),
-    version in Docker := "latest",
+    dockerUpdateLatest := true,
     composeNoBuild := true
   )
   .dependsOn(core)
