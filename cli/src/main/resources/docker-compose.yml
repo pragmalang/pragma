@@ -33,7 +33,7 @@ services:
       - ~/.openwhisk/:/root/.openwhisk
 
   pragmad:
-    image: pragmad
+    image: pragmalang/pragmad:latest
     restart: always
     ports: 
       - 3030:3030

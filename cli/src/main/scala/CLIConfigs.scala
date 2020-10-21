@@ -4,12 +4,10 @@ import scopt._
 import os._
 import java.io.File
 import assets.asciiLogo
-import scala.util.Try
 
 case class CLIConfig(
     command: CLICommand,
-    filePath: Path,
-    isHelp: Boolean
+    filePath: Path
 ) {
   val projectPath = os.Path(filePath.wrapped.getParent().toAbsolutePath())
 }
@@ -18,18 +16,16 @@ object CLIConfig {
   val default =
     CLIConfig(
       command = CLICommand.Root,
-      filePath = os.pwd / "Pragmafile",
-      isHelp = false
+      filePath = os.pwd / "Pragmafile"
     )
 
   val parser: OptionParser[CLIConfig] =
     new OptionParser[CLIConfig]("pragma") {
-      cmd("prod")
+      cmd("init")
         .action { (_, configs) =>
-          configs.copy(command = CLICommand.Prod)
+          configs.copy(command = CLICommand.Init)
         }
-        .text("Runs the app in production mode")
-        .children(fileArg)
+        .text("Initialize a new project")
 
       cmd("dev")
         .action { (_, configs) =>
@@ -38,11 +34,18 @@ object CLIConfig {
         .text("Runs the app in development mode")
         .children(fileArg)
 
-      cmd("create")
+      cmd("prod")
         .action { (_, configs) =>
-          configs.copy(command = CLICommand.Create)
+          configs.copy(command = CLICommand.Prod)
         }
-        .text("Initialize a new project")
+        .text("Runs the app in production mode (Not Implemented)")
+        .children(fileArg)
+
+      cmd("help")
+        .action { (_, configs) =>
+          configs.copy(command = CLICommand.Help)
+        }
+        .text("Prints usage text")
 
       def fileArg =
         arg[File]("<file>")
@@ -55,14 +58,14 @@ object CLIConfig {
       opt[Unit]("help")
         .abbr("h")
         .optional()
-        .action((_, config) => config.copy(isHelp = true))
-        .text("Prints usage")
+        .action((_, config) => config.copy(command = CLICommand.Help))
+        .text("Prints usage text")
     }
 
-  def parse(args: List[String]): Try[CLIConfig] =
-    Try(parser.parse(args, CLIConfig.default).getOrElse(CLIConfig.default))
+  def parse(args: List[String]): CLIConfig =
+    parser.parse(args, CLIConfig.default).getOrElse(sys.exit(1))
 
-  def usage: String = parser.renderTwoColumnsUsage
+  def usage: String = parser.renderTwoColumnsUsage + "\n"
 
   def usageWithAsciiLogo = {
     val asciiLogoWithLeftPadding = asciiLogo
@@ -77,8 +80,9 @@ sealed trait CLICommand
 object CLICommand {
   val Dev = cli.Dev
   val Prod = cli.Prod
-  case object Create extends CLICommand
+  case object Init extends CLICommand
   case object Root extends CLICommand
+  case object Help extends CLICommand
 }
 
 sealed trait RunMode

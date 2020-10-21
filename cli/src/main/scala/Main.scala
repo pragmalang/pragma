@@ -11,19 +11,26 @@ import requests.RequestFailedException
 object Main {
 
   def main(args: Array[String]): Unit = {
-    tryOrExit(DaemonClient.ping.void)
-    val config = tryOrExit(CLIConfig.parse(args.toList))
+    val config = CLIConfig.parse(args.toList)
+
     config.command match {
+      case CLICommand.Root | CLICommand.Help => {
+        print(CLIConfig.usageWithAsciiLogo)
+        sys.exit(0)
+      }
       case Dev => {
+        tryOrExit(DaemonClient.ping.void)
         println(renderLogo)
         run(config, withReload = true)
+      }
+      case CLICommand.Init => {
+        tryOrExit(DaemonClient.ping.void)
+        createNewProject()
       }
       case Prod => {
         println("Production mode is not ready yet.")
         sys.exit(1)
       }
-      case CLICommand.Create => createNewProject()
-      case CLICommand.Root   => ()
     }
   }
 
