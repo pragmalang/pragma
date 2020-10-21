@@ -17,7 +17,6 @@ import org.postgresql.util.PSQLException
 import pragma.envUtils._
 import java.sql._
 import daemon.utils._
-import daemon._
 
 object DeamonServer extends IOApp {
 
@@ -222,7 +221,7 @@ object DeamonServer extends IOApp {
             )
           val migrate = mode match {
             case Mode.Dev =>
-              removeAllTables *> storage.migrate(mode, migration.code)
+              removeAllTables *> storage.migrate(mode, migration.code) *> persistPrevMigration
             case Mode.Prod =>
               storage.migrate(mode, migration.code) *> persistPrevMigration
           }
@@ -260,11 +259,8 @@ object DeamonServer extends IOApp {
       }
 
   def parseBody[A: JsonReader](req: org.http4s.Request[IO]) =
-    req.bodyText
+    req.bodyText.compile.string
       .map(_.parseJson.convertTo[A])
-      .compile
-      .toVector
-      .map(_.head)
 
   def routes(daemonConfig: DaemonConfig, wskClient: WskClient[IO]) =
     HttpRoutes.of[IO] {
@@ -278,7 +274,7 @@ object DeamonServer extends IOApp {
 
         val deleteProject = for {
           project <- project
-          _ <- daemonConfig.db.createProject(project)
+          _ <- daemonConfig.db.deleteProject(project.name)
         } yield ()
 
         val createProjectDb = for {
@@ -292,21 +288,10 @@ object DeamonServer extends IOApp {
           }
         } yield ()
 
-        val dropProjectDb = for {
-          project <- project
-          _ <- (project.pgUri, project.pgUser, project.pgPassword) match {
-            case (None, None, None) => {
-              val DBInfo(host, port, user, password, _) = daemonConfig.dbInfo
-              dropDatabase(host, port, user, password, project.name)
-            }
-            case _ => ().pure[IO]
-          }
+        val res = for {
+          _ <- createProject
+          _ <- createProjectDb.handleErrorWith(_ => deleteProject)
         } yield ()
-
-        val res = transaction(
-          Step(run = createProject, rollback = deleteProject),
-          Step(run = createProjectDb, rollback = dropProjectDb)
-        ).run
 
         res.as(response(Status.Ok)).handleErrorWith {
           case e: PSQLException if e.getSQLState == "23505" =>

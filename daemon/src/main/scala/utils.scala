@@ -5,9 +5,6 @@ import cats.effect._
 import cats.MonadError
 
 package object utils {
-  def transaction[M[_]: Sync, A](steps: Step[M, A]*): Step[M, A] =
-    transaction(steps.toList)
-
   def transaction[M[_]: Sync, A](steps: List[Step[M, A]]): Step[M, A] = {
     val (run, rollback) =
       steps.tail.toVector
@@ -42,6 +39,8 @@ package object utils {
   def jdbcPostgresUri(uri: String): String =
     if (uri.startsWith("postgresql://"))
       s"jdbc:$uri"
+    else if (uri.startsWith("jdbc:postgresql://"))
+      uri
     else
       s"jdbc:postgresql://$uri"
 

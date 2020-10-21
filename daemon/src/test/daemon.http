@@ -8,11 +8,7 @@ Host: localhost:3030
 Content-Type: application/json
 
 {
-    "name": "p1",
-    "secret": "123456",
-    "pgUri": "jdbc:postgresql://localhost:5433/test",
-    "pgUser": "test",
-    "pgPassword": "test"
+    "name": "p1"
 }
 
 ### Migrate project

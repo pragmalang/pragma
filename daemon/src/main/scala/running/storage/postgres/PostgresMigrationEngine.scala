@@ -76,10 +76,8 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
               Nil,
               None
             ).query[Int]
-              .stream
-              .compile
-              .toList
-              .map(count => model.id -> (count.head > 0))
+              .unique
+              .map(count => model.id -> (count > 0))
           }
           .toVector
           .traverse(d => d.transact(transactor))
