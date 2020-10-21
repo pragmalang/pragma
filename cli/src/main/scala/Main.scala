@@ -80,6 +80,9 @@ object Main {
           case err => Failure(err)
         }
       _ <- DaemonClient.devMigrate(migration, projectName)
+      usedRuntimes <- usedFuntionRuntimes(st.imports.toList)
+        .fold(Failure(_), Success(_))
+      _ <- pullDockerRuntimeImages(usedRuntimes)
     } yield projectName
 
     config.command match {
@@ -93,6 +96,25 @@ object Main {
 
     if (withReload) reloadPrompt(config)
     else sys.exit(0)
+  }
+
+  def pullDockerRuntimeImages(runtimes: Set[RuntimeTag]): Try[Unit] = Try {
+    import cli.utils.RuntimeTag._
+    runtimes.toList.traverse { runtime =>
+      val imageName = runtime match {
+        case NodeJS => "openwhisk/action-nodejs-v10"
+        case Python => "openwhisk/python3action"
+      }
+
+      Try {
+        println(s"Pulling image $imageName...")
+        os.proc("docker", "pull", imageName)
+      } handleErrorWith { err =>
+        Failure {
+          new Exception(s"Failed to pull image $imageName\n${err.getMessage}")
+        }
+      }
+    }
   }
 
   def reloadPrompt(config: CLIConfig): Try[Unit] =

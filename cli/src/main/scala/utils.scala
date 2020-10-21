@@ -1,6 +1,6 @@
 package cli
 
-import pragma.domain.PositionRange, pragma.domain.utils.UserError
+import pragma.domain._, pragma.domain.utils.{UserError, ErrorMessage}
 import org.parboiled2.{Position, ParseError}
 import java.io.ByteArrayOutputStream
 import java.util.zip.{ZipOutputStream, ZipEntry}
@@ -176,6 +176,68 @@ object utils {
        |
        |Visit the GraphQL Playground at ${Console.GREEN}${Console.BOLD}http://localhost:3030/$projectName/$modeStr/graphql${Console.RESET}
        |""".stripMargin
+  }
+
+  sealed trait RuntimeTag
+  object RuntimeTag {
+    case object NodeJS extends RuntimeTag
+    case object Python extends RuntimeTag
+    // TODO: Add these
+    case object Go
+    case object Ruby
+    case object DotNet
+    case object Java
+    case object PHP
+    case object Swift
+  }
+
+  import RuntimeTag._
+
+  lazy val supportedFunctionRuntimes: Map[String, RuntimeTag] =
+    Map(
+      "nodejs" -> NodeJS,
+      "python" -> Python
+    )
+
+  def usedFuntionRuntimes(
+      imports: List[PImport]
+  ): Either[UserError, Set[RuntimeTag]] = {
+    def parseRuntime(
+        s: String,
+        position: Option[PositionRange]
+    ): Either[ErrorMessage, RuntimeTag] =
+      supportedFunctionRuntimes
+        .get(s)
+        .fold[Either[ErrorMessage, RuntimeTag]] {
+          val supportedRuntimesStr =
+            supportedFunctionRuntimes.values
+              .map(s => s""""$s"""")
+              .mkString(", ")
+          (
+            s"Invalid `runtime` value `$s` for key `runtime`\nValid `runtime` values are: $supportedRuntimesStr",
+            position
+          ).asLeft
+        }(_.asRight)
+
+    def impRuntime(imp: PImport) =
+      imp.config.fold[Either[ErrorMessage, RuntimeTag]] {
+        (s"Missing configuration of import `${imp.id}`", imp.position).asLeft
+      } { config =>
+        config.entryMap("runtime") match {
+          case ConfigEntry(_, PStringValue(value), pos) =>
+            parseRuntime(value, pos)
+          case other =>
+            (
+              s"Invalid non `String` value for config key `runtime` in import `${imp.id}`",
+              other.position
+            ).asLeft
+        }
+      }
+
+    val (errors, runtimes) = imports.map(impRuntime).partitionMap(identity)
+
+    if (errors.isEmpty) runtimes.toSet.asRight
+    else UserError(errors).asLeft
   }
 
 }
