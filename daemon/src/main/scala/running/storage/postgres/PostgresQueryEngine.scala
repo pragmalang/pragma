@@ -508,7 +508,10 @@ class PostgresQueryEngine[M[_]: Monad](
         val refModel = field.ptype match {
           case PReference(id)          => st.modelsById(id)
           case POption(PReference(id)) => st.modelsById(id)
-          case _                       => ???
+          case _ =>
+            throw InternalException(
+              "Error in `PostgresQueryEngine#cascadeDelete`"
+            )
         }
         deleteOneRecord(
           refModel,

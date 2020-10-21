@@ -33,19 +33,20 @@ case class ImportedFunctionInput(
 
 case class Project(
     name: String,
-    secret: String,
-    pgUri: String,
-    pgUser: String,
-    pgPassword: String,
-    previousMigration: Option[Migration]
+    secret: Option[String],
+    pgUri: Option[String],
+    pgUser: Option[String],
+    pgPassword: Option[String],
+    previousDevMigration: Option[Migration],
+    previousProdMigration: Option[Migration]
 )
 
 case class ProjectInput(
     name: String,
-    secret: String,
-    pgUri: String,
-    pgUser: String,
-    pgPassword: String
+    secret: Option[String] = None,
+    pgUri: Option[String] = None,
+    pgUser: Option[String] = None,
+    pgPassword: Option[String] = None
 )
 
 package object DaemonJsonProtocol extends DefaultJsonProtocol with KebsSpray

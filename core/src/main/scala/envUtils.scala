@@ -17,7 +17,9 @@ object EnvVarDef {
       }
     }
 
-  def parseEnvVars(defs: List[EnvVarDef]): Either[List[EnvVarError], EnvVarDef => String] = {
+  def parseEnvVars(
+      defs: List[EnvVarDef]
+  ): Either[::[EnvVarError], EnvVarDef => String] = {
     val errors = defs
       .filter { d =>
         (d.isRequired && !d.defaultValue.isDefined) && !sys.env.contains(d.name)
@@ -25,8 +27,8 @@ object EnvVarDef {
       .map(v => EnvVarError.RequiredButNotFound(v))
 
     errors match {
-      case Nil    => ((d: EnvVarDef) => envVarValue(d.name, defs).get).asRight
-      case errors => errors.asLeft
+      case Nil          => ((d: EnvVarDef) => envVarValue(d.name, defs).get).asRight
+      case head :: tail => ::(head, tail).asLeft
     }
   }
 }
@@ -41,19 +43,16 @@ object EnvVarError {
       s"Environment variable `${envVarDef.name}` is required, but not defined"
   }
 
-  def render(errors: List[EnvVarError]): Option[String] = errors match {
-    case Nil => None
-    case errors => {
-      val isPlural = errors.length > 1
-      val `variable/s` = if (isPlural) "variables" else "variable"
-      val missingVarNames = errors.map(_.envVarDef.name).mkString(", ")
-      val errMsg =
-        s"""
+  def render(errors: ::[EnvVarError]): String = {
+    val isPlural = errors.length > 1
+    val `variable/s` = if (isPlural) "variables" else "variable"
+    val missingVarNames = errors.map(_.envVarDef.name).mkString(", ")
+    val errMsg =
+      s"""
       |Environment ${`variable/s`} $missingVarNames must be specified.
       """.stripMargin
 
-      errMsg.some
-    }
+    errMsg
   }
 }
 

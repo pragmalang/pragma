@@ -65,15 +65,7 @@ object Main {
       }
       migration = MigrationInput(code, functions.toList)
       _ <- DaemonClient
-        .createProject(
-          ProjectInput(
-            name = projectName,
-            secret = "DUMMY_SECRET",
-            pgUri = "postgresql://localhost:5433/test",
-            pgUser = "test",
-            pgPassword = "test"
-          )
-        )
+        .createProject(ProjectInput(projectName))
         .handleErrorWith {
           case err: RequestFailedException if err.response.statusCode == 400 =>
             Success(())
@@ -141,15 +133,7 @@ object Main {
     }
     val projectDir = os.pwd / newProjectName
     val createProj =
-      DaemonClient.createProject(
-        ProjectInput(
-          newProjectName,
-          "DUMMY_SECRET",
-          "postgresql://localhost:5433/test",
-          "test",
-          "test"
-        )
-      ) *> Try {
+      DaemonClient.createProject(ProjectInput(newProjectName)) *> Try {
         os.makeDir(projectDir)
         val pragmafile =
           s"""
