@@ -328,41 +328,46 @@ class PostgresQueryEngine[M[_]: Monad](
     val fieldTypeMap =
       fieldTypeMapFrom(newRecord, model, includeNonSpecifiedFields = false)
 
+    println(
+      s"\n\n\n\n\nUPDATING REF FIELD TO UPDATE: `${model.id}.${model.primaryField.id}: ${displayPType(model.primaryField.ptype)} = ${primaryKeyValue} `\n\n\n\n\n\n"
+    )
+
     val refUpdates: Query[Vector[(PModelField, JsValue)]] = fieldTypeMap(Ref)
       .traverse {
         case (
-            field @ PModelField(_, (PReference(modelRef)), _, _, _, _),
+            field @ PModelField(_, ptype, _, _, _, _),
             obj: JsObject
             ) => {
-          val refModel = st.modelsById(modelRef)
+          val refModel = ptype match {
+            case PReference(modelRef)          => st.modelsById(modelRef)
+            case POption(PReference(modelRef)) => st.modelsById(modelRef)
+            case _ =>
+              throw InternalException("Invalid reference field update")
+          }
           val refIdIsDefined = obj.fields.contains(refModel.primaryField.id)
-          if (refIdIsDefined && obj.fields.knownSize == 1)
+
+          val errorExplanation =
+            "Update to referenced records can only be done by providing *only* the value of the primary field of the referenced record"
+
+          if (refIdIsDefined && obj.fields.size == 1)
             (field, obj.fields(refModel.primaryField.id)).pure[List].pure[Query]
           else if (refIdIsDefined)
-            updateOneRecord(
-              refModel,
-              obj.fields(refModel.primaryField.id),
-              obj,
-              Vector.empty
-            ) *> List.empty[(PModelField, JsValue)].pure[Query]
-          else
-            for {
-              refId <- HC
-                .stream(
-                  s"SELECT ${field.id.withQuotes} FROM ${model.id.withQuotes} WHERE ${model.primaryField.id.withQuotes} = ?;",
-                  setJsValue(primaryKeyValue, refModel.primaryField),
-                  1
-                )
-                .head
-                .compile
-                .toList
-                .map(_.head.fields(field.id))
-              _ <- updateOneRecord(refModel, refId, obj, Vector.empty)
-            } yield List.empty[(PModelField, JsValue)]
+            queryError[List[(PModelField, JsValue)]] {
+              UserError(
+                s"Trying to perform nested update of `${field.id}` in model `${model.id}` (fields other than the primary field are specified). $errorExplanation"
+              )
+            } else
+            queryError[List[(PModelField, JsValue)]] {
+              UserError(
+                s"Trying to perform nested update of `${field.id}` in model `${model.id}` (primary field is not specified). $errorExplanation"
+              )
+            }
         }
-        case _ =>
+        case (field, value) =>
           queryError[List[(PModelField, JsValue)]] {
-            InternalException("Invalid reference field update")
+            InternalException(
+              s"Invalid non-object reference in field `${field.id}` with value `$value` in update operation on `${model.id}`"
+            )
           }
       }
       .map(_.flatten)

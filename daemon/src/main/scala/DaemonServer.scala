@@ -55,20 +55,6 @@ object DeamonServer extends IOApp {
     connection.close()
   }
 
-  def dropDatabase(
-      host: String,
-      port: String,
-      username: String,
-      password: String,
-      dbName: String
-  ) = IO {
-    val connection = DriverManager
-      .getConnection(jdbcPostgresUri(host, port), username, password)
-    val statement = connection.createStatement()
-    statement.executeUpdate(s"DROP DATABASE IF EXISTS $dbName;")
-    connection.close()
-  }
-
   val blocker = Blocker[IO]
 
   def buildTransactor(
@@ -213,17 +199,12 @@ object DeamonServer extends IOApp {
           val storage = s._1
           val transactor = s._2
           val removeAllTables = removeAllTablesFromDb(transactor)
-          val persistPrevMigration =
-            daemonConfig.db.persistPreviousMigration(
-              projectName,
-              migration,
-              mode
-            )
+
           val migrate = mode match {
             case Mode.Dev =>
-              removeAllTables *> storage.migrate(mode, migration.code) *> persistPrevMigration
+              removeAllTables *> storage.migrate(mode, migration.code)
             case Mode.Prod =>
-              storage.migrate(mode, migration.code) *> persistPrevMigration
+              storage.migrate(mode, migration.code)
           }
 
           val createWskActions: IO[Unit] =
