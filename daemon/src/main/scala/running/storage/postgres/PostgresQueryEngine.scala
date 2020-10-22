@@ -328,10 +328,6 @@ class PostgresQueryEngine[M[_]: Monad](
     val fieldTypeMap =
       fieldTypeMapFrom(newRecord, model, includeNonSpecifiedFields = false)
 
-    println(
-      s"\n\n\n\n\nUPDATING REF FIELD TO UPDATE: `${model.id}.${model.primaryField.id}: ${displayPType(model.primaryField.ptype)} = ${primaryKeyValue} `\n\n\n\n\n\n"
-    )
-
     val refUpdates: Query[Vector[(PModelField, JsValue)]] = fieldTypeMap(Ref)
       .traverse {
         case (

@@ -174,7 +174,7 @@ object utils {
     s"""
        |Pragma GraphQL server is now running on port 3030
        |
-       |Visit the GraphQL Playground at ${Console.GREEN}${Console.BOLD}http://localhost:3030/$projectName/$modeStr/graphql${Console.RESET}
+       |Visit the GraphQL Playground at ${Console.GREEN}${Console.BOLD}http://localhost:3030/project/$projectName/$modeStr/graphql${Console.RESET}
        |""".stripMargin
   }
 
@@ -210,7 +210,7 @@ object utils {
         .get(s)
         .fold[Either[ErrorMessage, RuntimeTag]] {
           val supportedRuntimesStr =
-            supportedFunctionRuntimes.values
+            supportedFunctionRuntimes.keys
               .map(s => s""""$s"""")
               .mkString(", ")
           (

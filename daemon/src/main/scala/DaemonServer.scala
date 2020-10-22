@@ -198,11 +198,11 @@ object DeamonServer extends IOApp {
         storageWithTransactor.use { s =>
           val storage = s._1
           val transactor = s._2
-          val removeAllTables = removeAllTablesFromDb(transactor)
 
           val migrate = mode match {
             case Mode.Dev =>
-              removeAllTables *> storage.migrate(mode, migration.code)
+              removeAllTablesFromDb(transactor) *>
+                storage.migrate(mode, migration.code)
             case Mode.Prod =>
               storage.migrate(mode, migration.code)
           }
@@ -230,24 +230,28 @@ object DeamonServer extends IOApp {
 
           for {
             _ <- migrate
+            _ <- IO(println(s"\n\nMigrated ${project.name} successfully!"))
             _ <- createWskActions
+            _ <- IO(println(s"Created ${project.name}'s OpenWhisk actions successfully!"))
             _ <- addServerToMap
+            _ <- IO(println(s"Added ${project.name}'s server to servers map successfully!\n\n"))
           } yield response(Status.Ok)
         }
       }
       .handleError { err =>
+        println("\n\n\n\n\n\n")
+        println(err.getMessage())
+        err.printStackTrace()
+        println("\n\n\n\n\n\n")
         response(Status.BadRequest, err.getMessage().toJson.some)
       }
-
-  def parseBody[A: JsonReader](req: org.http4s.Request[IO]) =
-    req.bodyText.compile.string
-      .map(_.parseJson.convertTo[A])
 
   def routes(daemonConfig: DaemonConfig, wskClient: WskClient[IO]) =
     HttpRoutes.of[IO] {
       // Setup phase
       case req @ POST -> Root / "project" / "create" => {
-        val project = parseBody[ProjectInput](req)
+        val project = req.bodyText.compile.toList
+          .map(_.head.parseJson.convertTo[ProjectInput])
         val createProject = for {
           project <- project
           _ <- daemonConfig.db.createProject(project)
@@ -265,7 +269,7 @@ object DeamonServer extends IOApp {
               val DBInfo(host, port, user, password, _) = daemonConfig.dbInfo
               createDatabase(host, port, user, password, project.name)
             }
-            case _ => ().pure[IO]
+            case _ => IO.unit
           }
         } yield ()
 
@@ -274,7 +278,7 @@ object DeamonServer extends IOApp {
           _ <- createProjectDb.handleErrorWith(_ => deleteProject)
         } yield ()
 
-        res.as(response(Status.Ok)).handleErrorWith {
+        res.map(_ => response(Status.Ok)).handleErrorWith {
           case e: PSQLException if e.getSQLState == "23505" =>
             project.map { project =>
               response(
@@ -296,7 +300,8 @@ object DeamonServer extends IOApp {
           case _      => IO.raiseError(new Exception("Invalid mode route"))
         }
 
-        val migration = parseBody[MigrationInput](req)
+        val migration = req.bodyText.compile.toList
+          .map(_.head.parseJson.convertTo[MigrationInput])
 
         for {
           mode <- mode

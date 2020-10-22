@@ -6,7 +6,6 @@ import cats.implicits._
 import scala.util._, scala.io.StdIn.readLine
 import cli.utils._
 import os.Path
-import requests.RequestFailedException
 
 object Main {
 
@@ -70,14 +69,18 @@ object Main {
             }
           }
       }
+      // _ <- DaemonClient
+      //   .createProject(ProjectInput(projectName))
+      //   .handleErrorWith {
+      //     case err: RequestFailedException if err.response.statusCode == 400 =>
+      //       Success(err.response)
+      //     case err =>
+      //       Failure(
+      //         new Exception(s"Unable to create project\n${err.getMessage}")
+      //       )
+      //   }
+      //   .void
       migration = MigrationInput(code, functions.toList)
-      _ <- DaemonClient
-        .createProject(ProjectInput(projectName))
-        .handleErrorWith {
-          case err: RequestFailedException if err.response.statusCode == 400 =>
-            Success(())
-          case err => Failure(err)
-        }
       _ <- DaemonClient.devMigrate(migration, projectName)
       usedRuntimes <- usedFuntionRuntimes(st.imports.toList)
         .fold(Failure(_), Success(_))

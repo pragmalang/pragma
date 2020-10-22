@@ -12,11 +12,11 @@ object DaemonClient {
 
   def createProject(project: ProjectInput): Try[Unit] =
     ping *> Try {
-      post(s"$daemonUri/project/create", data = project.toJson.compactPrint)
-    }.handleErrorWith {
-      case err =>
-        Failure(new Exception(s"Unable to create project\n${err.getMessage}"))
-    }.void
+      post(
+        url = s"$daemonUri/project/create",
+        data = project.toJson.compactPrint
+      )
+    }
 
   def devMigrate(migration: MigrationInput, projectName: String): Try[Unit] =
     ping *> Try {
@@ -25,13 +25,6 @@ object DaemonClient {
         data = migration.toJson.compactPrint,
         chunkedUpload = true
       )
-    }.handleErrorWith {
-      case err =>
-        Failure {
-          new Exception(
-            s"Failed to migrate project $projectName\n${err.getMessage}"
-          )
-        }
     }.void
 
   def ping = Try(get(daemonUri + "/ping")).handleErrorWith { err =>
