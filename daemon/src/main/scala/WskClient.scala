@@ -44,8 +44,7 @@ class WskClient[M[_]: Sync](val config: WskConfig, val httpClient: Client[M]) {
       (wskApiUrl / "namespaces" / namespace / "actions" / actionName)
         .withQueryParam(key = "overwrite", value = true)
 
-    val bodyBytes = reqBody.compactPrint
-      .getBytes(java.nio.charset.StandardCharsets.UTF_8)
+    val bodyBytes = reqBody.compactPrint.getBytes()
 
     val request = Request[M](
       method = Method.PUT,
@@ -59,7 +58,13 @@ class WskClient[M[_]: Sync](val config: WskConfig, val httpClient: Client[M]) {
       body = fs2.Stream.emits(bodyBytes)
     )
 
-    httpClient.expect[Unit](request)
+    httpClient.expectOr(request) { res =>
+      res.bodyText.compile.string.map { body =>
+        new Exception(
+          s"Failed to create OpenWhisk action `$name`. OpenWhisk response: ${body.toJson.prettyPrint}"
+        )
+      }
+    }
   }
 
   def invokeAction(
@@ -71,9 +76,9 @@ class WskClient[M[_]: Sync](val config: WskConfig, val httpClient: Client[M]) {
 
     val wskApiUri = config.wskApiUrl / "api" / s"v$wskApiVersion"
 
-    val namespace: String = "_"
+    val namespace = "_"
 
-    val actionName: String =
+    val actionName =
       s"${projectName}_${function.scopeName}_${function.id}"
 
     val actionEndpoint =
@@ -104,16 +109,13 @@ class WskClient[M[_]: Sync](val config: WskConfig, val httpClient: Client[M]) {
       body = fs2.Stream.emits(bodyBytes)
     )
 
-    val responseBodyString = httpClient.run(request).use { res =>
-      res.status.responseClass match {
-        case Status.Successful =>
-          res.bodyText.compile.toList.map(_.mkString)
-        case _ =>
-          MonadError[M, Throwable].raiseError[String] {
-            new Exception(
-              s"Request to OpenWhisk for invoking function `${function.scopeName}.${function.id}` failed with HTTP status code ${res.status.code}"
-            )
-          }
+    val responseBodyString = httpClient.expectOr[String](request) { res =>
+      res.bodyText.compile.string.flatMap { body =>
+        MonadError[M, Throwable].raiseError {
+          new Exception(
+            s"Request to OpenWhisk for invoking function `${function.scopeName}.${function.id}` failed with HTTP status code ${res.status.code}:\n$body"
+          )
+        }
       }
     }
 

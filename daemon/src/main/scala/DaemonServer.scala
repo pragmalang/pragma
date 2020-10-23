@@ -230,19 +230,22 @@ object DeamonServer extends IOApp {
 
           for {
             _ <- migrate
-            _ <- IO(println(s"\n\nMigrated ${project.name} successfully!"))
-            _ <- createWskActions
-            _ <- IO(println(s"Created ${project.name}'s OpenWhisk actions successfully!"))
+            _ <- createWskActions.adaptError { err =>
+              println("Failed to create Wsk functions:")
+              println(err.getMessage())
+              err.printStackTrace()
+              err
+            }
+            _ <- IO(
+              println(
+                s"Successfully created ${project.name}'s OpenWhisk actions"
+              )
+            )
             _ <- addServerToMap
-            _ <- IO(println(s"Added ${project.name}'s server to servers map successfully!\n\n"))
           } yield response(Status.Ok)
         }
       }
       .handleError { err =>
-        println("\n\n\n\n\n\n")
-        println(err.getMessage())
-        err.printStackTrace()
-        println("\n\n\n\n\n\n")
         response(Status.BadRequest, err.getMessage().toJson.some)
       }
 
@@ -250,8 +253,9 @@ object DeamonServer extends IOApp {
     HttpRoutes.of[IO] {
       // Setup phase
       case req @ POST -> Root / "project" / "create" => {
-        val project = req.bodyText.compile.toList
-          .map(_.head.parseJson.convertTo[ProjectInput])
+        val project = req.bodyText.compile.string
+          .map(_.parseJson.convertTo[ProjectInput])
+
         val createProject = for {
           project <- project
           _ <- daemonConfig.db.createProject(project)
@@ -278,7 +282,7 @@ object DeamonServer extends IOApp {
           _ <- createProjectDb.handleErrorWith(_ => deleteProject)
         } yield ()
 
-        res.map(_ => response(Status.Ok)).handleErrorWith {
+        res.as(response(Status.Ok)).handleErrorWith {
           case e: PSQLException if e.getSQLState == "23505" =>
             project.map { project =>
               response(
@@ -300,8 +304,8 @@ object DeamonServer extends IOApp {
           case _      => IO.raiseError(new Exception("Invalid mode route"))
         }
 
-        val migration = req.bodyText.compile.toList
-          .map(_.head.parseJson.convertTo[MigrationInput])
+        val migration = req.bodyText.compile.string
+          .map(_.parseJson.convertTo[MigrationInput])
 
         for {
           mode <- mode
@@ -315,28 +319,33 @@ object DeamonServer extends IOApp {
           )
         } yield response
       }
-      case req @ (POST |
-          GET) -> Root / "project" / projectName / mode / "graphql" => {
+      case req @ (POST | GET) ->
+            Root / "project" / projectName / mode / "graphql" => {
         val servers = mode match {
-          case "dev"  => Some(devProjectServers)
-          case "prod" => Some(prodProjectServers)
-          case _      => None
+          case "dev"  => IO(devProjectServers)
+          case "prod" => IO(prodProjectServers)
+          case _ =>
+            IO.raiseError {
+              new Exception(s"Invalid mode route `$mode`")
+            }
         }
 
-        val notFound404 = response(Status.NotFound, "Not Found".toJson.some)
-        val projectNotFound404 = response(
-          Status.NotFound,
-          s"Project $projectName Not Found".toJson.some
-        )
-
-        servers.flatMap(_.get(projectName)) match {
+        servers.flatMap(_.get(projectName) match {
           case Some(server) =>
             Router(req.uri.renderString -> server.routes).run(req).value.map {
-              case Some(v) => v
-              case None    => notFound404
+              case Some(res) => res
+              case None =>
+                response(
+                  Status.NotFound,
+                  s"${req.uri.renderString} not found".toJson.some
+                )
             }
-          case None => projectNotFound404.pure[IO]
-        }
+          case None =>
+            response(
+              Status.NotFound,
+              s"Server for project `$projectName` not found".toJson.some
+            ).pure[IO]
+        })
       }
       case GET -> Root / "ping" => response(Status.Ok).pure[IO]
     }

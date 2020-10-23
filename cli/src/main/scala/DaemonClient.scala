@@ -20,11 +20,13 @@ object DaemonClient {
 
   def devMigrate(migration: MigrationInput, projectName: String): Try[Unit] =
     ping *> Try {
-      post.stream(
+      post(
         url = s"$daemonUri/project/migrate/dev/$projectName",
         data = migration.toJson.compactPrint,
-        chunkedUpload = true
+        chunkedUpload = true,
+        check = true
       )
+      println(s"Done migrating $projectName")
     }.void
 
   def ping = Try(get(daemonUri + "/ping")).handleErrorWith { err =>

@@ -195,8 +195,8 @@ object utils {
 
   lazy val supportedFunctionRuntimes: Map[String, RuntimeTag] =
     Map(
-      "nodejs" -> NodeJS,
-      "python" -> Python
+      "nodejs:10" -> NodeJS,
+      "python:3" -> Python
     )
 
   def usedFuntionRuntimes(
