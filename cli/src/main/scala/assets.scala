@@ -10,7 +10,7 @@ package object assets {
 | |    |  ____/  | |
 | |    | |       | |
 | |    | |       | |
-| |____|_|_______| |
+| |____| |_______| |
 |__________________|
    pragmalang.com
   """ + Console.RESET
