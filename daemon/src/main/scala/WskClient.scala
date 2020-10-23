@@ -109,14 +109,15 @@ class WskClient[M[_]: Sync](val config: WskConfig, val httpClient: Client[M]) {
       body = fs2.Stream.emits(bodyBytes)
     )
 
-    val responseBodyString = httpClient.expectOr[String](request) { res =>
-      res.bodyText.compile.string.flatMap { body =>
-        MonadError[M, Throwable].raiseError {
+    val responseBodyString = httpClient.run(request).use { res =>
+      val bodyTxt = res.bodyText.compile.string
+      if (res.status.isSuccess) bodyTxt
+      else
+        bodyTxt.flatMap { body =>
           new Exception(
             s"Request to OpenWhisk for invoking function `${function.scopeName}.${function.id}` failed with HTTP status code ${res.status.code}:\n$body"
-          )
+          ).raiseError[M, String]
         }
-      }
     }
 
     for {
