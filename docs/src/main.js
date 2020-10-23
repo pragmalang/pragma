@@ -26,11 +26,11 @@ function addLinkToMenuTitle() {
   }
 
   const lightThemeListener = () => {
-    document.getElementById("logo").setAttribute("src", "/purple-logo.svg")
+    document.getElementById("logo").setAttribute("src", "./src/purple-logo.svg")
   }
 
   const darkThemeListener = () => {
-    document.getElementById("logo").setAttribute("src", "/white-logo.svg")
+    document.getElementById("logo").setAttribute("src", "./src/white-logo.svg")
   }
 
   const addClickListenersToThemeButtons = () => {
@@ -48,9 +48,9 @@ function addLinkToMenuTitle() {
   const logoImage = document.createElement("img")
 
   if(isLightTheme()) {
-    logoImage.setAttribute("src", "/purple-logo.svg")
+    logoImage.setAttribute("src", "./src/purple-logo.svg")
   } else {
-    logoImage.setAttribute("src", "/white-logo.svg")
+    logoImage.setAttribute("src", "./src/white-logo.svg")
   }
 
   logoImage.setAttribute("class", "logo-img")
