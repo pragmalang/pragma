@@ -7,6 +7,7 @@ import scala.util._, scala.io.StdIn.readLine
 import cli.utils._
 import os.Path
 import requests.RequestFailedException
+import pragma.domain.utils.UserError
 
 object Main {
 
@@ -41,11 +42,19 @@ object Main {
 
     lazy val devMigration = for {
       st <- syntaxTree
-      projectName = st.config
-        .entryMap("projectName")
-        .value
+      projNameEntry = st.config.entryMap("projectName")
+      projectName = projNameEntry.value
         .asInstanceOf[PStringValue]
         .value
+      _ <- if (projectName contains "-")
+        Failure {
+          UserError(
+            (
+              "The project's name must not contain any dashes ('-')",
+              projNameEntry.position
+            ) :: Nil
+          )
+        } else Success(())
       functions <- st.functions.toList.traverse {
         case ExternalFunction(id, scopeName, filePathStr, runtime) => {
           val filePath = os.FilePath(filePathStr)
