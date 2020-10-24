@@ -2,15 +2,36 @@
 
 ## Install Pragma
 
+> Pragma is currently under heavy development, and should not be used in a production setting. All Pragma APIs are subject to breaking change.
+
+### Requirements
+Pragma requires [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) on the `PATH`. To make sure you have them and that they work, run:
 ```sh
-curl https://install.pragmalang.com/locally | sh
+docker run hello-world
+
+docker-compose --help
 ```
+If either command fails, make sure it works before proceeding with the installation of Pragma.
+
+### Installation
+Pragma currently works only on Linux. To install it, run:
+```sh
+curl -o pragma https://pragmalang.github.io/releases/linux/pragma && chmod +x pragma && sudo mv pragma /usr/local/bin/
+```
+
+This will download the Pragma binary, change it to become executable, and place it in `/usr/local/bin`. Once Pragma is downloaded and installed, you can see if it works by running `pragma help`.
 
 ## Basic Todo App
 
-In this tutorial, we'll create the infamous todo application with user authentication. A user can have many todos, and they can only access their *own* todos, and anyone can create a user account.
+In this tutorial, we'll create a todo application with user authentication. A user can have many todos, and they can only access their *own* todos, and anyone can create a user account.
 
-We can start by defining our `User` [model](../features/user-models.md):
+To start, initialize a new Pragma project by running:
+```sh
+pragma init
+```
+After answering Pragma's questions, there will be a directory with the name of your project containing a `Pragmafile`, where you'll be writing all your Pragma code, and a `docker-compose.yml` file. `cd` into the project's directory and run `docker-compose up -d` to start the Pragma daemon (which runs in the background and never bothers you.)
+
+After the project has been created and the daemon has been started, we can define our `User` [model](../features/user-models.md):
 
 ```pragma
 @user
@@ -23,7 +44,7 @@ We can start by defining our `User` [model](../features/user-models.md):
 
 Notice the `@1`, `@2`, on the `User` model and it's fields, these are called **indecies** and they are important for Pragma to be able to perform database migrations automatocally.
 
-Notice the `@user` syntax. This is a [directive](../features/directives.md) that tells Pragma that this is a [user model](../features/user-models.md), so Pragma would set up auth workflows for this user.
+Notice also the `@user` syntax. This is a [directive](../features/directives.md) that tells Pragma that this is a [user model](../features/user-models.md), so Pragma would set up auth workflows for this model.
 
 Now we define the `Todo` model:
 
@@ -42,7 +63,7 @@ enum TodoStatus {
 }
 ```
 
-Notice the `TodoStatus` enum. [Enums](../features/enum-types.md) are definitions of all the possible string values that a field can hold.
+[`enum`s](../features/enum-types.md) are definitions of all the possible string values that a field can hold.
 
 Ok, now we need to define permissions. Our requirements dictate that a `User` can only edit, read, write, and delete their own `Todo`s, and that anyone can create a user account.
 
@@ -75,7 +96,7 @@ const selfOwnsTodo = ({ user, todo }) => {
 }
 ```
 
-### A Note About Authorization Predicates
+### A Note on Authorization Predicates
 
 Notice that in the example above we're returning a JSON object of the shape `{ result: boolean }`, not a `boolean` value directly, this is because all imported functions are run as OpenWhisk serverless functions and OpenWhisk requires that all functions must return a JSON object for some reason. This will be solved in the future. **This is only a problem for functions that are used by authorization rules**.
 
@@ -93,9 +114,14 @@ role User {
 }
 ```
 
-Congratulations! Now you have a GraphQL API, and you can run queries against it like:
+Alright, now that we've done all the hard work, we can start our server by running the following command in the root of our project:
+```sh
+pragma dev
+```
 
-### Creating a new `User`
+Congratulations! Now if you follow the URL printed out in your terminal, you'll find a GraphQL Playground where you can run queries such as:
+
+#### Creating a new `User`
 ```graphql
 mutation {
   User {
@@ -106,7 +132,7 @@ mutation {
 }
 ```
 
-### Login as `john`
+#### Login as `john`
 ```graphql
 mutation {
   User {
@@ -126,7 +152,7 @@ and we'll get a JWT token from the server:
 }
 ```
 
-### Adding new todos to `john`
+#### Adding new todos to `john`
 ```graphql
 mutation {
   User {
@@ -145,7 +171,7 @@ We need to add an authorization header containing the JWT token that was returne
 }
 ```
 
-### List the todos of `john`
+#### List `john`'s todos
 ```
 {
   User {
@@ -166,7 +192,7 @@ We need to put the JWT token in the `Authorization` header here too
 }
 ```
 
-## Data validation and transformation
+## Data Validation and Transformation
 
 ### Validation
 
