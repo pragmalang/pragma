@@ -8,19 +8,19 @@ This is the same example presented in the [demo video that's on our landing page
 
 ```pragma
 @user
-model User {
-  username: String @publicCredential @primary
-  password: String @secretCredential
-  name: String
-  avatarUrl: String
-  coverUrl: String?
-  bio: String?
-  isVerified: Boolean?
-  followers: [User]?
-  following: [User]?
-  tweets: [Tweet]?
-  retweets: [Tweet]? @connect("RETWEETS")
-  likes: [Tweet]? @connect("LIKES")
+@1 model User {
+  @1 username: String @publicCredential @primary
+  @2 password: String @secretCredential
+  @3 name: String
+  @4 avatarUrl: String
+  @5 coverUrl: String?
+  @6 bio: String?
+  @7 isVerified: Boolean?
+  @8 followers: [User]
+  @9 following: [User]
+  @10 tweets: [Tweet]
+  @11 retweets: [Tweet]? @connect("RETWEETS")
+  @12 likes: [Tweet]? @connect("LIKES")
 }
 
 model Tweet {

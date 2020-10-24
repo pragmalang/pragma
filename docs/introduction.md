@@ -80,7 +80,7 @@ Pragma doesn't make you worry about networking, writing resolvers, or (when usin
 
 Definitions are concise, readable, high-level, and maintainable. It keeps configuration and boilerplate you need to write and keep in mind at a minimum (no code generation, all the complexity is abstracted). You focus on your business logic and nothing else.
 
-[A simple todo app](./getting-started/basic-todo-app.md) with user authentication and permissions can be expressed in under 30 lines of code.
+[A simple todo app](./getting-started/index.md#basic-todo-app) with user authentication and permissions can be expressed in under 30 lines of code.
 
 ### It Integrates with Many Languages
 

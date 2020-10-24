@@ -98,11 +98,11 @@ const selfOwnsTodo = ({ user, todo }) => {
 
 ### A Note on Authorization Predicates
 
-Notice that in the example above we're returning a JSON object of the shape `{ result: boolean }`, not a `boolean` value directly, this is because all imported functions are run as OpenWhisk serverless functions and OpenWhisk requires that all functions must return a JSON object for some reason. This will be solved in the future. **This is only a problem for functions that are used by authorization rules**.
+In the example above we're returning a JSON object of the shape `{ result: boolean }`, not a `boolean` value directly, this is because all imported functions are run as OpenWhisk serverless functions and OpenWhisk requires that all functions must return a JSON object for some reason. This will be solved in the future. **This is only a problem for functions that are used by authorization rules**.
 
-For more information about how authorization rules work with functions go to  
+For more information about how authorization rules work with functions, see the [Permissions section](../features/permissions.md).
 
-Then let's use this function the `User` role:
+Now that we've defined `selfOwnsTodo`, let's use it in the `User` role:
 
 ```
 import "./functions.js" as fns { runtime = "nodejs:14" }
