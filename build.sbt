@@ -90,6 +90,7 @@ lazy val cli = (project in file("cli"))
       "--initialize-at-build-time=scala.runtime.Statics$VM",
       "-H:+ReportExceptionStackTraces",
       "-H:+AddAllCharsets",
+      "-H:IncludeResources=.*docker-compose.yml",
       "--enable-http",
       "--enable-https",
       "--enable-all-security-services"

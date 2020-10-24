@@ -23,10 +23,7 @@ object Main {
         println(renderLogo)
         run(config, withReload = true)
       }
-      case CLICommand.Init => {
-        tryOrExit(DaemonClient.ping.void)
-        createNewProject()
-      }
+      case CLICommand.Init => initProject()
       case Prod => {
         println("Production mode is not ready yet.")
         sys.exit(1)
@@ -136,29 +133,33 @@ object Main {
       }
     }
 
-  def createNewProject(): Try[Unit] = Try {
+  def initProject(): Try[Unit] = Try {
     val newProjectName = readLine("What's the name of your new project?:").trim
     if (newProjectName.isEmpty) {
-      println("A project's name cannot be an empty string...")
-      createNewProject()
+      println("A project's name cannot be an empty string... Please try again")
+      initProject()
     }
     val projectDir = os.pwd / newProjectName
-    val createProj =
-      DaemonClient.createProject(ProjectInput(newProjectName)) *> Try {
-        os.makeDir(projectDir)
-        val pragmafile =
-          s"""
+    Try {
+      os.makeDir(projectDir)
+      val pragmafile =
+        s"""
         |config { projectName = "$newProjectName" }
         |""".stripMargin
-        os.write(projectDir / "Pragmafile", pragmafile)
-      }
 
-    createProj.handleErrorWith {
-      case err => {
-        println(renderThrowable(err))
-        sys.exit(1)
+      val dockerComposeStream =
+        getClass.getResourceAsStream("/docker-compose.yml")
+      val dockerComposeFile = new String(dockerComposeStream.readAllBytes)
+      dockerComposeStream.close()
+
+      os.write(projectDir / "Pragmafile", pragmafile)
+      os.write(projectDir / "docker-compose.yml", dockerComposeFile)
+    } *> Success(println("Project files successfully generated.")) *>
+      DaemonClient.ping.void.handleErrorWith { _ =>
+        println(
+          "Please start the Pragma daemon by running `docker-compose up -d` in the root of your project."
+        ).pure[Try]
       }
-    }
   }
 
   val renderLogo =

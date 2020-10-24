@@ -32,7 +32,7 @@ object DaemonClient {
   def ping = Try(get(daemonUri + "/ping")).handleErrorWith { err =>
     Failure {
       new Exception(
-        s"Failed to reach Pragma daemon at $daemonUri. Please run the daemon and retry.\n${err.getMessage}"
+        s"Failed to reach Pragma daemon at $daemonUri. Please make sure the daemon is running and retry\n${err.getMessage}"
       )
     }
   }
