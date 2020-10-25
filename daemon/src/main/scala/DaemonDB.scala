@@ -1,4 +1,3 @@
-import doobie._
 import doobie.implicits._
 import cats.effect._
 import cats.implicits._
@@ -18,7 +17,7 @@ import doobie.hikari._
 import running.utils.Mode.Dev
 import running.utils.Mode.Prod
 
-class DaemonDB(transactor: Resource[IO, HikariTransactor[IO]])(
+class DaemonDB(transactor: HikariTransactor[IO])(
     implicit cs: ContextShift[IO]
 ) {
 
@@ -60,51 +59,39 @@ class DaemonDB(transactor: Resource[IO, HikariTransactor[IO]])(
   val ImportedFunctionModel = syntaxTree.modelsById("ImportedFunction")
 
   val jc = new JwtCodec("1234567")
-  val queryEngine = transactor.map(new PostgresQueryEngine(_, syntaxTree, jc))
+  val queryEngine = new PostgresQueryEngine(transactor, syntaxTree, jc)
   val funcExecutor = PFunctionExecutor.dummy[IO]
-  val migrationEngine = for {
-    t <- transactor
-    qe <- queryEngine
-  } yield
+  val migrationEngine =
     new PostgresMigrationEngine[IO](
-      t,
+      transactor,
       syntaxTree,
-      qe,
+      queryEngine,
       funcExecutor
     )
 
   val opParser = new OperationParser(syntaxTree)
 
-  def migrate: IO[Unit] = migrationEngine.use(_.migrate(Mode.Prod, schema))
-
-  def runQuery[T](query: ConnectionIO[T]) = transactor.use(query.transact(_))
+  def migrate: IO[Unit] = migrationEngine.migrate(Mode.Prod, schema)
 
   def createProject(project: ProjectInput): IO[Unit] = {
     val record = project.toJson.asJsObject
+
     queryEngine
-      .use { qe =>
-        transactor.use { t =>
-          qe.createOneRecord(ProjectModel, record, Vector.empty)
-            .void
-            .transact(t)
-        }
-      }
+      .createOneRecord(ProjectModel, record, Vector.empty)
+      .void
+      .transact(transactor)
   }
 
   def deleteProject(projectName: String): IO[Unit] =
     queryEngine
-      .use { qe =>
-        transactor.use { t =>
-          qe.deleteOneRecord(
-              model = ProjectModel,
-              primaryKeyValue = projectName.toJson,
-              innerReadOps = Vector.empty,
-              cascade = true
-            )
-            .void
-            .transact(t)
-        }
-      }
+      .deleteOneRecord(
+        model = ProjectModel,
+        primaryKeyValue = projectName.toJson,
+        innerReadOps = Vector.empty,
+        cascade = true
+      )
+      .void
+      .transact(transactor)
 
   def getProject(
       projectName: String
@@ -155,14 +142,12 @@ class DaemonDB(transactor: Resource[IO, HikariTransactor[IO]])(
         throw new InternalException("Invalid hard-coded query to fetch project")
       }
 
-    queryEngine.use {
-      _.run(projectQuery).map { query =>
-        query.head._2.toMap
-          .apply("Project")
-          .head
-          ._2
-          .convertTo[Option[Project]]
-      }
+    queryEngine.run(projectQuery).map { query =>
+      query.head._2.toMap
+        .apply("Project")
+        .head
+        ._2
+        .convertTo[Option[Project]]
     }
   }
 
@@ -204,7 +189,7 @@ class DaemonDB(transactor: Resource[IO, HikariTransactor[IO]])(
         throw new InternalException("Invalid hard-coded query to fetch project")
       }
 
-    queryEngine.use(_.run(ops).void)
+    queryEngine.run(ops).void
   }
 
 }

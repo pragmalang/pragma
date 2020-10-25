@@ -37,9 +37,14 @@ object DeamonServer extends IOApp {
       ).update.run
     }.void
 
-  val executionContext = ExecutionContexts.fixedThreadPool[IO](
-    Runtime.getRuntime.availableProcessors * 10
-  )
+  val (executionContext, _) = ExecutionContexts
+    .fixedThreadPool[IO](
+      Runtime.getRuntime.availableProcessors * 10
+    )
+    .allocated
+    .unsafeRunSync
+
+  val (blocker, _) = Blocker[IO].allocated.unsafeRunSync
 
   def createDatabase(
       host: String,
@@ -55,71 +60,22 @@ object DeamonServer extends IOApp {
     connection.close()
   }
 
-  val blocker = Blocker[IO]
-
-  def buildTransactor(
-      uri: String,
-      username: String,
-      password: String
-  ): Resource[IO, HikariTransactor[IO]] = {
-    for {
-      exCtx <- executionContext
-      blocker <- Blocker[IO]
-      transactor <- HikariTransactor.newHikariTransactor[IO](
-        "org.postgresql.Driver",
-        jdbcPostgresUri(uri),
-        username,
-        password,
-        exCtx,
-        blocker
-      )
-    } yield transactor
-  }
-
-  def buildMigrationEngine(
+  private def buildStorage(
       currentTree: SyntaxTree,
-      transactor: Resource[IO, HikariTransactor[IO]],
-      queryEngine: PostgresQueryEngine[IO],
-      funcExecutor: PFunctionExecutor[IO]
-  ): Resource[IO, PostgresMigrationEngine[IO]] =
-    transactor map { t =>
-      new PostgresMigrationEngine[IO](
-        t,
-        currentTree,
-        queryEngine,
-        funcExecutor
-      )
-    }
-
-  def buildQueryEngine(
-      currentTree: SyntaxTree,
-      transactor: Resource[IO, HikariTransactor[IO]],
-      jc: JwtCodec
-  ): Resource[IO, PostgresQueryEngine[IO]] =
-    transactor map { t =>
-      new PostgresQueryEngine[IO](t, currentTree, jc)
-    }
-
-  def buildStorage(
-      currentTree: SyntaxTree,
-      transactor: Resource[IO, HikariTransactor[IO]],
+      transactor: HikariTransactor[IO],
       jc: JwtCodec,
       funcExecutor: PFunctionExecutor[IO]
-  ): Resource[IO, Postgres[IO]] =
-    for {
-      qe <- buildQueryEngine(currentTree, transactor, jc)
-      me <- buildMigrationEngine(
-        currentTree,
-        transactor,
-        qe,
-        funcExecutor
-      )
-    } yield new Postgres[IO](me, qe)
+  ) = {
+    val qe = new PostgresQueryEngine[IO](transactor, currentTree, jc)
+    val me =
+      new PostgresMigrationEngine[IO](transactor, currentTree, qe, funcExecutor)
+    new Postgres[IO](me, qe)
+  }
 
-  def bodyStream(s: String) =
+  private def bodyStream(s: String) =
     fs2.Stream.fromIterator[IO](s.getBytes(UTF_8).iterator)
 
-  def response(status: Status, body: Option[JsValue] = None) =
+  private def response(status: Status, body: Option[JsValue] = None) =
     Response[IO](
       status,
       HttpVersion.`HTTP/1.1`,
@@ -130,7 +86,7 @@ object DeamonServer extends IOApp {
       }
     )
 
-  def migrate(
+  private def migrate(
       projectName: String,
       migration: MigrationInput,
       daemonConfig: DaemonConfig,
@@ -179,77 +135,76 @@ object DeamonServer extends IOApp {
           case None           => daemonConfig.dbInfo.password
         }
 
-        val transactor = HikariTransactor.newHikariTransactor[IO](
-          "org.postgresql.Driver",
-          jdbcPostgresUri(pgUri),
-          pgUser,
-          pgPassword,
-          daemonConfig.execCtx,
-          daemonConfig.blocker
-        )
+        val transactor = HikariTransactor
+          .newHikariTransactor[IO](
+            "org.postgresql.Driver",
+            jdbcPostgresUri(pgUri),
+            pgUser,
+            pgPassword,
+            executionContext,
+            blocker
+          )
+          .allocated
+          .unsafeRunSync
+          ._1
 
-        val storageWithTransactor = buildStorage(
+        val storage = buildStorage(
           currentSt,
           transactor,
           jc,
           funcExecutor
-        ).flatMap(s => transactor.map(s -> _))
+        )
 
-        storageWithTransactor.use { s =>
-          val storage = s._1
-          val transactor = s._2
-
-          val migrate = mode match {
-            case Mode.Dev =>
-              removeAllTablesFromDb(transactor) *>
-                storage.migrate(mode, migration.code)
-            case Mode.Prod =>
+        val migrate = mode match {
+          case Mode.Dev =>
+            removeAllTablesFromDb(transactor) *>
               storage.migrate(mode, migration.code)
-          }
-
-          val createWskActions: IO[Unit] =
-            migration.functions.traverse { function =>
-              wskClient.createAction(
-                function.name,
-                function.content,
-                function.runtime,
-                function.binary,
-                projectName,
-                function.scopeName
-              )
-            }.void
-
-          val server = new Server(jc, storage, currentSt, funcExecutor)
-
-          val addServerToMap = mode match {
-            case Mode.Dev =>
-              devProjectServers.addOne(project.name -> server).pure[IO]
-            case Mode.Prod =>
-              prodProjectServers.addOne(project.name -> server).pure[IO]
-          }
-
-          for {
-            _ <- migrate
-            _ <- createWskActions.adaptError { err =>
-              println("Failed to create Wsk functions:")
-              println(err.getMessage())
-              err.printStackTrace()
-              err
-            }
-            _ <- IO(
-              println(
-                s"Successfully created ${project.name}'s OpenWhisk actions"
-              )
-            )
-            _ <- addServerToMap
-          } yield response(Status.Ok)
+          case Mode.Prod =>
+            storage.migrate(mode, migration.code)
         }
+
+        val createWskActions: IO[Unit] =
+          migration.functions.traverse { function =>
+            wskClient.createAction(
+              function.name,
+              function.content,
+              function.runtime,
+              function.binary,
+              projectName,
+              function.scopeName
+            )
+          }.void
+
+        val server = new Server(jc, storage, currentSt, funcExecutor)
+
+        val addServerToMap = mode match {
+          case Mode.Dev =>
+            devProjectServers.addOne(project.name -> server).pure[IO]
+          case Mode.Prod =>
+            prodProjectServers.addOne(project.name -> server).pure[IO]
+        }
+
+        for {
+          _ <- migrate
+          _ <- createWskActions.adaptError { err =>
+            println("Failed to create Wsk functions:")
+            println(err.getMessage())
+            err.printStackTrace()
+            err
+          }
+          _ <- IO(
+            println(
+              s"Successfully created ${project.name}'s OpenWhisk actions"
+            )
+          )
+          _ <- addServerToMap
+        } yield response(Status.Ok)
       }
       .handleError { err =>
-        response(Status.BadRequest, err.getMessage().toJson.some)
+        response(Status.BadRequest, err.getMessage.toJson.some)
       }
 
-  def routes(daemonConfig: DaemonConfig, wskClient: WskClient[IO]) =
+  private def routes(daemonConfig: DaemonConfig, wskClient: WskClient[IO]) =
     HttpRoutes.of[IO] {
       // Setup phase
       case req @ POST -> Root / "project" / "create" => {
@@ -350,127 +305,130 @@ object DeamonServer extends IOApp {
       case GET -> Root / "ping" => response(Status.Ok).pure[IO]
     }
 
-  override def run(args: List[String]): IO[ExitCode] =
-    (executionContext, blocker).bisequence.use { ctx =>
-      val (execCtx, blocker) = ctx
+  override def run(args: List[String]): IO[ExitCode] = {
+    val getEnvVar = EnvVarDef.parseEnvVars(DaemonServer.envVarsDefs) match {
+      case Left(errors) =>
+        IO {
+          print(EnvVarError.render(errors))
+          sys.exit(1)
+        }
+      case Right(getter) => getter.pure[IO]
+    }
 
-      val getEnvVar = EnvVarDef.parseEnvVars(DaemonServer.envVarsDefs) match {
-        case Left(errors) =>
-          IO {
-            print(EnvVarError.render(errors))
-            sys.exit(1)
-          }
-        case Right(getter) => getter.pure[IO]
+    val pgHost = getEnvVar
+      .map(getter => getter(DaemonServer.DAEMON_PG_HOST))
+
+    val pgPort = getEnvVar
+      .map(getter => getter(DaemonServer.DAEMON_PG_PORT))
+
+    val pgDbName = getEnvVar
+      .map(getter => getter(DaemonServer.DAEMON_PG_DB_NAME))
+
+    val pgUser = getEnvVar
+      .map(getter => getter(DaemonServer.DAEMON_PG_USER))
+
+    val pgPassword = getEnvVar
+      .map(getter => getter(DaemonServer.DAEMON_PG_PASSWORD))
+
+    val wskApiUrl = getEnvVar
+      .map(getter => getter(DaemonServer.DAEMON_WSK_API_URL))
+      .flatMap { s =>
+        Uri.fromString(s) match {
+          case Left(value)  => IO.raiseError(value)
+          case Right(value) => value.pure[IO]
+        }
       }
 
-      val pgHost = getEnvVar
-        .map(getter => getter(DaemonServer.DAEMON_PG_HOST))
-
-      val pgPort = getEnvVar
-        .map(getter => getter(DaemonServer.DAEMON_PG_PORT))
-
-      val pgDbName = getEnvVar
-        .map(getter => getter(DaemonServer.DAEMON_PG_DB_NAME))
-
-      val pgUser = getEnvVar
-        .map(getter => getter(DaemonServer.DAEMON_PG_USER))
-
-      val pgPassword = getEnvVar
-        .map(getter => getter(DaemonServer.DAEMON_PG_PASSWORD))
-
-      val wskApiUrl = getEnvVar
-        .map(getter => getter(DaemonServer.DAEMON_WSK_API_URL))
-        .flatMap { s =>
-          Uri.fromString(s) match {
-            case Left(value)  => IO.raiseError(value)
-            case Right(value) => value.pure[IO]
-          }
+    val wskAuthToken =
+      getEnvVar
+        .map(getter => getter(DaemonServer.DAEMON_WSK_AUTH_TOKEN))
+        .map(_.split(":").toList)
+        .flatMap {
+          case user :: pw :: Nil => BasicCredentials(user, pw).pure[IO]
+          case _ =>
+            IO.raiseError {
+              new IllegalArgumentException(
+                "Invalid OpenWhisk auth: must consist of a username followed by ':' and a password"
+              )
+            }
         }
 
-      val wskAuthToken =
-        getEnvVar
-          .map(getter => getter(DaemonServer.DAEMON_WSK_AUTH_TOKEN))
-          .map(_.split(":").toList)
-          .flatMap {
-            case user :: pw :: Nil => BasicCredentials(user, pw).pure[IO]
-            case _ =>
-              IO.raiseError {
-                new IllegalArgumentException(
-                  "Invalid OpenWhisk auth: must consist of a username followed by ':' and a password"
-                )
-              }
-          }
+    val wskApiVersion = getEnvVar
+      .map(getter => getter(DaemonServer.DAEMON_WSK_API_VERSION).toInt)
 
-      val wskApiVersion = getEnvVar
-        .map(getter => getter(DaemonServer.DAEMON_WSK_API_VERSION).toInt)
+    val hostname = getEnvVar
+      .map(getter => getter(DaemonServer.DAEMON_HOSTNAME))
 
-      val hostname = getEnvVar
-        .map(getter => getter(DaemonServer.DAEMON_HOSTNAME))
+    val port = getEnvVar
+      .map(getter => getter(DaemonServer.DAEMON_PORT).toInt)
 
-      val port = getEnvVar
-        .map(getter => getter(DaemonServer.DAEMON_PORT).toInt)
+    val dbInfo = for {
+      pgHost <- pgHost
+      pgPort <- pgPort
+      pgDbName <- pgDbName
+      pgUser <- pgUser
+      pgPassword <- pgPassword
+    } yield DBInfo(pgHost, pgPort, pgUser, pgPassword, pgDbName.some)
 
-      val dbInfo = for {
-        pgHost <- pgHost
-        pgPort <- pgPort
-        pgDbName <- pgDbName
-        pgUser <- pgUser
-        pgPassword <- pgPassword
-      } yield DBInfo(pgHost, pgPort, pgUser, pgPassword, pgDbName.some)
-
-      val transactor = for {
-        info <- dbInfo
-      } yield
-        HikariTransactor.newHikariTransactor[IO](
+    val transactor = dbInfo flatMap { info =>
+      HikariTransactor
+        .newHikariTransactor[IO](
           "org.postgresql.Driver",
           info.jdbcPostgresUri,
           info.user,
           info.password,
-          execCtx,
+          executionContext,
           blocker
         )
-
-      val wskConfig = for {
-        wskApiUrl <- wskApiUrl
-        wskAuthToken <- wskAuthToken
-        wskApiVersion <- wskApiVersion
-      } yield WskConfig(wskApiVersion, wskApiUrl, wskAuthToken)
-
-      val clientResource = BlazeClientBuilder[IO](execCtx).resource
-
-      for {
-        t <- transactor
-        db = new DaemonDB(t)
-        _ <- db.migrate
-        dbInfo <- dbInfo
-        wskConfig <- wskConfig
-        wskClientResource = clientResource.map[IO, WskClient[IO]] { c =>
-          new WskClient(wskConfig, c)
-        }
-        _ <- IO {
-          println(s"Pinging OpenWhisk at ${wskConfig.wskApiUrl.renderString}")
-        }
-        _ <- clientResource.use(client => pingWsk(client, wskConfig))
-        hostname <- hostname
-        port <- port
-        daemonConfig = DaemonConfig(wskConfig, execCtx, blocker, db, dbInfo)
-        runServer <- wskClientResource.use { wsk =>
-          BlazeServerBuilder[IO](global)
-            .bindHttp(port, hostname)
-            .withHttpApp {
-              Router(
-                "/" -> GZip(routes(daemonConfig, wsk))
-              ).orNotFound
-            }
-            .serve
-            .compile
-            .drain
-            .as(ExitCode.Success)
-        }
-      } yield runServer
+        .allocated
+        .map(_._1)
     }
 
-  def pingWsk(
+    val wskConfig = for {
+      wskApiUrl <- wskApiUrl
+      wskAuthToken <- wskAuthToken
+      wskApiVersion <- wskApiVersion
+    } yield WskConfig(wskApiVersion, wskApiUrl, wskAuthToken)
+
+    val clientResource = BlazeClientBuilder[IO](executionContext).resource
+
+    for {
+      t <- transactor
+      db = new DaemonDB(t)
+      _ <- db.migrate
+      dbInfo <- dbInfo
+      wskConfig <- wskConfig
+      wskClientResource = clientResource.map[IO, WskClient[IO]] { c =>
+        new WskClient(wskConfig, c)
+      }
+      _ <- IO {
+        println(s"Pinging OpenWhisk at ${wskConfig.wskApiUrl.renderString}")
+      }
+      _ <- clientResource.use(client => pingWsk(client, wskConfig))
+      hostname <- hostname
+      port <- port
+      daemonConfig = DaemonConfig(
+        wskConfig,
+        db,
+        dbInfo
+      )
+      runServer <- wskClientResource.use { wsk =>
+        BlazeServerBuilder[IO](global)
+          .bindHttp(port, hostname)
+          .withHttpApp {
+            Router(
+              "/" -> GZip(routes(daemonConfig, wsk))
+            ).orNotFound
+          }
+          .serve
+          .compile
+          .drain
+          .as(ExitCode.Success)
+      }
+    } yield runServer
+  }
+
+  private def pingWsk(
       client: org.http4s.client.Client[IO],
       wskConfig: WskConfig,
       retries: Int = 5
@@ -580,8 +538,6 @@ object DaemonServer {
 
 case class DaemonConfig(
     wskConfig: WskConfig,
-    execCtx: ExecutionContext,
-    blocker: Blocker,
     db: DaemonDB,
     dbInfo: DBInfo
 )
