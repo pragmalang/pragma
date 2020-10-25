@@ -13,6 +13,9 @@ function highlightPragmaCode() {
   // ...
 }
 
+const whiteLogo = 'http://' + window.location.host + '/src/white-logo.svg'
+const purpleLogo = 'http://' + window.location.host + '/src/purple-logo.svg'
+
 function addLinkToMenuTitle() {
   const menuBar = document.getElementById("menu-bar");
   const a = document.createElement("a");
@@ -26,31 +29,31 @@ function addLinkToMenuTitle() {
   }
 
   const lightThemeListener = () => {
-    document.getElementById("logo").setAttribute("src", "./src/purple-logo.svg")
+    document.getElementById("logo").setAttribute("src", purpleLogo)
   }
 
   const darkThemeListener = () => {
-    document.getElementById("logo").setAttribute("src", "./src/white-logo.svg")
+    document.getElementById("logo").setAttribute("src", whiteLogo)
   }
 
   const addClickListenersToThemeButtons = () => {
     const lightThemes = ["light", "rust"];
     const darkThemes = ["coal", "navy", "ayu"]
-    for(let lightTheme of lightThemes) {
+    for (let lightTheme of lightThemes) {
       document.getElementById(lightTheme).onclick = lightThemeListener
     }
 
-    for(let darkTheme of darkThemes) {
+    for (let darkTheme of darkThemes) {
       document.getElementById(darkTheme).onclick = darkThemeListener
     }
   }
 
   const logoImage = document.createElement("img")
 
-  if(isLightTheme()) {
-    logoImage.setAttribute("src", "./src/purple-logo.svg")
+  if (isLightTheme()) {
+    logoImage.setAttribute("src", purpleLogo)
   } else {
-    logoImage.setAttribute("src", "./src/white-logo.svg")
+    logoImage.setAttribute("src", whiteLogo)
   }
 
   logoImage.setAttribute("class", "logo-img")
@@ -60,7 +63,7 @@ function addLinkToMenuTitle() {
   a.appendChild(logoImage);
   a.setAttribute("href", "https://pragmalang.com")
   a.className = "menu-title custom-a"
-  menuBar.children.item(1).insertAdjacentElement("afterend",a)
+  menuBar.children.item(1).insertAdjacentElement("afterend", a)
   menuBar.children.item(1).remove()
 }
 
