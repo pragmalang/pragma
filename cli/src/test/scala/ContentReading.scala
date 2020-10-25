@@ -9,13 +9,13 @@ class ContentReading extends AnyFlatSpec {
       os.pwd / "cli" / "src" / "test" / "scala" / "test-js-project" / "index.js"
     }.get
 
-    println(indexContent)
     val expectedIndexContent =
       """const utils = require('./utils')
+        |const nestedUtils = require('./nested-utils/nested-utils')
         |
         |utils.log('Hellooo')""".stripMargin
 
-    println(expectedIndexContent == indexContent)
+    assert(expectedIndexContent == indexContent)
     assert(!indexIsBinary)
 
     val (_, isBinary) = readContent {

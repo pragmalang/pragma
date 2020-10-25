@@ -41,26 +41,26 @@ object utils {
     Try {
       if (!os.isDir(path))
         throw new Exception(
-          s"Trying to zip non-directory '$path' which is not a directory"
+          s"Trying to zip non-directory '$path' as a directory (which it's not)"
         )
       val bos = new ByteArrayOutputStream(size(path).toInt)
       val zos = new ZipOutputStream(bos)
       val paths = os.walk(path)
-      paths.map(_.relativeTo(path)).map { child =>
+      paths.map(_.relativeTo(path)).foreach { child =>
         if (os.isDir(child.resolveFrom(path)))
           zos.putNextEntry(new ZipEntry(child.toString + "/"))
         if (os.isFile(child.resolveFrom(path))) {
           zos.putNextEntry(new ZipEntry(child.toString))
-          val childContent = os.read(child.resolveFrom(path))
-          zos.write(childContent.getBytes, 0, childContent.length)
+          val childContent = os.read(child.resolveFrom(path)).getBytes
+          zos.write(childContent, 0, childContent.length)
         }
         zos.closeEntry()
       }
       zos.close()
       new String(Base64.getEncoder.encode(bos.toByteArray))
-    }.handleErrorWith {
+    }.adaptErr {
       case e: Exception =>
-        Failure(new Exception(s"Error while zipping $path\n${e.getMessage}"))
+        new Exception(s"Error while zipping $path\n${e.getMessage}")
     }
 
   /** The boolean in the return means "is binary"
