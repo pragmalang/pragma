@@ -14,7 +14,9 @@ object DaemonClient {
     ping *> Try {
       post(
         url = s"$daemonUri/project/create",
-        data = project.toJson.compactPrint
+        data = project.toJson.compactPrint,
+        keepAlive = false,
+        check = false
       )
     }
 

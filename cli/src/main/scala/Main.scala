@@ -111,13 +111,14 @@ object Main {
     import cli.utils.RuntimeTag._
     runtimes.toList.traverse { runtime =>
       val imageName = runtime match {
-        case NodeJS => "openwhisk/action-nodejs-v10"
-        case Python => "openwhisk/python3action"
+        case NodeJS10 => "openwhisk/action-nodejs-v10:nightly"
+        case NodeJS14 => "openwhisk/action-nodejs-v14:nightly"
+        case Python3  => "openwhisk/python3action:nightly"
       }
 
       Try {
         println(s"Pulling image $imageName...")
-        os.proc("docker", "pull", imageName)
+        os.proc("docker", "pull", imageName).call(cwd = os.pwd)
       } handleErrorWith { err =>
         Failure {
           new Exception(s"Failed to pull image $imageName\n${err.getMessage}")

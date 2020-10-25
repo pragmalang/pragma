@@ -180,8 +180,9 @@ object utils {
 
   sealed trait RuntimeTag
   object RuntimeTag {
-    case object NodeJS extends RuntimeTag
-    case object Python extends RuntimeTag
+    case object NodeJS10 extends RuntimeTag
+    case object NodeJS14 extends RuntimeTag
+    case object Python3 extends RuntimeTag
     // TODO: Add these
     case object Go
     case object Ruby
@@ -195,8 +196,9 @@ object utils {
 
   lazy val supportedFunctionRuntimes: Map[String, RuntimeTag] =
     Map(
-      "nodejs:10" -> NodeJS,
-      "python:3" -> Python
+      "nodejs:10" -> NodeJS10,
+      "nodejs:14" -> NodeJS14,
+      "python:3" -> Python3
     )
 
   def usedFuntionRuntimes(
