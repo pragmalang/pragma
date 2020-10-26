@@ -21,11 +21,14 @@ object CLIConfig {
 
   val parser: OptionParser[CLIConfig] =
     new OptionParser[CLIConfig]("pragma") {
-      cmd("init")
-        .action { (_, configs) =>
-          configs.copy(command = CLICommand.Init)
-        }
-        .text("Initialize a new project")
+      cmd("new").children(newProject)
+
+      def newProject =
+        cmd("project")
+          .action { (_, configs) =>
+            configs.copy(command = CLICommand.New)
+          }
+          .text("Create a new project")
 
       cmd("dev")
         .action { (_, configs) =>
@@ -80,7 +83,7 @@ sealed trait CLICommand
 object CLICommand {
   val Dev = cli.Dev
   val Prod = cli.Prod
-  case object Init extends CLICommand
+  case object New extends CLICommand
   case object Root extends CLICommand
   case object Help extends CLICommand
 }

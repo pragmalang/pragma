@@ -24,7 +24,7 @@ object Main {
         println(renderLogo)
         run(config, withReload = true)
       }
-      case CLICommand.Init => initProject()
+      case CLICommand.New => initProject()
       case Prod => {
         println("Production mode is not ready yet.")
         sys.exit(1)
@@ -157,19 +157,8 @@ object Main {
         |config { projectName = "$newProjectName" }
         |""".stripMargin
 
-      val dockerComposeStream =
-        getClass.getResourceAsStream("/docker-compose.yml")
-      val dockerComposeFile = new String(dockerComposeStream.readAllBytes)
-      dockerComposeStream.close()
-
       os.write(projectDir / "Pragmafile", pragmafile)
-      os.write(projectDir / "docker-compose.yml", dockerComposeFile)
-    } *> Success(println("Project files successfully generated.")) *>
-      DaemonClient.ping.void.handleErrorWith { _ =>
-        println(
-          "Please start the Pragma daemon by running `docker-compose up -d` in the root of your project."
-        ).pure[Try]
-      }
+    } *> Success(println("Project files successfully generated."))
   }
 
   val renderLogo =
