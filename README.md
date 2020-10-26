@@ -32,7 +32,7 @@ cd daemon/src/main/resources/ && docker-compose up
 Running the daemon using `sbt 'daemon/run'` requires the following environment variables:
 ```sh
 export DAEMON_HOSTNAME=localhost && \
-export DAEMON_PORT=3030 && \
+export DAEMON_PORT=9584 && \
 export DAEMON_PG_HOST='localhost' && \
 export DAEMON_PG_PORT=5433 && \
 export DAEMON_PG_DB_NAME='test' && \

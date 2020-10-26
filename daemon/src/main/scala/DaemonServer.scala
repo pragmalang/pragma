@@ -92,117 +92,96 @@ object DeamonServer extends IOApp {
       daemonConfig: DaemonConfig,
       mode: Mode,
       wskClient: WskClient[IO]
-  ) =
-    daemonConfig.db
-      .getProject(projectName)
-      .flatMap { projectOption =>
-        val project = projectOption match {
-          case Some(value) => value
-          case None =>
-            throw new Exception(s"Project `$projectName` doesn't exist")
-        }
+  ): IO[Response[IO]] = {
+    val currentSt =
+      SyntaxTree.from(migration.code).get
 
-        val currentSt =
-          SyntaxTree.from(migration.code).get
+    val jc = new JwtCodec("DUMMY_SECRET")
 
-        val jc = project.secret match {
-          case Some(secret) => new JwtCodec(secret)
-          case None         => new JwtCodec("DUMMY_SECRET")
-        }
+    val funcExecutor = new PFunctionExecutor[IO](
+      projectName,
+      wskClient
+    )
 
-        val funcExecutor = new PFunctionExecutor[IO](
-          project.name,
-          wskClient
+    val pgUri = jdbcPostgresUri(
+      daemonConfig.dbInfo.host,
+      daemonConfig.dbInfo.port,
+      projectName.some
+    )
+
+    val pgUser = daemonConfig.dbInfo.user
+
+    val pgPassword = daemonConfig.dbInfo.password
+
+    val transactor = HikariTransactor
+      .newHikariTransactor[IO](
+        "org.postgresql.Driver",
+        jdbcPostgresUri(pgUri),
+        pgUser,
+        pgPassword,
+        executionContext,
+        blocker
+      )
+      .allocated
+      .unsafeRunSync
+      ._1
+
+    val storage = buildStorage(
+      currentSt,
+      transactor,
+      jc,
+      funcExecutor
+    )
+
+    val migrate = mode match {
+      case Mode.Dev =>
+        removeAllTablesFromDb(transactor) *>
+          storage.migrate(mode, migration.code)
+      case Mode.Prod =>
+        storage.migrate(mode, migration.code)
+    }
+
+    val createWskActions: IO[Unit] =
+      migration.functions.traverse { function =>
+        wskClient.createAction(
+          function.name,
+          function.content,
+          function.runtime,
+          function.binary,
+          projectName,
+          function.scopeName
         )
+      }.void
 
-        val pgUri = project.pgUri match {
-          case Some(uri) => uri
-          case None =>
-            jdbcPostgresUri(
-              daemonConfig.dbInfo.host,
-              daemonConfig.dbInfo.port,
-              project.name.some
-            )
-        }
+    val server = new Server(jc, storage, currentSt, funcExecutor)
 
-        val pgUser = project.pgUser match {
-          case Some(user) => user
-          case None       => daemonConfig.dbInfo.user
-        }
+    val addServerToMap = mode match {
+      case Mode.Dev =>
+        devProjectServers.addOne(projectName -> server).pure[IO]
+      case Mode.Prod =>
+        prodProjectServers.addOne(projectName -> server).pure[IO]
+    }
 
-        val pgPassword = project.pgPassword match {
-          case Some(password) => password
-          case None           => daemonConfig.dbInfo.password
-        }
-
-        val transactor = HikariTransactor
-          .newHikariTransactor[IO](
-            "org.postgresql.Driver",
-            jdbcPostgresUri(pgUri),
-            pgUser,
-            pgPassword,
-            executionContext,
-            blocker
-          )
-          .allocated
-          .unsafeRunSync
-          ._1
-
-        val storage = buildStorage(
-          currentSt,
-          transactor,
-          jc,
-          funcExecutor
+    val res = for {
+      _ <- migrate
+      _ <- createWskActions.adaptError { err =>
+        println("Failed to create Wsk functions:")
+        println(err.getMessage())
+        err.printStackTrace()
+        err
+      }
+      _ <- IO(
+        println(
+          s"Successfully created ${projectName}'s OpenWhisk actions"
         )
+      )
+      _ <- addServerToMap
+    } yield response(Status.Ok)
 
-        val migrate = mode match {
-          case Mode.Dev =>
-            removeAllTablesFromDb(transactor) *>
-              storage.migrate(mode, migration.code)
-          case Mode.Prod =>
-            storage.migrate(mode, migration.code)
-        }
-
-        val createWskActions: IO[Unit] =
-          migration.functions.traverse { function =>
-            wskClient.createAction(
-              function.name,
-              function.content,
-              function.runtime,
-              function.binary,
-              projectName,
-              function.scopeName
-            )
-          }.void
-
-        val server = new Server(jc, storage, currentSt, funcExecutor)
-
-        val addServerToMap = mode match {
-          case Mode.Dev =>
-            devProjectServers.addOne(project.name -> server).pure[IO]
-          case Mode.Prod =>
-            prodProjectServers.addOne(project.name -> server).pure[IO]
-        }
-
-        for {
-          _ <- migrate
-          _ <- createWskActions.adaptError { err =>
-            println("Failed to create Wsk functions:")
-            println(err.getMessage())
-            err.printStackTrace()
-            err
-          }
-          _ <- IO(
-            println(
-              s"Successfully created ${project.name}'s OpenWhisk actions"
-            )
-          )
-          _ <- addServerToMap
-        } yield response(Status.Ok)
-      }
-      .handleError { err =>
-        response(Status.BadRequest, err.getMessage.toJson.some)
-      }
+    res.handleError { err =>
+      response(Status.BadRequest, err.getMessage.toJson.some)
+    }
+  }
 
   private def routes(daemonConfig: DaemonConfig, wskClient: WskClient[IO]) =
     HttpRoutes.of[IO] {
@@ -210,16 +189,6 @@ object DeamonServer extends IOApp {
       case req @ POST -> Root / "project" / "create" => {
         val project = req.bodyText.compile.string
           .map(_.parseJson.convertTo[ProjectInput])
-
-        val createProject = for {
-          project <- project
-          _ <- daemonConfig.db.createProject(project)
-        } yield ()
-
-        val deleteProject = for {
-          project <- project
-          _ <- daemonConfig.db.deleteProject(project.name)
-        } yield ()
 
         val createProjectDb = for {
           project <- project
@@ -232,12 +201,7 @@ object DeamonServer extends IOApp {
           }
         } yield ()
 
-        val res = for {
-          _ <- createProject
-          _ <- createProjectDb.handleErrorWith(_ => deleteProject)
-        } yield ()
-
-        res.as(response(Status.Ok)).handleErrorWith {
+        createProjectDb.as(response(Status.Ok)).handleErrorWith {
           case e: PSQLException if e.getSQLState == "23505" =>
             project.map { project =>
               response(
