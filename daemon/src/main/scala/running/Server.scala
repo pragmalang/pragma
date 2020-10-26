@@ -3,8 +3,7 @@ package running
 import running.utils.QueryError
 import cats.effect._
 import org.http4s._, org.http4s.dsl.io._
-import org.http4s.server.blaze._, org.http4s.server.Router
-import org.http4s.util._, org.http4s.implicits._, org.http4s.server.middleware._
+import org.http4s.util._, org.http4s.server.middleware._
 import scala.concurrent.ExecutionContext.global
 import fs2._
 import cats.implicits._
@@ -22,7 +21,7 @@ class Server(
     storage: Postgres[IO],
     currentSyntaxTree: SyntaxTree,
     funcExecutor: PFunctionExecutor[IO]
-)(implicit cs: ContextShift[IO], t: Timer[IO]) {
+)(implicit cs: ContextShift[IO]) {
   import Server._
 
   def gqlSchema =
@@ -97,15 +96,6 @@ class Server(
     }
 
   val handle = CORS(GZip(routes))
-
-  def run: IO[ExitCode] =
-    BlazeServerBuilder[IO](global)
-      .bindHttp(3030, "localhost")
-      .withHttpApp(Router("/graphql" -> handle).orNotFound)
-      .serve
-      .compile
-      .drain
-      .as(ExitCode.Success)
 
   def introspectionResult(query: JsObject): IO[Iterator[Byte]] = IO.fromFuture {
     implicit val ctx = global

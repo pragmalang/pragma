@@ -14,7 +14,7 @@ services:
       POSTGRES_PASSWORD: test
       POSTGRES_DB: test
     ports:
-      - 5433:5432
+      - 9153:5432
     volumes:
       - pragma_postgres_data:/var/lib/postgresql/data
     command: [ "postgres",  "-c", "log_statement=all" ]
@@ -25,8 +25,7 @@ services:
     image: openwhisk/standalone:nightly
     restart: always
     ports:
-      - 3233:3233
-      - 3232:3232
+      - 7491:3233
     network_mode: bridge
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -36,17 +35,17 @@ services:
     image: pragmalang/pragmad:latest
     restart: always
     ports: 
-      - 3030:3030
+      - 9584:9584
     network_mode: host
     environment:
       DAEMON_HOSTNAME: localhost
-      DAEMON_PORT: 3030
+      DAEMON_PORT: 9584
       DAEMON_PG_HOST: localhost
-      DAEMON_PG_PORT: 5433
+      DAEMON_PG_PORT: 9153
       DAEMON_PG_DB_NAME: test
       DAEMON_PG_USER: test
       DAEMON_PG_PASSWORD: test 
-      DAEMON_WSK_API_URL: http://localhost:3233
+      DAEMON_WSK_API_URL: http://localhost:7491
       DAEMON_WSK_AUTH_TOKEN: 23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP
       DAEMON_WSK_API_VERSION: 1
     depends_on:

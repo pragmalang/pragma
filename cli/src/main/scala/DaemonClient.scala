@@ -8,7 +8,8 @@ import scala.util._
 
 object DaemonClient {
 
-  val daemonUri = "http://localhost:3030"
+  val daemonPort = 9584
+  val daemonUri = s"http://localhost:$daemonPort"
 
   def createProject(project: ProjectInput): Try[Unit] =
     ping *> Try {
