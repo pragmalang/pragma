@@ -2,10 +2,12 @@
 
 ## What is Pragma?
 
-Pragma is a language for building [GraphQL](https://spec.graphql.org/June2018/) APIs in no time, by defining data models and their associated validation, transformation, and authorization logic. For example, you can create a `Pragmafile` with the following content:
+Pragma is a language for building [GraphQL](https://graphql.org//) APIs in no time, by defining data models and their associated validation, transformation, and authorization logic. 
+
+For example, you can create a `Pragmafile` with the following content:
 
 ```pragma
-config { projectName = "my-first-app" }
+config { projectName = "my_first_app" }
 
 import "./hooks.js" as hooks { runtime = "nodejs:14" }
 
@@ -13,7 +15,7 @@ import "./hooks.js" as hooks { runtime = "nodejs:14" }
 @onWrite(function: hooks.validateUser)
 @onWrite(function: hooks.setFullName)
 @1 model User {
-  @1 username: String @publicCredential @priamry
+  @1 username: String @publicCredential @primary
   @2 password: String @secretCredential
   @3 firstName: String
   @4 lastName: String
@@ -22,6 +24,7 @@ import "./hooks.js" as hooks { runtime = "nodejs:14" }
 }
 
 allow CREATE User
+allow READ User.username
 
 role User {
   allow [READ, UPDATE] self
@@ -41,13 +44,15 @@ const validateUser = user => {
 
 const setFullName = user => 
   ({...user, fullName: user.firstName + " " + user.lastName})
+
+module.exports = { validateUser, setFullName }
 ```
 
-These two functions are used to validate every user object and set its `fullName` field on every `CREATE`, `UPDATE`, and `MUTATE` operations. See the [Generated API section](./api/index.md) .
+These two functions are used to validate every user object and set its `fullName` field on every `CREATE`, `UPDATE`, and `MUTATE` operation. Pragma supports using functions written in JavaScript and Python for authorization and data validation/transformation.
 
-Notice the `allow CREATE User` line at the end of the `Pragmafile`. This is a security rule that specifies *anyone* can create a new `User` record. See [Permissions](./features/permissions.md) for more details on access permissions.
+Pragma has built-in support for *authorization*, meaning you can define [*access rules*](./features.permissions.md) to specify the actions each kind of user can perform, and *when*.
 
-Now if you run `pragma dev`, a local server will start, and the GraphQL playground will open in a browser widow. This is all the code you need to set up a GraphQL API with user authentication and very flexible queries, mutations, and subscriptions for creating, reading, updating, and deleting user data. For example:
+This is all the code you need to set up a GraphQL API with user authentication and very flexible queries and mutations for creating, reading, updating, and deleting user data. For example:
 
 ```graphql
 mutation createUser {
@@ -60,7 +65,6 @@ mutation createUser {
       age: 21
     }) {
       username
-      fullName
     }
   }
 }
@@ -68,7 +72,7 @@ mutation createUser {
 
 This returns the `username` and `fullName` of the newly created user. See [The Generated API](./api/index.md) section for more details.
 
-For a step-by-step tutorial on Pragma, see the [Getting Started](./getting-started/index.md) chapter.
+For a step-by-step tutorial on Pragma, see the [Getting Started section](./getting-started/index.md).
 
 ## Why Pragma?
 
