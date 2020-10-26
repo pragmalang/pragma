@@ -66,13 +66,13 @@ sealed trait PPermission {
 }
 object PPermission {
   lazy val allowedArrayFieldPermissions: Seq[PPermission] =
-    List(Read, Update, SetOnCreate, PushTo, RemoveFrom, Mutate)
+    List(Read, Update, SetOnCreate, ReadOnCreate, PushTo, RemoveFrom, Mutate)
   lazy val allowedPrimitiveFieldPermissions: Seq[PPermission] =
-    List(Read, Update, SetOnCreate)
+    List(Read, Update, SetOnCreate, ReadOnCreate)
   lazy val allowedModelPermissions: Seq[PPermission] =
-    List(Read, Update, Create, Delete)
+    List(Read, Update, Create, Delete, ReadOnCreate)
   lazy val allowedModelFieldPermissions: Seq[PPermission] =
-    List(Read, Update, Mutate, SetOnCreate)
+    List(Read, Update, Mutate, SetOnCreate, ReadOnCreate)
 }
 
 /** Retrieve record by ID */

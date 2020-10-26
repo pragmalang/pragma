@@ -35,6 +35,7 @@ final class PermissionTree(st: SyntaxTree) {
     val rolePairs = globalTenant.roles.map { role =>
       role.user.id.some -> targetModelTree(role.rules)
     } appended (None -> targetModelTree(globalTenant.rules))
+
     rolePairs.toMap.withDefaultValue {
       Map.empty
         .withDefaultValue {
@@ -244,7 +245,8 @@ final class PermissionTree(st: SyntaxTree) {
     outerOp match {
       case _: CreateOperation | _: CreateManyOperation =>
         targetModelTree(None)(Read)(false) ++
-          targetModelTree(targetFieldId)(ReadOnCreate)(false)
+          targetModelTree(targetFieldId)(ReadOnCreate)(false) ++
+          targetModelTree(None)(ReadOnCreate)(false)
       case _ if outerOp.targetsSelf =>
         targetModelTree(None)(Read)(false) ++
           targetModelTree(None)(Read)(true)
