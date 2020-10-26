@@ -16,10 +16,10 @@ If either command fails, make sure it works before proceeding with the installat
 ### Installation
 Pragma currently works only on Linux. To install it, run:
 ```sh
-curl -o pragma https://pragmalang.github.io/releases/linux/pragma && chmod +x pragma && sudo mv pragma /usr/local/bin/
+sudo curl https://pragmalang.github.io/releases/linux/install.sh | sh
 ```
 
-This will download the Pragma binary, change it to become executable, and place it in `/usr/local/bin`. Once Pragma is downloaded and installed, you can see if it works by running `pragma help`.
+This will download the Pragma binary, change it to become executable, and place it in `/usr/local/bin`. Once Pragma is downloaded and installed, you can see if it works by running `pragma help`. It also places a `pragma-docker-compose.yml` file in `/usr/local/bin`. 
 
 ## Basic Todo App
 
