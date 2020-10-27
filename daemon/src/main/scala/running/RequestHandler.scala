@@ -76,7 +76,10 @@ class RequestHandler[S, M[_]: Async: ConcurrentEffect](
               case (modelGroupName, ops) =>
                 ops
                   .traverse {
-                    case (op, res) => applyReadHooks(op, res).map(op -> _)
+                    case (loginOp: LoginOperation, token) =>
+                      (loginOp, token).pure[M].widen[(Operation, JsValue)]
+                    case (op, res) =>
+                      applyReadHooks(op, res).widen[JsValue].map(op -> _)
                   }
                   .map(modelGroupName -> _)
             }
@@ -229,57 +232,7 @@ class RequestHandler[S, M[_]: Async: ConcurrentEffect](
         val credObjFields = publicCredPair :: secretCredPair
           .map(_ :: Nil)
           .getOrElse(Nil)
-        applyHooks(loginOp.hooks, JsObject(credObjFields.toMap)) flatMap {
-          case JsObject(fields)
-              if loginOp.targetModel.secretCredentialField.isDefined &&
-                fields.contains(secretCredPair.get._1) &&
-                fields.contains(loginOp.opArguments.publicCredentialField.id) =>
-            fields
-              .get(loginOp.targetModel.secretCredentialField.get.id)
-              .flatMap {
-                case JsString(value) => Some(value)
-                case _               => None
-              }
-              .map { secretValue =>
-                loginOp
-                  .copy(
-                    opArguments = LoginArgs(
-                      loginOp.opArguments.publicCredentialField,
-                      fields(loginOp.opArguments.publicCredentialField.id),
-                      Some(secretValue)
-                    )
-                  )
-                  .pure[M]
-                  .widen[Operation]
-              }
-              .getOrElse {
-                MonadError[M, Throwable].raiseError[Operation] {
-                  UserError(
-                    s"Invalid secret credential field in `LOGIN` hook result on model `${loginOp.targetModel.id}`"
-                  )
-                }
-              }
-          case JsObject(fields)
-              if fields.contains(
-                loginOp.opArguments.publicCredentialField.id
-              ) =>
-            loginOp
-              .copy(
-                opArguments = LoginArgs(
-                  loginOp.opArguments.publicCredentialField,
-                  fields(loginOp.opArguments.publicCredentialField.id),
-                  None
-                )
-              )
-              .pure[M]
-              .widen[Operation]
-          case _ =>
-            MonadError[M, Throwable].raiseError[Operation] {
-              UserError(
-                s"Invalid credentials returned from `LOGIN` hook on model `${loginOp.targetModel.id}`"
-              )
-            }
-        }
+        applyHooks(loginOp.hooks, JsObject(credObjFields.toMap)).as(loginOp)
       }
       case _ => op.pure[M]
     }
