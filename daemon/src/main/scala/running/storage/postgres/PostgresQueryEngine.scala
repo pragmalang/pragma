@@ -145,12 +145,15 @@ class PostgresQueryEngine[M[_]: Monad](
         val prep = setJsValue(publicCredentialValue, publicCredentialField)
         for {
           resList <- HC.stream(sql, prep, 1).head.compile.toList
-          JsObject(fields) = resList.head
+          obj <- resList.headOption match {
+            case Some(o) => o.pure[Query]
+            case None    => queryError[JsObject](UserError(s"Invalid credentials"))
+          }
           jp = JwtPayload(
-            userId = fields(model.primaryField.id),
+            userId = obj.fields(model.primaryField.id),
             role = model.id
           )
-          hashed <- fields(scField.id) match {
+          hashed <- obj.fields(scField.id) match {
             case JsString(s) => s.pure[Query]
             case _ =>
               queryError[String] {
@@ -166,6 +169,8 @@ class PostgresQueryEngine[M[_]: Monad](
               queryError[JsString](UserError(s"Invalid credentials"))
           }
         } yield token
+      } recoverWith { _ =>
+        queryError[JsString](UserError(s"Invalid credentials"))
       }
       case None => {
         val sql =
