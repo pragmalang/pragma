@@ -24,7 +24,7 @@ import "./hooks.js" as hooks { runtime = "nodejs:14" }
 }
 
 allow CREATE User
-allow READ User.username
+allow READ_ON_CREATE User.username
 
 role User {
   allow [READ, UPDATE] self
