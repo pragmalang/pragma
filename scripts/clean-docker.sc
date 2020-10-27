@@ -12,7 +12,7 @@ def clean(
 
   for {
     (imageDesc, imageId) <- imgs
-    if imageDesc startsWith "<none>"
+    if imageDesc contains "<none>"
   } % docker ('image, 'rm, "--force", imageId)
 
   val containers = (%% docker ('ps, "-q", "-a")).out.lines
