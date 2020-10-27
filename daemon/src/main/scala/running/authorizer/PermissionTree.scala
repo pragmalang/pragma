@@ -226,8 +226,10 @@ final class PermissionTree(st: SyntaxTree) {
         else
           targetFieldTree(rmManyFromOp.arrayField.id.some)(Mutate)(false) ++
             targetFieldTree(rmManyFromOp.arrayField.id.some)(RemoveFrom)(false)
-      case _: LoginOperation => targetFieldTree(None)(Login)(false)
-      case _                 => Seq.empty
+      case _: LoginOperation =>
+        AccessRule(Allow, (op.targetModel, None), Set(Login), None, false, None) +:
+          targetFieldTree(None)(Login)(false)
+      case _ => Seq.empty
     }
   }
 
@@ -246,7 +248,15 @@ final class PermissionTree(st: SyntaxTree) {
       case _: CreateOperation | _: CreateManyOperation =>
         targetModelTree(None)(Read)(false) ++
           targetModelTree(targetFieldId)(ReadOnCreate)(false) ++
-          targetModelTree(None)(ReadOnCreate)(false)
+          targetModelTree(None)(ReadOnCreate)(false) :+
+          AccessRule(
+            Allow,
+            (outerOp.targetModel, None),
+            Set(ReadOnCreate),
+            None,
+            false,
+            None
+          )
       case _ if outerOp.targetsSelf =>
         targetModelTree(None)(Read)(false) ++
           targetModelTree(None)(Read)(true)
