@@ -115,7 +115,16 @@ class WskClient[M[_]: Sync](val config: WskConfig, val httpClient: Client[M]) {
       else
         bodyTxt.flatMap { body =>
           new Exception(
-            s"Request to OpenWhisk for invoking function `${function.scopeName}.${function.id}` failed with HTTP status code ${res.status.code}:\n$body"
+            body.parseJson match {
+              case JsObject(fields) =>
+                fields.get("error") match {
+                  case Some(JsString(value)) => value
+                  case _ =>
+                    s"Error invoking function `${function.scopeName}.${function.id}`"
+                }
+              case _ =>
+                s"Error invoking function `${function.scopeName}.${function.id}`"
+            }
           ).raiseError[M, String]
         }
     }
