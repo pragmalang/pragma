@@ -36,21 +36,21 @@ With `hooks.js` being a JavaScript file containing two definitions:
 
 ```js
 const validateUser = user => {
-  if(user.age < 18) {
+  if (user.age < 18) {
     throw new Error("Age must be over 18")
   }
   return user
 }
 
-const setFullName = user => 
-  ({...user, fullName: user.firstName + " " + user.lastName})
+const setFullName = user =>
+  ({ ...user, fullName: user.firstName + " " + user.lastName })
 
 module.exports = { validateUser, setFullName }
 ```
 
-These two functions are used to validate every user object and set its `fullName` field on every `CREATE`, `UPDATE`, and `MUTATE` operation. Pragma supports using functions written in JavaScript and Python for authorization and data validation/transformation.
+These two functions are used to validate every user object and set its `fullName` field on every `CREATE`, `UPDATE`, and `MUTATE` operation.
 
-Pragma has built-in support for *authorization*, meaning you can define [*access rules*](./features.permissions.md) to specify the actions each kind of user can perform, and *when*.
+Pragma has built-in support for *authorization*, meaning you can define [*access rules*](./features/permissions.md) to specify the actions each kind of user can perform, and *when*.
 
 This is all the code you need to set up a GraphQL API with user authentication and very flexible queries and mutations for creating, reading, updating, and deleting user data. For example:
 

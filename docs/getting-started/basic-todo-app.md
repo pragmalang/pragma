@@ -4,11 +4,9 @@ In this tutorial, we'll create a todo application with user authentication. A us
 
 To start, initialize a new Pragma project by running:
 ```sh
-pragma init
+pragma new project
 ```
-After answering Pragma's questions, there will be a directory with the name of your project containing a `Pragmafile`, where you'll be writing all your Pragma code, and a `docker-compose.yml` file. `cd` into the project's directory and run `docker-compose up -d` to start the Pragma daemon (which runs in the background and never bothers you.)
-
-After the project has been created and the daemon has been started, we can define our `User` [model](../features/user-models.md):
+After answering Pragma's questions, there will be a directory with the name of your project containing a `Pragmafile`, where you'll be writing all your Pragma code. Now we can define our `User` [model](../features/user-models.md) in the `Pragmafile`:
 
 ```pragma
 @user
@@ -53,10 +51,10 @@ role User {
 }
 ```
 
-This block contains one section for the `User` role, which contains three rules:
+The first line is a definition of an access rule that applies to *anonymous users*; it says anonymous users of your API can create new `User` records. After that comes a *role* definition. This block contains one section for the `User` role, which contains three rules:
 
-1. A user can push new todos and remove existing todos from their `todos` array field
-2. A user can `READ`, `UPDATE`, and `DELETE` their own data
+1. When a `User` is logged in, they can push new todos and remove existing todos from their `todos` array field
+2. When a `User` is logged in, they can `READ`, `UPDATE`, and `DELETE` their own data
 
 But still, we need to tell Pragma that a user can `UPDATE` a `Todo` only if it's in their list of `todos`. We're going to write a function that checks whether a todo is in the current `User`'s list of todos.
 
@@ -73,12 +71,6 @@ const selfOwnsTodo = ({ user, todo }) => {
 }
 ```
 
-## A Note on Authorization Predicates
-
-In the example above we're returning a JSON object of the shape `{ result: boolean }`, not a `boolean` value directly, this is because all imported functions are run as OpenWhisk serverless functions and OpenWhisk requires that all functions must return a JSON object for some reason. This will be solved in the future. **This is only a problem for functions that are used by authorization rules**.
-
-For more information about how authorization rules work with functions, see the [Permissions section](../features/permissions.md).
-
 Now that we've defined `selfOwnsTodo`, let's use it in the `User` role:
 
 ```
@@ -91,12 +83,18 @@ role User {
 }
 ```
 
-Alright, now that we've done all the hard work, we can start our server by running the following command in the root of our project:
+## A Note on Authorization Predicates
+
+In the example above we're returning a JSON object of the shape `{ result: boolean }`, not a `boolean` value directly, this is because all imported functions are run as OpenWhisk serverless functions and OpenWhisk requires that all functions must return a JSON object for some reason. This will be solved in the future. **This is only a problem for functions that are used by authorization rules**.
+
+For more information about how authorization rules work with functions, see the [Permissions section](../features/permissions.md).
+
+Alright, now that we've done all the "hard work," we can start our server by running the following command in the root of our project:
 ```sh
 pragma dev
 ```
 
-Congratulations! Now if you follow the URL printed out in your terminal, you'll find a GraphQL Playground where you can run queries such as:
+Congratulations! Now if you follow the URL printed out in your terminal, you'll find a GraphQL Playground where you can run queries/mutations such as:
 
 #### Creating a new `User`
 ```graphql
@@ -113,7 +111,7 @@ mutation {
 ```graphql
 mutation {
   User {
-    login(username: "john", password: "123456789")
+    loginByUsername(username: "john", password: "123456789")
   }
 }
 ```
@@ -123,7 +121,7 @@ and we'll get a JWT token from the server:
 {
   "data": {
     "User": {
-      "login": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImpvaG4iLCJyb2xlIjoiVXNlciJ9.bfqwEcsRZJfdhhY3K83C-wOKa3JmUbfSHF7BCKmNqiU"
+      "loginByUsername": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImpvaG4iLCJyb2xlIjoiVXNlciJ9.bfqwEcsRZJfdhhY3K83C-wOKa3JmUbfSHF7BCKmNqiU"
     }
   }
 }
@@ -141,7 +139,7 @@ mutation {
 }
 ```
 
-We need to add an authorization header containing the JWT token that was returned from the `login` mutation
+We need to add an authorization header containing the JWT token that was returned from the `loginByUsername` mutation
 ```json
 {
   "Authoriztion": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImpvaG4iLCJyb2xlIjoiVXNlciJ9.bfqwEcsRZJfdhhY3K83C-wOKa3JmUbfSHF7BCKmNqiU"
