@@ -57,7 +57,7 @@ Here we define a `role` block where we specify that the `Instructor` can do `ALL
 Let's say that we want to restrict `Instructor`s to accessing the course that belongs to them. We can do this by passing a predicate (a function that returns `true` or `false`) in which we compare the course that the `Instructor` is trying to access with the instructor's `course` field.
 
 ```pragma
-import "./auth-rules.js" as auth
+import "./auth-rules.js" as auth { runtime = "nodejs:14" }
 
 role Instructor {
   allow ALL Course auth.courseBelongsToInstructor
@@ -69,13 +69,13 @@ role Instructor {
 
 ```js
 export const courseBelongsToInstructor = 
-  ({ user: instructor, resource: course }) => 
-    course._id === instructor.course._id
+  ({ instructor, course }) =>  
+    ({ result: course.id === instructor.course.id })
 ```
 
-### Global Rules
+### Anonymous/Unauthenticated Users
 
-Now we want to allow any body outside our system to sign up as `Student`s. This means that we need to allow anybody to create a new `Student`:
+Now we want to allow anonymous (unauthenticated) users to sign up as a `Student`. This means that we need to allow anybody to create a new `Student`:
 
 ```pragma
 role Instructor {

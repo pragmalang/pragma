@@ -9,6 +9,7 @@
     - [Models](./features/models.md)
     - [User Models](./features/user-models.md)
     - [Directives](./features/directives.md)
+    - [Functions](./features/functions.md)
     - [Permissions](./features/permissions.md)
     - [Enums](./features/enum-types.md)
     - [Primitive Types](./features/primitive-types.md)
