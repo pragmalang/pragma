@@ -2,7 +2,7 @@
 
 ## What is Pragma?
 
-Pragma is a language for building [GraphQL](https://graphql.org//) APIs in no time, by defining data models and their associated validation, transformation, and authorization logic. 
+Pragma is a language for building [GraphQL](https://graphql.org/) APIs in no time, by defining data models and their associated validation, transformation, and authorization logic. 
 
 For example, you can create a `Pragmafile` with the following content:
 

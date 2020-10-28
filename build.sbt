@@ -20,9 +20,6 @@ lazy val commonScalacOptions = Seq(
 lazy val core = (project in file("core"))
   .settings(
     name := "core",
-    maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
-    packageSummary := "Core abstractions used by other Pragma modules",
-    packageDescription := "See https://docs.pragmalang.com for details.",
     scalacOptions := commonScalacOptions,
     scalacOptions in (Compile, console) := Seq.empty,
     libraryDependencies ++= testDependencies ++ Seq(
@@ -59,8 +56,7 @@ lazy val daemon = (project in file("daemon"))
     ),
     dockerRepository in Docker := Some("pragmalang"),
     dockerExposedPorts := Seq(3030),
-    dockerUpdateLatest := true,
-    composeNoBuild := true
+    dockerUpdateLatest := true
   )
   .dependsOn(core)
   .enablePlugins(
