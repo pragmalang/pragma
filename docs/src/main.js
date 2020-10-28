@@ -17,12 +17,6 @@ const whiteLogo = 'http://' + window.location.host + '/src/white-logo.svg'
 const purpleLogo = 'http://' + window.location.host + '/src/purple-logo.svg'
 
 function addLinkToMenuTitle() {
-  const menuBar = document.getElementById("menu-bar");
-  const a = document.createElement("a");
-  const title = menuBar.children.item(0).children.item(1).innerText
-  const newMenuTitle = menuBar.children.item(0).children.item(1).cloneNode()
-  newMenuTitle.innerText = title
-
   const isLightTheme = () => {
     const htmlTagClasses = document.getElementsByTagName("body").item("").classList
     return htmlTagClasses.contains("rust") || htmlTagClasses.contains("light")
@@ -60,11 +54,12 @@ function addLinkToMenuTitle() {
   logoImage.setAttribute("id", "logo")
   addClickListenersToThemeButtons()
 
+  const a = document.createElement("a");
   a.appendChild(logoImage);
   a.setAttribute("href", "https://pragmalang.com")
   a.className = "menu-title custom-a"
-  menuBar.children.item(0).children.item(1).insertAdjacentElement("afterend", a)
-  menuBar.children.item(0).children.item(1).remove()
+
+  document.getElementsByClassName('menu-title').item(0).replaceWith(a)
 }
 
 newTabExternalLinks();
