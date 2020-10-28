@@ -41,7 +41,7 @@ copy(
 val releasesStatus =
   proc("git", "status", "-s").call(cwd = releaseDir / "releases").out.lines
 
-if (releasesStatus.length > 1) {
+if (!releasesStatus.isEmpty) {
   println("Committing the following changes to `releases`:")
   println(releasesStatus.mkString("\n"))
 
