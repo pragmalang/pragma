@@ -24,7 +24,7 @@ Notice also the `@user` syntax. This is a [directive](../features/directives.md)
 Now we define the `Todo` model:
 
 ```pragma
-@1 model Todo {
+@2 model Todo {
   @1 id: String @uuid @primary
   @2 title: String
   @3 content: String
