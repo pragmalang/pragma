@@ -172,8 +172,7 @@ object utils {
       case Prod => "prod"
     }
     s"""
-       |Pragma GraphQL server is now running on port 3030
-       |
+       |Pragma GraphQL server successfully started!
        |Visit the GraphQL Playground at ${Console.GREEN}${Console.BOLD}${DaemonClient.daemonUri}/project/$projectName/$modeStr/graphql${Console.RESET}
        |""".stripMargin
   }

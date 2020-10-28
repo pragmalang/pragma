@@ -2,38 +2,55 @@
    (Requires you to login to Dockerhub and Github)
  */
 
-os.proc(
-    "sbt",
-    "clean;daemon/docker:publish; cli/graalvm-native-image:packageBin"
+import os._
+
+if (!exists(pwd / "build.sbt")) {
+  println(
+    "Please run me from the root of the Pragma project (i.e. `amm scripts/release.sc`)"
   )
-  .call(cwd = os.pwd)
+  sys.exit(1)
+}
 
-val releaseDir = os.pwd / "target" / "pragma-release"
+println("Publishing daemon Docker image and building CLI native image...")
+proc(
+  "sbt",
+  "clean;daemon/docker:publish; cli/graalvm-native-image:packageBin"
+).call(cwd = pwd)
 
-os.makeDir(releaseDir)
+println("Updating releases repo...")
 
-os.proc("git", "clone", "https://github.com/pragmalang/releases.git")
+val releaseDir = pwd / "target" / "pragma-release"
+
+makeDir(releaseDir)
+
+proc("git", "clone", "https://github.com/pragmalang/releases.git")
   .call(cwd = releaseDir)
 
-os.copy(
-  os.pwd / "cli" / "target" / "graalvm-native-image" / "pragma",
+copy(
+  pwd / "cli" / "target" / "graalvm-native-image" / "pragma",
   releaseDir / "releases" / "linux" / "pragma",
   replaceExisting = true
 )
 
-os.copy(
-  os.pwd / "cli" / "src" / "main" / "resources" / "docker-compose.yml",
+copy(
+  pwd / "cli" / "src" / "main" / "resources" / "docker-compose.yml",
   releaseDir / "releases" / "pragma-docker-compose.yml",
   replaceExisting = true
 )
 
 val releasesStatus =
-  os.proc("git", "status", "-s").call(cwd = releaseDir / "releases").out.lines
+  proc("git", "status", "-s").call(cwd = releaseDir / "releases").out.lines
 
 if (releasesStatus.length > 1) {
-  os.proc("git", "commit", "-m", ".", "-a").call(cwd = releaseDir / "releases")
-  os.proc("git", "push", "origin", "master").call(cwd = releaseDir / "releases")
+  println("Committing the following changes to `releases`:")
+  println(releasesStatus.mkString("\n"))
+
+  proc("git", "commit", "-m", ".", "-a").call(cwd = releaseDir / "releases")
+  proc("git", "push", "origin", "master").call(cwd = releaseDir / "releases")
 } else
   println("No changes on `releases`. Nothing was committed or pushed.")
 
-os.remove.all(releaseDir)
+println("Deleting cloned releases repo")
+remove.all(releaseDir)
+
+println("Done")
