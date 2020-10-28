@@ -1,7 +1,7 @@
 import ammonite.ops._
 import $ivy.{`com.lihaoyi::requests:0.2.0`, `com.lihaoyi::ujson:0.7.5`}
 
-val apiUrl = "http://localhost:3030/graphql"
+val apiUrl = "http://localhost:9584/graphql"
 
 val gqlHeaders = List(
   "Content-Length" -> "2661",
@@ -46,9 +46,9 @@ println(ujson.read(benchQueryRes.text).render(2))
 
 println("Starting Apache Bench...")
 
-val abCmd: Array[String] =
-  Array("ab", "-p", "ab-query.json", "-T", "application/json") ++
-    gqlHeaders.toArray.flatMap { case (h, v) => Array("-H", s"'$h:$v'") } ++
-    Array("-n", "50000", "-c", "1000", apiUrl)
+val abCmd =
+  List("ab", "-p", "ab-query.json", "-T", "application/json") ++
+    gqlHeaders.flatMap { case (h, v) => List("-H", s"'$h:$v'") } ++
+    List("-n", "50000", "-c", "1000", apiUrl)
 
 %(Shellable.SeqShellable(abCmd))(pwd)
