@@ -38,8 +38,8 @@ class Server(
 
   val routes =
     HttpRoutes.of[IO] {
-      case req @ POST -> Root => {
-        val res: Stream[IO, Response[IO]] = req.bodyText map { body =>
+      case req @ POST -> Root =>
+        req.bodyText.compile.string.map { body =>
           val jsonBody = body.parseJson.asJsObject
           if (jsonBody.fields("operationName") ==
                 JsString("IntrospectionQuery"))
@@ -84,8 +84,6 @@ class Server(
             )
           }
         }
-        res.compile.toVector.map(_.head)
-      }
       case GET -> Root =>
         Response[IO](
           Status(200),
