@@ -260,7 +260,6 @@ class RequestHandler[S, M[_]: Async: ConcurrentEffect](
         elements
           .traverse(applyReadHooks(op, _))
           .map(resArr => JsObject("data" -> JsArray(resArr)))
-      case s: JsString => JsObject("token" -> s).pure[M]
       case _ =>
         MonadError[M, Throwable].raiseError[JsObject] {
           InternalException(
