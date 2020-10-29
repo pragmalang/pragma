@@ -1,6 +1,6 @@
 ![Pragma](https://i.ibb.co/QJhzbzw/pragma-github-cover.png)
 [![Discord](https://img.shields.io/discord/719970258903105558?label=Discord&logo=discord&style=for-the-badge)](https://discord.gg/gbhDnfC)
-
+[Discord](https://img.shields.io/github/workflow/status/pragmalang/pragma/Scala%20CI/master?style=for-the-badge)
 This is the repository where the Pragma language lives.
 
 For user documentation, visit  http://docs.pragmalang.com.
