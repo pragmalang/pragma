@@ -1,6 +1,6 @@
 [![Discord](https://img.shields.io/discord/719970258903105558?label=Discord&logo=discord&style=for-the-badge)](https://discord.gg/gbhDnfC)
 
-![Pragma](https://repository-images.githubusercontent.com/205016943/1f6e4600-19f3-11eb-93a7-4f4443eb59eb)
+![Pragma](https://ibb.co/j8qB6BX)
 
 This is the repository where the Pragma language lives.
 
