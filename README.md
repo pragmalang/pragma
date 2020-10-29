@@ -117,3 +117,7 @@ dockerComposeUp;run "dev" "./src/test/benchmark/montajlink.pragma"
 
 ## Documentation
 The user documentation lives in `/docs`, and is built using [mdbook](https://github.com/rust-lang/mdBook). It's hosted on http://docs.pragmalang.com.
+
+# Licensing
+
+Pragma is licensed under the [GNU GPLv3 License](https://github.com/pragmalang/pragma/blob/master/LICENSE)
