@@ -1,6 +1,7 @@
-![Pragma](https://i.ibb.co/QJhzbzw/pragma-github-cover.png)
+[![Pragma](http://138.197.219.156/static/pragma-repo-cover.png)](https://pragmalang.com)
 [![Discord](https://img.shields.io/discord/719970258903105558?label=Discord&logo=discord&style=for-the-badge)](https://discord.gg/gbhDnfC)
 ![Build](https://img.shields.io/github/workflow/status/pragmalang/pragma/Scala%20CI/master?style=for-the-badge)
+![License](https://img.shields.io/badge/license-GPLv3-blue?style=for-the-badge)
 
 This is the repository where the Pragma language lives.
 
@@ -98,8 +99,8 @@ sbt "daemon/docker:publishLocal"
 ## GraalVM Native Image Generation
 The native image build is performed using [SBT Native Packager](https://www.scala-sbt.org/sbt-native-packager/formats/graalvm-native-image.html) in Docker, so make sure it's installed.
 Currently, only the CLI can compile to a native image. Run:
-```
-cli/graalvm-native-image:packageBin"
+```sh
+sbt "cli/graalvm-native-image:packageBin"
 ```
 
 To generate META-INF (for trying to generate a native image from the daemon):
@@ -117,10 +118,7 @@ Run the ammonite script in `test/benchmark`:
 ```
 amm PragmaBench.sc
 ```
-Make sure to have the server and the database running before running the benchmark:
-```
-dockerComposeUp;run "dev" "./src/test/benchmark/montajlink.pragma"
-```
+Make sure the daemon is running before running the benchmark (run `docker-compose up` in the root of the project).
 
 > NOTE: Apache Bench must be installed:
 >```
@@ -129,3 +127,7 @@ dockerComposeUp;run "dev" "./src/test/benchmark/montajlink.pragma"
 
 ## Documentation
 The user documentation lives in `/docs`, and is built using [mdbook](https://github.com/rust-lang/mdBook). It's hosted on http://docs.pragmalang.com.
+
+# License
+
+Pragma is licensed under the [GNU GPLv3 License](https://github.com/pragmalang/pragma/blob/master/LICENSE).

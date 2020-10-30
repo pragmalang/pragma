@@ -32,7 +32,7 @@ role User {
 }
 ```
 
-With `hooks.js` being a JavaScript file containing two definitions:
+Pragma supports using importing [serverless functions](./features/functions.md) for extending the APIs functionality. In this case, `hooks.js` is a JavaScript file containing:
 
 ```js
 const validateUser = user => {
