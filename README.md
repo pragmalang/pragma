@@ -1,4 +1,4 @@
-[![Pragma](https://i.ibb.co/QJhzbzw/pragma-github-cover.png)](https://pragmalang.com)
+[![Pragma](http://138.197.219.156/static/pragma-repo-cover.png)](https://pragmalang.com)
 [![Discord](https://img.shields.io/discord/719970258903105558?label=Discord&logo=discord&style=for-the-badge)](https://discord.gg/gbhDnfC)
 ![Build](https://img.shields.io/github/workflow/status/pragmalang/pragma/Scala%20CI/master?style=for-the-badge)
 ![License](https://img.shields.io/badge/license-GPLv3-blue?style=for-the-badge)
