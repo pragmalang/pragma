@@ -21,6 +21,8 @@ These references to functions can be passed to directives, such as `@onRead`, or
 
 You can find full examples of Pragma projects using functions [here](https://github.com/pragmalang/examples).
 
+Pragma supports importing JavaScript and Python functions, with support for many languages (including Go, Swift, Rust, Ruby, PHP, Java, and .NET) coming soon.
+
 ## JavaScript Functions
 You can import a single JavaScript file containing the function definitions that you want to reference by the import's name. Alternatively, you can import an NPM package, which is a directory containing:
 
