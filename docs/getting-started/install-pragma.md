@@ -22,7 +22,7 @@ sudo curl https://pragmalang.github.io/releases/linux/install.sh | sh
 This script will download the Pragma binary, change it to become executable, and place it in `/usr/local/bin`. It also places a `pragma-docker-compose.yml` file in `/usr/local/bin`, and runs it.
 
 ### Windows
-To install Pragma on Windows, [download the installer (`pragma.msi`)](https://pragmalang.github.io/releases/windows/pragma.msi), and follow the installation wizard. Thiswill install the Pragma CLI.
+To install Pragma on Windows, [download the installer (`pragma.msi`)](https://pragmalang.github.io/releases/windows/pragma.msi), and follow the installation wizard. This will install the Pragma CLI.
 
 > *Note*: If Microsoft Defender tells you it prevented an unrecognized app from starting, click on "__More info__", then click on **"Run anyway"**.
 
