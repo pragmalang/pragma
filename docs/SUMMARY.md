@@ -13,3 +13,4 @@
     - [Permissions](./features/permissions.md)
     - [Enums](./features/enum-types.md)
     - [Primitive Types](./features/primitive-types.md)
+- [FAQ](./faq.md)

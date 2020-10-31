@@ -29,3 +29,5 @@ You can import a single JavaScript file containing the function definitions that
 * A valid `package.json` file that **must** contain a `main` entry (typically `index.js`)
 * The file specified in the `main` entry of the `project.json` file, exporting any functions you would like to reference in your `Pragmafile`
 * Any NPM dependencies you're using, all inside the `node_modules` directory (you need to run `npm install`. Pragma doesn't automatically install dependencies in `package.json`)
+
+JavaScript functions exported by the node module, or defined in a single `.js` file can be regular functions, or they can be `async` functions. They may also return a `Promise`.
