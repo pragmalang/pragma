@@ -1,13 +1,12 @@
 package cli
 
-import pragma.domain._
+import pragma.domain._, pragma.domain.utils._
 import pragma.daemonProtocol._
 import cats.implicits._
 import scala.util._, scala.io.StdIn.readLine
 import cli.utils._
 import os.Path
 import requests.RequestFailedException
-import pragma.domain.utils.UserError
 
 object Main {
 
@@ -108,7 +107,7 @@ object Main {
   }
 
   def pullDockerRuntimeImages(runtimes: Set[RuntimeTag]): Try[Unit] = Try {
-    import cli.utils.RuntimeTag._
+    import RuntimeTag._
     runtimes.toList.traverse { runtime =>
       val imageName = runtime match {
         case NodeJS10 => "openwhisk/action-nodejs-v10:nightly"

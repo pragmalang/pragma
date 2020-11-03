@@ -1,6 +1,6 @@
 package cli
 
-import pragma.domain._, pragma.domain.utils.{UserError, ErrorMessage}
+import pragma.domain._, pragma.domain.utils._
 import org.parboiled2.{Position, ParseError}
 import java.io.ByteArrayOutputStream
 import java.util.zip.{ZipOutputStream, ZipEntry}
@@ -176,29 +176,6 @@ object utils {
        |Visit the GraphQL Playground at ${Console.GREEN}${Console.BOLD}${DaemonClient.daemonUri}/project/$projectName/$modeStr/graphql${Console.RESET}
        |""".stripMargin
   }
-
-  sealed trait RuntimeTag
-  object RuntimeTag {
-    case object NodeJS10 extends RuntimeTag
-    case object NodeJS14 extends RuntimeTag
-    case object Python3 extends RuntimeTag
-    // TODO: Add these
-    case object Go
-    case object Ruby
-    case object DotNet
-    case object Java
-    case object PHP
-    case object Swift
-  }
-
-  import RuntimeTag._
-
-  lazy val supportedFunctionRuntimes: Map[String, RuntimeTag] =
-    Map(
-      "nodejs:10" -> NodeJS10,
-      "nodejs:14" -> NodeJS14,
-      "python:3" -> Python3
-    )
 
   def usedFuntionRuntimes(
       imports: List[PImport]
