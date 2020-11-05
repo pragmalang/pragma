@@ -26,7 +26,8 @@ class Validator(constructs: List[PConstruct]) {
       checkCreateAccessRules,
       checkModelIndexUniqueness,
       checkFieldIndexUniqueness,
-      checkConfigRequiredProperties
+      checkConfigRequiredProperties,
+      checkImportRuntimes
     )
     val errors = results.flatMap {
       case Failure(err: UserError) => err.errors
@@ -375,6 +376,40 @@ class Validator(constructs: List[PConstruct]) {
         else Failure(UserError(errors))
       }
     }
+  }
+
+  def checkImportRuntimes: Try[Unit] = {
+    val errors = st.imports.flatMap {
+      case PImport(id, _, None, pos) =>
+        (
+          s"Import `$id` must have a configuration block containing a `runtime` entry",
+          pos
+        ) :: Nil
+      case PImport(id, _, Some(config), pos) =>
+        config.entryMap.get("runtime") match {
+          case Some(ConfigEntry(_, PStringValue(runtime), _))
+              if supportedFunctionRuntimes.contains(runtime) =>
+            Nil
+          case Some(ConfigEntry(_, PStringValue(runtime), entryPos)) =>
+            (
+              s"Invalid `runtime` value `$runtime` in configuration block of import `$id`",
+              entryPos
+            ) :: Nil
+          case Some(ConfigEntry(_, _, entryPos)) =>
+            (
+              s"`runtime` configuration entry of import `$id` must be a `String`",
+              entryPos
+            ) :: Nil
+          case None =>
+            (
+              s"Import `$id`'s configuration block must contain a `runtime` entry",
+              pos
+            ) :: Nil
+        }
+    }
+
+    if (errors.isEmpty) Success(())
+    else Failure(UserError(errors))
   }
 
 }
