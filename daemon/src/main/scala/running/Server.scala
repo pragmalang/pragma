@@ -68,7 +68,14 @@ class Server(
               },
               user = req.headers
                 .get(CaseInsensitiveString("Authorization"))
-                .flatMap(h => jwtCodec.decode(h.value).toOption)
+                .flatMap { h =>
+                  if (h.value.startsWith("Bearer ")) {
+                    val token = h.value.drop(7)
+                    jwtCodec.decode(token).toOption
+                  } else {
+                    jwtCodec.decode(h.value).toOption
+                  }
+                }
             )
             val resJson = reqHandler
               .handle(preq)
