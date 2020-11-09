@@ -6,7 +6,9 @@ A user model is a regular model, with the only difference being that it represen
 
 User models have *credential* fields that are used for authentication. A field marked as [`@publicCredential`](./directives.md#publiccredential) can be an email, or a username. Public credentials can be used to identify a user publicly among other users. A field marked with [`@secretCredential`](./directives.md#secretcredential) on the other hand, should not be shared with other users, and it is used only in the authentication process, along with a public credential.
 
-## Access control
+> Note: Pragma encrypts secret credentials using the *application secret* before storing them in the database.
+
+## Access Control
 
 You can define *roles* for user models to specify what each kind of user is allowed to perform. See [Permissions](./permissions.md) for more details.
 

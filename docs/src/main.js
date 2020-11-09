@@ -13,55 +13,53 @@ function highlightPragmaCode() {
   // ...
 }
 
-function addLinkToMenuTitle() {
-  const menuBar = document.getElementById("menu-bar-sticky-container");
-  const a = document.createElement("a");
-  const title = menuBar.children.item(1).innerText
-  const newMenuTitle = menuBar.children.item(1).cloneNode()
-  newMenuTitle.innerText = title
+const whiteLogo = 'http://' + window.location.host + '/src/white-logo.svg'
+const purpleLogo = 'http://' + window.location.host + '/src/purple-logo.svg'
 
+function addLinkToMenuTitle() {
   const isLightTheme = () => {
     const htmlTagClasses = document.getElementsByTagName("body").item("").classList
     return htmlTagClasses.contains("rust") || htmlTagClasses.contains("light")
   }
 
   const lightThemeListener = () => {
-    document.getElementById("logo").setAttribute("src", "/purple-logo.svg")
+    document.getElementById("logo").setAttribute("src", purpleLogo)
   }
 
   const darkThemeListener = () => {
-    document.getElementById("logo").setAttribute("src", "/white-logo.svg")
+    document.getElementById("logo").setAttribute("src", whiteLogo)
   }
 
   const addClickListenersToThemeButtons = () => {
     const lightThemes = ["light", "rust"];
     const darkThemes = ["coal", "navy", "ayu"]
-    for(let lightTheme of lightThemes) {
+    for (let lightTheme of lightThemes) {
       document.getElementById(lightTheme).onclick = lightThemeListener
     }
 
-    for(let darkTheme of darkThemes) {
+    for (let darkTheme of darkThemes) {
       document.getElementById(darkTheme).onclick = darkThemeListener
     }
   }
 
   const logoImage = document.createElement("img")
 
-  if(isLightTheme()) {
-    logoImage.setAttribute("src", "/purple-logo.svg")
+  if (isLightTheme()) {
+    logoImage.setAttribute("src", purpleLogo)
   } else {
-    logoImage.setAttribute("src", "/white-logo.svg")
+    logoImage.setAttribute("src", whiteLogo)
   }
 
   logoImage.setAttribute("class", "logo-img")
   logoImage.setAttribute("id", "logo")
   addClickListenersToThemeButtons()
 
+  const a = document.createElement("a");
   a.appendChild(logoImage);
   a.setAttribute("href", "https://pragmalang.com")
   a.className = "menu-title custom-a"
-  menuBar.children.item(1).insertAdjacentElement("afterend",a)
-  menuBar.children.item(1).remove()
+
+  document.getElementsByClassName('menu-title').item(0).replaceWith(a)
 }
 
 newTabExternalLinks();

@@ -54,7 +54,7 @@ Marks a field as a secret credential for its user model.
 > *Note*: Can only be used on user model fields.
 
 ### @unique
-Marks a field as *unique*, which means that no two instances of the model will have the same value for the field.
+Marks a field as being unique for each record.
 
 ### @autoIncrement
 Adds auto-increment functionality.
@@ -63,16 +63,3 @@ Adds auto-increment functionality.
 ### @primary
 Marks a field as a primary key.
 > *Note*: Can only be used on non-optional fields with type [`String` or `Int`](./primitive-types.md).
-
-### @connect
-Create a many-to-many relationship between two models.
-**Arguments:**
- - `name`: `String`, the name of the relationship.
-
-### @updatedAt
-Stores the latest update date of a model instance on a `Date` field.
-> *Note*: Can only be used on `Date` fields.
-
-### @createdAt
-Stores the creation date of a model instance on a `Date` field.
-> *Note*: Can only be used on `Date` fields.

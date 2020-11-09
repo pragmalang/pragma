@@ -1,0 +1,32 @@
+{
+    "operationName": "CreateBusiness",
+    "variables": {
+        "business": {
+            "username": "fathistore",
+            "password": "123",
+            "name": {
+                "ar": "Ma7al Fat7i",
+                "en": "Fathi Stores"
+            },
+            "products": [
+                {
+                    "name": {
+                        "ar": "elproducto"
+                    },
+                    "prices": [
+                        {
+                            "currency": {
+                                "name": {
+                                    "ar": "Dinar"
+                                },
+                                "code": "JOD"
+                            },
+                            "value": 20
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "query": "mutation CreateBusiness($business: BusinessInput!) {\n  Business {\n    create(business: $business) {\n      username\n      name {\n        ar\n        en\n      }\n    }\n  }\n}\n"
+}

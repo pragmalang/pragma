@@ -1,15 +1,21 @@
 # Introduction
 
-Pragma is a language for building [GraphQL](https://spec.graphql.org/June2018/) APIs by defining data models and their associated validation, transformation, and authorization logic. For example, you can create a `Pragmafile` with the following content:
+## What is Pragma?
+
+Pragma is a language for building [GraphQL](https://graphql.org/) APIs in no time, by defining data models and their associated validation, transformation, and authorization logic. 
+
+For example, you can create a `Pragmafile` with the following content:
 
 ```pragma
-import "./hooks.js" as hooks
+config { projectName = "my_first_app" }
+
+import "./hooks.js" as hooks { runtime = "nodejs:14" }
 
 @user
 @onWrite(function: hooks.validateUser)
 @onWrite(function: hooks.setFullName)
 @1 model User {
-  @1 username: String @publicCredential @priamry
+  @1 username: String @publicCredential @primary
   @2 password: String @secretCredential
   @3 firstName: String
   @4 lastName: String
@@ -18,27 +24,35 @@ import "./hooks.js" as hooks
 }
 
 allow CREATE User
+allow READ_ON_CREATE User.username
+
+role User {
+  allow [READ, UPDATE] self
+  allow READ User
+}
 ```
 
-With `hooks.js` being a JavaScript file containing two definitions:
+Pragma supports using importing [serverless functions](./features/functions.md) for extending the APIs functionality. In this case, `hooks.js` is a JavaScript file containing:
 
 ```js
 const validateUser = user => {
-  if(user.age < 18) {
+  if (user.age < 18) {
     throw new Error("Age must be over 18")
   }
   return user
 }
 
-const setFullName = user => 
-  ({...user, fullName: user.firstName + " " + user.lastName})
+const setFullName = user =>
+  ({ ...user, fullName: user.firstName + " " + user.lastName })
+
+module.exports = { validateUser, setFullName }
 ```
 
-These two functions are used to validate every user object and set its `fullName` field on every `CREATE`, `UPDATE`, or `MUTATE` operation.
+These two functions are used to validate every user object and set its `fullName` field on every `CREATE`, `UPDATE`, and `MUTATE` operation.
 
-Notice the `allow CREATE User` line at the end of the `Pragmafile`. This is a security rule that specifies *anyone* can create a new `User` record. See [Permissions](./features/permissions.md) for more details on access permissions.
+Pragma has built-in support for *authorization*, meaning you can define [*access rules*](./features/permissions.md) to specify the actions each kind of user can perform, and *when*.
 
-Now if you run `pragma dev`, a local server will start, and the GraphQL playground will open in a browser widow. This is all the code you need to set up a GraphQL API with user authentication and very flexible queries, mutations, and subscriptions for creating, reading, updating, and deleting user data. For example:
+This is all the code you need to set up a GraphQL API with user authentication and very flexible queries and mutations for creating, reading, updating, and deleting user data. For example:
 
 ```graphql
 mutation createUser {
@@ -51,7 +65,6 @@ mutation createUser {
       age: 21
     }) {
       username
-      fullName
     }
   }
 }
@@ -59,26 +72,30 @@ mutation createUser {
 
 This returns the `username` and `fullName` of the newly created user. See [The Generated API](./api/index.md) section for more details.
 
-For a step-by-step tutorial on Pragma, see the [Getting Started](./getting-started/index.md) chapter.
+For a step-by-step tutorial on Pragma, see the [Getting Started section](./getting-started/index.md).
 
 ## Why Pragma?
 
+### It Saves Your Time
+
+Pragma doesn't make you worry about networking, writing resolvers, or (when using the Pragma Cloud) deployment. It offers what we believe is the best server-side application development experience.
+
 ### It's Declarative
 
-Definitions are concise, readable, and maintainable. [A simple todo app](./getting-started/basic-todo-app.md) with user authentication and permissions can be expressed in under 30 lines of code.
+Definitions are concise, readable, high-level, and maintainable. It keeps configuration and boilerplate you need to write and keep in mind at a minimum (no code generation, all the complexity is abstracted). You focus on your business logic and nothing else.
+
+[A simple todo app](./getting-started/index.md#basic-todo-app) with user authentication and permissions can be expressed in under 30 lines of code.
 
 ### It Integrates with Many Languages
 
-You can define the functions used for data processing in many languages, including JavaScript, Python, Ruby, R, LLVM languages (Rust, Go, C, C++, etc), and seamlessly compose them using [directives](./features/directives.md).
+You can define the functions used for data processing in many languages, including  JavaScript (NodeJS), Go, Java, Scala, PHP, Python, Ruby, Swift, Ballerina, .NET and Rust, and seamlessly compose them using [directives](./features/directives.md). This is due to Pragma being built on top of [Apache Openwhisk](https://openwhisk.apache.org/).
 
 ### It Runs Locally
 
-You can easily install Pragma on you laptop and start development within seconds. Whenever the application is ready for deployment, you can deploy it to your own servers, or any cloud platform that supports Pragma.
+You can easily install Pragma on you laptop and start development within seconds. The only two requirements for running Pragma are Docker and Docker Compose. See the [Getting Started](./getting-started/index.md) chapter.
+
+One your application is ready for deployment, you can deploy it to your own servers, or any cloud platform that supports Pragma.
 
 ### No Vendor Lock-In
 
-Pragma applications are extremely easy to move from any cloud provider to another.
-
-### Databse-agnostic
-
-You can use any kind of database technology that you like with Pragma (Postgres is natively supported). If your favorite database technology is not natively supported by the language, it's very easy to write an adapter and share it with the community.
+Pragma applications are extremely easy to move from any cloud provider to another, as long as they have a Kubernetes offering.

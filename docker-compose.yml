@@ -1,18 +1,1 @@
-version: '3.1'
-
-services:
-  test-db:
-    image: postgres
-    restart: always
-    environment:
-      POSTGRES_USER: test
-      POSTGRES_PASSWORD: test
-      POSTGRES_DB: test
-    ports:
-      - "5433:5432"
-    command: [
-      "postgres", 
-      "-c", "log_statement=all",
-      "-c", "max_connections=300",
-      "-c", "shared_buffers=80MB"
-    ]
+cli/src/main/resources/docker-compose.yml

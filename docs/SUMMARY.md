@@ -1,14 +1,16 @@
 # Summary
 
-[Introduction](./introduction.md)
+- [Introduction](./introduction.md)
 - [Getting Started](./getting-started/index.md)
+    - [Install Pragma](./getting-started/install-pragma.md)
     - [Basic Todo App](./getting-started/basic-todo-app.md)
     - [Data Validation and Transformation](./getting-started/data-validation-and-transformation.md)
 - [Language Features](./features/index.md)
     - [Models](./features/models.md)
     - [User Models](./features/user-models.md)
     - [Directives](./features/directives.md)
+    - [Functions](./features/functions.md)
     - [Permissions](./features/permissions.md)
     - [Enums](./features/enum-types.md)
     - [Primitive Types](./features/primitive-types.md)
-- [The Generated GraphQL API](./api/index.md)
+- [FAQ](./faq.md)

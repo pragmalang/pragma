@@ -1,3 +1,5 @@
+.vscode/
+.bsp/
 .metals/
 .ammonite/
 .bloop/

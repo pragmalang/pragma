@@ -1,3 +1,9 @@
 # Getting Started
 
-> Pragma is currently under active development and will be released in April 2020. You can sign up for [beta access here](https://pragmalang.com/beta).
+After reading and following through this section (in 10 minutes,) you'll have a practical understanding of Pragma. You would be able to create fairly complex back-end applications with minimal effort.
+
+- [Install Pragma](./install-pragma.md)
+- [Basic Todo App](./basic-todo-app.md)
+- [Data Validation and Transformation](./data-validation-and-transformation.md)
+
+> *Note*: You can find the full code for the examples at https://github.com/pragmalang/examples/tree/master/basic_todo_app

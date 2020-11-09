@@ -1,34 +1,43 @@
 # Permissions
 
-Most applications need [authorization](https://en.wikipedia.org/wiki/Authorization) logic to control which users can access which data (resources).
+Most applications need [authorization](https://en.wikipedia.org/wiki/Authorization) logic to control which *users* can access which data (*resources*) with which *operations*.
 
-One way of setting up autorization for an app is using [Access Control Lists](https://en.wikipedia.org/wiki/Access-control_list) (ACLs), which are powerful since they allow us to define rules for data access in a very declaritive manner. ACLs are used in Unix-like systems for [filesystem permissions](https://en.wikipedia.org/wiki/File_system_permissions#Permissions).
+- Who: The user
+- What: The resource
+- How: The operation performed on the resource
+
+One way of setting up autorization for an app is using [Access Control Lists](https://en.wikipedia.org/wiki/Access-control_list) (ACLs), which are powerful since they allow us to define rules for data access in a very declaritive manner. ACLs are used in Unix-like systems for [filesystem permissions](https://en.wikipedia.org/wiki/File_system_permissions#Permissions), and they're powerful and reliable.
 
 ## Example Online Course App
 
-Let's say we're designing an online course management app. Each instructor teaches one course, and they control which students enrol in it. Instructors, students, and courses can be modeled as follows:
+Let's say we're designing an online course management app. Each instructor teaches one course, and they control which students can enrol in that course. Instructors, students, and courses can be modeled as follows:
 
 ```pragma
-@user @1
-model Instructor {
-  @1 name: String @publicCredential
-  @2 password: String @secretCredential
-  @3 course: Course
+@user
+@1 model Instructor {
+  @1 id: String @uuid @primary
+  @2 name: String @publicCredential
+  @3 password: String @secretCredential
+  @4 course: Course
 }
 
-@user @2 
-model Student {
-  @1 name: String @publicCredential
-  @2 password: String @secretCredential
+@user
+@2 model Student {
+  @1 id: String @uuid @primary
+  @2 name: String @publicCredential
+  @3 password: String @secretCredential
 }
 
 @3 model Course {
-  @1 name: String
-  @2 participants: [Student]
+  @1 id: String @uuid @primary
+  @2 name: String
+  @3 participants: [Student]
 }
 ```
 
-Here we define two user models: `Instructor` and `Student`, and one non-user model: `Course`. Now that the data models have been defined, we can start specifying the permissions we're giving to each kind of user.
+Here we define two user models: `Instructor` and `Student`, and one non-user model: `Course`.
+
+Now that the data models have been defined, we can start specifying the permissions we're giving to each kind of user.
 
 ### Defining Access Rules
 
@@ -48,7 +57,7 @@ Here we define a `role` block where we specify that the `Instructor` can do `ALL
 Let's say that we want to restrict `Instructor`s to accessing the course that belongs to them. We can do this by passing a predicate (a function that returns `true` or `false`) in which we compare the course that the `Instructor` is trying to access with the instructor's `course` field.
 
 ```pragma
-import "./auth-rules.js" as auth
+import "./auth-rules.js" as auth { runtime = "nodejs:14" }
 
 role Instructor {
   allow ALL Course auth.courseBelongsToInstructor
@@ -60,13 +69,13 @@ role Instructor {
 
 ```js
 export const courseBelongsToInstructor = 
-  ({ user: instructor, resource: course }) => 
-    course._id === instructor.course._id
+  ({ instructor, course }) =>  
+    ({ result: course.id === instructor.course.id })
 ```
 
-### Global Rules
+### Anonymous/Unauthenticated Users
 
-Now we want to allow any body outside our system to sign up as `Student`s. This means that we need to allow anybody to create a new `Student`:
+Now we want to allow anonymous (unauthenticated) users to sign up as a `Student`. This means that we need to allow anybody to create a new `Student`:
 
 ```pragma
 role Instructor {

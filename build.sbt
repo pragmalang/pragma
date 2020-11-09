@@ -1,24 +1,11 @@
 ThisBuild / scalaVersion := "2.13.2"
-ThisBuild / version := "0.1.0-SNAPSHOT"
+ThisBuild / version := "0.0.1"
 ThisBuild / organization := "com.pragmalang"
 ThisBuild / organizationName := "pragma"
 
-lazy val root = (project in file("."))
-  .settings(
-    name := "pragma",
-    maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
-    packageSummary := "A language for building GraphQL APIs",
-    packageDescription := "See https://docs.pragmalang.com for details.",
-    libraryDependencies ++= Seq(
-      "org.scalatest" %% "scalatest" % "3.0.8" % Test,
-      "com.lihaoyi" %% "pprint" % "0.5.6" % Test,
-      "org.tpolecat" %% "doobie-scalatest" % "0.9.0"
-    ),
-    mainClass in assembly := Some("com.pragmalang.Main"),
-    test in assembly := {}
-  )
+import Dependencies._
 
-scalacOptions ++= Seq(
+lazy val commonScalacOptions = Seq(
   "-feature",
   "-deprecation",
   "-Wunused:imports,patvars,privates,locals,explicits,implicits,params",
@@ -30,61 +17,82 @@ scalacOptions ++= Seq(
   "-Wself-implicit"
 )
 
-// To suppress warnings in `sbt console`
-scalacOptions in (Compile, console) := Seq.empty
+lazy val core = (project in file("core"))
+  .settings(
+    name := "core",
+    scalacOptions := commonScalacOptions,
+    scalacOptions in (Compile, console) := Seq.empty,
+    libraryDependencies ++= testDependencies ++ Seq(
+      cats,
+      spray,
+      parboiled,
+      kebsSprayJson
+    )
+  )
 
-libraryDependencies ++= Seq(
-  "org.parboiled" %% "parboiled" % "2.2.0",
-  "org.sangria-graphql" %% "sangria" % "2.0.0",
-  "io.spray" %% "spray-json" % "1.3.5",
-  "com.pauldijou" %% "jwt-core" % "4.3.0",
-  "org.http4s" %% "http4s-dsl" % "0.21.6",
-  "org.http4s" %% "http4s-blaze-server" % "0.21.6",
-  "ch.qos.logback" % "logback-classic" % "1.2.3",
-  "org.typelevel" %% "cats-effect" % "2.1.3",
-  "org.tpolecat" %% "doobie-core" % "0.9.0",
-  "org.tpolecat" %% "doobie-hikari" % "0.9.0",
-  "org.tpolecat" %% "doobie-postgres" % "0.9.0",
-  "com.lihaoyi" %% "os-lib" % "0.7.1",
-  "com.github.scopt" %% "scopt" % "3.7.1",
-  "org.sangria-graphql" %% "sangria-spray-json" % "1.0.2",
-  "com.github.t3hnar" %% "scala-bcrypt" % "4.3.0"
-)
+lazy val daemon = (project in file("daemon"))
+  .settings(
+    name := "pragmad",
+    maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
+    packageSummary := "The daemon for Pragmalang",
+    packageDescription := "See https://docs.pragmalang.com for details.",
+    scalacOptions := commonScalacOptions,
+    scalacOptions in (Compile, console) := Seq.empty,
+    parallelExecution in Test := false,
+    libraryDependencies ++= testDependencies ++ Seq(
+      cats,
+      catsEffect,
+      doobieCore,
+      doobieHikari,
+      doobiePostgres,
+      bcrypt,
+      jwtCore,
+      sangria,
+      sangriaSpray,
+      http4sDsl,
+      http4sBlazeServer,
+      http4sBlazeClient,
+      logbackClassic
+    ),
+    dockerRepository in Docker := Some("pragmalang"),
+    dockerExposedPorts := Seq(3030),
+    dockerUpdateLatest := true
+  )
+  .dependsOn(core)
+  .enablePlugins(
+    DockerComposePlugin,
+    JavaAppPackaging,
+    DockerPlugin
+  )
 
-enablePlugins(DockerComposePlugin, GraalVMNativeImagePlugin)
-
-/*
-  GraalVM Native Image Generation:
-  Requires `native-image` utility from Graal
-  Run `gu install native-image` to install it (`gu` comes with Graal)
-  Run `sbt graalvm-native-image:packageBin` to generate native binary
-  See: https://www.scala-sbt.org/sbt-native-packager/index.html
-  To generate META-INF:
-  java -agentlib:native-image-agent=config-merge-dir="./src/main/resources/META-INF/native-image/",config-write-initial-delay-secs=0 -jar "./target/scala-2.13/<pragma-jar>" dev <pragmafile>
-  See https://www.graalvm.org/reference-manual/native-image/Configuration/#assisted-configuration-of-native-image-builds
-      https://noelwelsh.com/posts/2020-02-06-serverless-scala-services.html
-
-  Also: Make sure everthing else other than this process is canceled. It needs all the memory it can get.
- */
-
-/*
-  To run tests within a Docker container (for Postgres):
-  `sbt dockerComposeTest`
-  See https://github.com/Tapad/sbt-docker-compose
-  NOTE: If the docker containers cannot be started
-  it's most likely because the port 5433 is already in use.
-  Run `docker ps` and then run `docker kill <postgres-containe-id>`
-  to kill the postgres container to fix it.
- */
-composeNoBuild := true
-
-/*
-  Apache Bench benchmark:
-  Run the ammonite script in `test/benchmark`:
-  `amm PragmaBench.sc`
-  Make sure to have the server and the database running 
-  before running the benchmark:
-  `dockerComposeUp;run "dev" "./src/test/benchmark/montajlink.pragma"`
-  NOTE: Apache Bench must be installed:
-  `sudo apt install apache2-utils`
-*/
+lazy val cli = (project in file("cli"))
+  .settings(
+    name := "pragma",
+    maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
+    packageSummary := "The CLI for Pragmalang",
+    packageDescription := "See https://docs.pragmalang.com for details.",
+    scalacOptions := commonScalacOptions,
+    scalacOptions in (Compile, console) := Seq.empty,
+    libraryDependencies ++= testDependencies ++ Seq(
+      scopt,
+      osLib,
+      requests
+    ),
+    graalVMNativeImageGraalVersion := Some("20.1.0-java11"),
+    graalVMNativeImageOptions := Seq(
+      "--static",
+      "--no-fallback",
+      "--allow-incomplete-classpath",
+      "--initialize-at-build-time=scala.runtime.Statics$VM",
+      "-H:+ReportExceptionStackTraces",
+      "-H:+AddAllCharsets",
+      "-H:IncludeResources=.*docker-compose.yml",
+      "--enable-http",
+      "--enable-https",
+      "--enable-all-security-services"
+    ),
+    wixProductId := "0e5e2980-bf07-4bf0-b446-2cfb4bf4704a",
+    wixProductUpgradeId := "5603913d-7bde-46eb-ac47-44ed2cb4fd08"
+  )
+  .dependsOn(core)
+  .enablePlugins(GraalVMNativeImagePlugin, UniversalPlugin, WindowsPlugin)

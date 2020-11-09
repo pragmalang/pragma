@@ -1,27 +1,34 @@
 # Basic Todo App
 
-In this tutorial, we'll create a todo application with user authentication. A user can have many todos, and they can only access their own todos, and anyone can create a user account.
+In this tutorial, we'll create a todo application with user authentication. A user can have many todos, and they can only access their *own* todos, and anyone can create a user account.
 
-We can start by defining our `User` [model](../features/user-models.md):
+To start, initialize a new Pragma project by running:
+```sh
+pragma new project
+```
+After answering Pragma's questions, there will be a directory with the name of your project containing a `Pragmafile`, where you'll be writing all your Pragma code. Now we can define our `User` [model](../features/user-models.md) in the `Pragmafile`:
 
 ```pragma
 @user
-model User {
-  username: String @publicCredential @primary
-  password: String @secretCredential
-  todos: [Todo] = []
+@1 model User {
+  @1 username: String @publicCredential @primary
+  @2 password: String @secretCredential
+  @3 todos: [Todo]
 }
 ```
 
-Notice the `@user` syntax. This is a [directive](../features/directives.md) that tells Pragma that this is a [user model](../features/user-models.md).
+Notice the `@1`, `@2`, on the `User` model and it's fields, these are called **indecies** and they are important for Pragma to be able to perform database migrations automatocally.
+
+Notice also the `@user` syntax. This is a [directive](../features/directives.md) that tells Pragma that this is a [user model](../features/user-models.md), so Pragma would set up auth workflows for this model.
 
 Now we define the `Todo` model:
 
 ```pragma
-model Todo {
-  title: String
-  content: String
-  status: TodoStatus = "TODO"
+@2 model Todo {
+  @1 id: String @uuid @primary
+  @2 title: String
+  @3 content: String
+  @4 status: TodoStatus = "TODO"
 }
 
 enum TodoStatus {
@@ -31,7 +38,7 @@ enum TodoStatus {
 }
 ```
 
-Notice the `TodoStatus` enum. [Enums](../features/enum-types.md) are definitions of all the possible string values that a field can hold.
+[`enum`s](../features/enum-types.md) are definitions of all the possible string values that a field can hold.
 
 Ok, now we need to define permissions. Our requirements dictate that a `User` can only edit, read, write, and delete their own `Todo`s, and that anyone can create a user account.
 
@@ -41,18 +48,55 @@ allow CREATE User
 role User {
   allow MUTATE self.todos
   allow [READ, UPDATE, DELETE] self
-  allow UPDATE Todo in self.todos
 }
 ```
 
-This block contains one section for the `User` role, which contains three rules:
+The first line is a definition of an access rule that applies to *anonymous users*; it says anonymous users of your API can create new `User` records. After that comes a *role* definition. This block contains one section for the `User` role, which contains three rules:
 
-1. A user can push new todos and remove existing todos from their `todos` array field
-2. A user can `READ`, `UPDATE`, and `DELETE` their own data
-3. A user can `UPDATE` a todo if it's in their list of todos
+1. When a `User` is logged in, they can push new todos and remove existing todos from their `todos` array field
+2. When a `User` is logged in, they can `READ`, `UPDATE`, and `DELETE` their own data
 
-Congratulations! Now you have a GraphQL API, and you can run queries against it like:
-1. Creating a new `User`
+But still, we need to tell Pragma that a user can `UPDATE` a `Todo` only if it's in their list of `todos`. We're going to write a function that checks whether a todo is in the current `User`'s list of todos.
+
+We'll create a file called `functions.js` in the same directory as the `Pragmafile` containing:
+
+```js
+// functions.js
+const selfOwnsTodo = ({ user, todo }) => {
+  const userTodoIds = user.todos.map(todo => todo.id)
+  if (userTodoIds.contains(todo.id)) {
+    return { result: true }
+  }
+  return { result: false }
+}
+```
+
+Now that we've defined `selfOwnsTodo`, let's use it in the `User` role:
+
+```
+import "./functions.js" as fns { runtime = "nodejs:14" }
+
+role User {
+  allow MUTATE self.todos
+  allow [READ, UPDATE, DELETE] self
+  allow UPDATE Todo if fns.selfOwnsTodo
+}
+```
+
+## A Note on Authorization Predicates
+
+In the example above we're returning a JSON object of the shape `{ result: boolean }`, not a `boolean` value directly, this is because all imported functions are run as OpenWhisk serverless functions and OpenWhisk requires that all functions must return a JSON object for some reason. This will be solved in the future. **This is only a problem for functions that are used by authorization rules**.
+
+For more information about how authorization rules work with functions, see the [Permissions section](../features/permissions.md).
+
+Alright, now that we've done all the "hard work," we can start our server by running the following command in the root of our project:
+```sh
+pragma dev
+```
+
+Congratulations! Now if you follow the URL printed out in your terminal, you'll find a GraphQL Playground where you can run queries/mutations such as:
+
+#### Creating a new `User`
 ```graphql
 mutation {
   User {
@@ -62,18 +106,47 @@ mutation {
   }
 }
 ```
-2. Adding new todos to the user we created
+
+### Login as `john`
 ```graphql
 mutation {
   User {
-    pushToTodos(item: { title: "Finish homework", content: "" }) {
+    loginByUsername(username: "john", password: "123456789")
+  }
+}
+```
+
+and we'll get a JWT token from the server:
+```json
+{
+  "data": {
+    "User": {
+      "loginByUsername": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImpvaG4iLCJyb2xlIjoiVXNlciJ9.bfqwEcsRZJfdhhY3K83C-wOKa3JmUbfSHF7BCKmNqiU"
+    }
+  }
+}
+```
+
+### Adding new todos to `john`
+```graphql
+mutation {
+  User {
+    pushToTodos(username: "john", item: { title: "Finish homework", content: "" }) {
       title
       content
     }
   }
 }
 ```
-3. List the list of todos
+
+We need to add an authorization header containing the JWT token that was returned from the `loginByUsername` mutation
+```json
+{
+  "Authoriztion": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImpvaG4iLCJyb2xlIjoiVXNlciJ9.bfqwEcsRZJfdhhY3K83C-wOKa3JmUbfSHF7BCKmNqiU"
+}
+```
+
+#### List `john`'s todos
 ```
 {
   User {
@@ -84,5 +157,12 @@ mutation {
       }
     }
   }
+}
+```
+
+We need to put the JWT token in the `Authorization` header here too 
+```json
+{
+  "Authoriztion": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImpvaG4iLCJyb2xlIjoiVXNlciJ9.bfqwEcsRZJfdhhY3K83C-wOKa3JmUbfSHF7BCKmNqiU"
 }
 ```

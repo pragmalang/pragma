@@ -1,6 +1,0 @@
-{
-  "files.watcherExclude": {
-    "**/target": true
-  },
-  "dimmer.enabled": false
-}
