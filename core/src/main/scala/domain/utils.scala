@@ -50,6 +50,20 @@ package utils {
       UserError(authErrors.map(_.message -> None))
   }
 
+  sealed trait RuntimeTag
+  object RuntimeTag {
+    case object NodeJS10 extends RuntimeTag
+    case object NodeJS14 extends RuntimeTag
+    case object Python3 extends RuntimeTag
+    // TODO: Add these
+    case object Go
+    case object Ruby
+    case object DotNet
+    case object Java
+    case object PHP
+    case object Swift
+  }
+
 }
 package object utils {
 
@@ -65,6 +79,15 @@ package object utils {
   type InternalExceptionOr[A] = Either[InternalException, A]
 
   type ErrorMessage = (String, Option[PositionRange])
+
+  import RuntimeTag._
+
+  val supportedFunctionRuntimes: Map[String, RuntimeTag] =
+    Map(
+      "nodejs:10" -> NodeJS10,
+      "nodejs:14" -> NodeJS14,
+      "python:3" -> Python3
+    )
 
   def userErrorFrom[T](value: Try[T], exception: UserError): Try[T] =
     value match {
@@ -160,7 +183,7 @@ package object utils {
     case PStringValue(value) => s""""$value""""
     case PDateValue(value)   => value.toString
     case PBoolValue(value)   => value.toString
-    case _: PFunctionValue => "<Function>"
+    case _: PFunctionValue   => "<Function>"
     case PInterfaceValue(value, _) =>
       s"{\n${value.map(v => s" ${v._1}: ${v._2}").mkString(",\n")}\n}"
     case PArrayValue(values, _) =>
