@@ -27,9 +27,9 @@ jobs:
       - name: Build JAR
         run: |
           sbt 'clean;daemon/docker:publish; cli/graalvm-native-image:packageBin' &&  \
-          sudo mkdir linux-release && \
-          sudo cp ./cli/target/graalvm-native-image/pragma ./linux-release && \
-          sudo cp ./cli/src/main/resources/docker-compose.yml ./linux-release && \ 
+          mkdir linux-release && \
+          cp ./cli/target/graalvm-native-image/pragma ./linux-release && \
+          cp ./cli/src/main/resources/docker-compose.yml ./linux-release && \ 
           sudo tar czvf ./pragma-linux.tar.gz ./linux-release
       - name: Create Release
         id: create_release
