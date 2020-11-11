@@ -1,9 +1,9 @@
 name: Scala CI
 
 on:
-  tags:
-    - 'v*.*.*'
-
+  push:
+    tags:
+      - 'v*.*.*'
 
 jobs:
   build-linux:
