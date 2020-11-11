@@ -23,7 +23,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Build JAR
-        run: ls -la && ls -la ./cli && sbt 'clean;daemon/docker:publish; cli/graalvm-native-image:packageBin' && ls -la ./cli/target && sudo tar czvf pragma-linux.tar.gz ./cli/target/graalvm-native-image/pragma
+        run: sbt 'clean;daemon/docker:publish; cli/graalvm-native-image:packageBin' && cd ./cli/target/graalvm-native-image && sudo tar czvf ../../../pragma-linux.tar.gz ./pragma
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -31,7 +31,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          release_name: Automatic release
           draft: false
           prerelease: false
       - name: Upload Release Asset
