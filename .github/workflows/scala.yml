@@ -8,11 +8,14 @@ on:
 
 jobs:
   build-linux:
-    name: Upload Release Asset
+    name: Build and release for Linux
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
+      - name: Set release version as output
+        id: vars
+        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
       - name: Setup GraalVM environment
         uses: DeLaGuardo/setup-graalvm@2.0
         with:
@@ -30,8 +33,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Automatic release
+          tag_name: ${{ steps.vars.outputs.tag }}
+          release_name: ${{ steps.vars.outputs.tag }}
           draft: false
           prerelease: false
       - name: Upload Release Asset
