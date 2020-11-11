@@ -4,6 +4,7 @@ on:
   tags:
     - 'v*.*.*'
 
+
 jobs:
   build-linux:
     name: Build and release for Linux
