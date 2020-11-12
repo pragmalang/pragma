@@ -8,17 +8,21 @@ on:
 
 jobs:
   test:
-    name: Run CLI and Core tests
+    name: Run tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Setup GraalVM environment
-        uses: DeLaGuardo/setup-graalvm@2.0
+      - name: Setup SBT and GraalVM
+        uses: olafurpg/setup-scala@v10
         with:
-          graalvm-version: "20.0.0.java11"
+          java-version: graalvm@
+      - name: docker-compose up
+        run: docker-compose -f ./daemon/src/main/resources/docker-compose.yml up -d
       - name: Run tests
-        run: sbt 'clean; cli/test; core/test'
+        run: sbt 'clean; cli/test; core/test; daemon/test'
+      - name: docker-compose down
+        run: docker-compose -f ./daemon/src/main/resources/docker-compose.yml down
 
   publish-daemon-on-dockerhub:
     name: Publish pragmad on Docker Hub
@@ -32,10 +36,10 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Setup GraalVM environment
-        uses: DeLaGuardo/setup-graalvm@2.0
+      - name: Setup SBT and GraalVM
+        uses: olafurpg/setup-scala@v10
         with:
-          graalvm-version: "20.0.0.java11"
+          java-version: graalvm@
       - name: Publish to Docker Hub
         run: sbt 'clean; daemon/docker:publish'
 
@@ -89,10 +93,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Setup GraalVM environment
-        uses: DeLaGuardo/setup-graalvm@2.0
+      - name: Setup SBT and GraalVM
+        uses: olafurpg/setup-scala@v10
         with:
-          graalvm-version: "20.0.0.java11"
+          java-version: graalvm@
       - name: Build Binary
         run: sbt 'clean; cli/graalvm-native-image:packageBin' && cd ./cli/target/graalvm-native-image && sudo tar czvf ../../../pragma-linux.tar.gz ./pragma
       - name: Upload Release Asset
