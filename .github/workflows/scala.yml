@@ -6,22 +6,22 @@ on:
       - "v*.*.*"
 
 jobs:
-  # test:
-  #   name: Run CLI and Core tests
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v2
-  #     - name: Setup GraalVM environment
-  #       uses: DeLaGuardo/setup-graalvm@2.0
-  #       with:
-  #         graalvm-version: "20.0.0.java11"
-  #     - name: Run tests
-  #       run: sbt 'clean; cli/test; core/test'
+  test:
+    name: Run CLI and Core tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup GraalVM environment
+        uses: DeLaGuardo/setup-graalvm@2.0
+        with:
+          graalvm-version: "20.0.0.java11"
+      - name: Run tests
+        run: sbt 'clean; cli/test; core/test'
 
   publish-daemon-on-dockerhub:
     name: Publish pragmad on Docker Hub
-    # needs: test
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -40,7 +40,7 @@ jobs:
 
   create-release:
     name: Create a release
-    # needs: test
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Set release version as output
@@ -63,7 +63,7 @@ jobs:
     name: Build and release for Linux
     needs:
       - create-release
-      # - test
+      - test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -89,7 +89,7 @@ jobs:
     name: Build and release for macOS
     needs:
       - create-release
-      # - test
+      - test
     runs-on: macos-latest
     steps:
       - name: Checkout code
