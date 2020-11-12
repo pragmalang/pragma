@@ -16,7 +16,7 @@ jobs:
       - name: Setup SBT and GraalVM
         uses: olafurpg/setup-scala@v10
         with:
-          java-version: graalvm@
+          java-version: graalvm-ce-java11@20.1.0
       - name: docker-compose up
         run: docker-compose -f ./daemon/src/main/resources/docker-compose.yml up -d
       - name: Run tests
@@ -39,7 +39,7 @@ jobs:
       - name: Setup SBT and GraalVM
         uses: olafurpg/setup-scala@v10
         with:
-          java-version: graalvm@
+          java-version: graalvm-ce-java11@20.1.0
       - name: Publish to Docker Hub
         run: sbt 'clean; daemon/docker:publish'
 
@@ -96,7 +96,7 @@ jobs:
       - name: Setup SBT and GraalVM
         uses: olafurpg/setup-scala@v10
         with:
-          java-version: graalvm@
+          java-version: graalvm-ce-java11@20.1.0
       - name: Install GraalVM Native Image
         run: gu install native-image
       - name: Build Binary
@@ -150,7 +150,7 @@ jobs:
       - name: Setup SBT and GraalVM
         uses: olafurpg/setup-scala@v10
         with:
-          java-version: graalvm@
+          java-version: graalvm-ce-java11@20.1.0
       - name: Install GraalVM Native Image
         run: gu install native-image
       - name: Build Binary
