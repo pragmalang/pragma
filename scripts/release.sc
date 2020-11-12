@@ -11,46 +11,35 @@ if (!exists(pwd / "build.sbt")) {
   sys.exit(1)
 }
 
-println("Publishing daemon Docker image and building CLI native image...")
-proc(
+println("Getting Pragma's version from SBT ...")
+
+val version = "v" + proc(
   "sbt",
-  "clean;daemon/docker:publish; cli/graalvm-native-image:packageBin"
+  "version"
 ).call(cwd = pwd)
+  .out
+  .lines()
+  .mkString("\n")
+  .reverse
+  .stripTrailing
+  .stripLeading
+  .stripLineEnd
+  .take(10)
+  .reverse
+  .stripLineEnd
+  .take(5)
 
-println("Updating releases repo...")
+val versionRegex = "[v]{1}\\d{1,2}\\.\\d{1,2}\\.\\d{1,3}"
 
-val releaseDir = pwd / "target" / "pragma-release"
-
-makeDir(releaseDir)
-
-proc("git", "clone", "https://github.com/pragmalang/releases.git")
-  .call(cwd = releaseDir)
-
-copy(
-  pwd / "cli" / "target" / "graalvm-native-image" / "pragma",
-  releaseDir / "releases" / "linux" / "pragma",
-  replaceExisting = true
-)
-
-copy(
-  pwd / "cli" / "src" / "main" / "resources" / "docker-compose.yml",
-  releaseDir / "releases" / "pragma-docker-compose.yml",
-  replaceExisting = true
-)
-
-val releasesStatus =
-  proc("git", "status", "-s").call(cwd = releaseDir / "releases").out.lines
-
-if (!releasesStatus.isEmpty) {
-  println("Committing the following changes to `releases`:")
-  println(releasesStatus.mkString("\n"))
-
-  proc("git", "commit", "-m", ".", "-a").call(cwd = releaseDir / "releases")
-  proc("git", "push", "origin", "master").call(cwd = releaseDir / "releases")
-} else
-  println("No changes on `releases`. Nothing was committed or pushed.")
-
-println("Deleting cloned releases repo")
-remove.all(releaseDir)
-
-println("Done")
+if(version.matches(versionRegex)) {
+  println(s"Creating tag $version locally")
+  proc("git", "tag", "-a", version, "-m", "\"Automated release\"").call(pwd)
+  println(s"Pushing tag $version to origin (origin/$version)")
+  println(s"git push origin $version")
+  proc("git", "push", "origin", version).call(pwd)
+  println(s"git push origin master")
+  proc("git", "push", "origin", "master").call(pwd)
+} else {
+  println(s"Invalid version `${version.tail}`, probably a bug with release.sc, please investigate it.")
+  sys.exit(1)
+}
