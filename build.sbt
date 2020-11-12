@@ -78,7 +78,6 @@ lazy val cli = (project in file("cli"))
       osLib,
       requests
     ),
-    graalVMNativeImageGraalVersion := Some("20.1.0-java11"),
     graalVMNativeImageOptions := Seq(
       "--static",
       "--no-fallback",
