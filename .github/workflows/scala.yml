@@ -97,6 +97,8 @@ jobs:
         uses: olafurpg/setup-scala@v10
         with:
           java-version: graalvm@
+      - name: Install GraalVM Native Image
+        run: gu install native-image
       - name: Build Binary
         run: sbt 'clean; cli/graalvm-native-image:packageBin'
       - name: Upload Release Asset
@@ -149,6 +151,8 @@ jobs:
         uses: olafurpg/setup-scala@v10
         with:
           java-version: graalvm@
+      - name: Install GraalVM Native Image
+        run: gu install native-image
       - name: Build Binary
         run: sbt 'clean; cli/graalvm-native-image:packageBin'
       - name: Upload Release Asset
