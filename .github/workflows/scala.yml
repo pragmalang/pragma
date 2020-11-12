@@ -62,6 +62,26 @@ jobs:
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
 
+  upload-docker-compose-asset:
+    name: Upload docker-compose.yml release asset
+    needs:
+      - test
+      - create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./cli/src/main/resources/docker-compose.yml
+          asset_name: docker-compose.yml
+          asset_content_type: text/yaml
+
   build-linux:
     name: Build and release for Linux
     needs:
