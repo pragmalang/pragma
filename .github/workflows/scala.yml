@@ -12,16 +12,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Login to DockerHub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Setup GraalVM environment
         uses: DeLaGuardo/setup-graalvm@2.0
         with:
           graalvm-version: "20.0.0.java11"
-      - name: Publish to Docker Hub
+      - name: Run tests
         run: sbt 'clean; cli/test; core/test'
 
   publish-daemon-on-dockerhub:
