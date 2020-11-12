@@ -1,5 +1,5 @@
 ThisBuild / scalaVersion := "2.13.2"
-ThisBuild / version := "0.0.1"
+ThisBuild / version := "0.1.0"
 ThisBuild / organization := "com.pragmalang"
 ThisBuild / organizationName := "pragma"
 

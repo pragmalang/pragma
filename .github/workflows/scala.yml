@@ -111,6 +111,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./cli/target/universal/dmg/pragma
+          asset_path: ./cli/target/universal/pragma-0.1.0.dmg
           asset_name: pragma.dmg
           asset_content_type: application/octet-stream
