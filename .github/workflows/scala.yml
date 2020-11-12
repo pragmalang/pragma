@@ -137,7 +137,7 @@ jobs:
           asset_content_type: application/octet-stream
 
   build-universal:
-    name: Build and release for macOS
+    name: Build and release universal build
     needs:
       - create-release
       - test
