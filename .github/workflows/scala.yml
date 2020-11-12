@@ -98,6 +98,10 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
+      - name: Install SBT
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: openjdk@1.14
       - name: Build Dmg
         run: sbt 'clean; cli/universal:packageOsxDmg'
       - name: Upload Release Asset
