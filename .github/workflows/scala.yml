@@ -99,7 +99,7 @@ jobs:
         with:
           java-version: 1.8
       - name: Build Dmg
-        run: sbt 'clean; cli/universal:packageOsxDmg' && cd ./cli/target/universal/dmg && ls -la && sudo tar czvf ../../../pragma-macos.tar.gz ./pragma.dmg
+        run: sbt 'clean; cli/universal:packageOsxDmg' && cd ./cli/target/universal/dmg && sudo tar czvf ../../../pragma-macos.tar.gz ./pragma.dmg
       - name: Upload Release Asset
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
@@ -107,6 +107,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./pragma-linux.tar.gz
-          asset_name: pragma-linux.tar.gz
+          asset_path: ./pragma-macos.tar.gz
+          asset_name: pragma-macos.tar.gz
           asset_content_type: application/gzip
