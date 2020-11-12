@@ -128,6 +128,7 @@ jobs:
       - name: Build Binary
         run: sbt 'clean; cli/graalvm-native-image:packageBin'
       - name: Upload Release Asset
+        if: always()
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
         env:
