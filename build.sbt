@@ -95,4 +95,4 @@ lazy val cli = (project in file("cli"))
     wixProductUpgradeId := "5603913d-7bde-46eb-ac47-44ed2cb4fd08"
   )
   .dependsOn(core)
-  .enablePlugins(GraalVMNativeImagePlugin, UniversalPlugin, WindowsPlugin)
+  .enablePlugins(GraalVMNativeImagePlugin, UniversalPlugin, WindowsPlugin, JavaAppPackaging)
