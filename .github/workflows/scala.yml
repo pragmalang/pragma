@@ -6,26 +6,51 @@ on:
       - "v*.*.*"
 
 jobs:
-  build-linux:
-    name: Build and release for Linux
+  test:
+    name: Run CLI and Core tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Set release version as output
-        id: vars
-        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
-      - name: Setup GraalVM environment
-        uses: DeLaGuardo/setup-graalvm@2.0
-        with:
-          graalvm-version: "20.0.0.java11"
       - name: Login to DockerHub
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build JAR
-        run: sbt 'clean;daemon/docker:publish; cli/graalvm-native-image:packageBin' && cd ./cli/target/graalvm-native-image && sudo tar czvf ../../../pragma-linux.tar.gz ./pragma
+      - name: Setup GraalVM environment
+        uses: DeLaGuardo/setup-graalvm@2.0
+        with:
+          graalvm-version: "20.0.0.java11"
+      - name: Publish to Docker Hub
+        run: sbt 'clean; cli/test; core/test'
+
+  publish-daemon-on-dockerhub:
+    name: Publish pragmad on Docker Hub
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Setup GraalVM environment
+        uses: DeLaGuardo/setup-graalvm@2.0
+        with:
+          graalvm-version: "20.0.0.java11"
+      - name: Publish to Docker Hub
+        run: sbt 'clean; daemon/docker:publish'
+
+  create-release:
+    name: Create a release
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set release version as output
+        id: vars
+        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -36,54 +61,57 @@ jobs:
           release_name: ${{ steps.vars.outputs.tag }}
           draft: false
           prerelease: false
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+
+  build-linux:
+    name: Build and release for Linux
+    needs:
+      - create-release
+      - test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup GraalVM environment
+        uses: DeLaGuardo/setup-graalvm@2.0
+        with:
+          graalvm-version: "20.0.0.java11"
+      - name: Build Binary
+        run: sbt 'clean; cli/graalvm-native-image:packageBin' && cd ./cli/target/graalvm-native-image && sudo tar czvf ../../../pragma-linux.tar.gz ./pragma
       - name: Upload Release Asset
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          upload_url: ${{ jobs.create-release.outputs.upload_url }}
           asset_path: ./pragma-linux.tar.gz
           asset_name: pragma-linux.tar.gz
           asset_content_type: application/gzip
 
   build-macos:
     name: Build and release for macOS
+    needs:
+      - create-release
+      - test
     runs-on: macos-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: Set release version as output
-        id: vars
-        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
       - name: Set up JDK 1.8
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
-      - name: Login to DockerHub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build JAR
-        run: sbt 'clean;daemon/docker:publish; cli/universal:packageOsxDmg' && cd ./cli/target/universal/dmg && ls -la && sudo tar czvf ../../../pragma-macos.tar.gz ./pragma.dmg
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.vars.outputs.tag }}
-          release_name: ${{ steps.vars.outputs.tag }}
-          draft: false
-          prerelease: false
+      - name: Build Dmg
+        run: sbt 'clean; cli/universal:packageOsxDmg' && cd ./cli/target/universal/dmg && ls -la && sudo tar czvf ../../../pragma-macos.tar.gz ./pragma.dmg
       - name: Upload Release Asset
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          upload_url: ${{ jobs.create-release.outputs.upload_url }}
           asset_path: ./pragma-linux.tar.gz
           asset_name: pragma-linux.tar.gz
           asset_content_type: application/gzip
