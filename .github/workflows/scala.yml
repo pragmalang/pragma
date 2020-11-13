@@ -177,6 +177,8 @@ jobs:
         uses: olafurpg/setup-scala@v10
         with:
           java-version: openjdk@1.14
+      - name: echo $env:GITHUB_WORKSPACE
+        run: echo $env:GITHUB_WORKSPACE
       - name: Install WIX
         run: |
           cd $HOME;
@@ -187,7 +189,7 @@ jobs:
           $env:Path += ";$HOME\wix"; 
         shell: pwsh
       - name: Build MSI
-        run: cd ${{ env.GITHUB_WORKSPACE }}; sbt 'clean; cli/windows:packageBin'
+        run: cd $env:GITHUB_WORKSPACE; sbt 'clean; cli/windows:packageBin'
         shell: pwsh
       - name: Upload Release Asset
         id: upload-release-asset
@@ -196,6 +198,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ${{ env.GITHUB_WORKSPACE }}/cli/target/windows/pragma.msi
+          asset_path: $env:GITHUB_WORKSPACE\cli\target\windows\pragma.msi
           asset_name: pragma.msi
           asset_content_type: application/octet-stream
