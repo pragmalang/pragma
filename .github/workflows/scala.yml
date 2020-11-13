@@ -186,11 +186,12 @@ jobs:
           cd .\wix;
           Invoke-WebRequest -Uri https://github.com/wixtoolset/wix3/releases/download/wix3112rtm/wix311-binaries.zip -OutFile .\wix.zip;
           tar -xf .\wix.zip;
-          $env:Path += ";$HOME\wix"; 
+          $env:Path += ";$HOME\wix";
+          cd $env:GITHUB_WORKSPACE;
         shell: pwsh
       - name: Build MSI
-        run: cd $env:GITHUB_WORKSPACE; sbt 'clean; cli/windows:packageBin'
-        shell: pwsh
+        run: sbt 'clean; cli/windows:packageBin'
+        shell: bash
       - name: Upload Release Asset
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
