@@ -95,3 +95,7 @@ lazy val cli = (project in file("cli"))
   )
   .dependsOn(core)
   .enablePlugins(GraalVMNativeImagePlugin, UniversalPlugin, WindowsPlugin, JavaAppPackaging)
+
+sources in (Compile, doc) := Seq.empty
+
+publishArtifact in (Compile, packageDoc) := false
