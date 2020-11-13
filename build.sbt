@@ -22,6 +22,8 @@ lazy val core = (project in file("core"))
     name := "core",
     scalacOptions := commonScalacOptions,
     scalacOptions in (Compile, console) := Seq.empty,
+    sources in (Compile, doc) := Seq.empty,
+    publishArtifact in (Compile, packageDoc) := false
     libraryDependencies ++= testDependencies ++ Seq(
       cats,
       spray,
