@@ -189,6 +189,8 @@ jobs:
       - name: Build MSI
         run: sbt 'clean; cli/windows:packageBin'
         shell: pwsh
+      - name: cd $GITHUB_WORKSPACE
+      - run: cd $GITHUB_WORKSPACE
       - name: ls ./cli/target/windows
         run: ./cli/target/windows
         shell: bash
