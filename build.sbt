@@ -91,11 +91,9 @@ lazy val cli = (project in file("cli"))
       "--enable-all-security-services"
     ),
     wixProductId := "0e5e2980-bf07-4bf0-b446-2cfb4bf4704a",
-    wixProductUpgradeId := "5603913d-7bde-46eb-ac47-44ed2cb4fd08"
+    wixProductUpgradeId := "5603913d-7bde-46eb-ac47-44ed2cb4fd08",
+    sources in (Compile, doc) := Seq.empty,
+    publishArtifact in (Compile, packageDoc) := false
   )
   .dependsOn(core)
   .enablePlugins(GraalVMNativeImagePlugin, UniversalPlugin, WindowsPlugin, JavaAppPackaging)
-
-sources in (Compile, doc) := Seq.empty
-
-publishArtifact in (Compile, packageDoc) := false
