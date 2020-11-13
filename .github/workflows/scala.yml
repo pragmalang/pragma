@@ -165,7 +165,7 @@ jobs:
           asset_content_type: application/zip
 
   build-windows:
-    name: Build and release universal build
+    name: Build and release for Windows
     needs:
       - create-release
       - test
@@ -180,7 +180,7 @@ jobs:
       - name: Install WIX
         run: |
           cd $HOME;
-          makedir wix;
+          mkdir wix;
           cd .\wix;
           Invoke-WebRequest -Uri https://github.com/wixtoolset/wix3/releases/download/wix3112rtm/wix311-binaries.zip -OutFile .\wix.zip;
           tar -xf .\wix.zip;
