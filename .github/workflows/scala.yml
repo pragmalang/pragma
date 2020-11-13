@@ -189,7 +189,6 @@ jobs:
         shell: pwsh
       - name: Build MSI
         run: sbt 'clean; cli/windows:packageBin'
-        shell: bash
       - name: tree $env:GITHUB_WORKSPACE\cli
         run: tree $env:GITHUB_WORKSPACE\cli
       - name: Upload Release Asset
