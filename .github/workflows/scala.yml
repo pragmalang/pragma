@@ -163,3 +163,38 @@ jobs:
           asset_path: ./cli/target/universal/pragma-0.1.0.zip
           asset_name: pragma-universal.zip
           asset_content_type: application/zip
+
+  build-windows:
+    name: Build and release universal build
+    needs:
+      - create-release
+      - test
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup SBT
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: openjdk@1.14
+      - name: Install WIX
+        run: |
+          cd $HOME;
+          makedir wix;
+          cd .\wix;
+          Invoke-WebRequest -Uri https://github.com/wixtoolset/wix3/releases/download/wix3112rtm/wix311-binaries.zip -OutFile .\wix.zip;
+          tar -xf .\wix.zip;
+          $env:Path += ";$HOME\wix"; 
+        shell: pwsh
+      - name: Build MSI
+        run: sbt 'clean; cli/windows:packageBin'
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: .\cli\target\windows\pragma.msi
+          asset_name: pragma.msi
+          asset_content_type: application/octet-stream
