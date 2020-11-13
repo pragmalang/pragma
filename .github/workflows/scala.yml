@@ -188,6 +188,7 @@ jobs:
         shell: pwsh
       - name: Build MSI
         run: sbt 'clean; cli/windows:packageBin'
+        shell: pwsh
       - name: Upload Release Asset
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
