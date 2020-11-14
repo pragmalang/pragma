@@ -6,33 +6,53 @@
 
 This is the repository where the Pragma language lives.
 
-For user documentation, visit  http://docs.pragmalang.com.
+For user documentation, visit [http://docs.pragmalang.com](http://docs.pragmalang.com).
 
 # Install Pragma
 
 > Pragma is currently under heavy development, and should not be used in a production setting. All Pragma APIs are subject to breaking change.
 
-## Requirements
-Pragma requires [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) on the `PATH`. To make sure you have them and that they work, run:
+### Linux
+
+**Requirements**
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
+
+To make sure you have them and that they work, run:
 ```sh
 docker run hello-world
-
+```
+```sh
 docker-compose --help
 ```
-If either command fails, make sure it works before proceeding with the installation of Pragma.
 
-## Installation
+If any of the above commands fail, make sure it works before proceeding with the installation of Pragma.
 
-### Linux
-To install Pragma on Linux, run:
+**Installation**
+
+Now to install Pragma, run:
 ```sh
 sudo curl https://pragmalang.github.io/releases/linux/install.sh | sh
 ```
 
 This script will download the Pragma binary, change it to become executable, and place it in `/usr/local/bin`. It also places a `pragma-docker-compose.yml` file in `/usr/local/bin`, and runs it.
 
+**Run Pragma**
+
+Once Pragma is downloaded and installed, you can see if it works by running the following command:
+```
+pragma help
+```
+
 ### Windows
-To install Pragma on Windows, [download the installer (`pragma.msi`)](https://pragmalang.github.io/releases/windows/pragma.msi), and follow the installation wizard. Thiswill install the Pragma CLI.
+
+**Requirements:**
+
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
+- [Java](https://java.com/en/download/help/linux_install.html)
+
+**Installation**
+
+To install Pragma on Windows, [download the installer (`pragma.msi`)](https://pragmalang.github.io/releases/windows/pragma.msi), and follow the installation wizard. This will install the Pragma CLI.
 
 > *Note*: If Microsoft Defender tells you it prevented an unrecognized app from starting, click on "__More info__", then click on **"Run anyway"**.
 
@@ -40,9 +60,16 @@ After the CLI is installed, create a `docker-compose.yml` file with the contents
 
 > *Note*: The name of the docker-compose file *must* be `docker-compose.yml`, and you must run `docker-compose up -d` in the folder where you created the `docker-compose.yml` file.
 
----
+**Run Pragma**
 
-Once Pragma is downloaded and installed, you can see if it works by running `pragma help`.
+Once Pragma is downloaded and installed, you can see if it works by running the followwing command from PowerShell:
+```
+pragma help
+```
+
+# Community Support
+
+If you have any questions or feedback you can join our [Discrod server](https://discord.gg/gbhDnfC) or post to [r/pragmalang](https://www.reddit.com/r/pragmalang/).
 
 # Contributing
 
@@ -69,7 +96,7 @@ cd daemon/src/main/resources/ && docker-compose up
 ```
 > Make sure to run this before running `sbt 'daemon/test'`.
 
-Running the daemon using `sbt 'daemon/run'` requires the following environment variables:
+Running the daemon using `sbt 'daemon/run'` requires the following environment variables to be exported:
 ```sh
 export DAEMON_HOSTNAME=localhost && \
 export DAEMON_PORT=9584 && \
@@ -99,7 +126,7 @@ sbt "daemon/docker:publishLocal"
 
 ## GraalVM Native Image Generation
 The native image build is performed using [SBT Native Packager](https://www.scala-sbt.org/sbt-native-packager/formats/graalvm-native-image.html) in Docker, so make sure it's installed.
-Currently, only the CLI can compile to a native image. Run:
+Currently, only the CLI can be compiled to a native image. Run:
 ```sh
 sbt "cli/graalvm-native-image:packageBin"
 ```
