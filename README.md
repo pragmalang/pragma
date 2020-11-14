@@ -1,4 +1,4 @@
-[![Pragma](http://138.197.219.156/static/pragma-repo-cover.png)](https://pragmalang.com)
+[![Pragma](https://raw.githubusercontent.com/pragmalang/pragma/master/repo-header.png)](https://pragmalang.com)
 [![Discord](https://img.shields.io/discord/719970258903105558?label=Discord&logo=discord&style=for-the-badge)](https://discord.gg/gbhDnfC)
 [![Reddit](https://img.shields.io/reddit/subreddit-subscribers/pragmalang?style=for-the-badge&logo=Reddit&logoColor=E17334&color=E17334)](https://reddit.com/r/pragmalang)
 ![Tests](https://img.shields.io/github/workflow/status/pragmalang/pragma/Test/master?style=for-the-badge&label=tests)
