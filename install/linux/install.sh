@@ -10,7 +10,7 @@ sudo chmod +x /usr/local/bin/pragma
 COMP_URL=$(curl -s https://api.github.com/repos/pragmalang/pragma/releases/latest | grep "browser_download_url.*docker-compose.yml" | cut -d : -f 2,3 | tr -d \")
 COMP_FILE=/usr/local/bin/pragma-docker-compose.yml
 
-curl -Lo $COMP_FILE $COMP_URL
+sudo curl -Lo $COMP_FILE $COMP_URL
 docker-compose -f $COMP_FILE stop
 docker-compose -f $COMP_FILE rm -f
 docker-compose -f $COMP_FILE pull pragmad
