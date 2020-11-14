@@ -33,6 +33,34 @@ Once Pragma is downloaded and installed, you can see if it works by running the 
 pragma help
 ```
 
+### macOS
+
+**Requirements:**
+
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
+- [Java](https://java.com/en/download/help/linux_install.html)
+
+**Installation**
+
+First we need to install the Pragma CLI:
+
+- [download the installer (`pragma.dmg`)](https://github.com/pragmalang/pragma/releases/download/v0.1.0/pragma.dmg)
+- Run `pragma.dmg`
+
+After the CLI is installed, we need to install and run the Pragma Daemon (`pragmad`): 
+
+- Create a `docker-compose.yml` file with the contents of [this docker-compose file](https://github.com/pragmalang/pragma/blob/master/cli/src/main/resources/docker-compose.yml)
+- Run it with `docker-compose up -d`
+
+> *Note*: The name of the docker-compose file *must* be `docker-compose.yml`, and you must run `docker-compose up -d` from the directory where you created the `docker-compose.yml` file.
+
+**Run Pragma**
+
+Once Pragma is downloaded and installed, you can see if it works by running the followwing command from the terminal:
+```
+pragma help
+```
+
 ### Windows
 
 **Requirements:**
@@ -42,13 +70,20 @@ pragma help
 
 **Installation**
 
-To install Pragma on Windows, [download the installer (`pragma.msi`)](https://github.com/pragmalang/pragma/releases/download/v0.1.0/pragma.msi), and follow the installation wizard. This will install the Pragma CLI.
+First we need to install the Pragma CLI:
+
+- [download the installer (`pragma.dmg`)](https://github.com/pragmalang/pragma/releases/download/v0.1.0/pragma.msi)
+- Run `pragma.msi` and follow the installation wizard
 
 > *Note*: If Microsoft Defender tells you it prevented an unrecognized app from starting, click on "__More info__", then click on **"Run anyway"**.
 
-After the CLI is installed, create a `docker-compose.yml` file with the contents of [this `docker-compose` file](https://github.com/pragmalang/pragma/blob/master/cli/src/main/resources/docker-compose.yml), and run it with `docker-compose up -d`. This will run the pragma daemon in the background.
+After the CLI is installed, we need to install and run the Pragma Daemon (`pragmad`): 
 
-> *Note*: The name of the docker-compose file *must* be `docker-compose.yml`, and you must run `docker-compose up -d` in the folder where you created the `docker-compose.yml` file.
+- Create a `docker-compose.yml` file with the contents of [this docker-compose file](https://github.com/pragmalang/pragma/blob/master/cli/src/main/resources/docker-compose.yml)
+- Run it with `docker-compose up -d`
+
+
+> *Note*: The name of the docker-compose file *must* be `docker-compose.yml`, and you must run `docker-compose up -d` from the folder where you created the `docker-compose.yml` file.
 
 **Run Pragma**
 
