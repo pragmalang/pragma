@@ -12,9 +12,9 @@ For user documentation, visit [http://docs.pragmalang.com](http://docs.pragmalan
 
 > Pragma is currently under heavy development, and should not be used in a production setting. All Pragma APIs are subject to breaking change.
 
-### Linux
+## Linux
 
-**Requirements**
+### Requirements
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
 
 To make sure you have them and that they work, run:
@@ -36,25 +36,25 @@ sudo curl https://pragmalang.github.io/pragma/install/linux/install.sh | sh
 
 This script will download the Pragma binary, change it to become executable, and place it in `/usr/local/bin`. It also places a `pragma-docker-compose.yml` file in `/usr/local/bin`, and runs it.
 
-**Run Pragma**
+### Run Pragma
 
 Once Pragma is downloaded and installed, you can see if it works by running the following command:
 ```
 pragma help
 ```
 
-### macOS
+## macOS
 
-**Requirements:**
+### Requirements
 
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
 - [Java](https://java.com/en/download/help/linux_install.html)
 
-**Installation**
+### Installation
 
 First we need to install the Pragma CLI:
 
-- [download the installer (`pragma.dmg`)](https://github.com/pragmalang/pragma/releases/download/v0.1.0/pragma.dmg)
+- [Download the Pragma DMG file (`pragma.dmg`)](https://github.com/pragmalang/pragma/releases/download/v0.1.0/pragma.dmg)
 - Run `pragma.dmg`
 
 After the CLI is installed, we need to install and run the Pragma Daemon (`pragmad`): 
@@ -64,25 +64,25 @@ After the CLI is installed, we need to install and run the Pragma Daemon (`pragm
 
 > *Note*: The name of the docker-compose file *must* be `docker-compose.yml`, and you must run `docker-compose up -d` from the directory where you created the `docker-compose.yml` file.
 
-**Run Pragma**
+### Run Pragma
 
 Once Pragma is downloaded and installed, you can see if it works by running the followwing command from the terminal:
 ```
 pragma help
 ```
 
-### Windows
+## Windows
 
-**Requirements:**
+### Requirements
 
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
 - [Java](https://java.com/en/download/help/linux_install.html)
 
-**Installation**
+### Installation
 
 First we need to install the Pragma CLI:
 
-- [download the installer (`pragma.dmg`)](https://github.com/pragmalang/pragma/releases/download/v0.1.0/pragma.msi)
+- [Download the installer (`pragma.msi`)](https://github.com/pragmalang/pragma/releases/download/v0.1.0/pragma.msi)
 - Run `pragma.msi` and follow the installation wizard
 
 > *Note*: If Microsoft Defender tells you it prevented an unrecognized app from starting, click on "__More info__", then click on **"Run anyway"**.
@@ -95,14 +95,14 @@ After the CLI is installed, we need to install and run the Pragma Daemon (`pragm
 
 > *Note*: The name of the docker-compose file *must* be `docker-compose.yml`, and you must run `docker-compose up -d` from the folder where you created the `docker-compose.yml` file.
 
-**Run Pragma**
+### Run Pragma
 
 Once Pragma is downloaded and installed, you can see if it works by running the followwing command from PowerShell:
 ```
 pragma help
 ```
 
-# Community Support
+# Support
 
 If you have any questions or feedback you can join our [Discrod server](https://discord.gg/gbhDnfC) or post to [r/pragmalang](https://www.reddit.com/r/pragmalang/).
 
@@ -160,7 +160,8 @@ sbt "daemon/docker:publishLocal"
 ```
 
 ## GraalVM Native Image Generation
-The native image build is performed using [SBT Native Packager](https://www.scala-sbt.org/sbt-native-packager/formats/graalvm-native-image.html) in Docker, so make sure it's installed.
+The native image build is performed using [SBT Native Packager](https://www.scala-sbt.org/sbt-native-packager/formats/graalvm-native-image.html), so `native-image` version needs to be installed locally.
+
 Currently, only the CLI can be compiled to a native image. Run:
 ```sh
 sbt "cli/graalvm-native-image:packageBin"
