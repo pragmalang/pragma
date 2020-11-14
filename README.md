@@ -27,7 +27,7 @@ docker-compose --help
 
 If any of the above commands fail, make sure it works before proceeding with the installation of Pragma.
 
-**Installation**
+### Installation
 
 Now to install Pragma, run:
 ```sh
