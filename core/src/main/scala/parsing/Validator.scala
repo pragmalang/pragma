@@ -14,7 +14,7 @@ class Validator(constructs: List[PConstruct]) {
     val results = List(
       checkReservedTypeIdentifiers,
       checkTypeExistance,
-      checkFieldValueType,
+      checkFieldDefaultValueTypes,
       checkTopLevelIdentity,
       checkModelFieldIdentity,
       checkSelfRefOptionality,
@@ -50,29 +50,26 @@ class Validator(constructs: List[PConstruct]) {
   }
 
   // Type-check the default value ot model fields.
-  def checkFieldValueType: Try[Unit] = Try {
+  def checkFieldDefaultValueTypes: Try[Unit] = {
     val errors: List[ErrorMessage] = st.models.toList.flatMap { m =>
       m.fields.foldLeft(List.empty[ErrorMessage]) { (errors, field) =>
         field.defaultValue match {
-          case Some(v: PValue) if field.isOptional => {
-            val typesMatch = field.ptype match {
-              case POption(t) => t == v.ptype
-              case _          => false
-            }
-            if (typesMatch) errors
+          case Some(v) if field.isOptional => {
+            if (typecheckPValue(Some(v), field.ptype)) errors
             else
               errors :+
                 s"Invalid default value of type `${displayPType(v.ptype)}` for optional field `${field.id}` of type `${displayPType(field.ptype)}`" ->
                   field.position
           }
-          case Some(arr: PArrayValue)
-              if !Validator.arrayIsHomogeneous(arr) ||
-                arr.ptype != field.ptype =>
-            errors :+
-              s"Invalid values for array field `${field.id}` (all array elements must have the same type)" ->
-                field.position
+          case Some(arr: PArrayValue) =>
+            if (typecheckPValue(Some(arr), field.ptype)) errors
+            else
+              errors :+
+                s"Invalid values for array field `${field.id}` (all array elements must have the same type)" ->
+                  field.position
           case Some(PStringValue(value))
-              if field.ptype.isInstanceOf[PReference] => {
+              if field.ptype.isInstanceOf[PReference] ||
+                field.ptype.isInstanceOf[PEnum] => {
             val found = st.enumsById
               .get(field.ptype.asInstanceOf[Identifiable].id)
               .flatMap(foundEnum => foundEnum.values.find(_ == value))
@@ -83,7 +80,7 @@ class Validator(constructs: List[PConstruct]) {
                 s"The default value given to field `${field.id}` is not a member of a defined ${field.ptype.asInstanceOf[Identifiable].id} enum" ->
                   field.position
           }
-          case Some(v: PValue) if v.ptype != field.ptype =>
+          case Some(v) if !typecheckPValue(Some(v), field.ptype) =>
             errors :+
               s"Invalid default value of type `${displayPType(v.ptype)}` for field `${field.id}` of type `${displayPType(field.ptype)}`" ->
                 field.position
@@ -91,7 +88,8 @@ class Validator(constructs: List[PConstruct]) {
         }
       }
     }
-    if (!errors.isEmpty) throw new UserError(errors)
+
+    if (errors.isEmpty) Success(()) else Failure(UserError(errors))
   }
 
   /** Check that no two constructs have the same id. */
@@ -165,7 +163,6 @@ class Validator(constructs: List[PConstruct]) {
   // A user model's public credential can only be String or Integer.
   // A secret credential can only be a String
   def checkCredentialTypes(model: PModel): List[ErrorMessage] = {
-
     val publicFields =
       model.publicCredentialFields
     val secretField = model.secretCredentialField
@@ -417,6 +414,17 @@ object Validator {
 
   def arrayIsHomogeneous(arr: PArrayValue): Boolean =
     arr.values.forall(_.ptype == arr.elementType)
+
+  def typecheckPValue(value: Option[PValue], ptype: PType): Boolean =
+    (value, ptype) match {
+      case (Some(v), POption(t)) => typecheckPValue(Some(v), t)
+      case (None, POption(_))    => true
+      case (Some(parr: PArrayValue), PArray(elementType)) =>
+        arrayIsHomogeneous(parr) && parr.elementType == elementType
+      case (Some(v), PFloat) => v.ptype == PFloat || v.ptype == PInt
+      case (Some(v), t)      => v.ptype == t
+      case _                 => false
+    }
 
   def primaryFieldCount(model: PModel) =
     model.fields.count(field => field.isPrimary)

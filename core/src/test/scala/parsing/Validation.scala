@@ -24,7 +24,8 @@ class Validation extends AnyFlatSpec {
       "Invalid values for array field `favoriteNumbers` (all array elements must have the same type)",
       "Invalid default value of type `Int` for optional field `invalidOptional` of type `String?`"
     )
-    validator.checkFieldValueType match {
+
+    validator.checkFieldDefaultValueTypes match {
       case Failure(e: UserError) =>
         assert(expectedErrors == e.errors.map(_._1))
       case _ =>
