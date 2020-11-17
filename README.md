@@ -52,7 +52,7 @@ pragma help
 
 ### Installation
 
-First we need to install the Pragma CLI:
+First, we need to install the Pragma CLI:
 
 - [Download the Pragma DMG file (`pragma.dmg`)](https://github.com/pragmalang/pragma/releases/download/v0.1.0/pragma.dmg)
 - Run `pragma.dmg`
@@ -66,7 +66,7 @@ After the CLI is installed, we need to install and run the Pragma Daemon (`pragm
 
 ### Run Pragma
 
-Once Pragma is downloaded and installed, you can see if it works by running the followwing command from the terminal:
+Once Pragma is downloaded and installed, you can see if it works by running the following command from the terminal:
 ```
 pragma help
 ```
@@ -80,7 +80,7 @@ pragma help
 
 ### Installation
 
-First we need to install the Pragma CLI:
+First, we need to install the Pragma CLI:
 
 - [Download the installer (`pragma.msi`)](https://github.com/pragmalang/pragma/releases/download/v0.1.0/pragma.msi)
 - Run `pragma.msi` and follow the installation wizard
@@ -97,20 +97,20 @@ After the CLI is installed, we need to install and run the Pragma Daemon (`pragm
 
 ### Run Pragma
 
-Once Pragma is downloaded and installed, you can see if it works by running the followwing command from PowerShell:
+Once Pragma is downloaded and installed, you can see if it works by running the following command from PowerShell:
 ```
 pragma help
 ```
 
 # Support
 
-If you have any questions or feedback you can join our [Discrod server](https://discord.gg/gbhDnfC) or post to [r/pragmalang](https://www.reddit.com/r/pragmalang/).
+If you have any questions or feedback you can join our [Discord server](https://discord.gg/gbhDnfC) or post to [r/pragmalang](https://www.reddit.com/r/pragmalang/).
 
 # Contributing
 
 Pragma is a Scala 2.13 project built using SBT. It's divided into three subprojects:
-* `core`: where the domain abstractions and parsing logic is kept alongside any shared logic between other subprojects. All other subprojects depend `core`.
-* `daemon`: where the serving and project management logic lives. It needs instances for Postgres and Openwhisk to be running; it's meant to be running alongside them in the background while using Pragma during development, and in production.
+* `core`: where the domain abstractions and parsing logic is kept alongside any shared logic between other subprojects. All other subprojects depend on the `core`.
+* `daemon`: where the serving and project management logic lives. It needs instances for Postgres and Openwhisk to be running; it's meant to be running alongside them in the background while using Pragma during development and in production.
 * `cli`: where the communication with the `daemon`, and the loading of user files is done.
 
 It's highly recommended to be familiar with [Cats](https://typelevel.org/cats/) and [Cats Effect](https://typelevel.org/cats-effect/) before starting to work on the daemon. 
@@ -160,7 +160,7 @@ sbt "daemon/docker:publishLocal"
 ```
 
 ## GraalVM Native Image Generation
-The native image build is performed using [SBT Native Packager](https://www.scala-sbt.org/sbt-native-packager/formats/graalvm-native-image.html), so `native-image` version needs to be installed locally.
+The native image build is performed using [SBT Native Packager](https://www.scala-sbt.org/sbt-native-packager/formats/graalvm-native-image.html), so the `native-image` version needs to be installed locally.
 
 Currently, only the CLI can be compiled to a native image. Run:
 ```sh
@@ -175,7 +175,7 @@ See:
 * https://www.graalvm.org/reference-manual/native-image/Configuration/#assisted-configuration-of-native-image-builds
 * https://noelwelsh.com/posts/2020-02-06-serverless-scala-services.html
 
-> NOTE: Make sure everthing else other than this process is canceled. It needs all the memory it can get.
+> NOTE: Make sure everything else other than this process is canceled. It needs all the memory it can get.
 
 ## Apache Bench benchmark
 Run the ammonite script in `test/benchmark`:
@@ -190,7 +190,7 @@ Make sure the daemon is running before running the benchmark (run `docker-compos
 >```
 
 ## Documentation
-The user documentation lives in `/docs`, and is built using [mdbook](https://github.com/rust-lang/mdBook). It's hosted on http://docs.pragmalang.com.
+The user documentation lives in `/docs` and is built using [mdbook](https://github.com/rust-lang/mdBook). It's hosted on http://docs.pragmalang.com.
 
 # License
 
