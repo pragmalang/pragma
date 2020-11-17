@@ -111,7 +111,7 @@ If you have any questions or feedback you can join our [Discord server](https://
 Pragma is a Scala 2.13 project built using SBT. It's divided into three subprojects:
 * `core`: where the domain abstractions and parsing logic is kept alongside any shared logic between other subprojects. All other subprojects depend on the `core`.
 * `daemon`: where the serving and project management logic lives. It needs instances for Postgres and Openwhisk to be running; it's meant to be running alongside them in the background while using Pragma during development and in production.
-* `cli`: where the communication with the `daemon`, and the loading of user files is done.
+* `cli`: where the communication with the `daemon` and the loading of user files is done.
 
 It's highly recommended to be familiar with [Cats](https://typelevel.org/cats/) and [Cats Effect](https://typelevel.org/cats-effect/) before starting to work on the daemon. 
 
