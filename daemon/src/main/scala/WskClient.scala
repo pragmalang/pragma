@@ -1,6 +1,6 @@
 package running
 
-import pragma.domain._, pragma.daemonProtocol.DaemonJsonProtocol._
+import pragma.domain._, pragma.utils.JsonCodec._
 import cats.implicits._, cats.effect._
 import org.http4s._, org.http4s.headers._, org.http4s.client._
 import spray.json._

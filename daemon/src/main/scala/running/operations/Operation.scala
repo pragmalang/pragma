@@ -1,7 +1,7 @@
 package running.operations
 
 import pragma.domain._
-import running._
+import pragma.jwtUtils._
 import spray.json._
 import cats.implicits._
 

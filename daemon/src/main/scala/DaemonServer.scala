@@ -1,6 +1,7 @@
 import running._, running.storage.postgres._
 import running.utils._, running.PFunctionExecutor
-import pragma.daemonProtocol._, pragma.domain._, DaemonJsonProtocol._
+import pragma.daemonProtocol._, pragma.domain._
+import pragma.jwtUtils._
 import cats.implicits._, cats.effect._
 import doobie._, doobie.hikari._
 import scala.concurrent.ExecutionContext
@@ -17,6 +18,7 @@ import org.postgresql.util.PSQLException
 import pragma.envUtils._
 import java.sql._
 import daemon.utils._
+import pragma.utils.JsonCodec._
 
 object DeamonServer extends IOApp {
 

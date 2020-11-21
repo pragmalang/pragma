@@ -1,12 +1,13 @@
 package cli
 
 import pragma.domain._, pragma.domain.utils._
-import pragma.daemonProtocol._
+import pragma.daemonProtocol._, pragma.jwtUtils._
 import cats.implicits._
 import scala.util._, scala.io.StdIn.readLine
 import cli.utils._
 import os.Path
 import requests.RequestFailedException
+import spray.json.JsString
 
 object Main {
 
@@ -27,6 +28,12 @@ object Main {
       case Prod => {
         println("Production mode is not ready yet.")
         sys.exit(1)
+      }
+      case CLICommand.GenerateRootJWT(secret) => {
+        val jc = new JwtCodec(secret)
+        val jwt = JwtPayload(userId = JsString("__root__"), role = "__root__")
+        println(jc.encode(jwt))
+        sys.exit(0)
       }
     }
   }

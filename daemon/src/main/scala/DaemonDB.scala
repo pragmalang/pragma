@@ -4,14 +4,14 @@ import cats.implicits._
 import spray.json._
 import pragma.domain.SyntaxTree, pragma.domain.DomainImplicits._
 import running.storage.postgres.PostgresQueryEngine
-import running.JwtCodec
+import pragma.jwtUtils._, pragma.utils.JsonCodec._
 import running.PFunctionExecutor
 import running.storage.postgres.PostgresMigrationEngine
 import running.operations.OperationParser
 import sangria.parser.QueryParser
 import pragma.domain.utils.InternalException
 import running.RequestReducer
-import pragma.daemonProtocol._, DaemonJsonProtocol._
+import pragma.daemonProtocol._
 import running.utils.Mode
 import doobie.hikari._
 import running.utils.Mode.Dev

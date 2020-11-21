@@ -1,14 +1,14 @@
 package running.authorizer
 
+import pragma.jwtUtils._
 import pragma.domain.SyntaxTree
-import running._, running.storage._, running.operations._
+import running._, running.storage._, running.operations._, running.utils._
 import sangria.macros._
 import spray.json._
 import cats.implicits._
 import org.scalatest._
 import flatspec.AnyFlatSpec
 import cats.effect.IO
-import running.utils._
 
 class Authorization extends AnyFlatSpec {
   "Authorizer" should "authorize requests correctly" in {

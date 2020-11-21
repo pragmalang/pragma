@@ -1,8 +1,5 @@
 package pragma.daemonProtocol
 
-import spray.json._
-import pl.iterators.kebs.json._
-
 case class Migration(
     id: String,
     code: String,
@@ -48,5 +45,3 @@ case class ProjectInput(
     pgUser: Option[String] = None,
     pgPassword: Option[String] = None
 )
-
-package object DaemonJsonProtocol extends DefaultJsonProtocol with KebsSpray

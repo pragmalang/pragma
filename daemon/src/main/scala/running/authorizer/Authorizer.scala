@@ -3,7 +3,7 @@ package running.authorizer
 import pragma.domain._, utils._, pragma.domain.DomainImplicits._
 import running.operations._, running.storage._
 import spray.json._
-import running.JwtPayload
+import pragma.jwtUtils.JwtPayload
 import cats.Monad
 import cats.implicits._
 import cats.MonadError
@@ -26,6 +26,7 @@ class Authorizer[S, M[_]: Async: ConcurrentEffect](
   ): M[Vector[AuthorizationError]] = user match {
     case None =>
       results(ops.values.flatMap(_.values).flatten.toVector, None)
+    case Some(jwt) if jwt.role == "__root__" => Vector.empty.pure[M]
     case Some(jwt) => {
       val userModel = syntaxTree.modelsById.get(jwt.role) match {
         case Some(model) => model
