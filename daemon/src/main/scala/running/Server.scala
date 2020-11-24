@@ -80,6 +80,9 @@ class Server(
             )
             val resJson = reqHandler
               .handle(preq)
+              .onError {
+                case e => IO(e.printStackTrace())
+              }
               .recover {
                 case e: Throwable => jsonFrom(e)
               }
