@@ -5,7 +5,8 @@ import pragma.domain._, utils.{Identifiable, UserError}
 import scala.language.implicitConversions
 
 object PragmaParser {
-  // Dummy classes will be substituted at substitution time
+
+  /** Dummy classes will be substituted at substitution time */
   case class Reference(
       path: List[String],
       position: Option[PositionRange] = None
@@ -274,22 +275,16 @@ class PragmaParser(val input: ParserInput) extends Parser {
     "enum" ~ wsWithoutEndline() ~
       push(cursor) ~ identifier ~ push(cursor) ~
       wsWithEndline() ~ '{' ~ wsWithEndline() ~
-      zeroOrMore(identifier | stringVal)
+      zeroOrMore(identifier)
         .separatedBy(wsWithEndline(",") | wsWithEndline()) ~
       wsWithEndline() ~ '}' ~> {
       (
           start: Int,
           id: String,
           end: Int,
-          values: Seq[java.io.Serializable]
+          values: Seq[String]
       ) =>
-        {
-          val variants = values.map {
-            case PStringValue(s) => s
-            case s: String       => s
-          }.toList
-          PEnum(id, variants, Some(PositionRange(start, end)))
-        }
+        PEnum(id, values.toList, Some(PositionRange(start, end)))
     }
   }
 
