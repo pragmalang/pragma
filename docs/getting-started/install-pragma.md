@@ -42,7 +42,7 @@ pragma help
 
 ### Installation
 
-First we need to install the Pragma CLI:
+First, we need to install the Pragma CLI:
 
 - [Download the Pragma DMG file (`pragma.dmg`)](https://github.com/pragmalang/pragma/releases/download/v0.1.0/pragma.dmg)
 - Run `pragma.dmg`
@@ -56,7 +56,7 @@ After the CLI is installed, we need to install and run the Pragma Daemon (`pragm
 
 ### Run Pragma
 
-Once Pragma is downloaded and installed, you can see if it works by running the followwing command from the terminal:
+Once Pragma is downloaded and installed, you can see if it works by running the following command from the terminal:
 ```
 pragma help
 ```
@@ -70,7 +70,7 @@ pragma help
 
 ### Installation
 
-First we need to install the Pragma CLI:
+First, we need to install the Pragma CLI:
 
 - [Download the installer (`pragma.msi`)](https://github.com/pragmalang/pragma/releases/download/v0.1.0/pragma.msi)
 - Run `pragma.msi` and follow the installation wizard
@@ -87,7 +87,11 @@ After the CLI is installed, we need to install and run the Pragma Daemon (`pragm
 
 ### Run Pragma
 
-Once Pragma is downloaded and installed, you can see if it works by running the followwing command from PowerShell:
+Once Pragma is downloaded and installed, you can see if it works by running the following command from PowerShell:
 ```
 pragma help
 ```
+
+# Support
+
+If you have any questions or feedback you can join our [Discord server](https://discord.gg/gbhDnfC) or post to [r/pragmalang](https://www.reddit.com/r/pragmalang/).
