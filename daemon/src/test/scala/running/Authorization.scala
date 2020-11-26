@@ -92,7 +92,7 @@ class Authorization extends AnyFlatSpec {
     assert {
       result == Vector(
         "Denied setting field `isVerified` in `CREATE` operation",
-        "`deny` rule exists that prohibits `READ` operations on `AU_User.password`"
+        "Denied reading field `AU_User.password`"
       )
     }
 

@@ -242,13 +242,13 @@ final class PermissionTree(st: SyntaxTree) {
       op match {
         case _: CreateOperation | _: CreateManyOperation =>
           targetModelTree(None)(Read)(false) ++
+            targetModelTree(None)(ReadOnCreate)(false) ++
             op.innerReadOps.flatMap { iop =>
               val targetFieldTree =
                 targetModelTree(iop.targetField.field.id.some)
               targetFieldTree(Read)(false) ++
                 targetFieldTree(ReadOnCreate)(false)
-            } ++
-            targetModelTree(None)(ReadOnCreate)(false) :+
+            } :+
             AccessRule(
               Allow,
               (op.targetModel, None),
@@ -274,9 +274,7 @@ final class PermissionTree(st: SyntaxTree) {
         case _ =>
           targetModelTree(None)(Read)(false) ++
             op.innerReadOps.flatMap { iop =>
-              val targetFieldTree =
-                targetModelTree(iop.targetField.field.id.some)(Read)
-              targetFieldTree(false) ++ targetFieldTree(true)
+              targetModelTree(iop.targetField.field.id.some)(Read)(false)
             }
       }
     }
