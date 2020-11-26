@@ -9,8 +9,8 @@ class EnumParsing extends AnyFlatSpec {
   "An enum" should "be parsed correctly" in {
     val code = """
         enum WeekDay {
-            "Sunday"
-            "Monday", Tuesday
+            Sunday
+            Monday, Tuesday
             Wednesday,
             Thursday
             Friday,

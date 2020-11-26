@@ -108,15 +108,17 @@ class Authorizer[S, M[_]: Async: ConcurrentEffect](
         .traverse { rule =>
           predicateInput
             .flatMap(in => userPredicateResult(rule, in))
-            .map(rule -> _)
+            .tupleLeft(rule)
         }
         .map(_.partition(_._1.ruleKind == Allow))
       (allows, denies) = ruleResults
       allowErrors = if (allows.exists(_._2)) Vector.empty
       else
         Vector {
+          val roleSegment =
+            user.map(_._1.id).map(id => s"for role `$id`").getOrElse("")
           AuthorizationError(
-            s"No `allow` rule exists that allows `${op.event}` operations on `${op.targetModel.id}`"
+            s"No `allow` rule exists that allows `${op.event}` operations on `${op.targetModel.id}`$roleSegment"
           )
         }
 
@@ -132,20 +134,11 @@ class Authorizer[S, M[_]: Async: ConcurrentEffect](
       user: Option[(PModel, JsObject)]
   ): M[Vector[AuthorizationError]] =
     op.innerReadOps.flatTraverse { iop =>
-      for {
-        iopResults <- outerOpResults(
-          iop,
-          permissionTree.innerReadRules(op, iop).toList,
-          user
-        )
-        innerIopResults <- iop.innerReadOps.flatTraverse { innerIop =>
-          outerOpResults(
-            innerIop,
-            permissionTree.innerReadRules(iop, innerIop).toList,
-            user
-          )
-        }
-      } yield iopResults ++ innerIopResults
+      outerOpResults(
+        iop,
+        permissionTree.innerReadRules(op).toList,
+        user
+      )
     }
 
   /**
