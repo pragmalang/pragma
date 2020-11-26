@@ -8,6 +8,8 @@ import sangria.parser.QueryParser
 import scala.util.Success
 import scala.util.Failure
 import scala.util.Try
+import pragma.jwtUtils._
+import pragma.utils.JsonCodec
 
 object RunningImplicits {
 
@@ -79,16 +81,6 @@ object RunningImplicits {
     }
   }
 
-  implicit object JwtPaylodJsonFormater extends JsonFormat[JwtPayload] {
-    def read(json: JsValue): JwtPayload = JwtPayload(
-      json.asJsObject.fields("userId"),
-      json.asJsObject.fields("role").convertTo[String]
-    )
-
-    def write(obj: JwtPayload): JsValue =
-      JsObject("userId" -> obj.userId, "role" -> JsString(obj.role))
-  }
-
   implicit object RequestJsonFormater extends JsonFormat[Request] {
     def read(json: JsValue): Request = Request(
       hookData = Some(json.asJsObject.fields("hookData")),
@@ -106,7 +98,10 @@ object RunningImplicits {
       cookies = json.asJsObject.fields("cookies").convertTo[Map[String, String]],
       url = json.asJsObject.fields("url").convertTo[String],
       hostname = json.asJsObject.fields("hostname").convertTo[String],
-      user = json.asJsObject.fields("user").convertTo[Option[JwtPayload]]
+      user = {
+        import JsonCodec._
+        json.asJsObject.fields("user").convertTo[Option[JwtPayload]]
+      }
     )
     def write(obj: Request): JsValue = JsObject(
       "hookData" -> obj.hookData.toJson,
@@ -117,7 +112,10 @@ object RunningImplicits {
       "cookies" -> obj.cookies.toJson,
       "url" -> obj.url.toJson,
       "hostname" -> obj.hostname.toJson,
-      "user" -> obj.user.toJson,
+      "user" -> {
+        import JsonCodec._
+        obj.user.toJson
+      },
       "kind" -> "Context".toJson
     )
   }

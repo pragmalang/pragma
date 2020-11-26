@@ -58,6 +58,18 @@ object CLIConfig {
           }
           .text(s"Defaults to ./Pragmafile")
 
+      def secretArg =
+        arg[String]("<secret>")
+          .optional()
+          .action { (secret, configs) =>
+            configs.copy(command = CLICommand.GenerateRootJWT(secret))
+          }
+          .text(s"The application secret")
+
+      cmd("root-jwt")
+        .text("Generates an authorization JWT with root privileges")
+        .children(secretArg)
+
       opt[Unit]("help")
         .abbr("h")
         .optional()
@@ -86,6 +98,7 @@ object CLICommand {
   case object New extends CLICommand
   case object Root extends CLICommand
   case object Help extends CLICommand
+  case class GenerateRootJWT(secret: String) extends CLICommand
 }
 
 sealed trait RunMode

@@ -4,7 +4,7 @@ import pragma.domain.SyntaxTree
 import running._, running.storage.postgres._
 import cats.effect._
 import doobie._
-import running.JwtCodec
+import pragma.jwtUtils._
 
 class TestStorage(st: SyntaxTree) {
   implicit val cs = IO.contextShift(ExecutionContexts.synchronous)

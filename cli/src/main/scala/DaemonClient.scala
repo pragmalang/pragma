@@ -1,6 +1,6 @@
 package cli
 
-import pragma.daemonProtocol._, DaemonJsonProtocol._
+import pragma.utils.JsonCodec._, pragma.daemonProtocol._
 import spray.json._
 import requests._
 import cats.implicits._

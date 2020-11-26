@@ -1,7 +1,7 @@
 package running
 
 import spray.json._
-import pragma.domain._
+import pragma.domain._, pragma.jwtUtils._
 import sangria.ast._
 
 case class Request(

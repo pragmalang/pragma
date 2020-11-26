@@ -1,8 +1,8 @@
-package running
+package pragma.jwtUtils
 
 import pdi.jwt.{Jwt, JwtAlgorithm}
+import pragma.utils.JsonCodec._
 import spray.json._
-import RunningImplicits._
 
 case class JwtPayload(userId: JsValue, role: String)
 
@@ -15,3 +15,4 @@ class JwtCodec(secret: String) {
   def encode(jwtPayload: JwtPayload) =
     Jwt.encode(jwtPayload.toJson.toString, secret, JwtAlgorithm.HS256)
 }
+

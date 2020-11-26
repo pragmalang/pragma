@@ -28,7 +28,8 @@ lazy val core = (project in file("core"))
       cats,
       spray,
       parboiled,
-      kebsSprayJson
+      kebsSprayJson,
+      jwtCore
     )
   )
 
@@ -48,7 +49,6 @@ lazy val daemon = (project in file("daemon"))
       doobieHikari,
       doobiePostgres,
       bcrypt,
-      jwtCore,
       sangria,
       sangriaSpray,
       http4sDsl,

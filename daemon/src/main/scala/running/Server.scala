@@ -15,6 +15,7 @@ import storage.postgres._
 import pragma.domain._, pragma.domain.utils._
 import sangria.marshalling.sprayJson._
 import sangria.schema.Schema, sangria.execution.Executor
+import pragma.jwtUtils._
 
 class Server(
     jwtCodec: JwtCodec,
@@ -79,6 +80,9 @@ class Server(
             )
             val resJson = reqHandler
               .handle(preq)
+              .onError {
+                case e => IO(e.printStackTrace())
+              }
               .recover {
                 case e: Throwable => jsonFrom(e)
               }

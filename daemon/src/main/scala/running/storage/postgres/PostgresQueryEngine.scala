@@ -11,6 +11,7 @@ import cats.effect._
 import spray.json._
 import com.github.t3hnar.bcrypt._
 import scala.util._
+import pragma.jwtUtils._
 
 class PostgresQueryEngine[M[_]: Monad](
     transactor: Transactor[M],

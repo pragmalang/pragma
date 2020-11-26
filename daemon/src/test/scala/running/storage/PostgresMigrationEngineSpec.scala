@@ -14,7 +14,7 @@ import doobie._
 import doobie.implicits._
 import cats.effect._
 import cats.implicits._
-import running.JwtCodec
+import pragma.jwtUtils.JwtCodec
 import running.PFunctionExecutor
 import running.utils._
 

@@ -5,6 +5,7 @@ import spray.json._
 import cats.implicits._
 import running._, running.utils._
 import running.operations._, Operations._
+import pragma.jwtUtils._
 
 class OperationParser(st: SyntaxTree) {
 

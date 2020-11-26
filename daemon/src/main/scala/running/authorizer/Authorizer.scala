@@ -3,7 +3,7 @@ package running.authorizer
 import pragma.domain._, utils._, pragma.domain.DomainImplicits._
 import running.operations._, running.storage._
 import spray.json._
-import running.JwtPayload
+import pragma.jwtUtils.JwtPayload
 import cats.Monad
 import cats.implicits._
 import cats.MonadError
@@ -26,6 +26,7 @@ class Authorizer[S, M[_]: Async: ConcurrentEffect](
   ): M[Vector[AuthorizationError]] = user match {
     case None =>
       results(ops.values.flatMap(_.values).flatten.toVector, None)
+    case Some(jwt) if jwt.role == "__root__" => Vector.empty.pure[M]
     case Some(jwt) => {
       val userModel = syntaxTree.modelsById.get(jwt.role) match {
         case Some(model) => model
@@ -56,13 +57,12 @@ class Authorizer[S, M[_]: Async: ConcurrentEffect](
   ): M[Vector[AuthorizationError]] =
     ops.flatTraverse { op =>
       (
-        outerOpResults(op, permissionTree.rulesOf(op).toList, user),
+        opResults(op, permissionTree.rulesOf(op).toList, user),
         innerReadResults(op, user)
       ) mapN (_ ++ _)
     }
 
-  /** Returns only the results of the outer operation **/
-  private def outerOpResults(
+  def opResults(
       op: Operation,
       rules: List[AccessRule],
       user: Option[(PModel, JsObject)]
@@ -107,15 +107,17 @@ class Authorizer[S, M[_]: Async: ConcurrentEffect](
         .traverse { rule =>
           predicateInput
             .flatMap(in => userPredicateResult(rule, in))
-            .map(rule -> _)
+            .tupleLeft(rule)
         }
         .map(_.partition(_._1.ruleKind == Allow))
       (allows, denies) = ruleResults
       allowErrors = if (allows.exists(_._2)) Vector.empty
       else
         Vector {
+          val roleSegment =
+            user.map(_._1.id).map(id => s"for role `$id`").getOrElse("")
           AuthorizationError(
-            s"No `allow` rule exists that allows `${op.event}` operations on `${op.targetModel.id}`"
+            s"No `allow` rule exists that allows `${op.event}` operations on `${op.targetModel.id}`$roleSegment"
           )
         }
 
@@ -130,22 +132,11 @@ class Authorizer[S, M[_]: Async: ConcurrentEffect](
       op: Operation,
       user: Option[(PModel, JsObject)]
   ): M[Vector[AuthorizationError]] =
-    op.innerReadOps.flatTraverse { iop =>
-      for {
-        iopResults <- outerOpResults(
-          iop,
-          permissionTree.innerReadRules(op, iop).toList,
-          user
-        )
-        innerIopResults <- iop.innerReadOps.flatTraverse { innerIop =>
-          outerOpResults(
-            innerIop,
-            permissionTree.innerReadRules(iop, innerIop).toList,
-            user
-          )
-        }
-      } yield iopResults ++ innerIopResults
-    }
+    opResults(
+      op,
+      permissionTree.innerReadRules(op).toList,
+      user
+    )
 
   /**
     * Returns the boolean result of the user
@@ -238,12 +229,16 @@ class Authorizer[S, M[_]: Async: ConcurrentEffect](
 
   private def inferredDenyError(op: Operation, denyRule: AccessRule) =
     op match {
-      case iop: InnerReadOperation =>
+      case iop: InnerOperation =>
         AuthorizationError(
           s"`deny` rule exists that prohibits `READ` operations on `${iop.targetModel.id}.${iop.targetField.field.id}`"
         )
       case _ =>
         op.event match {
+          case Read if denyRule.resourcePath._2.isDefined =>
+            AuthorizationError(
+              s"Denied reading field `${denyRule.resourcePath._1.id}.${denyRule.resourcePath._2.get.id}`"
+            )
           case Create if denyRule.permissions.contains(SetOnCreate) =>
             AuthorizationError(
               s"Denied setting field `${denyRule.resourcePath._2.get.id}` in `CREATE` operation"
@@ -256,7 +251,10 @@ class Authorizer[S, M[_]: Async: ConcurrentEffect](
             AuthorizationError(
               s"Denied performing `${Update}` operation on `${denyRule.resourcePath._1.id}`"
             )
-          case _ => AuthorizationError(s"`${op.event}` operation denied")
+          case _ =>
+            AuthorizationError(
+              s"`${op.event}` operation denied on `${op.targetModel.id}`"
+            )
         }
     }
 
