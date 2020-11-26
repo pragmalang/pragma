@@ -17,3 +17,5 @@ jobs:
         graalvm-version: '20.0.0.java11' 
     - name: Build JAR
       run: sbt 'core/test;cli/test'
+
+      
