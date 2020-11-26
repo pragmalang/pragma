@@ -1,5 +1,5 @@
 ThisBuild / scalaVersion := "2.13.2"
-ThisBuild / version := "0.0.1"
+ThisBuild / version := "0.1.0"
 ThisBuild / organization := "com.pragmalang"
 ThisBuild / organizationName := "pragma"
 
@@ -22,6 +22,8 @@ lazy val core = (project in file("core"))
     name := "core",
     scalacOptions := commonScalacOptions,
     scalacOptions in (Compile, console) := Seq.empty,
+    sources in (Compile, doc) := Seq.empty,
+    publishArtifact in (Compile, packageDoc) := false,
     libraryDependencies ++= testDependencies ++ Seq(
       cats,
       spray,
@@ -78,7 +80,6 @@ lazy val cli = (project in file("cli"))
       osLib,
       requests
     ),
-    graalVMNativeImageGraalVersion := Some("20.1.0-java11"),
     graalVMNativeImageOptions := Seq(
       "--static",
       "--no-fallback",
@@ -92,7 +93,9 @@ lazy val cli = (project in file("cli"))
       "--enable-all-security-services"
     ),
     wixProductId := "0e5e2980-bf07-4bf0-b446-2cfb4bf4704a",
-    wixProductUpgradeId := "5603913d-7bde-46eb-ac47-44ed2cb4fd08"
+    wixProductUpgradeId := "5603913d-7bde-46eb-ac47-44ed2cb4fd08",
+    sources in (Compile, doc) := Seq.empty,
+    publishArtifact in (Compile, packageDoc) := false
   )
   .dependsOn(core)
-  .enablePlugins(GraalVMNativeImagePlugin, UniversalPlugin, WindowsPlugin)
+  .enablePlugins(GraalVMNativeImagePlugin, UniversalPlugin, WindowsPlugin, JavaAppPackaging)

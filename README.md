@@ -1,55 +1,117 @@
-[![Pragma](http://138.197.219.156/static/pragma-repo-cover.png)](https://pragmalang.com)
+[![Pragma](https://raw.githubusercontent.com/pragmalang/pragma/master/repo-header.png)](https://pragmalang.com)
 [![Discord](https://img.shields.io/discord/719970258903105558?label=Discord&logo=discord&style=for-the-badge)](https://discord.gg/gbhDnfC)
 [![Reddit](https://img.shields.io/reddit/subreddit-subscribers/pragmalang?style=for-the-badge&logo=Reddit&logoColor=E17334&color=E17334)](https://reddit.com/r/pragmalang)
-![Build](https://img.shields.io/github/workflow/status/pragmalang/pragma/Scala%20CI/master?style=for-the-badge)
+![Tests](https://img.shields.io/github/workflow/status/pragmalang/pragma/Test/master?style=for-the-badge&label=tests)
 ![License](https://img.shields.io/badge/license-GPLv3-blue?style=for-the-badge)
 
 This is the repository where the Pragma language lives.
 
-For user documentation, visit  http://docs.pragmalang.com.
+For user documentation, visit [http://docs.pragmalang.com](http://docs.pragmalang.com).
 
 # Install Pragma
 
 > Pragma is currently under heavy development, and should not be used in a production setting. All Pragma APIs are subject to breaking change.
 
-## Requirements
-Pragma requires [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) on the `PATH`. To make sure you have them and that they work, run:
+## Linux
+
+### Requirements
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
+
+To make sure you have them and that they work, run:
 ```sh
 docker run hello-world
-
+```
+```sh
 docker-compose --help
 ```
-If either command fails, make sure it works before proceeding with the installation of Pragma.
 
-## Installation
+If any of the above commands fail, make sure it works before proceeding with the installation of Pragma.
 
-### Linux
-To install Pragma on Linux, run:
+### Installation
+
+Now to install Pragma, run:
 ```sh
-sudo curl https://pragmalang.github.io/releases/linux/install.sh | sh
+sudo curl https://pragmalang.github.io/pragma/install/linux/install.sh | sh
 ```
 
 This script will download the Pragma binary, change it to become executable, and place it in `/usr/local/bin`. It also places a `pragma-docker-compose.yml` file in `/usr/local/bin`, and runs it.
 
-### Windows
-To install Pragma on Windows, [download the installer (`pragma.msi`)](https://pragmalang.github.io/releases/windows/pragma.msi), and follow the installation wizard. Thiswill install the Pragma CLI.
+### Run Pragma
+
+Once Pragma is downloaded and installed, you can see if it works by running the following command:
+```
+pragma help
+```
+
+## macOS
+
+### Requirements
+
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
+- [Java](https://java.com/en/download/help/linux_install.html)
+
+### Installation
+
+First, we need to install the Pragma CLI:
+
+- [Download the Pragma DMG file (`pragma.dmg`)](https://github.com/pragmalang/pragma/releases/download/v0.1.0/pragma.dmg)
+- Run `pragma.dmg`
+
+After the CLI is installed, we need to install and run the Pragma Daemon (`pragmad`): 
+
+- Create a `docker-compose.yml` file with the contents of [this docker-compose file](https://github.com/pragmalang/pragma/blob/master/cli/src/main/resources/docker-compose.yml)
+- Run it with `docker-compose up -d`
+
+> *Note*: The name of the docker-compose file *must* be `docker-compose.yml`, and you must run `docker-compose up -d` from the directory where you created the `docker-compose.yml` file.
+
+### Run Pragma
+
+Once Pragma is downloaded and installed, you can see if it works by running the following command from the terminal:
+```
+pragma help
+```
+
+## Windows
+
+### Requirements
+
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
+- [Java](https://java.com/en/download/help/linux_install.html)
+
+### Installation
+
+First, we need to install the Pragma CLI:
+
+- [Download the installer (`pragma.msi`)](https://github.com/pragmalang/pragma/releases/download/v0.1.0/pragma.msi)
+- Run `pragma.msi` and follow the installation wizard
 
 > *Note*: If Microsoft Defender tells you it prevented an unrecognized app from starting, click on "__More info__", then click on **"Run anyway"**.
 
-After the CLI is installed, create a `docker-compose.yml` file with the contents of [this `docker-compose` file](https://github.com/pragmalang/pragma/blob/master/cli/src/main/resources/docker-compose.yml), and run it with `docker-compose up -d`. This will run the pragma daemon in the background.
+After the CLI is installed, we need to install and run the Pragma Daemon (`pragmad`): 
 
-> *Note*: The name of the docker-compose file *must* be `docker-compose.yml`, and you must run `docker-compose up -d` in the folder where you created the `docker-compose.yml` file.
+- Create a `docker-compose.yml` file with the contents of [this docker-compose file](https://github.com/pragmalang/pragma/blob/master/cli/src/main/resources/docker-compose.yml)
+- Run it with `docker-compose up -d`
 
----
 
-Once Pragma is downloaded and installed, you can see if it works by running `pragma help`.
+> *Note*: The name of the docker-compose file *must* be `docker-compose.yml`, and you must run `docker-compose up -d` from the folder where you created the `docker-compose.yml` file.
+
+### Run Pragma
+
+Once Pragma is downloaded and installed, you can see if it works by running the following command from PowerShell:
+```
+pragma help
+```
+
+# Support
+
+If you have any questions or feedback you can join our [Discord server](https://discord.gg/gbhDnfC) or post to [r/pragmalang](https://www.reddit.com/r/pragmalang/).
 
 # Contributing
 
 Pragma is a Scala 2.13 project built using SBT. It's divided into three subprojects:
-* `core`: where the domain abstractions and parsing logic is kept alongside any shared logic between other subprojects. All other subprojects depend `core`.
-* `daemon`: where the serving and project management logic lives. It needs instances for Postgres and Openwhisk to be running; it's meant to be running alongside them in the background while using Pragma during development, and in production.
-* `cli`: where the communication with the `daemon`, and the loading of user files is done.
+* `core`: where the domain abstractions and parsing logic is kept alongside any shared logic between other subprojects. All other subprojects depend on the `core`.
+* `daemon`: where the serving and project management logic lives. It needs instances for Postgres and Openwhisk to be running; it's meant to be running alongside them in the background while using Pragma during development and in production.
+* `cli`: where the communication with the `daemon` and the loading of user files is done.
 
 It's highly recommended to be familiar with [Cats](https://typelevel.org/cats/) and [Cats Effect](https://typelevel.org/cats-effect/) before starting to work on the daemon. 
 
@@ -69,7 +131,7 @@ cd daemon/src/main/resources/ && docker-compose up
 ```
 > Make sure to run this before running `sbt 'daemon/test'`.
 
-Running the daemon using `sbt 'daemon/run'` requires the following environment variables:
+Running the daemon using `sbt 'daemon/run'` requires the following environment variables to be exported:
 ```sh
 export DAEMON_HOSTNAME=localhost && \
 export DAEMON_PORT=9584 && \
@@ -98,8 +160,9 @@ sbt "daemon/docker:publishLocal"
 ```
 
 ## GraalVM Native Image Generation
-The native image build is performed using [SBT Native Packager](https://www.scala-sbt.org/sbt-native-packager/formats/graalvm-native-image.html) in Docker, so make sure it's installed.
-Currently, only the CLI can compile to a native image. Run:
+The native image build is performed using [SBT Native Packager](https://www.scala-sbt.org/sbt-native-packager/formats/graalvm-native-image.html), so the `native-image` version needs to be installed locally.
+
+Currently, only the CLI can be compiled to a native image. Run:
 ```sh
 sbt "cli/graalvm-native-image:packageBin"
 ```
@@ -112,7 +175,7 @@ See:
 * https://www.graalvm.org/reference-manual/native-image/Configuration/#assisted-configuration-of-native-image-builds
 * https://noelwelsh.com/posts/2020-02-06-serverless-scala-services.html
 
-> NOTE: Make sure everthing else other than this process is canceled. It needs all the memory it can get.
+> NOTE: Make sure everything else other than this process is canceled. It needs all the memory it can get.
 
 ## Apache Bench benchmark
 Run the ammonite script in `test/benchmark`:
@@ -127,7 +190,7 @@ Make sure the daemon is running before running the benchmark (run `docker-compos
 >```
 
 ## Documentation
-The user documentation lives in `/docs`, and is built using [mdbook](https://github.com/rust-lang/mdBook). It's hosted on http://docs.pragmalang.com.
+The user documentation lives in `/docs` and is built using [mdbook](https://github.com/rust-lang/mdBook). It's hosted on http://docs.pragmalang.com.
 
 # License
 

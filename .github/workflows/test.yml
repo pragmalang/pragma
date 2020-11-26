@@ -1,0 +1,30 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - "master"
+      - "dev"
+  pull_request:
+    branches:
+      - "master"
+      - "dev"
+
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup SBT and GraalVM
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: graalvm@
+      - name: docker-compose up
+        run: docker-compose -f ./daemon/src/main/resources/docker-compose.yml up -d
+      - name: Run tests
+        run: sbt 'clean; cli/test; core/test; daemon/test'
+      - name: docker-compose down
+        run: docker-compose -f ./daemon/src/main/resources/docker-compose.yml down

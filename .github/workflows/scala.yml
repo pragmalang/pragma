@@ -2,20 +2,201 @@ name: Scala CI
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    tags:
+      - "v*.*.*"
+
 
 jobs:
-  build:
+  test:
+    name: Run tests
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Setup GraalVM environment
-      uses: DeLaGuardo/setup-graalvm@2.0
-      with:
-        graalvm-version: '20.0.0.java11' 
-    - name: Build JAR
-      run: sbt 'core/test;cli/test'
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup SBT and GraalVM
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: graalvm-ce-java11@20.1.0
+      - name: docker-compose up
+        run: docker-compose -f ./daemon/src/main/resources/docker-compose.yml up -d
+      - name: Run tests
+        run: sbt 'clean; cli/test; core/test; daemon/test'
+      - name: docker-compose down
+        run: docker-compose -f ./daemon/src/main/resources/docker-compose.yml down
 
-      
+  publish-daemon-on-dockerhub:
+    name: Publish pragmad on Docker Hub
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Setup SBT and GraalVM
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: graalvm-ce-java11@20.1.0
+      - name: Publish to Docker Hub
+        run: sbt 'clean; daemon/docker:publish'
+
+  create-release:
+    name: Create a release
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set release version as output
+        id: vars
+        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.vars.outputs.tag }}
+          release_name: ${{ steps.vars.outputs.tag }}
+          draft: false
+          prerelease: false
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+
+  upload-docker-compose-asset:
+    name: Upload docker-compose.yml release asset
+    needs:
+      - test
+      - create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./cli/src/main/resources/docker-compose.yml
+          asset_name: docker-compose.yml
+          asset_content_type: text/yaml
+
+  build-linux:
+    name: Build and release for Linux
+    needs:
+      - create-release
+      - test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup SBT and GraalVM
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: graalvm-ce-java11@20.1.0
+      - name: Install GraalVM Native Image
+        run: gu install native-image
+      - name: Build Binary
+        run: sbt 'clean; cli/graalvm-native-image:packageBin'
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./cli/target/graalvm-native-image/pragma
+          asset_name: pragma-linux-x86_64
+          asset_content_type: application/octet-stream
+
+  build-macos:
+    name: Build and release for macOS
+    needs:
+      - create-release
+      - test
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup SBT
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: openjdk@1.14
+      - name: Build Dmg
+        run: sbt 'clean; cli/universal:packageOsxDmg'
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./cli/target/universal/pragma-0.1.0.dmg
+          asset_name: pragma.dmg
+          asset_content_type: application/octet-stream
+
+  build-universal:
+    name: Build and release universal build
+    needs:
+      - create-release
+      - test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup SBT
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: openjdk@1.14
+      - name: Build Zip
+        run: sbt 'clean; cli/universal:packageBin'
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./cli/target/universal/pragma-0.1.0.zip
+          asset_name: pragma-universal.zip
+          asset_content_type: application/zip
+
+  build-windows:
+    name: Build and release for Windows
+    needs:
+      - create-release
+      - test
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup SBT
+        uses: olafurpg/setup-scala@v10
+        with:
+          java-version: openjdk@1.14
+      - name: Install WIX
+        run: |
+          cd $HOME;
+          mkdir wix;
+          cd .\wix;
+          Invoke-WebRequest -Uri https://github.com/wixtoolset/wix3/releases/download/wix3112rtm/wix311-binaries.zip -OutFile .\wix.zip;
+          tar -xf .\wix.zip;
+          $env:Path += ";$HOME\wix";
+          cd $env:GITHUB_WORKSPACE;
+        shell: pwsh
+      - name: Build MSI
+        run: sbt 'clean; cli/windows:packageBin'
+        shell: bash
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: .\cli\target\windows\pragma.msi
+          asset_name: pragma.msi
+          asset_content_type: application/octet-stream
