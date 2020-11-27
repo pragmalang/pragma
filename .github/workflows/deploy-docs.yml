@@ -6,6 +6,7 @@ on:
   push:
     branches: [master]
 
+
 jobs:
   checks:
     runs-on: ubuntu-latest

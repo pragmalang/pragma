@@ -35,8 +35,14 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
+  flex-wrap: wrap;
   padding: 2rem 0;
   width: 100%;
+}
+
+.snippetDescriptionContainer {
+  padding-top: 40px;
+  padding-left: 40px;
 }
 
 .snippetDescriptionContainer ol {
@@ -57,10 +63,10 @@
   background: linear-gradient(322deg, rgba(139,48,231,1) 37%, rgba(243,60,217,1) 100%);
   font-size: 16pt;
   font-weight: 500;
-  width: 1.2em;
-  height: 1.2em;
+  width: 25px;
+  height: 25px;
   padding: 5px;
-  border-radius: 50%;
+  border-radius: 12.5px;
   display: inline-grid;
   place-items: center;
   line-height: 1.2em;
