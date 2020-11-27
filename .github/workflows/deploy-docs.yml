@@ -50,11 +50,11 @@ jobs:
       - name: Release to GitHub Pages
         env:
           USE_SSH: true
-          GIT_USER: anasbarg
+          GIT_USER: git
         run: |
           cd ./website
-          git config --global user.email "anasbar97@gmail.com"
-          git config --global user.name "Anas Albarghouthy"
+          git config --global user.email "actions@gihub.com"
+          git config --global user.name "gh-actions"
           if [ -e yarn.lock ]; then
           yarn install --frozen-lockfile
           elif [ -e package-lock.json ]; then
