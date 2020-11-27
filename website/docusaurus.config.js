@@ -7,7 +7,7 @@ module.exports = {
   title: 'Pragma',
   tagline: 'Build Beautiful GraphQL APIs in no time',
   url: 'https://pragmalang.com',
-  baseUrl: '/',
+  baseUrl: '',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',

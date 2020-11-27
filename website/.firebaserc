@@ -1,0 +1,17 @@
+{
+  "projects": {
+    "default": "pragma-beta-list"
+  },
+  "targets": {
+    "pragma-beta-list": {
+      "hosting": {
+        "website": [
+          "pragma-beta-list"
+        ],
+        "docs": [
+          "pragma-docs"
+        ]
+      }
+    }
+  }
+}

@@ -28,7 +28,8 @@ const Home = () => {
   return (
     <Layout
       title={`${siteConfig.title}: ${capitalize(siteConfig.tagline)}`}
-      description={capitalize(siteConfig.tagline)}>
+      description={capitalize(siteConfig.tagline)}
+      permaLink="/">
       <header className={clsx('hero hero--secondary', styles.heroBanner)}>
         <div className="container">
           {/* <h1 className="hero__title">{siteConfig.title}</h1> */}
