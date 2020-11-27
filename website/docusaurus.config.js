@@ -1,5 +1,7 @@
 const repoUrl = 'https://github.com/pragmalang/pragma'
 const editUrl = `${repoUrl}/edit/master/website/`
+const discordUrl = 'https://discordapp.com/invite/gbhDnfC'
+const twitterUrl = 'https://twitter.com/pragmalang'
 
 module.exports = {
   title: 'Pragma',
@@ -32,6 +34,16 @@ module.exports = {
         },
         {to: 'blog', label: 'Blog', position: 'left'},
         {
+          href: discordUrl,
+          label: 'Discord',
+          position: 'right',
+        },
+        {
+          href: twitterUrl,
+          label: 'Twitter',
+          position: 'right',
+        },
+        {
           href: repoUrl,
           label: 'GitHub',
           position: 'right',
@@ -60,11 +72,11 @@ module.exports = {
           items: [
             {
               label: 'Discord',
-              href: 'https://discordapp.com/invite/gbhDnfC',
+              href: discordUrl,
             },
             {
               label: 'Twitter',
-              href: 'https://twitter.com/pragmalang',
+              href: twitterUrl,
             },
           ],
         },
