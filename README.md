@@ -190,7 +190,7 @@ Make sure the daemon is running before running the benchmark (run `docker-compos
 >```
 
 ## Documentation
-The user documentation lives in `/docs` and is built using [mdbook](https://github.com/rust-lang/mdBook). It's hosted on http://docs.pragmalang.com.
+The user documentation lives in `website/docs` and is built using Docusaurus 2. It's hosted on http://docs.pragmalang.com.
 
 # License
 

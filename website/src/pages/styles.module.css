@@ -1,0 +1,72 @@
+/* stylelint-disable docusaurus/copyright-header */
+
+/**
+ * CSS files with the .module.css suffix will be treated as CSS modules
+ * and scoped locally.
+ */
+
+.heroBanner {
+  padding: 4rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+@media screen and (max-width: 966px) {
+  .heroBanner {
+    padding: 2rem;
+  }
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.features {
+  display: flex;
+  align-items: center;
+  padding: 2rem 0;
+  width: 100%;
+}
+
+.snippet {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 2rem 0;
+  width: 100%;
+}
+
+.snippetDescriptionContainer ol {
+  list-style: none;
+  counter-reset: steps;
+}
+.snippetDescriptionContainer ol li {
+  counter-increment: steps;
+  display: flex;
+  margin-bottom: 60px;
+  align-items: baseline;
+}
+.snippetDescriptionContainer ol li::before {
+  content: counter(steps);
+  margin-right: 0.5rem;
+  color: var(--ifm-color-white);
+  background: rgb(139,48,231);
+  background: linear-gradient(322deg, rgba(139,48,231,1) 37%, rgba(243,60,217,1) 100%);
+  font-size: 16pt;
+  font-weight: 500;
+  width: 1.2em;
+  height: 1.2em;
+  padding: 5px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  line-height: 1.2em;
+}
+
+.featureImage {
+  height: 200px;
+  width: 200px;
+}
