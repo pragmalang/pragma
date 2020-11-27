@@ -22,7 +22,9 @@ Registers a function to be called on `CREATE`, `UPDATE`, `MUTATE`, `PUSH_TO`, an
 **Arguments:**
  - `function`: A function that takes the incoming data, and returns the data to be saved to the database.
 
-> *Note*: Functions passed to `onWrite`, `onRead`, `onDelete`, or `onLogin` can fail by throwing an error. This error will be returned to the user with a failure response.
+:::note
+Functions passed to `onWrite`, `onRead`, `onDelete`, or `onLogin` can fail by throwing an error. This error will be returned to the user with a failure response.
+:::
 
 ### @onRead
 Registers a function to be called on `READ`, and `LIST` operation results.
@@ -41,7 +43,9 @@ Registers a function to be called when a user logs in.
 
 **Arguments:**
  - `function`: A function that takes the logged in user, and returns nothing.
-> *Note*: Can only be used on user models.
+:::note
+Can only be used on user models.
+:::
 
 
 ## Field-level directives
@@ -50,19 +54,27 @@ Directives that can be used to mark model fields.
 
 ### @publicCredential
 Marks a field as a public identifier for its user model.
-> *Note*: Can only be used on user model fields.
+:::note
+Can only be used on user model fields.
+:::
 
 ### @secretCredential
 Marks a field as a secret credential for its user model.
-> *Note*: Can only be used on user model fields.
+:::note
+Can only be used on user model fields.
+:::
 
 ### @unique
 Marks a field as being unique for each record.
 
 ### @autoIncrement
 Adds auto-increment functionality.
-> *Note*: Can only be used on `Int` fields.
+:::note
+Can only be used on `Int` fields.
+:::
 
 ### @primary
 Marks a field as a primary key.
-> *Note*: Can only be used on non-optional fields with type [`String` or `Int`](./primitive-types.md).
+:::note
+Can only be used on non-optional fields with type [`String` or `Int`](./primitive-types.md).
+:::

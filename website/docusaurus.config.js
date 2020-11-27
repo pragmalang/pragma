@@ -11,8 +11,10 @@ module.exports = {
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
-  organizationName: 'pragmalang', // Usually your GitHub org/user name.
-  projectName: 'pragma', // Usually your repo name.
+  organizationName: 'pragmalang',
+  projectName: 'pragma',
+  url: 'https://pragmalang.com',
+  baseUrl: '/',
   themeConfig: {
     defaultMode: "dark",
     prism: {
@@ -32,7 +34,7 @@ module.exports = {
           label: 'Docs',
           position: 'left',
         },
-        {to: 'blog', label: 'Blog', position: 'left'},
+        { to: 'blog', label: 'Blog', position: 'left' },
         {
           href: discordUrl,
           label: 'Discord',

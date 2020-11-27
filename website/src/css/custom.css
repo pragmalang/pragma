@@ -68,3 +68,8 @@ hr {
   margin-right: 45%;
   border-color: var(--ifm-color-primary);
 }
+
+.button:hover {
+  opacity: 0.9;
+  transition: opacity 300ms;
+}
