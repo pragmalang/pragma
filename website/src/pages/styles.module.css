@@ -33,43 +33,47 @@
 
 .snippet {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
+  flex-direction: row;
   flex-wrap: wrap;
   padding: 2rem 0;
   width: 100%;
 }
 
-.snippetDescriptionContainer {
-  padding-top: 40px;
-  padding-left: 40px;
+.snippet img {
+  margin-bottom: 15px;
 }
 
 .snippetDescriptionContainer ol {
   list-style: none;
   counter-reset: steps;
+  /* background-color: #303846; */
 }
 .snippetDescriptionContainer ol li {
   counter-increment: steps;
   display: flex;
   margin-bottom: 60px;
   align-items: baseline;
+  flex-direction: row;
 }
-.snippetDescriptionContainer ol li::before {
-  content: counter(steps);
+.snippetDescriptionContainer ol li div {
   margin-right: 0.5rem;
   color: var(--ifm-color-white);
   background: rgb(139,48,231);
   background: linear-gradient(322deg, rgba(139,48,231,1) 37%, rgba(243,60,217,1) 100%);
-  font-size: 16pt;
   font-weight: 500;
-  width: 25px;
-  height: 25px;
-  padding: 5px;
+  width: 35px;
+  height: 35px;
+  padding: 10px;
   border-radius: 12.5px;
   display: inline-grid;
-  place-items: center;
-  line-height: 1.2em;
+  text-align: center;
+  line-height: 1em;
+}
+.snippet ol li h3 {
+  flex: 1;
+  padding-right: 18px;
 }
 
 .featureImage {

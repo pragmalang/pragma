@@ -6,10 +6,9 @@ const twitterUrl = 'https://twitter.com/pragmalang'
 module.exports = {
   title: 'Pragma',
   tagline: 'Build Beautiful GraphQL APIs in no time',
-  url: 'https://pragmalang.com',
-  baseUrl: '',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
+  onDuplicateRoutes: 'error',
   favicon: 'img/favicon.ico',
   organizationName: 'pragmalang',
   projectName: 'pragma',

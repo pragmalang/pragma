@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
@@ -25,6 +25,11 @@ const EmailForm = ({ subscribe, status, message }) => {
 const Home = () => {
   const context = useDocusaurusContext();
   const { siteConfig = {} } = context;
+  useEffect(() => {
+    if (location.hostname.split(".")[0] === "docs") {
+      location.replace(siteConfig.url + siteConfig.baseUrl + "/docs")
+    }
+  }, [])
   return (
     <Layout
       title={`${siteConfig.title}: ${capitalize(siteConfig.tagline)}`}
@@ -49,10 +54,10 @@ const Home = () => {
           <img src="/img/snippet.png" width="500px" />
           <div className={styles.snippetDescriptionContainer}>
             <ol>
-              <li><h3>Define Data Models</h3></li>
-              <li><h3>Define Roles And Permission</h3></li>
-              <li><h3>Extend CRUD Operations With Serverless Functions</h3></li>
-              <li><h3>Extend Permisions With Serverless Functions</h3></li>
+              <li><div>1</div><h3>Define Data Models</h3></li>
+              <li><div>2</div><h3>Define Roles And Permission</h3></li>
+              <li><div>3</div><h3>Extend CRUD Operations With Serverless Functions</h3></li>
+              <li><div>4</div><h3>Extend Permisions With Serverless Functions</h3></li>
             </ol>
           </div>
         </section>
