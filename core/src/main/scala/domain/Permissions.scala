@@ -80,7 +80,7 @@ object PPermission {
   lazy val allowedPrimitiveFieldPermissions: Seq[PPermission] =
     List(Read, Update, SetOnCreate, ReadOnCreate)
   lazy val allowedModelPermissions: Seq[PPermission] =
-    List(Read, Update, Create, Delete, ReadOnCreate)
+    List(Read, Update, Create, Delete, ReadOnCreate, Login)
   lazy val allowedModelFieldPermissions: Seq[PPermission] =
     List(Read, Update, Mutate, SetOnCreate, ReadOnCreate)
 }

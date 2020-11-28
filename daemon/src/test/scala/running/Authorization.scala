@@ -98,6 +98,46 @@ class Authorization extends AnyFlatSpec {
 
   }
 
+  "LOGIN, SET_ON_CREATE, and READ_ON_CREATE" should "be allowed by default" in {
+    val code = """
+    config { projectName = "skjbgskfhbdf" }
+    allow CREATE AU_User3
+    @user
+    @1 model AU_User3 {
+      @1 username: String @primary @publicCredential
+      @2 password: String @secretCredential
+    }
+    """
+
+    implicit val syntaxTree = SyntaxTree.from(code).get
+    implicit val opParser = new OperationParser(syntaxTree)
+    val testStorage = new TestStorage(syntaxTree)
+    import testStorage._
+
+    val authorizer = new Authorizer(
+      syntaxTree,
+      testStorage.storage,
+      PFunctionExecutor.dummy[IO]
+    )
+
+    val req = Request.bareReqFrom {
+      gql"""
+      mutation {
+        AU_User3 {
+          create(aU_User3: { username: "jojo", password: "jojo123" }) {
+            username
+          }
+        }
+      }
+      """
+    }
+
+    val opMap = opParser.parse(req).getOrElse(fail())
+    val authzErrors = authorizer(opMap, None).unsafeRunSync()
+
+    assert(authzErrors.isEmpty)
+  }
+
   "Authorizer" should "take user roles into account" taggedAs (Tag("auth_2")) in {
     val code = """
     @1 model AU_Todo {

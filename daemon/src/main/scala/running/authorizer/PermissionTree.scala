@@ -227,57 +227,51 @@ final class PermissionTree(st: SyntaxTree) {
           targetFieldTree(rmManyFromOp.arrayField.id.some)(Mutate)(false) ++
             targetFieldTree(rmManyFromOp.arrayField.id.some)(RemoveFrom)(false)
       case _: LoginOperation =>
-        AccessRule(Allow, (op.targetModel, None), Set(Login), None, false, None) +:
-          targetFieldTree(None)(Login)(false)
+        targetFieldTree(None)(Login)(false) :+
+          AccessRule(
+            Allow,
+            (op.targetModel, None),
+            Set(Login),
+            None,
+            false,
+            None
+          )
       case _ => Seq.empty
     }
   }
 
-  /** @return The sequence of rules that apply to the argument's inner read operations. */
-  def innerReadRules(op: Operation): Seq[AccessRule] =
-    if (op.innerReadOps.isEmpty) Seq.empty
-    else {
-      val targetModelTree =
-        tree(op.user.map(_._1.role))(op.targetModel.id)
-      op match {
-        case _: CreateOperation | _: CreateManyOperation =>
-          targetModelTree(None)(Read)(false) ++
-            targetModelTree(None)(ReadOnCreate)(false) ++
-            op.innerReadOps.flatMap { iop =>
-              val targetFieldTree =
-                targetModelTree(iop.targetField.field.id.some)
-              targetFieldTree(Read)(false) ++
-                targetFieldTree(ReadOnCreate)(false)
-            } :+
-            AccessRule(
-              Allow,
-              (op.targetModel, None),
-              Set(ReadOnCreate),
-              None,
-              false,
-              None
-            )
-        case iop: InnerReadOperation =>
-          targetModelTree(None)(Read)(false) ++
-            targetModelTree(iop.targetField.field.id.some)(Read)(false)
-        case imop: InnerReadManyOperation =>
-          targetModelTree(None)(Read)(false) ++
-            targetModelTree(imop.targetField.field.id.some)(Read)(false)
-        case _ if op.targetsSelf =>
-          targetModelTree(None)(Read)(false) ++
-            targetModelTree(None)(Read)(true) ++
-            op.innerReadOps.flatMap { iop =>
-              val targetFieldTree =
-                targetModelTree(iop.targetField.field.id.some)(Read)
-              targetFieldTree(false) ++ targetFieldTree(true)
-            }
-        case _ =>
-          targetModelTree(None)(Read)(false) ++
-            op.innerReadOps.flatMap { iop =>
-              targetModelTree(iop.targetField.field.id.some)(Read)(false)
-            }
-      }
+  /** @return The sequence of rules that apply to the child inner read operation. */
+  def innerReadRules(
+      rootOp: Operation,
+      childRead: InnerOperation
+  ): Seq[AccessRule] = {
+    val targetModelTree =
+      tree(rootOp.user.map(_._1.role))(rootOp.targetModel.id)
+    val targetFieldTree =
+      targetModelTree(childRead.targetField.field.id.some)
+    rootOp match {
+      case _: CreateOperation | _: CreateManyOperation =>
+        targetModelTree(None)(Read)(false) ++
+          targetModelTree(None)(ReadOnCreate)(false) ++
+          targetFieldTree(Read)(false) ++
+          targetFieldTree(ReadOnCreate)(false) :+
+          AccessRule(
+            Allow,
+            (rootOp.targetModel, None),
+            Set(ReadOnCreate),
+            None,
+            false,
+            None
+          )
+      case _ if rootOp.targetsSelf =>
+        targetModelTree(None)(Read)(false) ++
+          targetModelTree(None)(Read)(true) ++
+          targetFieldTree(Read)(false) ++ targetFieldTree(Read)(true)
+      case _ =>
+        targetModelTree(None)(Read)(false) ++
+          targetFieldTree(Read)(false)
     }
+  }
 
 }
 object PermissionTree {
