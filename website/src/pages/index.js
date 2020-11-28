@@ -7,16 +7,16 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 import styles from './styles.module.css';
 import { capitalize } from "../utils";
 
-function ImageCard({ buttonText, imageUrl, url }) {
+function ImageCard({ buttonText, imageUrl, url, isExternal }) {
   const imgUrl = useBaseUrl(imageUrl)
   return (
     <div className={clsx('col col--4', styles.imageCard)}>
       <div className="text--center">
-        <a href={url}>
+        <a href={url} target={isExternal && "__blank"}>
           <img src={imgUrl} className={styles.imageCardImage} alt={buttonText} />
         </a>
       </div>
-      <a className="button button--primary button--outline button--lg" href={url}>{buttonText}</a>
+      <a className="button button--primary button--outline button--lg" target={isExternal && "__blank"} href={url}>{buttonText}</a>
     </div>
   );
 }
@@ -69,9 +69,9 @@ const Home = () => {
         <section className={clsx("container", styles.social)}>
           <h1>Join The Community</h1>
           <div className={styles.socialContainer}>
-            <ImageCard imageUrl="/img/discord.svg" buttonText="Pragmalang Server" url="https://discordapp.com/invite/gbhDnfC" />
-            <ImageCard imageUrl="/img/reddit.svg" buttonText="/r/pragmalang" url="https://www.reddit.com/r/pragmalang/" />
-            <ImageCard imageUrl="/img/twitter.svg" buttonText="@pragmalang" url="https://twitter.com/pragmalang" />
+            <ImageCard isExternal imageUrl="/img/discord.svg" buttonText="Pragmalang Server" url="https://discordapp.com/invite/gbhDnfC" />
+            <ImageCard isExternal imageUrl="/img/reddit.svg" buttonText="/r/pragmalang" url="https://www.reddit.com/r/pragmalang/" />
+            <ImageCard isExternal imageUrl="/img/twitter.svg" buttonText="@pragmalang" url="https://twitter.com/pragmalang" />
           </div>
         </section>
       </main>
