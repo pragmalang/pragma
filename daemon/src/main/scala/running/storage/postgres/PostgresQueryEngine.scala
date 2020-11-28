@@ -448,15 +448,6 @@ class PostgresQueryEngine[M[_]: Monad](
         }
     }
 
-    /*
-    {
-      "name": {
-        "ar": "hi",
-        "en": "hi-en"
-      }
-    }
-     */
-
     val primUpdate = for {
       primColumns <- refUpdates.map(fieldTypeMap(Prim) ++ _)
       primUpdateSql = s"UPDATE ${model.id.withQuotes} SET " +
