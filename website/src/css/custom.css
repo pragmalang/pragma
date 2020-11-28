@@ -82,6 +82,15 @@ hr {
   border-color: var(--ifm-color-primary);
 }
 
-.button--primary:hover {
+.with-gradient {
+  background: linear-gradient(322deg, rgba(139,48,231,1) 37%, rgba(243,60,217,1) 100%);
+}
+
+.with-gradient:hover {
   opacity: 0.9;
+  background: linear-gradient(322deg, rgba(139,48,231,1) 37%, rgba(243,60,217,1) 100%);
+}
+
+.with-gradient-outline:hover {
+  background: linear-gradient(322deg, rgba(139,48,231,1) 37%, rgba(243,60,217,1) 100%);
 }
