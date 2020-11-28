@@ -16,7 +16,7 @@ function ImageCard({ buttonText, imageUrl, url, isExternal }) {
           <img src={imgUrl} className={styles.imageCardImage} alt={buttonText} />
         </a>
       </div>
-      <a className="button button--primary button--outline button--lg" target={isExternal && "__blank"} href={url}>{buttonText}</a>
+      <a className="button button--primary button--outline button--lg with-gradient-outline" target={isExternal && "__blank"} href={url}>{buttonText}</a>
     </div>
   );
 }
@@ -42,7 +42,7 @@ const Home = () => {
           <p className="hero__subtitle">{capitalize(siteConfig.tagline)}</p>
           <div className={styles.buttons}>
             <Link
-              className="button button--primary button--lg"
+              className="button button--primary button--lg with-gradient"
               to={useBaseUrl('docs/')}>
               Get Started
             </Link>
