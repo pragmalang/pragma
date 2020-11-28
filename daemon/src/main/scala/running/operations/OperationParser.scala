@@ -138,160 +138,206 @@ class OperationParser(st: SyntaxTree) {
       st: SyntaxTree
   ): Either[Exception, Operation] = {
     val event = opSelectionEvent(opSelection.name, model)
-    val innerOps = opSelection.selections.traverse {
-      case modelFieldSelection: FieldSelection =>
-        innerOpFromModelFieldSelection(
-          modelFieldSelection,
-          model,
-          role,
-          user,
-          st
-        )
-      case s =>
-        InternalException(
-          s"Selection `${s.renderCompact}` is not a field selection. All selections inside a model selection must all be field selections. Something must've went wrong during query reduction"
-        ).asLeft
-    }
+    def innerOps(outputType: PType): Either[Exception, Vector[InnerOperation]] =
+      opSelection.selections.flatTraverse {
+        case modelFieldSelection: FieldSelection =>
+          outputType match {
+            case PReference(id) =>
+              innerOpFromModelFieldSelection(
+                modelFieldSelection,
+                st.modelsById(id),
+                role,
+                user,
+                st
+              ).map(Vector(_))
+            case PArray(PReference(id)) =>
+              innerOpFromModelFieldSelection(
+                modelFieldSelection,
+                st.modelsById(id),
+                role,
+                user,
+                st
+              ).map(Vector(_))
+            case POption(PReference(id)) =>
+              innerOpFromModelFieldSelection(
+                modelFieldSelection,
+                st.modelsById(id),
+                role,
+                user,
+                st
+              ).map(Vector(_))
+            case _ => Vector.empty.asRight
+          }
+        case s =>
+          InternalException(
+            s"Selection `${s.renderCompact}` is not a field selection. All selections inside a model selection must all be field selections. Something must've went wrong during query reduction"
+          ).asLeft
+      }
     val opName = opSelection.alias.getOrElse(opSelection.name)
     val opArgs = parseArgs(event, model, opSelection)
     for {
       args <- opArgs
-      iops <- innerOps
       op <- (event, args) match {
         case (Read, as: ReadArgs) =>
-          ReadOperation(
-            as,
-            model,
-            user zip role,
-            model.readHooks,
-            opName,
-            opGroupName,
-            iops
-          ).asRight
+          innerOps(model) map { iops =>
+            ReadOperation(
+              as,
+              model,
+              user zip role,
+              model.readHooks,
+              opName,
+              opGroupName,
+              iops
+            )
+          }
         case (ReadMany, as: ReadManyArgs) =>
-          ReadManyOperation(
-            as,
-            model,
-            user zip role,
-            model.readHooks,
-            opName,
-            opGroupName,
-            iops
-          ).asRight
+          innerOps(model) map { iops =>
+            ReadManyOperation(
+              as,
+              model,
+              user zip role,
+              model.readHooks,
+              opName,
+              opGroupName,
+              iops
+            )
+          }
         case (Create, as: CreateArgs) =>
-          CreateOperation(
-            as,
-            model,
-            user zip role,
-            model.writeHooks,
-            opName,
-            opGroupName,
-            iops
-          ).asRight
+          innerOps(model) map { iops =>
+            CreateOperation(
+              as,
+              model,
+              user zip role,
+              model.writeHooks,
+              opName,
+              opGroupName,
+              iops
+            )
+          }
         case (CreateMany, as: CreateManyArgs) =>
-          CreateManyOperation(
-            as,
-            model,
-            user zip role,
-            model.writeHooks,
-            opName,
-            opGroupName,
-            iops
-          ).asRight
+          innerOps(model) map { iops =>
+            CreateManyOperation(
+              as,
+              model,
+              user zip role,
+              model.writeHooks,
+              opName,
+              opGroupName,
+              iops
+            )
+          }
         case (Update, as: UpdateArgs) =>
-          UpdateOperation(
-            as,
-            model,
-            user zip role,
-            model.writeHooks,
-            opName,
-            opGroupName,
-            iops
-          ).asRight
+          innerOps(model) map { iops =>
+            UpdateOperation(
+              as,
+              model,
+              user zip role,
+              model.writeHooks,
+              opName,
+              opGroupName,
+              iops
+            )
+          }
         case (UpdateMany, as: UpdateManyArgs) =>
-          UpdateManyOperation(
-            as,
-            model,
-            user zip role,
-            model.writeHooks,
-            opName,
-            opGroupName,
-            iops
-          ).asRight
+          innerOps(model) map { iops =>
+            UpdateManyOperation(
+              as,
+              model,
+              user zip role,
+              model.writeHooks,
+              opName,
+              opGroupName,
+              iops
+            )
+          }
         case (pragma.domain.Delete, as: DeleteArgs) =>
-          DeleteOperation(
-            as,
-            model,
-            user zip role,
-            model.deleteHooks,
-            opName,
-            opGroupName,
-            iops
-          ).asRight
+          innerOps(model) map { iops =>
+            DeleteOperation(
+              as,
+              model,
+              user zip role,
+              model.deleteHooks,
+              opName,
+              opGroupName,
+              iops
+            )
+          }
         case (DeleteMany, as: DeleteManyArgs) =>
-          DeleteManyOperation(
-            as,
-            model,
-            user zip role,
-            model.deleteHooks,
-            opName,
-            opGroupName,
-            iops
-          ).asRight
+          innerOps(model) map { iops =>
+            DeleteManyOperation(
+              as,
+              model,
+              user zip role,
+              model.deleteHooks,
+              opName,
+              opGroupName,
+              iops
+            )
+          }
         case (PushTo(arrayField), as: PushToArgs) =>
-          PushToOperation(
-            as,
-            model,
-            user zip role,
-            model.writeHooks,
-            opName,
-            opGroupName,
-            iops,
-            model.fieldsById(arrayField.id)
-          ).asRight
+          innerOps(arrayField.ptype) map { iops =>
+            PushToOperation(
+              as,
+              model,
+              user zip role,
+              model.writeHooks,
+              opName,
+              opGroupName,
+              iops,
+              model.fieldsById(arrayField.id)
+            )
+          }
         case (PushManyTo(arrayField), as: PushManyToArgs) =>
-          PushManyToOperation(
-            as,
-            model,
-            user zip role,
-            model.writeHooks,
-            opName,
-            opGroupName,
-            iops,
-            model.fieldsById(arrayField.id)
-          ).asRight
+          innerOps(arrayField.ptype) map { iops =>
+            PushManyToOperation(
+              as,
+              model,
+              user zip role,
+              model.writeHooks,
+              opName,
+              opGroupName,
+              iops,
+              model.fieldsById(arrayField.id)
+            )
+          }
         case (RemoveFrom(arrayField), as: RemoveFromArgs) =>
-          RemoveFromOperation(
-            as,
-            model,
-            user zip role,
-            model.writeHooks,
-            opName,
-            opGroupName,
-            iops,
-            model.fieldsById(arrayField.id)
-          ).asRight
+          innerOps(arrayField.ptype) map { iops =>
+            RemoveFromOperation(
+              as,
+              model,
+              user zip role,
+              model.writeHooks,
+              opName,
+              opGroupName,
+              iops,
+              model.fieldsById(arrayField.id)
+            )
+          }
         case (RemoveManyFrom(arrayField), as: RemoveManyFromArgs) =>
-          RemoveManyFromOperation(
-            as,
-            model,
-            user zip role,
-            model.writeHooks,
-            opName,
-            opGroupName,
-            iops,
-            model.fieldsById(arrayField.id)
-          ).asRight
+          innerOps(arrayField.ptype) map { iops =>
+            RemoveManyFromOperation(
+              as,
+              model,
+              user zip role,
+              model.writeHooks,
+              opName,
+              opGroupName,
+              iops,
+              model.fieldsById(arrayField.id)
+            )
+          }
         case (Login, as: LoginArgs) =>
-          LoginOperation(
-            as,
-            model,
-            user zip role,
-            model.loginHooks,
-            opName,
-            opGroupName,
-            iops
-          ).asRight
+          innerOps(model) map { iops =>
+            LoginOperation(
+              as,
+              model,
+              user zip role,
+              model.loginHooks,
+              opName,
+              opGroupName,
+              iops
+            )
+          }
         case (event, _) =>
           InternalException(s"Invalid `$event` operation arguments").asLeft
       }
@@ -314,16 +360,17 @@ class OperationParser(st: SyntaxTree) {
           )
       }
     val targetFieldType = targetField.ptype match {
-      case m: PReference                  => st.findTypeById(m.id)
-      case PArray(m: PReference)          => st.findTypeById(m.id)
-      case POption(m: PReference)         => st.findTypeById(m.id)
-      case POption(PArray(m: PReference)) => st.findTypeById(m.id)
-      case p                              => Some(p)
+      case m: PReference          => st.findTypeById(m.id)
+      case PArray(m: PReference)  => st.findTypeById(m.id)
+      case POption(m: PReference) => st.findTypeById(m.id)
+      case p                      => Some(p)
     }
     val innerOpTargetModel = targetFieldType match {
       case Some(m: PModel) => m
-      case Some(_: PrimitiveType) | Some(_: PEnum)
-          if !modelFieldSelection.selections.isEmpty =>
+      case Some(_: PrimitiveType) | Some(_: PEnum) | Some(
+            PArray(_: PrimitiveType)
+          ) | Some(POption(_: PrimitiveType)) | Some(PArray(_: PEnum)) |
+          Some(POption(_: PEnum)) if !modelFieldSelection.selections.isEmpty =>
         throw new InternalException(
           s"Field `${targetField.id}` is not of a model type (it cannot have inner sellections in a GraphQL query). Something must've went wrong during query validation"
         )
