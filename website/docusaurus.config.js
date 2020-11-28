@@ -6,13 +6,14 @@ const twitterUrl = 'https://twitter.com/pragmalang'
 module.exports = {
   title: 'Pragma',
   tagline: 'Build Beautiful GraphQL APIs in no time',
-  url: 'https://pragmalang.com',
-  baseUrl: '/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
+  onDuplicateRoutes: 'error',
   favicon: 'img/favicon.ico',
-  organizationName: 'pragmalang', // Usually your GitHub org/user name.
-  projectName: 'pragma', // Usually your repo name.
+  organizationName: 'pragmalang',
+  projectName: 'pragma',
+  url: 'https://pragmalang.com',
+  baseUrl: '/',
   themeConfig: {
     defaultMode: "dark",
     prism: {
@@ -32,7 +33,7 @@ module.exports = {
           label: 'Docs',
           position: 'left',
         },
-        {to: 'blog', label: 'Blog', position: 'left'},
+        { to: 'blog', label: 'Blog', position: 'left' },
         {
           href: discordUrl,
           label: 'Discord',

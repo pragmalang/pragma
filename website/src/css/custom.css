@@ -46,6 +46,19 @@ html[data-theme='light'] .avatar a {
   color: var(--ifm-color-gray-900);
 }
 
+
+#join-discord-img {
+  content: url(/img/discord.svg);
+}
+
+html[data-theme='light'] #join-reddit-img {
+  content: url(/img/reddit-light.svg);
+}
+
+html[data-theme='dark'] #join-reddit-img {
+  content: url(/img/reddit-dark.svg);
+}
+
 html[data-theme='dark'] a[href^="/blog/20"] {
   color: var(--ifm-color-secondary-dark);
 }
@@ -67,4 +80,17 @@ hr {
   margin-left: 45%;
   margin-right: 45%;
   border-color: var(--ifm-color-primary);
+}
+
+.with-gradient {
+  background: linear-gradient(322deg, rgba(139,48,231,1) 37%, rgba(243,60,217,1) 100%);
+}
+
+.with-gradient:hover {
+  opacity: 0.9;
+  background: linear-gradient(322deg, rgba(139,48,231,1) 37%, rgba(243,60,217,1) 100%);
+}
+
+.with-gradient-outline:hover {
+  background: linear-gradient(322deg, rgba(139,48,231,1) 37%, rgba(243,60,217,1) 100%);
 }

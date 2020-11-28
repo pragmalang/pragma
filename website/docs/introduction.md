@@ -77,7 +77,7 @@ mutation createUser {
 
 This returns the `username` and `fullName` of the newly created user. See [The Generated API](./api/index.md) section for more details.
 
-For a step-by-step tutorial on Pragma, see the [Getting Started section](./getting-started/index.md).
+For a step-by-step tutorial on Pragma, see the [Basic Todo App page](./getting-started/basic-todo-app.md).
 
 ## Why Pragma?
 
@@ -89,7 +89,7 @@ Pragma doesn't make you worry about networking, writing resolvers, or (when usin
 
 Definitions are concise, readable, high-level, and maintainable. It keeps configuration and boilerplate you need to write and keep in mind at a minimum (no code generation, all the complexity is abstracted). You focus on your business logic and nothing else.
 
-[A simple todo app](./getting-started/index.md#basic-todo-app) with user authentication and permissions can be expressed in under 30 lines of code.
+[A simple todo app](./getting-started/basic-todo-app.md) with user authentication and permissions can be expressed in under 30 lines of code.
 
 ### It Integrates with Many Languages
 
@@ -97,7 +97,7 @@ You can define the functions used for data processing in many languages, includi
 
 ### It Runs Locally
 
-You can easily install Pragma on you laptop and start development within seconds. The only two requirements for running Pragma are Docker and Docker Compose. See the [Getting Started](./getting-started/index.md) chapter.
+You can easily install Pragma on you laptop and start development within seconds. The only two requirements for running Pragma are Docker and Docker Compose. See the [Install Pragma page](./getting-started/install-pragma.md) chapter.
 
 One your application is ready for deployment, you can deploy it to your own servers, or any cloud platform that supports Pragma.
 

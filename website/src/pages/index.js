@@ -1,68 +1,40 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import Layout from '@theme/Layout';
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import styles from './styles.module.css';
-import { capitalize } from "../utils"
+import { capitalize } from "../utils";
 
-const features = [
-  {
-    title: 'Easy to Use',
-    imageUrl: 'img/undraw_docusaurus_mountain.svg',
-    description: (
-      <>
-        Docusaurus was designed from the ground up to be easily installed and
-        used to get your website up and running quickly.
-      </>
-    ),
-  },
-  {
-    title: 'Focus on What Matters',
-    imageUrl: 'img/undraw_docusaurus_tree.svg',
-    description: (
-      <>
-        Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-        ahead and move your docs into the <code>docs</code> directory.
-      </>
-    ),
-  },
-  {
-    title: 'Powered by React',
-    imageUrl: 'img/undraw_docusaurus_react.svg',
-    description: (
-      <>
-        Extend or customize your website layout by reusing React. Docusaurus can
-        be extended while reusing the same header and footer.
-      </>
-    ),
-  },
-];
-
-function Feature({ imageUrl, title, description }) {
-  const imgUrl = useBaseUrl(imageUrl);
+function ImageCard({ buttonText, imageUrl, url, isExternal }) {
+  const imgUrl = useBaseUrl(imageUrl)
   return (
-    <div className={clsx('col col--4', styles.feature)}>
-      {imgUrl && (
-        <div className="text--center">
-          <img className={styles.featureImage} src={imgUrl} alt={title} />
-        </div>
-      )}
-      <h3>{title}</h3>
-      <p>{description}</p>
+    <div className={clsx('col col--4', styles.imageCard)}>
+      <div className="text--center">
+        <a href={url} target={isExternal && "__blank"}>
+          <img src={imgUrl} className={styles.imageCardImage} alt={buttonText} />
+        </a>
+      </div>
+      <a className="button button--primary button--outline button--lg with-gradient-outline" target={isExternal && "__blank"} href={url}>{buttonText}</a>
     </div>
   );
 }
 
-function Home(props) {
+
+const Home = () => {
   const context = useDocusaurusContext();
   const { siteConfig = {} } = context;
-  console.log(props)
+  useEffect(() => {
+    if (location.hostname.split(".")[0] === "docs") {
+      location.replace(siteConfig.url + siteConfig.baseUrl + "/docs")
+    }
+  }, [])
   return (
     <Layout
       title={`${siteConfig.title}: ${capitalize(siteConfig.tagline)}`}
-      description={capitalize(siteConfig.tagline)}>
+      description={capitalize(siteConfig.tagline)}
+      permaLink="/">
       <header className={clsx('hero hero--secondary', styles.heroBanner)}>
         <div className="container">
           {/* <h1 className="hero__title">{siteConfig.title}</h1> */}
@@ -70,10 +42,7 @@ function Home(props) {
           <p className="hero__subtitle">{capitalize(siteConfig.tagline)}</p>
           <div className={styles.buttons}>
             <Link
-              className={clsx(
-                'button button--outline button--primary button--lg',
-                styles.getStarted,
-              )}
+              className="button button--primary button--lg with-gradient"
               to={useBaseUrl('docs/')}>
               Get Started
             </Link>
@@ -81,15 +50,28 @@ function Home(props) {
         </div>
       </header>
       <main>
-        <section className={styles.snippet}>
-          <img src="/img/snippet.png" width="500px" />
-          <div className={styles.snippetDescriptionContainer}>
-            <ol>
-              <li><h3>Define Data Models</h3></li>
-              <li><h3>Define Roles And Permission</h3></li>
-              <li><h3>Extend CRUD Operations With Serverless Functions</h3></li>
-              <li><h3>Extend Permisions With Serverless Functions</h3></li>
-            </ol>
+        <section className={styles.features}>
+          <h1>Pragma is an open-source language for building GraphQL APIs <i>quickly</i>, and <i>declaratively</i>.</h1>
+          <div className={styles.snippet}>
+            <img src="/img/snippet.png" width="500px" />
+            <div className={styles.snippetDescriptionContainer}>
+              <ol>
+                <li><div>1</div><h3>Define data models</h3></li>
+                <li><div>2</div><h3>Define roles and permissions</h3></li>
+                <li><div>3</div><h3>Extend CRUD operations with serverless functions</h3></li>
+                <li><div>4</div><h3>Extend permissions with serverless functions</h3></li>
+                <li><div>5</div><h3>Start querying your server</h3></li>
+              </ol>
+            </div>
+          </div>
+        </section>
+
+        <section className={clsx("container", styles.social)}>
+          <h1>Join The Community</h1>
+          <div className={styles.socialContainer}>
+            <ImageCard isExternal imageUrl="/img/discord.svg" buttonText="Pragmalang Server" url="https://discordapp.com/invite/gbhDnfC" />
+            <ImageCard isExternal imageUrl="/img/reddit.svg" buttonText="/r/pragmalang" url="https://www.reddit.com/r/pragmalang/" />
+            <ImageCard isExternal imageUrl="/img/twitter.svg" buttonText="@pragmalang" url="https://twitter.com/pragmalang" />
           </div>
         </section>
       </main>

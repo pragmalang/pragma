@@ -5,11 +5,18 @@ title: Basic Todo App
 
 In this tutorial, we'll create a todo application with user authentication. A user can have many todos, and they can only access their *own* todos, and anyone can create a user account.
 
+## Initialize Project
+
 To start, initialize a new Pragma project by running:
 ```sh
 pragma new project
 ```
-After answering Pragma's questions, there will be a directory with the name of your project containing a `Pragmafile`, where you'll be writing all your Pragma code. Now we can define our `User` [model](../features/user-models.md) in the `Pragmafile`:
+
+After answering Pragma's questions, there will be a directory with the name of your project containing a `Pragmafile`, where you'll be writing all your Pragma code.
+
+## Define `User` Model
+
+Now we can define our `User` [model](../features/user-models.md) in the `Pragmafile`:
 
 ```pragma
 @user
@@ -23,6 +30,8 @@ After answering Pragma's questions, there will be a directory with the name of y
 Notice the `@1`, `@2`, on the `User` model and it's fields, these are called **indecies** and they are important for Pragma to be able to perform database migrations automatocally.
 
 Notice also the `@user` syntax. This is a [directive](../features/directives.md) that tells Pragma that this is a [user model](../features/user-models.md), so Pragma would set up auth workflows for this model.
+
+## Define `Todo` Model
 
 Now we define the `Todo` model:
 
@@ -42,6 +51,8 @@ enum TodoStatus {
 ```
 
 [`enum`s](../features/enum-types.md) are definitions of all the possible string values that a field can hold.
+
+## Define Permissions
 
 Ok, now we need to define permissions. Our requirements dictate that a `User` can only edit, read, write, and delete their own `Todo`s, and that anyone can create a user account.
 
@@ -86,11 +97,13 @@ role User {
 }
 ```
 
-## A Note on Authorization Predicates
-
+:::note A Note On Authorization Predicates
 In the example above we're returning a JSON object of the shape `{ result: boolean }`, not a `boolean` value directly, this is because all imported functions are run as OpenWhisk serverless functions and OpenWhisk requires that all functions must return a JSON object for some reason. This will be solved in the future. **This is only a problem for functions that are used by authorization rules**.
 
 For more information about how authorization rules work with functions, see the [Permissions section](../features/permissions.md).
+:::
+
+## Run dev server
 
 Alright, now that we've done all the "hard work," we can start our server by running the following command in the root of our project:
 ```sh
@@ -99,7 +112,7 @@ pragma dev
 
 Congratulations! Now if you follow the URL printed out in your terminal, you'll find a GraphQL Playground where you can run queries/mutations such as:
 
-#### Creating a new `User`
+### Creating a new `User`
 ```graphql
 mutation {
   User {
@@ -130,7 +143,7 @@ and we'll get a JWT token from the server:
 }
 ```
 
-### Adding new todos to `john`
+### Adding todos to `john`
 ```graphql
 mutation {
   User {
@@ -149,7 +162,7 @@ We need to add an authorization header containing the JWT token that was returne
 }
 ```
 
-#### List `john`'s todos
+### List `john`'s todos
 ```
 {
   User {

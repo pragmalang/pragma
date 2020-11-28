@@ -7,7 +7,7 @@
     "start": "docusaurus start",
     "build": "docusaurus build",
     "swizzle": "docusaurus swizzle",
-    "deploy": "docusaurus deploy",
+    "deploy": "GENERATE_SOURCEMAP=false docusaurus build && firebase deploy --only hosting:website",
     "serve": "docusaurus serve",
     "clear": "docusaurus clear"
   },
@@ -17,7 +17,8 @@
     "@mdx-js/react": "^1.6.21",
     "clsx": "^1.1.1",
     "react": "^16.8.4",
-    "react-dom": "^16.8.4"
+    "react-dom": "^16.8.4",
+    "react-mailchimp-subscribe": "^2.1.0"
   },
   "browserslist": {
     "production": [
