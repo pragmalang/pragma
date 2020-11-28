@@ -46,6 +46,19 @@ html[data-theme='light'] .avatar a {
   color: var(--ifm-color-gray-900);
 }
 
+
+#join-discord-img {
+  content: url(/img/discord.svg);
+}
+
+html[data-theme='light'] #join-reddit-img {
+  content: url(/img/reddit-light.svg);
+}
+
+html[data-theme='dark'] #join-reddit-img {
+  content: url(/img/reddit-dark.svg);
+}
+
 html[data-theme='dark'] a[href^="/blog/20"] {
   color: var(--ifm-color-secondary-dark);
 }
@@ -69,7 +82,6 @@ hr {
   border-color: var(--ifm-color-primary);
 }
 
-.button:hover {
+.button--primary:hover {
   opacity: 0.9;
-  transition: opacity 300ms;
 }

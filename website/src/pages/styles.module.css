@@ -26,9 +26,17 @@
 
 .features {
   display: flex;
+  flex-direction: column;
   align-items: center;
   padding: 2rem 0;
   width: 100%;
+  justify-content: center;
+}
+
+.features h1 {
+  padding-right: 10px;
+  padding-left: 10px;
+  text-align: center;
 }
 
 .snippet {
@@ -50,13 +58,15 @@
   counter-reset: steps;
   /* background-color: #303846; */
 }
+
 .snippetDescriptionContainer ol li {
   counter-increment: steps;
   display: flex;
-  margin-bottom: 60px;
+  margin-bottom: 30px;
   align-items: baseline;
   flex-direction: row;
 }
+
 .snippetDescriptionContainer ol li div {
   margin-right: 0.5rem;
   color: var(--ifm-color-white);
@@ -67,16 +77,41 @@
   height: 35px;
   padding: 10px;
   border-radius: 12.5px;
-  display: inline-grid;
   text-align: center;
   line-height: 1em;
 }
+
 .snippet ol li h3 {
   flex: 1;
   padding-right: 18px;
 }
 
-.featureImage {
-  height: 200px;
-  width: 200px;
+.imageCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 0;
+  width: 100%;
+  justify-content: center;
+  flex: 1;
+}
+
+.socialContainer {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 30px;
+}
+
+.imageCardImage {
+  height: 100px;
+  width: 100px;
+  margin-bottom: 30px;
+}
+
+.social h1 {
+  text-align: center;
+}
+
+.social {
+  padding-bottom: 50px;
 }

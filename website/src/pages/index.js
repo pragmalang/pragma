@@ -6,21 +6,21 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import styles from './styles.module.css';
 import { capitalize } from "../utils";
-import MailchimpSubscribe from "react-mailchimp-subscribe";
 
-const EmailForm = ({ subscribe, status, message }) => {
-  const [email, setEmail] = React.useState(null)
+function ImageCard({ buttonText, imageUrl, url }) {
+  const imgUrl = useBaseUrl(imageUrl)
   return (
-    <form onSubmit={e => {
-      e.preventDefault()
-      email && subscribe(email)
-    }}>
-      <input className="input" type="email" onChange={e => setEmail(e.target.value)} />
-      <button className={`button button--primary ${styles.emailSubmitButton}`} type="submit">Submit</button>
-      <div style={{ color: "red" }}>{status}: {message}</div>
-    </form>
-  )
+    <div className={clsx('col col--4', styles.imageCard)}>
+      <div className="text--center">
+        <a href={url}>
+          <img src={imgUrl} className={styles.imageCardImage} alt={buttonText} />
+        </a>
+      </div>
+      <a className="button button--primary button--outline button--lg" href={url}>{buttonText}</a>
+    </div>
+  );
 }
+
 
 const Home = () => {
   const context = useDocusaurusContext();
@@ -50,15 +50,28 @@ const Home = () => {
         </div>
       </header>
       <main>
-        <section className={styles.snippet}>
-          <img src="/img/snippet.png" width="500px" />
-          <div className={styles.snippetDescriptionContainer}>
-            <ol>
-              <li><div>1</div><h3>Define Data Models</h3></li>
-              <li><div>2</div><h3>Define Roles And Permission</h3></li>
-              <li><div>3</div><h3>Extend CRUD Operations With Serverless Functions</h3></li>
-              <li><div>4</div><h3>Extend Permisions With Serverless Functions</h3></li>
-            </ol>
+        <section className={styles.features}>
+          <h1>Pragma is an open-source language for building GraphQL APIs <i>quickly</i>, and <i>declaratively</i>.</h1>
+          <div className={styles.snippet}>
+            <img src="/img/snippet.png" width="500px" />
+            <div className={styles.snippetDescriptionContainer}>
+              <ol>
+                <li><div>1</div><h3>Define data models</h3></li>
+                <li><div>2</div><h3>Define roles and permissions</h3></li>
+                <li><div>3</div><h3>Extend CRUD operations with serverless functions</h3></li>
+                <li><div>4</div><h3>Extend permissions with serverless functions</h3></li>
+                <li><div>5</div><h3>Start querying your server</h3></li>
+              </ol>
+            </div>
+          </div>
+        </section>
+
+        <section className={clsx("container", styles.social)}>
+          <h1>Join The Community</h1>
+          <div className={styles.socialContainer}>
+            <ImageCard imageUrl="/img/discord.svg" buttonText="Pragmalang Server" url="https://discordapp.com/invite/gbhDnfC" />
+            <ImageCard imageUrl="/img/reddit.svg" buttonText="/r/pragmalang" url="https://www.reddit.com/r/pragmalang/" />
+            <ImageCard imageUrl="/img/twitter.svg" buttonText="@pragmalang" url="https://twitter.com/pragmalang" />
           </div>
         </section>
       </main>
