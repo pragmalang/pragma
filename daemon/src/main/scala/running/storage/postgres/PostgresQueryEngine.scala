@@ -348,22 +348,29 @@ class PostgresQueryEngine[M[_]: Monad](
           }
           val refIdIsDefined = obj.fields.contains(refModel.primaryField.id)
 
-          val errorExplanation =
-            "Update to referenced records can only be done by providing *only* the value of the primary field of the referenced record"
-
           if (refIdIsDefined && obj.fields.size == 1)
             (field, obj.fields(refModel.primaryField.id)).pure[List].pure[Query]
-          else if (refIdIsDefined)
-            queryError[List[(PModelField, JsValue)]] {
-              UserError(
-                s"Trying to perform nested update of `${field.id}` in model `${model.id}` (fields other than the primary field are specified). $errorExplanation"
-              )
-            } else
-            queryError[List[(PModelField, JsValue)]] {
-              UserError(
-                s"Trying to perform nested update of `${field.id}` in model `${model.id}` (primary field is not specified). $errorExplanation"
-              )
-            }
+          else if (refIdIsDefined) {
+            updateOneRecord(
+              refModel,
+              obj.fields(refModel.primaryField.id),
+              obj,
+              Vector.empty
+            ) *> List.empty[(PModelField, JsValue)].pure[Query]
+          } else
+            for {
+              refId <- HC
+                .stream(
+                  s"SELECT ${field.id.withQuotes} FROM ${model.id.withQuotes} WHERE ${model.primaryField.id.withQuotes} = ?;",
+                  setJsValue(primaryKeyValue, model.primaryField),
+                  1
+                )
+                .head
+                .compile
+                .toList
+                .map(_.head.fields(field.id))
+              _ <- updateOneRecord(refModel, refId, obj, Vector.empty)
+            } yield List.empty[(PModelField, JsValue)]
         }
         case (field, value) =>
           queryError[List[(PModelField, JsValue)]] {
@@ -387,17 +394,22 @@ class PostgresQueryEngine[M[_]: Monad](
               obj.fields(refModel.primaryField.id),
               obj,
               Vector.empty
-            )
+            ).void
           case otherVal =>
-            queryError[JsObject] {
+            queryError[Unit] {
               UserError(
-                s"Invalid value `$otherVal` in nested UPDATE_MANY `${refModel.id}` operation"
+                s"Invalid value `$otherVal` in nested `UPDATE_MANY ${refModel.id}` operation"
               )
             }
-        }
+        }.void
       }
-      case _ => Vector.empty[JsObject].pure[ConnectionIO]
-    }
+      case _ =>
+        queryError[Unit] {
+          InternalException(
+            s"Invalid array field reference or value in nested `UPDATE` operation on `${model.id}`"
+          )
+        }
+    }.void
 
     val primArrayUpdates = fieldTypeMap(PrimArray).traverse {
       case (
@@ -436,6 +448,15 @@ class PostgresQueryEngine[M[_]: Monad](
         }
     }
 
+    /*
+    {
+      "name": {
+        "ar": "hi",
+        "en": "hi-en"
+      }
+    }
+     */
+
     val primUpdate = for {
       primColumns <- refUpdates.map(fieldTypeMap(Prim) ++ _)
       primUpdateSql = s"UPDATE ${model.id.withQuotes} SET " +
@@ -451,16 +472,17 @@ class PostgresQueryEngine[M[_]: Monad](
           model.primaryField,
           fieldTypeMap(Prim).length + 1
         )
-      newId <- HC
-        .updateWithGeneratedKeys(model.primaryField.id :: Nil)(
-          primUpdateSql,
-          primUpdatePrep,
-          1
-        )
-        .head
-        .compile
-        .toList
-        .map(_.head.fields(model.primaryField.id))
+      newId <- if (primColumns.isEmpty) primaryKeyValue.pure[Query]
+      else
+        HC.updateWithGeneratedKeys(model.primaryField.id :: Nil)(
+            primUpdateSql,
+            primUpdatePrep,
+            1
+          )
+          .head
+          .compile
+          .toList
+          .map(_.head.fields(model.primaryField.id))
     } yield newId
 
     for {
