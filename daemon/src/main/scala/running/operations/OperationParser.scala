@@ -142,6 +142,14 @@ class OperationParser(st: SyntaxTree) {
       opSelection.selections.flatTraverse {
         case modelFieldSelection: FieldSelection =>
           outputType match {
+            case m: PModel =>
+              innerOpFromModelFieldSelection(
+                modelFieldSelection,
+                m,
+                role,
+                user,
+                st
+              ).map(Vector(_))
             case PReference(id) =>
               innerOpFromModelFieldSelection(
                 modelFieldSelection,
@@ -154,6 +162,14 @@ class OperationParser(st: SyntaxTree) {
               innerOpFromModelFieldSelection(
                 modelFieldSelection,
                 st.modelsById(id),
+                role,
+                user,
+                st
+              ).map(Vector(_))
+            case PArray(m: PModel) =>
+              innerOpFromModelFieldSelection(
+                modelFieldSelection,
+                m,
                 role,
                 user,
                 st
