@@ -182,6 +182,14 @@ class OperationParser(st: SyntaxTree) {
                 user,
                 st
               ).map(Vector(_))
+            case POption(m: PModel) =>
+              innerOpFromModelFieldSelection(
+                modelFieldSelection,
+                m,
+                role,
+                user,
+                st
+              ).map(Vector(_))
             case _ => Vector.empty.asRight
           }
         case s =>
