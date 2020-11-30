@@ -49,7 +49,7 @@ class Validator(constructs: List[PConstruct]) {
     else Failure(UserError(errors))
   }
 
-  // Type-check the default value ot model fields.
+  // Type-check the default value of model fields.
   def checkFieldDefaultValueTypes: Try[Unit] = {
     val errors: List[ErrorMessage] = st.models.toList.flatMap { m =>
       m.fields.foldLeft(List.empty[ErrorMessage]) { (errors, field) =>
