@@ -94,8 +94,22 @@ lazy val cli = (project in file("cli"))
     ),
     wixProductId := "0e5e2980-bf07-4bf0-b446-2cfb4bf4704a",
     wixProductUpgradeId := "5603913d-7bde-46eb-ac47-44ed2cb4fd08",
+    name in Windows := s"${name.value}-${version.value}",
+    wixPackageInfo := com.typesafe.sbt.packager.windows.WindowsProductInfo(
+      id = wixProductId.value,
+      title = "Pragma CLI",
+      version = version.value,
+      maintainer = "Muhammad Tabaza @Tabzz98, Anas H Al-Barghouthy @anasbarg",
+      description = packageSummary.value,
+      upgradeId = wixProductUpgradeId.value
+    ),
     sources in (Compile, doc) := Seq.empty,
     publishArtifact in (Compile, packageDoc) := false
   )
   .dependsOn(core)
-  .enablePlugins(GraalVMNativeImagePlugin, UniversalPlugin, WindowsPlugin, JavaAppPackaging)
+  .enablePlugins(
+    GraalVMNativeImagePlugin,
+    UniversalPlugin,
+    WindowsPlugin,
+    JavaAppPackaging
+  )
