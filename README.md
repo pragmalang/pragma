@@ -43,7 +43,7 @@ Once Pragma is downloaded and installed, you can see if it works by running the 
 pragma help
 ```
 
-## macOS
+## MacOS
 
 ### Requirements
 
@@ -102,9 +102,13 @@ Once Pragma is downloaded and installed, you can see if it works by running the 
 pragma help
 ```
 
-# Support
+# Getting Started
 
-If you have any questions or feedback you can join our [Discord server](https://discord.gg/gbhDnfC) or post to [r/pragmalang](https://www.reddit.com/r/pragmalang/).
+After Pragma has been successfully installed, visit [this page of the documentation](https://docs.pragmalang.com/docs/getting-started/basic-todo-app) for a step-by-step tutorial on building a simple Todo application.
+
+# Community
+
+If you have any questions or feedback, you can join our [Discord server](https://discord.gg/gbhDnfC) or post to [r/pragmalang](https://www.reddit.com/r/pragmalang/). We would love to hear from you!
 
 # Contributing
 

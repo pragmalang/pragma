@@ -103,7 +103,7 @@ In the example above we're returning a JSON object of the shape `{ result: boole
 For more information about how authorization rules work with functions, see the [Permissions section](../features/permissions.md).
 :::
 
-## Run dev server
+## Run Development Server
 
 Alright, now that we've done all the "hard work," we can start our server by running the following command in the root of our project:
 ```sh
