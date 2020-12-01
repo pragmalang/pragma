@@ -4,9 +4,18 @@
 ![Tests](https://img.shields.io/github/workflow/status/pragmalang/pragma/Test/master?style=for-the-badge&label=tests)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=for-the-badge)
 
-This is the repository where the Pragma language lives.
+Pragma is a language for building beautiful and extensibleGraphQL APIs *in no time*. Within a single file, you can define your data models and authorization rules, then import serverless functions to use for data validation/transformation/authorization. Pragma then generates a fully functional API ready to be used from your front-end application with a single command.
 
-For user documentation, visit [http://docs.pragmalang.com](http://docs.pragmalang.com).
+For more details, visit [the documentation](https://docs.pragmalang.com).
+
+# Table of Contents
+* [Install Pragma](#install-pragma)
+    * [Linux](#linux)
+    * [MacOS](#macos)
+    * [Windows](#windows)
+* [Getting Started](#getting-started)
+* [Community](#community)
+* [Contributing](#contributing)
 
 # Install Pragma
 
