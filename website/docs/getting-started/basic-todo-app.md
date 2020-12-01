@@ -27,7 +27,7 @@ Now we can define our `User` [model](../features/user-models.md) in the `Pragmaf
 }
 ```
 
-Notice the `@1`, `@2`, on the `User` model and it's fields, these are called **indecies** and they are important for Pragma to be able to perform database migrations automatocally.
+Notice the `@1`, `@2`, on the `User` model and it's fields, these are called **indices** and they are important for Pragma to be able to perform database migrations automatically.
 
 Notice also the `@user` syntax. This is a [directive](../features/directives.md) that tells Pragma that this is a [user model](../features/user-models.md), so Pragma would set up auth workflows for this model.
 
