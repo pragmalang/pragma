@@ -5,7 +5,7 @@ authorTitle: CTO of Pragma
 authorImageURL: https://avatars1.githubusercontent.com/u/23503983?s=460&u=9f959a04b620b6ff0f1aa226a19ddf59e6d52517&v=4
 authorURL: https://github.com/Tabzz98
 authorTwitter: Tabz_98
-tags: [functional-programming, haskell, beginner]
+tags: [functional-programming, scala, beginner]
 ---
 
 ![Scala3](/img/scala-3.jpeg)
