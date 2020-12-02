@@ -33,7 +33,6 @@ class RequestValidator(syntaxTree: SyntaxTree) {
     request
   }
 
-  // 
   def typeCheckVariables(
       query: ast.Document,
       variables: JsObject

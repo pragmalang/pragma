@@ -46,7 +46,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
     '#' ~ zeroOrMore(noneOf("\n"))
   }
 
-  // Parses a single whitespace character
+  /** Parses a single whitespace character */
   def wsChar(includeEndline: Boolean) = rule {
     anyOf(" \r\t" + (if (includeEndline) "\n" else ""))
   }
@@ -65,7 +65,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
 
   implicit def intToPos(i: Int) = Position(i, input)
 
-  // An identifier starts with a non-underscore alphabetic character
+  /** An identifier starts with a non-underscore alphabetic character */
   def identifier: Rule1[String] = rule {
     capture(predicate(CharPredicate.Alpha)) ~
       capture(zeroOrMore(CharPredicate.AlphaNum | '_')) ~>
@@ -108,7 +108,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
     valueMap(Map("true" -> PBoolValue(true), "false" -> PBoolValue(false)))
   }
 
-  // Note: returns an array with unknown element type if the array is empty.
+  /** Note: returns an array with unknown element type if the array is empty. */
   def arrayVal: Rule1[PArrayValue] = rule {
     '[' ~ wsWithEndline() ~
       zeroOrMore(literal).separatedBy(optional(wsWithEndline(","))) ~
@@ -125,7 +125,7 @@ class PragmaParser(val input: ParserInput) extends Parser {
     floatVal | integerVal | stringVal | booleanVal | arrayVal
   }
 
-  // Returns a PrimitiveType or an HModel with no fields or directives.
+  /** Returns a PrimitiveType or an HModel with no fields or directives. */
   def ptypeFrom(typeId: String): PType = typeId match {
     case "String"  => PString
     case "Int"     => PInt
