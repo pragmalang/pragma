@@ -157,16 +157,9 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
                 )
           )
 
-        // Models that are not deleted, not renamed, not new, and their fields may have changed
-        val unrenamedUndeletedPreviousIndexedModels =
+        val undeletedPreExistingModels =
           currentIndexedModels.filter { currentIndexedModel =>
-            !renamedModels
-              .exists(
-                _.prevModelId == prevIndexedModels
-                  .find(_.index == currentIndexedModel.index)
-                  .get
-                  .id
-              ) && !deletedModels
+            !deletedModels
               .exists(
                 _.prevModel.id == currentIndexedModel.id
               ) && !newModels
@@ -176,7 +169,7 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
           }
 
         val fieldMigrationSteps = for {
-          currentIndexedModel <- unrenamedUndeletedPreviousIndexedModels
+          currentIndexedModel <- undeletedPreExistingModels
           prevIndexedModel <- prevIndexedModels.find(
             _.index == currentIndexedModel.index
           )
@@ -225,15 +218,9 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
             currentField = currentModel.fieldsById(currentIndexedField.id)
             prevField = prevModel.fieldsById(prevIndexedField.id)
             if currentField.ptype != prevField.ptype
-            if (prevField.ptype match {
-              case _ if prevField.ptype.innerPReference.isDefined =>
-                prevField.ptype.innerPReference
-                  .filter(
-                    ref => !renamedModels.exists(_.prevModelId == ref.id)
-                  )
-                  .isDefined
-              case _ => true
-            })
+            if !prevField.ptype.innerPReference
+                .filter(ref => renamedModels.exists(_.prevModelId == ref.id))
+                .isDefined
           } yield
             ChangeManyFieldTypes(
               prevModel,

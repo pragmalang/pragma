@@ -97,7 +97,10 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     migrationEngine.migrate(Mode.Dev, code).unsafeRunSync()
 
     assert {
-      expected == migrationEngine.migration(SyntaxTree.empty, Map.empty).unsafeRunSync().renderSQL
+      expected == migrationEngine
+        .migration(SyntaxTree.empty, Map.empty)
+        .unsafeRunSync()
+        .renderSQL
     }
   }
 
@@ -636,6 +639,68 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     val expected =
       Vector(AlterTable("Admin", RenameColumn("password", "passcode")))
+    assert(
+      migrationEngine
+        .migration(prevSyntaxTree, Map.empty)
+        .unsafeRunSync()
+        .sqlSteps == expected
+    )
+  }
+
+  test("Renaming model and one of it's fields in a migration works") {
+
+    val prevCode = """
+    @user
+    @1 model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin {
+      @1 username: String @primary @publicCredential
+      @2 password: String @secretCredential
+    }
+
+    config { projectName = "test" }
+    """
+    val prevSyntaxTree = SyntaxTree.from(prevCode).get
+
+    val code = """
+    @user
+    @1 model User {
+      @1 id: String @uuid
+      @2 username: String @primary @publicCredential
+      @3 password: String @secretCredential
+      @4 isVerified: Boolean = false
+      @5 todos: [Todo]
+    }
+
+    @2 model Todo {
+      @1 title: String @primary
+    }
+
+    @3 model Admin1 {
+      @1 username: String @primary @publicCredential
+      @2 passcode: String @secretCredential
+    }
+
+    config { projectName = "test" }
+    """
+    val newSyntaxTree = SyntaxTree.from(code).get
+
+    val testStorage = new TestStorage(newSyntaxTree)
+
+    val migrationEngine = testStorage.migrationEngine
+
+    val expected =
+      Vector(AlterTable("Admin", RenameColumn("password", "passcode")), RenameTable("Admin", "Admin1"))
     assert(
       migrationEngine
         .migration(prevSyntaxTree, Map.empty)
