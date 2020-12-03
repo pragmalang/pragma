@@ -128,77 +128,59 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
         } yield RenameModel(prevModel.id, currentModel.id)
 
         val newModels = currentIndexedModels
-          .filter(
-            indexedModel =>
-              !prevIndexedModels.exists(_.index == indexedModel.index)
-          )
-          .map(
-            indexedModel => CreateModel(currentTree.modelsById(indexedModel.id))
-          )
-          .filter(
-            createModel =>
-              !renamedModels
-                .exists(_.newId == createModel.model.id)
-          )
+          .filter { indexedModel =>
+            !prevIndexedModels.exists(_.index == indexedModel.index)
+          }
+          .map { indexedModel =>
+            CreateModel(currentTree.modelsById(indexedModel.id))
+          }
+          .filter { createModel =>
+            !renamedModels
+              .exists(_.newId == createModel.model.id)
+          }
 
         val deletedModels = prevIndexedModels
-          .filter(
-            indexedModel =>
-              !currentIndexedModels.exists(_.index == indexedModel.index)
-          )
-          .map(
-            indexedModel => DeleteModel(prevTree.modelsById(indexedModel.id))
-          )
-          .filter(
-            deleteModel =>
-              !renamedModels
-                .exists(
-                  _.prevModelId == deleteModel.prevModel.id
-                )
-          )
-
-        // Models that are not deleted, not renamed, not new, and their fields may have changed
-        val unrenamedUndeletedPreviousIndexedModels =
-          currentIndexedModels.filter { currentIndexedModel =>
+          .filter { indexedModel =>
+            !currentIndexedModels.exists(_.index == indexedModel.index)
+          }
+          .map { indexedModel =>
+            DeleteModel(prevTree.modelsById(indexedModel.id))
+          }
+          .filter { deleteModel =>
             !renamedModels
               .exists(
-                _.prevModelId == prevIndexedModels
-                  .find(_.index == currentIndexedModel.index)
-                  .get
-                  .id
-              ) && !deletedModels
-              .exists(
-                _.prevModel.id == currentIndexedModel.id
-              ) && !newModels
-              .exists(
-                _.model.id == currentIndexedModel.id
+                _.prevModelId == deleteModel.prevModel.id
               )
           }
 
+        val undeletedPreExistingModels =
+          currentIndexedModels.filter { currentIndexedModel =>
+            !deletedModels.exists(_.prevModel.id == currentIndexedModel.id) &&
+            !newModels.exists(_.model.id == currentIndexedModel.id)
+          }
+
         val fieldMigrationSteps = for {
-          currentIndexedModel <- unrenamedUndeletedPreviousIndexedModels
-          prevIndexedModel <- prevIndexedModels.find(
+          currentIndexedModel <- undeletedPreExistingModels
+          prevIndexedModel <- prevIndexedModels.find {
             _.index == currentIndexedModel.index
-          )
+          }
           currentModel = currentTree.modelsById(currentIndexedModel.id)
           prevModel = prevTree.modelsById(prevIndexedModel.id)
           newFields = currentIndexedModel.indexedFields
-            .filter(
-              indexedField =>
-                !prevIndexedModel.indexedFields
-                  .exists(_.index == indexedField.index)
-            )
+            .filter { indexedField =>
+              !prevIndexedModel.indexedFields
+                .exists(_.index == indexedField.index)
+            }
             .map { indexedField =>
               val field = currentModel.fieldsById(indexedField.id)
               AddField(field, prevModel)
             }
 
           deletedFields = prevIndexedModel.indexedFields
-            .filter(
-              indexedField =>
-                !currentIndexedModel.indexedFields
-                  .exists(_.index == indexedField.index)
-            )
+            .filter { indexedField =>
+              !currentIndexedModel.indexedFields
+                .exists(_.index == indexedField.index)
+            }
             .map { indexedField =>
               val field = prevModel.fieldsById(indexedField.id)
               DeleteField(field, prevModel)
@@ -206,9 +188,9 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
 
           renamedFields = for {
             currentIndexedField <- currentIndexedModel.indexedFields
-            prevIndexedField <- prevIndexedModel.indexedFields.find(
+            prevIndexedField <- prevIndexedModel.indexedFields.find {
               _.index == currentIndexedField.index
-            )
+            }
             if currentIndexedField.id != prevIndexedField.id
           } yield
             RenameField(
@@ -217,100 +199,46 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
               prevModel
             )
 
-          changeTypeFields = (for {
-            currentIndexedField <- currentIndexedModel.indexedFields
-            prevIndexedField <- prevIndexedModel.indexedFields.find(
-              _.index == currentIndexedField.index
-            )
-            currentField = currentModel.fieldsById(currentIndexedField.id)
-            prevField = prevModel.fieldsById(prevIndexedField.id)
-            if currentField.ptype != prevField.ptype
-            if (prevField.ptype match {
-              case _ if prevField.ptype.innerPReference.isDefined =>
-                prevField.ptype.innerPReference
-                  .filter(
-                    ref => !renamedModels.exists(_.prevModelId == ref.id)
-                  )
-                  .isDefined
-              case _ => true
-            })
-          } yield
-            ChangeManyFieldTypes(
-              prevModel,
-              currentModel,
+          changeManyFieldTypes = {
+            val changes = for {
+              currentIndexedField <- currentIndexedModel.indexedFields
+              prevIndexedField <- prevIndexedModel.indexedFields.find {
+                _.index == currentIndexedField.index
+              }
+              currentField = currentModel.fieldsById(currentIndexedField.id)
+              prevField = prevModel.fieldsById(prevIndexedField.id)
+              if currentField.ptype != prevField.ptype
+              if !prevField.ptype.innerPReference
+                .filter(ref => renamedModels.exists(_.prevModelId == ref.id))
+                .isDefined
+            } yield
               ChangeFieldType(
                 prevField,
                 currentField.ptype,
-                currentField.directives
-                  .find(_.id == "typeTransformer") match {
-                  case Some(typeTransformerDir) =>
-                    typeTransformerDir.args.value("typeTransformer") match {
-                      case func: ExternalFunction => Some(func)
-                      case pvalue => {
-                        val found = displayPType(pvalue.ptype)
-                        val required =
-                          s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
-                        throw new InternalException(
-                          s"""
-                          |Type mismatch on directive `typeTransformer` on field `${currentModel}.${currentField}`
-                          |found: `${found}`
-                          |required: `${required}`
-                          """.tail.stripMargin
-                        )
-                      }
-                    }
-                  /*
-                    No need for a transformation function, a `NOT NULL` constraint will be
-                    added.
-                   */
-                  case None
-                      if `Field type has changed` `from A to A?` (prevField, currentField) =>
-                    None
-                  /*
-                    No need for a transformation function, the current value,
-                    will be the first element of the array.
-                   */
-                  case None
-                      if `Field type has changed` `from A to [A]` (prevField, currentField) =>
-                    None
-                  /*
-                      No need for a transformation function, the current value, if not null,
-                      will be the first element in the array, and if it's null then the array
-                      is empty.
-                   */
-                  case None
-                      if `Field type has changed` `from A? to [A]` (prevField, currentField) =>
-                    None
-                  case None
-                      if thereExistData
-                        .withDefault(_ => false)(prevModel.id) => {
-                    val requiredFunctionType =
-                      s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
-                    throw UserError(
-                      s"Field `${currentModel}.${currentField}` type has changed, and Pragma needs a transformation function `${requiredFunctionType}` to transform existing data to the new type"
-                    )
-                  }
-                  case _ => None
-                }
-              ).pure[Vector]
-            )).foldLeft[Option[ChangeManyFieldTypes]](None) {
-            case (Some(value), e) if value.prevModel == e.prevModel =>
-              Some(
-                ChangeManyFieldTypes(
-                  value.prevModel,
-                  value.newModel,
-                  value.changes ++ e.changes
+                getTransformers(
+                  currentField.directives,
+                  prevModel,
+                  currentModel,
+                  prevField,
+                  currentField,
+                  thereExistData
                 )
               )
-            case (None, e) => Some(e)
-            case _         => None
+
+            if (changes.isEmpty) None
+            else
+              ChangeManyFieldTypes(
+                prevModel,
+                currentModel,
+                changes
+              ).some
           }
 
-          fieldMigrationSteps: Vector[MigrationStep] = changeTypeFields match {
-            case Some(changeTypeFields) =>
+          fieldMigrationSteps: Vector[MigrationStep] = changeManyFieldTypes match {
+            case Some(changeManyFieldTypes) =>
               Vector(
                 newFields ++ deletedFields ++ renamedFields,
-                Vector(changeTypeFields)
+                Vector(changeManyFieldTypes)
               ).flatten
             case None => newFields ++ deletedFields ++ renamedFields
           }
@@ -319,6 +247,67 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
         newModels ++ renamedModels ++ deletedModels ++ fieldMigrationSteps.flatten
       }
     }.toEither
+
+  @throws[InternalException]
+  @throws[UserError]
+  def getTransformers(
+      directives: Seq[Directive],
+      prevModel: PModel,
+      currentModel: PModel,
+      prevField: PModelField,
+      currentField: PModelField,
+      thereExistData: Map[ModelId, Boolean]
+  ): Option[ExternalFunction] =
+    directives.find(_.id == "typeTransformer") match {
+      case Some(typeTransformerDir) =>
+        typeTransformerDir.args.value("typeTransformer") match {
+          case func: ExternalFunction => Some(func)
+          case pvalue => {
+            val found = displayPType(pvalue.ptype)
+            val required =
+              s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
+            throw new InternalException(
+              s"""
+              |Type mismatch on directive `typeTransformer` on field `${currentModel}.${currentField}`
+              |found: `${found}`
+              |required: `${required}`
+              """.tail.stripMargin
+            )
+          }
+        }
+      /*
+        No need for a transformation function, a `NOT NULL` constraint will be
+        added.
+       */
+      case None
+          if `Field type has changed` `from A to A?` (prevField, currentField) =>
+        None
+      /*
+        No need for a transformation function, the current value,
+        will be the first element of the array.
+       */
+      case None
+          if `Field type has changed` `from A to [A]` (prevField, currentField) =>
+        None
+      /*
+        No need for a transformation function, the current value, if not null,
+        will be the first element in the array, and if it's null then the array
+        is empty.
+       */
+      case None
+          if `Field type has changed` `from A? to [A]` (prevField, currentField) =>
+        None
+      case None
+          if thereExistData
+            .withDefault(_ => false)(prevModel.id) => {
+        val requiredFunctionType =
+          s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
+        throw UserError(
+          s"Field `${currentModel}.${currentField}` type has changed, and Pragma needs a transformation function `${requiredFunctionType}` to transform existing data to the new type"
+        )
+      }
+      case _ => None
+    }
 }
 
 /**
