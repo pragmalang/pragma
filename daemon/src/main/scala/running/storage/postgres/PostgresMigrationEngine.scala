@@ -277,7 +277,7 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
         }
       /*
         No need for a transformation function, a `NOT NULL` constraint will be
-        added.
+        removed.
        */
       case None
           if `Field type has changed` `from A to A?` (prevField, currentField) =>
