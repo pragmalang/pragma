@@ -199,21 +199,19 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
               prevModel
             )
 
-          changeTypeFields = (for {
-            currentIndexedField <- currentIndexedModel.indexedFields
-            prevIndexedField <- prevIndexedModel.indexedFields.find {
-              _.index == currentIndexedField.index
-            }
-            currentField = currentModel.fieldsById(currentIndexedField.id)
-            prevField = prevModel.fieldsById(prevIndexedField.id)
-            if currentField.ptype != prevField.ptype
-            if !prevField.ptype.innerPReference
-              .filter(ref => renamedModels.exists(_.prevModelId == ref.id))
-              .isDefined
-          } yield
-            ChangeManyFieldTypes(
-              prevModel,
-              currentModel,
+          changeManyFieldTypes = {
+            val changes = for {
+              currentIndexedField <- currentIndexedModel.indexedFields
+              prevIndexedField <- prevIndexedModel.indexedFields.find {
+                _.index == currentIndexedField.index
+              }
+              currentField = currentModel.fieldsById(currentIndexedField.id)
+              prevField = prevModel.fieldsById(prevIndexedField.id)
+              if currentField.ptype != prevField.ptype
+              if !prevField.ptype.innerPReference
+                .filter(ref => renamedModels.exists(_.prevModelId == ref.id))
+                .isDefined
+            } yield
               ChangeFieldType(
                 prevField,
                 currentField.ptype,
@@ -225,25 +223,22 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
                   currentField,
                   thereExistData
                 )
-              ).pure[Vector]
-            )).foldLeft[Option[ChangeManyFieldTypes]](None) {
-            case (Some(value), e) if value.prevModel == e.prevModel =>
-              Some(
-                ChangeManyFieldTypes(
-                  value.prevModel,
-                  value.newModel,
-                  value.changes ++ e.changes
-                )
               )
-            case (None, e) => Some(e)
-            case _         => None
+
+            if (changes.isEmpty) None
+            else
+              ChangeManyFieldTypes(
+                prevModel,
+                currentModel,
+                changes
+              ).some
           }
 
-          fieldMigrationSteps: Vector[MigrationStep] = changeTypeFields match {
-            case Some(changeTypeFields) =>
+          fieldMigrationSteps: Vector[MigrationStep] = changeManyFieldTypes match {
+            case Some(changeManyFieldTypes) =>
               Vector(
                 newFields ++ deletedFields ++ renamedFields,
-                Vector(changeTypeFields)
+                Vector(changeManyFieldTypes)
               ).flatten
             case None => newFields ++ deletedFields ++ renamedFields
           }
@@ -253,6 +248,8 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
       }
     }.toEither
 
+  @throws[InternalException]
+  @throws[UserError]
   def getTransformers(
       directives: Seq[Directive],
       prevModel: PModel,
