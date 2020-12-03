@@ -82,18 +82,21 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
       val effectfulSteps: Vector[M[Unit]] = sqlSteps
         .map {
           case AlterManyFieldTypes(prevModel, changes) => {
-            val tempTableName = "__temp_table__" + prevModel.id
-            val tempTableModelDef = prevModel.copy(
-              id = tempTableName,
-              fields = changes
-                .map(change => change.field.copy(ptype = change.newType))
-                .toSeq
+            val newTableTempName = "__temp__" + prevModel.id
+            val newTableModelDef = prevModel.copy(
+              id = newTableTempName,
+              fields = prevModel.fields.map { field =>
+                changes.find(_.field.id == field.id) match {
+                  case Some(change) => field.copy(ptype = change.newType)
+                  case None         => field
+                }
+              }
             )
 
             // Create the new table with a temp name:
-            val createTempTable =
+            val createNewTableWithTempName =
               PostgresMigration[M](
-                CreateModel(tempTableModelDef),
+                CreateModel(newTableModelDef),
                 prevSyntaxTree,
                 currentSyntaxTree,
                 queryEngine,
@@ -120,7 +123,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
                               transformer,
                               row.fields(change.field.id) match {
                                 case obj: JsObject => obj
-                                case value => JsObject("arg" -> value)
+                                case value         => JsObject("arg" -> value)
                               }
                             )
                             .map(result => change -> result)
@@ -161,7 +164,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
                   // Type check the value/s returned from the transformer
                   row.map { row =>
                     val typeCheckingResult =
-                      typeCheckJson(tempTableModelDef, currentSyntaxTree)(row)
+                      typeCheckJson(newTableModelDef, currentSyntaxTree)(row)
                     typeCheckingResult
                   }
                 }
@@ -169,7 +172,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
                   // Try re-inserting this row in the new table
                   row.map { row =>
                     val insertQuery = queryEngine.createOneRecord(
-                      tempTableModelDef,
+                      newTableModelDef,
                       row.get.asJsObject,
                       Vector.empty
                     )
@@ -191,14 +194,14 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
               funcExecutor
             )
             val renameNewTable = PostgresMigration[M](
-              RenameModel(tempTableName, prevModel.id),
+              RenameModel(newTableTempName, prevModel.id),
               prevSyntaxTree,
               currentSyntaxTree,
               queryEngine,
               funcExecutor
             )
 
-            createTempTable.run(transactor) *>
+            createNewTableWithTempName.run(transactor) *>
               transformFieldValuesAndMoveToNewTable *>
               dropPrevTable.run(transactor) *>
               renameNewTable.run(transactor)
