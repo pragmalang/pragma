@@ -38,7 +38,7 @@ case class SyntaxTree(
       .mkString("\n\n")
 }
 object SyntaxTree {
-  // The resulting syntax tree is validated and substituted
+  /** The resulting syntax tree is validated and substituted */
   def from(code: String): Try[SyntaxTree] =
     new PragmaParser(code).syntaxTree
       .run()

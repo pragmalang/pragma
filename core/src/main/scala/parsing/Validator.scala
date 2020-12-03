@@ -39,7 +39,7 @@ class Validator(constructs: List[PConstruct]) {
     else Failure(UserError(errors))
   }
 
-  // Check that types don't have one of the `Validator.invalidTypeIdentifiers`
+  /** Check that types don't have one of the `Validator.invalidTypeIdentifiers`. */
   def checkReservedTypeIdentifiers: Try[Unit] = {
     val errors = (st.modelsById ++ st.enumsById) collect {
       case (id, c: Positioned) if invalidTypeIdentifiers.contains(c.id) =>
@@ -49,7 +49,7 @@ class Validator(constructs: List[PConstruct]) {
     else Failure(UserError(errors))
   }
 
-  // Type-check the default value ot model fields.
+  /** Type-check the default value of model fields. */
   def checkFieldDefaultValueTypes: Try[Unit] = {
     val errors: List[ErrorMessage] = st.models.toList.flatMap { m =>
       m.fields.foldLeft(List.empty[ErrorMessage]) { (errors, field) =>
@@ -126,7 +126,7 @@ class Validator(constructs: List[PConstruct]) {
     if (!errors.isEmpty) throw new UserError(errors.flatten)
   }
 
-  // Check if field types are defined
+  /** Check if the field types are defined. */
   def checkTypeExistance: Try[Unit] = {
     val errors = for {
       model <- st.models
@@ -143,8 +143,9 @@ class Validator(constructs: List[PConstruct]) {
     else Failure(UserError(errors))
   }
 
-  // Check that a recursive type's self references are optional
-  // (they must be in order to end the recursion)
+  /** Check that a recursive type's self references are optional
+    * (they must be in order to end the recursion)
+    */
   def checkSelfRefOptionality: Try[Unit] = {
     val errors = st.models.flatMap { m =>
       m.fields.collect {
@@ -160,8 +161,9 @@ class Validator(constructs: List[PConstruct]) {
     else Success(())
   }
 
-  // A user model's public credential can only be String or Integer.
-  // A secret credential can only be a String
+  /** A user model's public credential can only be String or Integer.
+    * A secret credential can only be a String
+    */
   def checkCredentialTypes(model: PModel): List[ErrorMessage] = {
     val publicFields =
       model.publicCredentialFields
@@ -187,8 +189,9 @@ class Validator(constructs: List[PConstruct]) {
     else allErrors.toList
   }
 
-  // Each user model must have exactly one public credential and
-  // exactly one secret credential.
+  /** Each user model must have exactly one public credential and
+    * exactly one secret credential.
+    */
   def checkCredentialCount(model: PModel): List[ErrorMessage] =
     if (!model.isUser) Nil
     else {

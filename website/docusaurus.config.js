@@ -17,7 +17,7 @@ module.exports = {
   themeConfig: {
     defaultMode: "dark",
     prism: {
-      additionalLanguages: ['haskell'],
+      additionalLanguages: ['haskell', 'scala'],
     },
     hideableSidebar: true,
     navbar: {
