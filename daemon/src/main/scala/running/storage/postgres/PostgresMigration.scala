@@ -36,7 +36,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
 
   /**
     * - Change column type, Rename column, Drop column
-    * - Drop table
+    * - Drop table, Rename table that it's old name is the same as a another new table
     * - Create table statements
     * - Add column (primitive type)
     * - Add foreign keys to non-array tables
@@ -59,10 +59,17 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
     case AlterTable(_, _: AlterTableAction.AddColumn) =>
       3
     case AlterTable(_, _: AlterTableAction.AddForeignKey) => 4
-    case _: RenameTable                                   => 6
-    case _: AlterManyFieldTypes                           => 0
-    case AlterTable(_, _: AlterTableAction.RenameColumn)  => 0
-    case AlterTable(_, _: AlterTableAction.DropColumn)    => 0
+    case RenameTable(oldName, _) =>
+      unorderedSQLSteps.find {
+        case createTable: CreateTable if createTable.name == oldName => true
+        case _                                                       => false
+      } match {
+        case Some(_) => 1
+        case None    => 6
+      }
+    case _: AlterManyFieldTypes                          => 0
+    case AlterTable(_, _: AlterTableAction.RenameColumn) => 0
+    case AlterTable(_, _: AlterTableAction.DropColumn)   => 0
   }
 
   lazy val sqlSteps: Vector[SQLMigrationStep] =
@@ -219,11 +226,10 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
   private[postgres] lazy val renderSQL: Option[String] = {
     val prefix = "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";\n\n"
     val query = sqlSteps
-      .map {
+      .traverse {
         case step: DirectSQLMigrationStep => Some(step.renderSQL)
         case _                            => None
       }
-      .sequence
       .map(_.mkString("\n\n"))
     query.map(prefix + _)
   }
