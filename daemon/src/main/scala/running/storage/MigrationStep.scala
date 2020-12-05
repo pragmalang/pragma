@@ -17,6 +17,21 @@ case class AddField(
     prevModel: PModel
 ) extends MigrationStep
 
+sealed trait FieldDirectivesChange extends MigrationStep
+case class AddDirective(
+    prevModel: PModel,
+    prevField: PModelField,
+    currrentField: PModelField,
+    directive: Directive
+) extends FieldDirectivesChange
+
+case class DeleteDirective(
+    prevModel: PModel,
+    prevField: PModelField,
+    currrentField: PModelField,
+    directive: Directive
+) extends FieldDirectivesChange
+
 case class RenameField(
     prevFieldId: String,
     newId: String,

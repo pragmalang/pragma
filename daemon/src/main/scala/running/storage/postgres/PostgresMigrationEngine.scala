@@ -193,6 +193,34 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
               DeleteField(field, prevModel)
             }
 
+          directiveChanges = for {
+            currentIndexedField <- currentIndexedModel.indexedFields.filter {
+              currentIndexedField =>
+                newFields.forall(_.field.index != currentIndexedField.index)
+            }
+            prevIndexedField <- prevIndexedModel.indexedFields.find {
+              _.index == currentIndexedField.index
+            }
+            currentField = currentModel.fieldsById(currentIndexedField.id)
+            prevField = prevModel.fieldsById(prevIndexedField.id)
+
+            newDirectives = currentField.directives
+              .filter { currentDirective =>
+                prevField.directives.forall { prevDirective =>
+                  prevDirective.id != currentDirective.id
+                }
+              }
+              .map(AddDirective(prevModel, prevField, currentField, _))
+
+            deletedDirectives = prevField.directives
+              .filter { prevDirective =>
+                currentField.directives.forall { currentDirective =>
+                  prevDirective.id != currentDirective.id
+                }
+              }
+              .map(DeleteDirective(prevModel, prevField, currentField, _))
+          } yield (deletedDirectives ++ newDirectives).toVector
+
           renamedFields = for {
             currentIndexedField <- currentIndexedModel.indexedFields
             prevIndexedField <- prevIndexedModel.indexedFields.find {
@@ -243,11 +271,9 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
 
           fieldMigrationSteps: Vector[MigrationStep] = changeManyFieldTypes match {
             case Some(changeManyFieldTypes) =>
-              Vector(
-                newFields ++ deletedFields ++ renamedFields,
-                Vector(changeManyFieldTypes)
-              ).flatten
-            case None => newFields ++ deletedFields ++ renamedFields
+              newFields ++ deletedFields ++ renamedFields ++ directiveChanges.flatten :+ changeManyFieldTypes
+            case None =>
+              newFields ++ deletedFields ++ renamedFields ++ directiveChanges.flatten
           }
         } yield fieldMigrationSteps
 

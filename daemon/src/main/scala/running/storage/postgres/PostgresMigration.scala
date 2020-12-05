@@ -338,6 +338,20 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
         fromMigrationStepToSqlMigrationSteps(AddField(field, model))
       case ChangeManyFieldTypes(prevModel, _, changes) =>
         Vector(AlterManyFieldTypes(prevModel, changes))
+      case AddDirective(_, _, currrentField, _) => {
+        if (currrentField.isPrimary) ???
+        else if (currrentField.isUnique) ???
+        else if (currrentField.isUUID) ???
+        else if (currrentField.isAutoIncrement) ???
+        else Vector.empty
+      }
+      case DeleteDirective(_, prevField, _, _) => {
+        if (prevField.isPrimary) ???
+        else if (prevField.isUnique) ???
+        else if (prevField.isUUID) ???
+        else if (prevField.isAutoIncrement) ???
+        else Vector.empty
+      }
     }
 }
 
