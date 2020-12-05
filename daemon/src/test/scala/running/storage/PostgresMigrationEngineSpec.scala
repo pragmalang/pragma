@@ -519,7 +519,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     assert(
       migrationEngine
-        .migration(prevSyntaxTree, Map.empty)
+        .migration(prevSyntaxTree, Map.empty.withDefaultValue(false))
         .unsafeRunSync()
         .sqlSteps == expected
     )
@@ -700,7 +700,10 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
     val migrationEngine = testStorage.migrationEngine
 
     val expected =
-      Vector(AlterTable("Admin", RenameColumn("password", "passcode")), RenameTable("Admin", "Admin1"))
+      Vector(
+        AlterTable("Admin", RenameColumn("password", "passcode")),
+        RenameTable("Admin", "Admin1")
+      )
     assert(
       migrationEngine
         .migration(prevSyntaxTree, Map.empty)
@@ -841,8 +844,13 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     assert(
       migrationEngine
-        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, Map.empty)
-        .getOrElse(fail())
+        .inferedMigrationSteps(
+          newSyntaxTree,
+          prevSyntaxTree,
+          Map.empty.withDefaultValue(false)
+        )
+        .toTry
+        .get
         .head
         .asInstanceOf[ChangeManyFieldTypes]
         .changes
@@ -920,8 +928,13 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     assert(
       migrationEngine
-        .inferedMigrationSteps(newSyntaxTree, prevSyntaxTree, Map.empty)
-        .getOrElse(fail())
+        .inferedMigrationSteps(
+          newSyntaxTree,
+          prevSyntaxTree,
+          Map.empty.withDefaultValue(false)
+        )
+        .toTry
+        .get
         .head
         .asInstanceOf[ChangeManyFieldTypes]
         .changes

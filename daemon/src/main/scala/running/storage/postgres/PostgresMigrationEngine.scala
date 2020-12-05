@@ -83,7 +83,7 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
           .traverse(d => d.transact(transactor))
           .map(_.toMap)
       } else Map.empty[ModelId, Boolean].pure[M]
-      migration <- migration(prevTree, thereExistData)
+      migration <- migration(prevTree, thereExistData.withDefaultValue(false))
       _ <- migration.run(transactor)
       _ <- mode match {
         case Mode.Prod if !migration.sqlSteps.isEmpty => insertMigration
@@ -304,9 +304,7 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
       case None
           if `Field type has changed` `from A? to [A]` (prevField, currentField) =>
         Success(None)
-      case None
-          if thereExistData
-            .withDefault(_ => false)(prevModel.id) => {
+      case None if thereExistData(prevModel.id) => {
         val requiredFunctionType =
           s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
         Failure {
