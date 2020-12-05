@@ -7,7 +7,7 @@ import running.storage.postgres.utils._
 
 import pragma.domain._, DomainImplicits._
 import pragma.domain.utils.UserError
-import scala.util.Try
+import scala.util._
 import doobie.util.transactor.Transactor
 import cats.effect._
 import doobie.implicits._
@@ -173,7 +173,14 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
             }
             .map { indexedField =>
               val field = currentModel.fieldsById(indexedField.id)
-              AddField(field, prevModel)
+              if (thereExistData(prevModel.id) &&
+                  (!field.ptype.isInstanceOf[POption] ||
+                  field.defaultValue.isEmpty))
+                throw UserError(
+                  s"Newly added field `${field.id}` must be optional or have a default value because there exist records in model `${currentModel.id}`"
+                )
+              else
+                AddField(field, prevModel)
             }
 
           deletedFields = prevIndexedModel.indexedFields
@@ -222,7 +229,7 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
                   prevField,
                   currentField,
                   thereExistData
-                )
+                ).get
               )
 
             if (changes.isEmpty) None
@@ -248,8 +255,6 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
       }
     }.toEither
 
-  @throws[InternalException]
-  @throws[UserError]
   def getTransformers(
       directives: Seq[Directive],
       prevModel: PModel,
@@ -257,22 +262,24 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
       prevField: PModelField,
       currentField: PModelField,
       thereExistData: Map[ModelId, Boolean]
-  ): Option[ExternalFunction] =
+  ): Try[Option[ExternalFunction]] =
     directives.find(_.id == "typeTransformer") match {
       case Some(typeTransformerDir) =>
         typeTransformerDir.args.value("typeTransformer") match {
-          case func: ExternalFunction => Some(func)
+          case func: ExternalFunction => Success(Some(func))
           case pvalue => {
             val found = displayPType(pvalue.ptype)
             val required =
               s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
-            throw new InternalException(
-              s"""
+            Failure {
+              InternalException(
+                s"""
               |Type mismatch on directive `typeTransformer` on field `${currentModel}.${currentField}`
               |found: `${found}`
               |required: `${required}`
               """.tail.stripMargin
-            )
+              )
+            }
           }
         }
       /*
@@ -281,14 +288,14 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
        */
       case None
           if `Field type has changed` `from A to A?` (prevField, currentField) =>
-        None
+        Success(None)
       /*
         No need for a transformation function, the current value,
         will be the first element of the array.
        */
       case None
           if `Field type has changed` `from A to [A]` (prevField, currentField) =>
-        None
+        Success(None)
       /*
         No need for a transformation function, the current value, if not null,
         will be the first element in the array, and if it's null then the array
@@ -296,17 +303,19 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
        */
       case None
           if `Field type has changed` `from A? to [A]` (prevField, currentField) =>
-        None
+        Success(None)
       case None
           if thereExistData
             .withDefault(_ => false)(prevModel.id) => {
         val requiredFunctionType =
           s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
-        throw UserError(
-          s"Field `${currentModel}.${currentField}` type has changed, and Pragma needs a transformation function `${requiredFunctionType}` to transform existing data to the new type"
-        )
+        Failure {
+          UserError(
+            s"Field `${currentModel}.${currentField}` type has changed, and Pragma needs a transformation function `${requiredFunctionType}` to transform existing data to the new type"
+          )
+        }
       }
-      case _ => None
+      case _ => Success(None)
     }
 }
 
