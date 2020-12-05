@@ -98,7 +98,7 @@ object DeamonServer extends IOApp {
     val currentSt =
       SyntaxTree.from(migration.code).get
 
-    val jc = new JwtCodec("DUMMY_SECRET")
+    val jc = new JwtCodec(migration.secret)
 
     val funcExecutor = new PFunctionExecutor[IO](
       projectName,
@@ -118,7 +118,7 @@ object DeamonServer extends IOApp {
     val transactor = HikariTransactor
       .newHikariTransactor[IO](
         "org.postgresql.Driver",
-        jdbcPostgresUri(pgUri),
+        pgUri,
         pgUser,
         pgPassword,
         executionContext,

@@ -22,12 +22,13 @@ object Main {
       case Dev => {
         tryOrExit(DaemonClient.ping.void)
         println(renderLogo)
-        run(config, withReload = true)
+        run(config, mode = Dev, withReload = true)
       }
       case CLICommand.New => initProject()
       case Prod => {
-        println("Production mode is not ready yet.")
-        sys.exit(1)
+        tryOrExit(DaemonClient.ping.void)
+        println(renderLogo)
+        run(config, mode = Prod)
       }
       case CLICommand.GenerateRootJWT(secret) => {
         val jc = new JwtCodec(secret)
@@ -38,7 +39,11 @@ object Main {
     }
   }
 
-  def run(config: CLIConfig, withReload: Boolean = false): Try[Unit] = {
+  def run(
+      config: CLIConfig,
+      mode: RunMode,
+      withReload: Boolean = false
+  ): Try[Unit] = {
     lazy val code = tryOrExit(
       Try(os.read(config.filePath)),
       Some(s"Could not read ${config.filePath.toString}")
@@ -46,7 +51,7 @@ object Main {
 
     lazy val syntaxTree = SyntaxTree.from(code)
 
-    lazy val devMigration = for {
+    lazy val migration = for {
       st <- syntaxTree
       projNameEntry = st.config.entryMap("projectName")
       projectName = projNameEntry.value
@@ -96,20 +101,16 @@ object Main {
         .void
       usedRuntimes <- usedFuntionRuntimes(st.imports.toList).toTry
       _ <- pullDockerRuntimeImages(usedRuntimes)
-      migration = MigrationInput(code, functions.toList)
-      _ <- DaemonClient.devMigrate(migration, projectName)
+      migration = MigrationInput(code, functions.toList, "DUMMY_SECRET")
+      _ <- DaemonClient.migrate(migration, projectName, mode)
     } yield projectName
 
-    config.command match {
-      case Dev =>
-        devMigration match {
-          case Success(projectName) => println(welcomeMsq(projectName, Dev))
-          case Failure(err)         => println(renderThrowable(err, code = Some(code)))
-        }
-      case _ => ()
+    migration match {
+      case Success(projectName) => println(welcomeMsq(projectName, mode))
+      case Failure(err)         => println(renderThrowable(err, code = Some(code)))
     }
 
-    if (withReload) reloadPrompt(config)
+    if (withReload) reloadPrompt(config, mode)
     else sys.exit(0)
   }
 
@@ -133,11 +134,11 @@ object Main {
     }
   }
 
-  def reloadPrompt(config: CLIConfig): Try[Unit] =
+  def reloadPrompt(config: CLIConfig, mode: RunMode): Try[Unit] =
     readLine("(r)eload, (q)uit: ") match {
       case "r" | "R" => {
         println("Reloading...")
-        run(config, withReload = true)
+        run(config, mode, withReload = true)
       }
       case "q" | "Q" => {
         println("Come back soon!")
@@ -145,7 +146,7 @@ object Main {
       }
       case unknown => {
         println(s"I do not know what `$unknown` means...")
-        reloadPrompt(config)
+        reloadPrompt(config, mode)
       }
     }
 

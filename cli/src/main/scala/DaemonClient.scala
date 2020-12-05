@@ -21,10 +21,17 @@ object DaemonClient {
       )
     }
 
-  def devMigrate(migration: MigrationInput, projectName: String): Try[Unit] =
+  def migrate(
+      migration: MigrationInput,
+      projectName: String,
+      mode: RunMode
+  ): Try[Unit] =
     ping *> Try {
       post(
-        url = s"$daemonUri/project/migrate/dev/$projectName",
+        url = mode match {
+          case Dev  => s"$daemonUri/project/migrate/dev/$projectName"
+          case Prod => s"$daemonUri/project/migrate/prod/$projectName"
+        },
         data = migration.toJson.compactPrint,
         chunkedUpload = true,
         check = true

@@ -8,7 +8,8 @@ case class Migration(
 
 case class MigrationInput(
     code: String,
-    functions: List[ImportedFunctionInput]
+    functions: List[ImportedFunctionInput],
+    secret: String
 )
 
 case class ImportedFunction(
