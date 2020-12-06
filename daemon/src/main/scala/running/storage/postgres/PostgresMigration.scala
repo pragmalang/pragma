@@ -34,9 +34,8 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
   lazy val unorderedSQLSteps =
     unorderedSteps.flatMap(fromMigrationStepToSqlMigrationSteps)
 
-  /**
-    * - Change column type, Rename column, Drop column
-    * - Drop table, Rename table that it's old name is the same as a another new table
+  /** - Change column type, Rename column, Drop column
+    * - Drop table, Rename table whose old name is the same as a newly created table's name
     * - Create table statements
     * - Add column (primitive type)
     * - Add foreign keys to non-array tables
@@ -241,12 +240,9 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
       case CreateModel(model) => {
         val createTableStatement = CreateTable(model.id, Vector.empty)
         val addColumnStatements =
-          model.fields
-            .flatMap(
-              field =>
-                fromMigrationStepToSqlMigrationSteps(AddField(field, model))
-            )
-            .toVector
+          model.fields.flatMap { field =>
+            fromMigrationStepToSqlMigrationSteps(AddField(field, model))
+          }.toVector
         Vector(Vector(createTableStatement), addColumnStatements).flatten
       }
       case RenameModel(modelId, newId) =>
