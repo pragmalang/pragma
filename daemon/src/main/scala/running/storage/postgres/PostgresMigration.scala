@@ -32,7 +32,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
 ) {
 
   lazy val unorderedSQLSteps =
-    unorderedSteps.flatMap(fromMigrationStepToSqlMigrationSteps)
+    unorderedSteps.flatMap(fromMigrationStep)
 
   /** - Change column type, Rename column, Drop column
     * - Drop table, Rename table whose old name is the same as a newly created table's name
@@ -233,7 +233,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
     query.map(prefix + _)
   }
 
-  private def fromMigrationStepToSqlMigrationSteps(
+  private def fromMigrationStep(
       migrationStep: MigrationStep
   ): Vector[SQLMigrationStep] =
     migrationStep match {
@@ -241,7 +241,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
         val createTableStatement = CreateTable(model.id, Vector.empty)
         val addColumnStatements =
           model.fields.flatMap { field =>
-            fromMigrationStepToSqlMigrationSteps(AddField(field, model))
+            fromMigrationStep(AddField(field, model))
           }.toVector
         Vector(Vector(createTableStatement), addColumnStatements).flatten
       }
@@ -249,7 +249,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
         Vector(RenameTable(modelId, newId))
       case DeleteModel(model) => Vector(DropTable(model.id))
       case UndeleteModel(model) =>
-        fromMigrationStepToSqlMigrationSteps(CreateModel(model))
+        fromMigrationStep(CreateModel(model))
       case AddField(field, model) => {
         val fieldCreationInstruction: Option[Either[CreateTable, ForeignKey]] =
           field.ptype match {
@@ -331,7 +331,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
           AlterTable(model.id, AlterTableAction.DropColumn(field.id, true))
         )
       case UndeleteField(field, model) =>
-        fromMigrationStepToSqlMigrationSteps(AddField(field, model))
+        fromMigrationStep(AddField(field, model))
       case ChangeManyFieldTypes(prevModel, _, changes) =>
         Vector(AlterManyFieldTypes(prevModel, changes))
       case AddDirective(_, _, currrentField, _) => {
