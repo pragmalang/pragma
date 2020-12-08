@@ -16,7 +16,6 @@ import cats.effect._
 import cats.implicits._
 import pragma.jwtUtils.JwtCodec
 import running.PFunctionExecutor
-import running.utils._
 
 class PostgresMigrationEngineSpec extends AnyFunSuite {
 
@@ -42,67 +41,6 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       GRANT ALL ON SCHEMA public TO test;
       GRANT ALL ON SCHEMA public TO public;
     """.update.run.void.transact(transactorFromDbName(dbName))
-
-  test("`PostgresMigration#renderSQL` works") {
-    val code = """
-        @1 @user
-        model User_renderSQL {
-          @1 id: String @uuid
-          @2 username: String @primary @publicCredential
-          @3 password: String @secretCredential
-          @4 isVerified: Boolean = false
-          @5 todos: [Todo_renderSQL]
-        }
-    
-        @2 model Todo_renderSQL {
-          @1 title: String @primary
-        }
-
-        config { projectName = "test" }
-        """
-    val syntaxTree = SyntaxTree.from(code).get
-
-    val testStorage = new TestStorage(syntaxTree)
-
-    val migrationEngine = testStorage.migrationEngine
-
-    val expected =
-      Some(
-        """|CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-       |
-       |CREATE TABLE IF NOT EXISTS "User_renderSQL"(
-       |);
-       |
-       |
-       |CREATE TABLE IF NOT EXISTS "Todo_renderSQL"(
-       |);
-       |
-       |
-       |ALTER TABLE "User_renderSQL" ADD COLUMN "id" UUID NOT NULL DEFAULT uuid_generate_v4 ();
-       |
-       |ALTER TABLE "User_renderSQL" ADD COLUMN "username" TEXT NOT NULL UNIQUE PRIMARY KEY;
-       |
-       |ALTER TABLE "User_renderSQL" ADD COLUMN "password" TEXT NOT NULL;
-       |
-       |ALTER TABLE "User_renderSQL" ADD COLUMN "isVerified" BOOL NOT NULL;
-       |
-       |ALTER TABLE "Todo_renderSQL" ADD COLUMN "title" TEXT NOT NULL PRIMARY KEY;
-       |
-       |CREATE TABLE IF NOT EXISTS "User_renderSQL_todos"(
-       |"source_User_renderSQL" TEXT NOT NULL REFERENCES "User_renderSQL"("username") ON DELETE CASCADE ON UPDATE CASCADE,
-       |"target_Todo_renderSQL" TEXT NOT NULL REFERENCES "Todo_renderSQL"("title") ON DELETE CASCADE ON UPDATE CASCADE);
-       |""".stripMargin
-      )
-
-    migrationEngine.migrate(Mode.Dev, code).unsafeRunSync()
-
-    assert {
-      expected == migrationEngine
-        .migration(SyntaxTree.empty, Map.empty)
-        .unsafeRunSync()
-        .renderSQL
-    }
-  }
 
   test("PostgresMigrationEngine#migration works") {
 

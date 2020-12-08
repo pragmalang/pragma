@@ -81,157 +81,132 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
       transactor: Transactor[M]
   )(
       implicit cs: ContextShift[M]
-  ): M[Unit] = renderSQL match {
-    case Some(sql) =>
-      Fragment(sql, Nil).update.run.map(_ => ()).transact(transactor)
-    case None => {
-      val effectfulSteps: Vector[M[Unit]] = sqlSteps
-        .map {
-          case AlterManyFieldTypes(prevModel, changes) => {
-            val newTableTempName = "__temp__" + prevModel.id
-            val newTableModelDef = prevModel.copy(
-              id = newTableTempName,
-              fields = prevModel.fields.map { field =>
-                changes.find(_.field.id == field.id) match {
-                  case Some(change) => field.copy(ptype = change.newType)
-                  case None         => field
-                }
-              }
-            )
-
-            // Create the new table with a temp name:
-            val createNewTableWithTempName =
-              PostgresMigration[M](
-                CreateModel(newTableModelDef),
-                prevSyntaxTree,
-                currentSyntaxTree,
-                queryEngine,
-                funcExecutor
-              )
-
-            val stream: fs2.Stream[ConnectionIO, M[Unit]] =
-              // Load rows of prev table as a stream in memory
-              HC.stream[JsObject](
-                  s"SELECT * FROM ${prevModel.id.withQuotes};",
-                  HPS.set(()),
-                  200
-                )
-                .map { row =>
-                  /* Pass the data in each type-changed column
-                   * to the correct type transformer if any
-                   */
-                  val transformedColumns = changes
-                    .collect { (change: ChangeFieldType) =>
-                      change.transformer match {
-                        case Some(transformer) =>
-                          funcExecutor
-                            .execute(
-                              transformer,
-                              row.fields(change.field.id) match {
-                                case obj: JsObject => obj
-                                case value         => JsObject("arg" -> value)
-                              }
-                            )
-                            .map(result => change -> result)
-                            .widen[(ChangeFieldType, JsValue)]
-                        /*
-                            No need for a transformation function, the current value,
-                            will be the first element of the array.
-                         */
-                        case None
-                            if `Field type has changed` `from A to [A]` (change.field.ptype, change.newType) =>
-                          (change -> JsArray(row.fields(change.field.id)))
-                            .pure[M]
-                            .widen[(ChangeFieldType, JsValue)]
-                        /*
-                            No need for a transformation function, the current value, if not null,
-                            will be the first element in the array, and if it's null then the array
-                            is empty.
-                         */
-                        case None
-                            if `Field type has changed` `from A? to [A]` (change.field.ptype, change.newType) =>
-                          (change -> (row.fields(change.field.id) match {
-                            case JsNull => JsArray.empty
-                            case value  => JsArray(value)
-                          })).pure[M].widen[(ChangeFieldType, JsValue)]
-                      }
-                    }
-                    .sequence
-                    .map(_.toMap)
-                  transformedColumns
-                    .map { cols =>
-                      row.copy(
-                        fields = row.fields ++ cols
-                          .map(col => col._1.field.id -> col._2)
-                      )
-                    }
-                }
-                .map { row =>
-                  // Type check the value/s returned from the transformer
-                  row.map { row =>
-                    val typeCheckingResult =
-                      typeCheckJson(newTableModelDef, currentSyntaxTree)(row)
-                    typeCheckingResult
-                  }
-                }
-                .map { row =>
-                  // Try re-inserting this row in the new table
-                  row.map { row =>
-                    val insertQuery = queryEngine.createOneRecord(
-                      newTableModelDef,
-                      row.get.asJsObject,
-                      Vector.empty
-                    )
-                    insertQuery.void
-                  }
-                }
-
-            val transformFieldValuesAndMoveToNewTable = stream.compile.toVector
-              .map(_.sequence)
-              .transact(transactor)
-              .flatten
-              .void
-
-            val dropPrevTable = PostgresMigration[M](
-              DeleteModel(prevModel),
-              prevSyntaxTree,
-              currentSyntaxTree,
-              queryEngine,
-              funcExecutor
-            )
-            val renameNewTable = PostgresMigration[M](
-              RenameModel(newTableTempName, prevModel.id),
-              prevSyntaxTree,
-              currentSyntaxTree,
-              queryEngine,
-              funcExecutor
-            )
-
-            createNewTableWithTempName.run(transactor) *>
-              transformFieldValuesAndMoveToNewTable *>
-              dropPrevTable.run(transactor) *>
-              renameNewTable.run(transactor)
+  ): M[Unit] =
+    sqlSteps.traverse {
+      case AlterManyFieldTypes(prevModel, changes) => {
+        val newTableTempName = "__temp__" + prevModel.id
+        val newFields = prevModel.fields.map { field =>
+          changes.find(_.field.id == field.id) match {
+            case Some(change) => field.copy(ptype = change.newType)
+            case None         => field
           }
-          case step: DirectSQLMigrationStep =>
-            Fragment(step.renderSQL, Nil).update.run
-              .map(_ => ())
-              .transact(transactor)
         }
 
-      effectfulSteps.sequence.map(_ => ())
-    }
-  }
+        val newTableModelDef =
+          prevModel.copy(
+            id = newTableTempName,
+            fields = newFields
+          )
 
-  private[postgres] lazy val renderSQL: Option[String] = {
-    val prefix = "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";\n\n"
-    val query = sqlSteps
-      .traverse {
-        case step: DirectSQLMigrationStep => Some(step.renderSQL)
-        case _                            => None
+        // Create the new table with a temp name:
+        val createNewTableWithTempName =
+          PostgresMigration[M](
+            CreateModel(newTableModelDef),
+            prevSyntaxTree,
+            currentSyntaxTree,
+            queryEngine,
+            funcExecutor
+          )
+
+        val stream = for {
+          row <- HC.stream[JsObject](
+            s"SELECT * FROM ${prevModel.id.withQuotes};",
+            HPS.set(()),
+            200
+          )
+
+          /** Pass the data in each type-changed column
+            * to the correct type transformer if any
+            */
+          transformedRow = changes
+            .collect { change =>
+              val transformerArg = row.fields(change.field.id) match {
+                case obj: JsObject => obj
+                case value         => JsObject("arg" -> value)
+              }
+              change.transformer match {
+                case Some(transformer) =>
+                  funcExecutor
+                    .execute(transformer, transformerArg)
+                    .map(result => change -> result)
+                    .widen[(ChangeFieldType, JsValue)]
+
+                /**
+                  * No need for a transformation function, the current value,
+                  * will be the first element of the array.
+                  */
+                case None
+                    if `Field type has changed` `from A to [A]` (change.field.ptype, change.newType) =>
+                  (change -> JsArray(row.fields(change.field.id)))
+                    .pure[M]
+                    .widen[(ChangeFieldType, JsValue)]
+
+                /**
+                  * No need for a transformation function, the current value, if not null,
+                  * will be the first element in the array, and if it's null then the array
+                  * is empty.
+                  */
+                case None
+                    if `Field type has changed` `from A? to [A]` (change.field.ptype, change.newType) =>
+                  (change -> (row.fields(change.field.id) match {
+                    case JsNull => JsArray.empty
+                    case value  => JsArray(value)
+                  })).pure[M].widen[(ChangeFieldType, JsValue)]
+              }
+            }
+            .sequence
+            .map(_.toMap)
+            .map { cols =>
+              row.copy(
+                fields = row.fields ++ cols
+                  .map(col => col._1.field.id -> col._2)
+              )
+            }
+
+          /**
+            * Type check the value/s returned from the transformer
+            */
+          typeCheckingResult = typeCheckJson(
+            newTableModelDef,
+            currentSyntaxTree
+          )(row)
+
+          _ = queryEngine.createOneRecord(
+            newTableModelDef,
+            typeCheckingResult.get.asJsObject,
+            Vector.empty
+          )
+        } yield ()
+
+        val transformFieldValuesAndMoveToNewTable = stream.compile.toVector
+          .transact(transactor)
+          .void
+
+        val dropPrevTable = PostgresMigration[M](
+          DeleteModel(prevModel),
+          prevSyntaxTree,
+          currentSyntaxTree,
+          queryEngine,
+          funcExecutor
+        )
+        val renameNewTable = PostgresMigration[M](
+          RenameModel(newTableTempName, prevModel.id),
+          prevSyntaxTree,
+          currentSyntaxTree,
+          queryEngine,
+          funcExecutor
+        )
+
+        createNewTableWithTempName.run(transactor) *>
+          transformFieldValuesAndMoveToNewTable *>
+          dropPrevTable.run(transactor) *>
+          renameNewTable.run(transactor).void
       }
-      .map(_.mkString("\n\n"))
-    query.map(prefix + _)
-  }
+      case step: DirectSQLMigrationStep =>
+        Fragment(step.renderSQL, Nil).update.run
+          .transact(transactor)
+          .void
+    }.void
 
   private def fromMigrationStep(
       migrationStep: MigrationStep
@@ -366,6 +341,31 @@ object PostgresMigration {
       queryEngine,
       funcExecutor
     )
+
+  def modelReferences(
+      modelId: String
+  ): ConnectionIO[Vector[ForeignKeyMetaData]] =
+    sql"""
+      SELECT
+        tc.constraint_name, 
+        tc.table_schema, 
+        tc.table_name, 
+        kcu.column_name, 
+        ccu.table_schema AS foreign_table_schema,
+        ccu.table_name AS foreign_table_name,
+        ccu.column_name AS foreign_column_name 
+      FROM 
+        information_schema.table_constraints AS tc 
+      JOIN information_schema.key_column_usage AS kcu
+        ON tc.constraint_name = kcu.constraint_name
+        AND tc.table_schema = kcu.table_schema
+      JOIN information_schema.constraint_column_usage AS ccu
+        ON ccu.constraint_name = tc.constraint_name
+        AND ccu.table_schema = tc.table_schema
+      WHERE tc.constraint_type = 'FOREIGN KEY' AND ccu.table_name=$modelId;
+      """
+      .query[ForeignKeyMetaData]
+      .to[Vector]
 }
 
 case class ModelsDependencyGraph(st: SyntaxTree) {

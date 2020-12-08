@@ -7,6 +7,7 @@ import running.storage.postgres.SQLMigrationStep.CreateTable
 import cats.implicits._
 
 package object utils {
+
   type IsNotNull = Boolean
 
   def fieldPostgresType(
@@ -213,6 +214,18 @@ package object utils {
         .ptype)
   }
 
+}
+
+package utils {
+  case class ForeignKeyMetaData(
+      constraintName: String,
+      tableSchema: String,
+      tableName: String,
+      columnName: String,
+      foreignTableSchema: String,
+      foreignTableName: String,
+      foreignColumnName: String
+  )
 }
 
 class ArrayFieldTableMetaData(model: PModel, field: PModelField) {
