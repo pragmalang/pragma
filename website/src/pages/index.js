@@ -39,7 +39,7 @@ const Home = () => {
         <div className="container">
           {/* <h1 className="hero__title">{siteConfig.title}</h1> */}
           <img id="home-logo" width="400px" src="/img/full-logo.svg" />
-          <p className="hero__subtitle">{capitalize(siteConfig.tagline)}</p>
+          <h1 style={{ fontWeight: "normal" }}>{capitalize(siteConfig.tagline)}</h1>
           <div className={styles.buttons}>
             <Link
               className="button button--primary button--lg with-gradient"

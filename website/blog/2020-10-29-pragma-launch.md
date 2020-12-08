@@ -25,7 +25,7 @@ Pragma offers a way to very quickly build incredibly powerful, and extensible AP
 
 ## How Can I Use It?
 
-You can visit the [documentation](/docs/getting-started/install-pragma) and read the Getting Started section to install Pragma, and follow a tutorial where you get to build a basic Todo application.
+You can visit the [documentation](/docs/install) and read the Getting Started section to install Pragma, and follow a tutorial where you get to build a basic Todo application.
 
 ## How Can I Contribute?
 

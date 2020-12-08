@@ -64,7 +64,7 @@ module.exports = {
             },
             {
               label: 'Install Pragma',
-              to: 'docs/getting-started/install-pragma',
+              to: 'docs/install',
             },
           ],
         },

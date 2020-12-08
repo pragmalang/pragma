@@ -1,6 +1,7 @@
 ---
 id: data-validation-and-transformation
 title: Data Validation and Transformation
+slug: /getting-started/data-validation-and-transformation
 ---
 
 ## Validation

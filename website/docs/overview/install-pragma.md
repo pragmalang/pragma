@@ -1,6 +1,7 @@
 ---
 id: install-pragma
 title: Install Pragma
+slug: /install
 ---
 
 :::caution Info

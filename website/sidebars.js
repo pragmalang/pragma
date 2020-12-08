@@ -1,10 +1,16 @@
 module.exports = {
   docsSideBar: {
-    'Getting Started': [
+    'Overview': [
       'introduction',
-      'getting-started/install-pragma',
-      'getting-started/basic-todo-app',
-      'getting-started/data-validation-and-transformation'
+      'overview/install-pragma',
+      {
+        type: 'category',
+        label: 'Getting Started',
+        items: [
+          'overview/getting-started/basic-todo-app',
+          'overview/getting-started/data-validation-and-transformation'
+        ]
+      }
     ],
     'Language Features': [
       'features/models',

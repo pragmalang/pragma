@@ -1,6 +1,7 @@
 ---
 id: basic-todo-app
 title: Basic Todo App
+slug: /getting-started/basic-todo-app
 ---
 
 In this tutorial, we'll create a todo application with user authentication. A user can have many todos, and they can only access their *own* todos, and anyone can create a user account.
@@ -16,7 +17,7 @@ After answering Pragma's questions, there will be a directory with the name of y
 
 ## Define `User` Model
 
-Now we can define our `User` [model](../features/user-models.md) in the `Pragmafile`:
+Now we can define our `User` [model](../../features/user-models.md) in the `Pragmafile`:
 
 ```pragma
 @user
@@ -29,7 +30,7 @@ Now we can define our `User` [model](../features/user-models.md) in the `Pragmaf
 
 Notice the `@1`, `@2`, on the `User` model and it's fields, these are called **indices** and they are important for Pragma to be able to perform database migrations automatically.
 
-Notice also the `@user` syntax. This is a [directive](../features/directives.md) that tells Pragma that this is a [user model](../features/user-models.md), so Pragma would set up auth workflows for this model.
+Notice also the `@user` syntax. This is a [directive](../../features/directives.md) that tells Pragma that this is a [user model](../../features/user-models.md), so Pragma would set up auth workflows for this model.
 
 ## Define `Todo` Model
 
@@ -50,7 +51,7 @@ enum TodoStatus {
 }
 ```
 
-[`enum`s](../features/enum-types.md) are definitions of all the possible string values that a field can hold.
+[`enum`s](../../features/enum-types.md) are definitions of all the possible string values that a field can hold.
 
 ## Define Permissions
 
@@ -100,7 +101,7 @@ role User {
 :::note A Note On Authorization Predicates
 In the example above we're returning a JSON object of the shape `{ result: boolean }`, not a `boolean` value directly, this is because all imported functions are run as OpenWhisk serverless functions and OpenWhisk requires that all functions must return a JSON object for some reason. This will be solved in the future. **This is only a problem for functions that are used by authorization rules**.
 
-For more information about how authorization rules work with functions, see the [Permissions section](../features/permissions.md).
+For more information about how authorization rules work with functions, see the [Permissions section](../../features/permissions.md).
 :::
 
 ## Run Development Server
