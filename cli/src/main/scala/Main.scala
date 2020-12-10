@@ -8,6 +8,7 @@ import cli.utils._
 import os.Path
 import requests.RequestFailedException
 import spray.json.JsString
+import pragma.parsing.PragmaParser
 
 object Main {
 
@@ -20,13 +21,18 @@ object Main {
         sys.exit(0)
       }
       case Dev => {
-        tryOrExit(DaemonClient.ping.void)
+        tryOrExit(
+          pingOrStartDevDaemon(config),
+          Some(
+            "Failed to reach or start a local Pragma instance for development"
+          )
+        )
         println(renderLogo)
         run(config, mode = Dev, withReload = true)
       }
       case CLICommand.New => initProject()
       case Prod => {
-        tryOrExit(DaemonClient.ping.void)
+        tryOrExit(DaemonClient.pingLocalDaemon.void)
         println(renderLogo)
         run(config, mode = Prod)
       }
@@ -151,10 +157,16 @@ object Main {
     }
 
   def initProject(): Try[Unit] = Try {
-    val newProjectName = readLine("What's the name of your new project?:").trim
-    if (newProjectName.isEmpty) {
-      println("A project's name cannot be an empty string... Please try again")
-      initProject()
+    val newProjectName = new PragmaParser(
+      readLine("What's the name of your new project?: ").trim
+    ).identifier.run() match {
+      case Failure(_) => {
+        println(
+          "A project's name must be a valid Pragma identifier... Please try again"
+        )
+        sys.exit(1)
+      }
+      case Success(id) => id
     }
     val projectDir = os.pwd / newProjectName
     Try {
@@ -165,8 +177,32 @@ object Main {
         |""".stripMargin
 
       os.write(projectDir / "Pragmafile", pragmafile)
+      os.write(
+        projectDir / ".pragma" / "docker-compose.yml",
+        dockerComposeFile,
+        createFolders = true
+      )
     } *> Success(println("Project files successfully generated."))
   }
+
+  def pingOrStartDevDaemon(config: CLIConfig): Try[Unit] =
+    DaemonClient.pingLocalDaemon.void.recoverWith { _ =>
+      val dcyml = config.dotPragmaDir / "docker-compose.yml"
+      def dcUp =
+        Try(os.proc("docker-compose", "up").call(config.dotPragmaDir)).void
+          .adaptErr { err =>
+            new Exception(
+              s"`docker-compose up` failed on ${dcyml.toString}\n${err.getMessage}"
+            )
+          }
+
+      if (os.exists(dcyml)) dcUp
+      else
+        Try {
+          println(s"Creating ${dcyml.toString} ...")
+          os.write(dcyml, dockerComposeFile, createFolders = true)
+        } *> dcUp
+    }
 
   val renderLogo =
     assets.asciiLogo

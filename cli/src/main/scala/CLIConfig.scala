@@ -10,6 +10,7 @@ case class CLIConfig(
     filePath: Path
 ) {
   val projectPath = os.Path(filePath.wrapped.getParent().toAbsolutePath())
+  val dotPragmaDir = projectPath / ".pragma"
 }
 
 object CLIConfig {

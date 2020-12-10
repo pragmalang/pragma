@@ -80,6 +80,9 @@ object utils {
         }
     } else Try((os.read(path), false))
 
+  def dockerComposeFile: String =
+    scala.io.Source.fromResource("docker-compose.yml").getLines.mkString("\n")
+
   def renderError(
       message: String,
       position: Option[PositionRange] = None,
