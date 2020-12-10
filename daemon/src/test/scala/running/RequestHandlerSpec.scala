@@ -69,7 +69,7 @@ class RequestHandlerSpec extends AnyFlatSpec {
     .value
   val runtimeStr =
     imp.config.get.entryMap("runtime").value.asInstanceOf[PStringValue].value
-  val jsFileCode = Source.fromFile(imp.filePath).getLines.mkString("\n")
+  val jsFileCode = Source.fromFile(imp.filePath).getLines().mkString("\n")
 
   syntaxTree.functions.toVector.foreach { function =>
     wskClient
@@ -154,7 +154,7 @@ class RequestHandlerSpec extends AnyFlatSpec {
       """
     }
 
-    val result = reqHandler.handle(req).unsafeRunSync
+    val result = reqHandler.handle(req).unsafeRunSync()
 
     val expected = JsObject(
       Map(

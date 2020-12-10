@@ -1,4 +1,4 @@
-ThisBuild / scalaVersion := "2.13.2"
+ThisBuild / scalaVersion := "2.13.4"
 ThisBuild / version := "0.1.0"
 ThisBuild / organization := "com.pragmalang"
 ThisBuild / organizationName := "pragma"
@@ -14,7 +14,7 @@ lazy val commonScalacOptions = Seq(
   "-Wdead-code",
   "-Wextra-implicit",
   "-Wnumeric-widen",
-  "-Wself-implicit"
+  "-Wconf:cat=lint-byname-implicit:silent"
 )
 
 lazy val core = (project in file("core"))

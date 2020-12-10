@@ -18,7 +18,7 @@ package object instances {
         val value = columnValueToJson(resultSet.getObject(columnIndex))
         mapBuilder += (key -> value)
       }
-      JsObject(mapBuilder.result)
+      JsObject(mapBuilder.result())
     })
 
   /** Used to get table columns as JSON

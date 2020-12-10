@@ -44,9 +44,9 @@ object DeamonServer extends IOApp {
       Runtime.getRuntime.availableProcessors * 10
     )
     .allocated
-    .unsafeRunSync
+    .unsafeRunSync()
 
-  val (blocker, _) = Blocker[IO].allocated.unsafeRunSync
+  val (blocker, _) = Blocker[IO].allocated.unsafeRunSync()
 
   def createDatabase(
       host: String,
@@ -125,7 +125,7 @@ object DeamonServer extends IOApp {
         blocker
       )
       .allocated
-      .unsafeRunSync
+      .unsafeRunSync()
       ._1
 
     val storage = buildStorage(
