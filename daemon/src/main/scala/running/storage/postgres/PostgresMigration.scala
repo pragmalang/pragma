@@ -8,20 +8,17 @@ import cats.implicits._
 
 import pragma.domain.DomainImplicits._
 
-import running.storage.postgres.instances._
-import spray.json.JsObject
-
 import utils._
 import running.storage._
 import SQLMigrationStep._
 
 import pragma.domain._
-import spray.json.JsValue
-import pragma.domain.utils.typeCheckJson
 import cats.effect._
-import spray.json._
 import cats._
 import running.PFunctionExecutor
+import pragma.domain.utils.InternalException
+
+import PostgresMigration.modelReferences
 
 case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
     private val unorderedSteps: Vector[MigrationStep],
@@ -40,19 +37,26 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
     * - Add column (primitive type)
     * - Add foreign keys to non-array tables
     * - Create array tables
+    * - The following steps are of the same priority:
+    *   - Drop NOT NULL constraint
+    *   - Drop UNIQUE constraint
+    *   - Create UNIQUE constraint
+    *   - Drop any constraint
+    *   - Drop default value, Move PK
+    * - Change type of a column
+    * - Add a default value
     * - Rename table
     */
   private def stepPriority(step: SQLMigrationStep): Int = step match {
     case _: DropTable => 1
-    case CreateTable(_, Vector(sourceCol, _))
-        if sourceCol.name.startsWith("source_") =>
+    case CreateTable(_, Vector(sourceCol, _)) if sourceCol.name.startsWith("source_") =>
       5
     case CreateTable(_, _) => 2
     case AlterTable(
-        _,
-        AlterTableAction.AddColumn(
-          ColumnDefinition(_, _, _, _, _, _, _, Some(_))
-        )
+          _,
+          AlterTableAction.AddColumn(
+            ColumnDefinition(_, _, _, _, _, _, _, Some(_))
+          )
         ) =>
       4
     case AlterTable(_, _: AlterTableAction.AddColumn) =>
@@ -64,149 +68,147 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
         case _                                                       => false
       } match {
         case Some(_) => 1
-        case None    => 6
+        case None    => 9
       }
-    case _: AlterManyFieldTypes                          => 0
-    case AlterTable(_, _: AlterTableAction.RenameColumn) => 0
-    case AlterTable(_, _: AlterTableAction.DropColumn)   => 0
+    case AlterTable(_, AlterTableAction.DropNotNullConstraint(_)) => 6
+    case AlterTable(_, AlterTableAction.DropUnique(_))            => 6
+    case AlterTable(_, AlterTableAction.MakeUnique(_))            => 6
+    case AlterTable(_, AlterTableAction.DropConstraint(_))        => 6
+    case AlterTable(_, AlterTableAction.AddDefault(_, _))         => 8
+    case AlterTable(_, AlterTableAction.ChangeType(_, _))         => 7
+    case AlterTable(_, AlterTableAction.DropDefault(_))           => 6
+    case MovePrimaryKey(_, _)                                     => 6
+    case _: AlterManyFieldTypes                                   => 0
+    case AlterTable(_, _: AlterTableAction.RenameColumn)          => 0
+    case AlterTable(_, _: AlterTableAction.DropColumn)            => 0
   }
 
   lazy val sqlSteps: Vector[SQLMigrationStep] =
-    unorderedSQLSteps
-      .map(step => stepPriority(step) -> step)
-      .sortBy(_._1)
-      .map(_._2)
+    unorderedSQLSteps.sortBy(stepPriority)
 
-  def run(
-      transactor: Transactor[M]
-  )(
-      implicit cs: ContextShift[M]
-  ): M[Unit] =
-    sqlSteps.traverse {
-      case AlterManyFieldTypes(prevModel, changes) => {
-        val newTableTempName = "__temp__" + prevModel.id
-        val newFields = prevModel.fields.map { field =>
-          changes.find(_.field.id == field.id) match {
-            case Some(change) => field.copy(ptype = change.newType)
-            case None         => field
-          }
+  def run(transactor: Transactor[M]): M[Unit] =
+    sqlSteps.traverse_ {
+      case AlterManyFieldTypes(prevModel, changes) =>
+        changes.traverse_ { change =>
+          val prevType = change.field.ptype
+          val newType = change.newType
+          if (`Field type has changed`.`from A to A?`(prevType, newType)) {
+            Fragment(
+              AlterTable(
+                prevModel.id,
+                AlterTableAction.DropNotNullConstraint(change.field.id)
+              ).renderSQL,
+              Nil
+            ).update.run.transact(transactor).void
+          } else if (
+            `Field type has changed`.`from A to [A]`(prevType, newType) |
+              `Field type has changed`.`from A? to [A]`(prevType, newType)
+          ) {
+            val metadata = new ArrayFieldTableMetaData(prevModel, change.field)
+            val primaryCol = prevModel.primaryField.id
+            val colName = change.field.id
+            val tableName = prevModel.id
+            val createArrayTable = {
+              val createTableStep = createArrayFieldTable(
+                currentSyntaxTree.modelsById(prevModel.id),
+                change.field,
+                currentSyntaxTree
+              ) match {
+                case Some(value) => value.pure[M]
+                case None =>
+                  new InternalException(
+                    s"Field $tableName.$colName was passed to `PostgresMigration#render` as an array field"
+                  ).raiseError[M, CreateTable]
+              }
+              createTableStep.flatMap { createTableStep =>
+                Fragment(
+                  createTableStep.renderSQL,
+                  Nil
+                ).update.run.transact(transactor).void
+              }
+            }
+
+            val srcCol = metadata.sourceColumnName
+            val targetCol = metadata.targetColumnName
+            val arrTableName = metadata.tableName
+
+            val moveColumnValuesToArrayTable =
+              sql"""
+              INSERT INTO ${arrTableName.withQuotes}(${srcCol.withQuotes}, ${targetCol.withQuotes}) 
+              SELECT ${primaryCol.withQuotes}, ${colName.withQuotes} FROM ${tableName.withQuotes}
+              WHERE ${tableName.withQuotes}.${colName.withQuotes} IS NOT null;
+              """.update.run.transact(transactor).void
+
+            val dropColumn =
+              Fragment(
+                AlterTable(tableName, AlterTableAction.DropColumn(colName)).renderSQL,
+                Nil
+              ).update.run.transact(transactor).void
+
+            createArrayTable *>
+              moveColumnValuesToArrayTable *>
+              dropColumn
+          } else
+            new InternalException(
+              "Field type changes requiring type transformers are not implemented yet"
+            ).raiseError[M, Unit]
+        }
+      case MovePrimaryKey(model, to) => {
+
+        val references = modelReferences(model.id)
+
+        val dropRefs = references.flatMap { fks =>
+          val query = fks
+            .map { fk =>
+              AlterTable(
+                fk.tableName,
+                AlterTableAction.DropConstraint(fk.constraintName)
+              ).renderSQL
+            }
+            .mkString("\n")
+          Fragment(query, Nil).update.run.void
         }
 
-        val newTableModelDef =
-          prevModel.copy(
-            id = newTableTempName,
-            fields = newFields
-          )
+        val dropOldPkConstraint =
+          Fragment(
+            AlterTable(
+              model.id,
+              AlterTableAction.DropConstraint(s"${model.id}_pkey")
+            ).renderSQL,
+            Nil
+          ).update.run.void
 
-        // Create the new table with a temp name:
-        val createNewTableWithTempName =
-          PostgresMigration[M](
-            CreateModel(newTableModelDef),
-            prevSyntaxTree,
-            currentSyntaxTree,
-            queryEngine,
-            funcExecutor
-          )
+        val createNewPkConstraint =
+          sql"""
+          ALTER TABLE ${model.id.withQuotes} ADD PRIMARY KEY (${to.id.withQuotes});
+          """.update.run.void
 
-        val stream = for {
-          row <- HC.stream[JsObject](
-            s"SELECT * FROM ${prevModel.id.withQuotes};",
-            HPS.set(()),
-            200
-          )
-
-          /** Pass the data in each type-changed column
-            * to the correct type transformer if any
-            */
-          transformedRow = changes
-            .collect { change =>
-              val transformerArg = row.fields(change.field.id) match {
-                case obj: JsObject => obj
-                case value         => JsObject("arg" -> value)
-              }
-              change.transformer match {
-                case Some(transformer) =>
-                  funcExecutor
-                    .execute(transformer, transformerArg)
-                    .map(result => change -> result)
-                    .widen[(ChangeFieldType, JsValue)]
-
-                /**
-                  * No need for a transformation function, the current value,
-                  * will be the first element of the array.
-                  */
-                case None
-                    if `Field type has changed` `from A to [A]` (change.field.ptype, change.newType) =>
-                  (change -> JsArray(row.fields(change.field.id)))
-                    .pure[M]
-                    .widen[(ChangeFieldType, JsValue)]
-
-                /**
-                  * No need for a transformation function, the current value, if not null,
-                  * will be the first element in the array, and if it's null then the array
-                  * is empty.
-                  */
-                case None
-                    if `Field type has changed` `from A? to [A]` (change.field.ptype, change.newType) =>
-                  (change -> (row.fields(change.field.id) match {
-                    case JsNull => JsArray.empty
-                    case value  => JsArray(value)
-                  })).pure[M].widen[(ChangeFieldType, JsValue)]
-              }
+        val createRefs = references.flatMap { fks =>
+          val query = fks
+            .map { fk =>
+              AlterTable(
+                fk.tableName,
+                AlterTableAction.AddForeignKey(fk.foreignTableName, to.id, fk.columnName)
+              ).renderSQL
             }
-            .sequence
-            .map(_.toMap)
-            .map { cols =>
-              row.copy(
-                fields = row.fields ++ cols
-                  .map(col => col._1.field.id -> col._2)
-              )
-            }
+            .mkString("\n")
+          Fragment(query, Nil).update.run.void
+        }
 
-          /**
-            * Type check the value/s returned from the transformer
-            */
-          typeCheckingResult = typeCheckJson(
-            newTableModelDef,
-            currentSyntaxTree
-          )(row)
-
-          _ = queryEngine.createOneRecord(
-            newTableModelDef,
-            typeCheckingResult.get.asJsObject,
-            Vector.empty
-          )
+        val query = for {
+          _ <- dropRefs
+          _ <- dropOldPkConstraint
+          _ <- createNewPkConstraint
+          _ <- createRefs
         } yield ()
 
-        val transformFieldValuesAndMoveToNewTable = stream.compile.toVector
-          .transact(transactor)
-          .void
-
-        val dropPrevTable = PostgresMigration[M](
-          DeleteModel(prevModel),
-          prevSyntaxTree,
-          currentSyntaxTree,
-          queryEngine,
-          funcExecutor
-        )
-        val renameNewTable = PostgresMigration[M](
-          RenameModel(newTableTempName, prevModel.id),
-          prevSyntaxTree,
-          currentSyntaxTree,
-          queryEngine,
-          funcExecutor
-        )
-
-        createNewTableWithTempName.run(transactor) *>
-          transformFieldValuesAndMoveToNewTable *>
-          dropPrevTable.run(transactor) *>
-          renameNewTable.run(transactor).void
+        query.transact(transactor)
       }
       case step: DirectSQLMigrationStep =>
         Fragment(step.renderSQL, Nil).update.run
           .transact(transactor)
           .void
-    }.void
+    }
 
   private def fromMigrationStep(
       migrationStep: MigrationStep
@@ -241,8 +243,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
                 id,
                 currentSyntaxTree.modelsById(id).primaryField.id
               ).asRight.some
-            case PReference(id)
-                if currentSyntaxTree.modelsById.get(id).isDefined =>
+            case PReference(id) if currentSyntaxTree.modelsById.get(id).isDefined =>
               ForeignKey(
                 id,
                 currentSyntaxTree.modelsById(id).primaryField.id
@@ -309,18 +310,58 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
         fromMigrationStep(AddField(field, model))
       case ChangeManyFieldTypes(prevModel, _, changes) =>
         Vector(AlterManyFieldTypes(prevModel, changes))
-      case AddDirective(_, _, currrentField, _) => {
-        if (currrentField.isPrimary) ???
-        else if (currrentField.isUnique) ???
-        else if (currrentField.isUUID) ???
-        else if (currrentField.isAutoIncrement) ???
+      case AddDirective(prevModel, prevField, currrentField, _) => {
+        if (currrentField.isPrimary)
+          MovePrimaryKey(
+            prevModel,
+            prevField
+          ).pure[Vector]
+        else if (currrentField.isUnique)
+          AlterTable(prevModel.id, AlterTableAction.MakeUnique(currrentField.id))
+            .pure[Vector]
+        else if (currrentField.isUUID)
+          Vector(
+            AlterTable(
+              prevModel.id,
+              AlterTableAction.ChangeType(currrentField.id, PostgresType.UUID)
+            ),
+            AlterTable(
+              prevModel.id,
+              AlterTableAction.AddDefault(currrentField.id, "uuid_generate_v4 ()")
+            )
+          )
+        else if (currrentField.isAutoIncrement)
+          AlterTable(
+            prevModel.id,
+            AlterTableAction.ChangeType(currrentField.id, PostgresType.SERIAL8)
+          ).pure[Vector]
         else Vector.empty
       }
-      case DeleteDirective(_, prevField, _, _) => {
-        if (prevField.isPrimary) ???
-        else if (prevField.isUnique) ???
-        else if (prevField.isUUID) ???
-        else if (prevField.isAutoIncrement) ???
+      case DeleteDirective(prevModel, prevField, currrentField, _) => {
+        if (prevField.isPrimary)
+          MovePrimaryKey(
+            prevModel,
+            currentSyntaxTree.modelsById(prevModel.id).primaryField
+          ).pure[Vector]
+        else if (prevField.isUnique)
+          AlterTable(prevModel.id, AlterTableAction.DropUnique(currrentField.id))
+            .pure[Vector]
+        else if (prevField.isUUID)
+          Vector(
+            AlterTable(
+              prevModel.id,
+              AlterTableAction.DropDefault(currrentField.id)
+            ),
+            AlterTable(
+              prevModel.id,
+              AlterTableAction.ChangeType(currrentField.id, PostgresType.TEXT)
+            )
+          )
+        else if (prevField.isAutoIncrement)
+          AlterTable(
+            prevModel.id,
+            AlterTableAction.ChangeType(currrentField.id, PostgresType.INT8)
+          ).pure[Vector]
         else Vector.empty
       }
     }
@@ -366,30 +407,4 @@ object PostgresMigration {
       """
       .query[ForeignKeyMetaData]
       .to[Vector]
-}
-
-case class ModelsDependencyGraph(st: SyntaxTree) {
-
-  val pairs: List[(PModel, PType)] = {
-    for {
-      model <- st.models.toList
-      field <- model.fields
-    } yield
-      field.ptype match {
-        case t @ PReference(_)                  => Some((model, t))
-        case t @ PArray(PReference(_))          => Some((model, t))
-        case t @ POption(PReference(_))         => Some((model, t))
-        case t @ POption(PArray(PReference(_))) => Some((model, t))
-        case _                                  => None
-      }
-  } collect {
-    case Some(value) => value
-  }
-
-  def depsOf(modelId: String) = pairs collect {
-    case (model, PReference(ref)) if modelId == model.id                  => ref
-    case (model, PArray(PReference(ref))) if modelId == model.id          => ref
-    case (model, POption(PReference(ref))) if modelId == model.id         => ref
-    case (model, POption(PArray(PReference(ref)))) if modelId == model.id => ref
-  }
 }
