@@ -16,6 +16,7 @@ import cats.effect._
 import cats.implicits._
 import pragma.jwtUtils.JwtCodec
 import running.PFunctionExecutor
+import pragma.domain.utils.UserError
 
 class PostgresMigrationEngineSpec extends AnyFunSuite {
 
@@ -401,8 +402,9 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 title: String @primary
     }
 
+    @user
     @3 model Admin {
-      @1 username: String @primary
+      @1 username: String @primary @publicCredential
     }
 
     config { projectName = "test" }
@@ -423,6 +425,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 title: String @primary
     }
 
+    @user
     @3 model Admin {
       @1 username: String @primary @publicCredential
       @2 password: String @secretCredential
@@ -479,6 +482,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 title: String @primary
     }
 
+    @user
     @3 model Admin {
       @1 username: String @primary @publicCredential
       @2 password: String @secretCredential
@@ -502,8 +506,9 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 title: String @primary
     }
 
+    @user
     @3 model Admin {
-      @1 username: String @primary
+      @1 username: String @primary @publicCredential
     }
 
     config { projectName = "test" }
@@ -767,20 +772,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     val migrationEngine = testStorage.migrationEngine
 
-    val expected = ChangeFieldType(
-      PModelField(
-        "isVerified",
-        PBool,
-        Some(PBoolValue(false)),
-        4,
-        List(),
-        Some(PositionRange(Position(163, 7, 10), Position(173, 7, 20)))
-      ),
-      PInt,
-      None
-    )
-
-    assert(
+    assertThrows[UserError](
       migrationEngine
         .inferedMigrationSteps(
           newSyntaxTree,
@@ -792,7 +784,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
         .head
         .asInstanceOf[ChangeManyFieldTypes]
         .changes
-        .head == expected
+        .head
     )
   }
 
@@ -851,20 +843,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     val migrationEngine = testStorage.migrationEngine
 
-    val expected = ChangeFieldType(
-      PModelField(
-        "isVerified",
-        PBool,
-        Some(PBoolValue(false)),
-        4,
-        List(),
-        Some(PositionRange(Position(163, 7, 10), Position(173, 7, 20)))
-      ),
-      PInt,
-      None
-    )
-
-    assert(
+    assertThrows[UserError](
       migrationEngine
         .inferedMigrationSteps(
           newSyntaxTree,
@@ -876,7 +855,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
         .head
         .asInstanceOf[ChangeManyFieldTypes]
         .changes
-        .head == expected
+        .head
     )
   }
 }
