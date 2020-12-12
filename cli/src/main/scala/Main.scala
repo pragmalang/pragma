@@ -32,7 +32,7 @@ object Main {
       }
       case CLICommand.New => initProject()
       case Prod => {
-        tryOrExit(DaemonClient.pingLocalDaemon.void)
+        tryOrExit(DaemonClient.pingLocalDaemon().void)
         println(renderLogo)
         run(config, mode = Prod)
       }
@@ -63,15 +63,17 @@ object Main {
       projectName = projNameEntry.value
         .asInstanceOf[PStringValue]
         .value
-      _ <- if (projectName contains "-")
-        Failure {
-          UserError(
-            (
-              "The project's name must not contain any dashes ('-')",
-              projNameEntry.position
-            ) :: Nil
-          )
-        } else Success(())
+      _ <-
+        if (projectName contains "-")
+          Failure {
+            UserError(
+              (
+                "The project's name must not contain any dashes ('-')",
+                projNameEntry.position
+              ) :: Nil
+            )
+          }
+        else Success(())
       functions <- st.functions.toList.traverse {
         case ExternalFunction(id, scopeName, filePathStr, runtime) => {
           val filePath = os.FilePath(filePathStr)
@@ -83,8 +85,7 @@ object Main {
                   readContent(config.projectPath / os.RelPath(filePathStr))
               }
             }
-          } yield
-            ImportedFunctionInput(id, scopeName, content, runtime, isBinary)
+          } yield ImportedFunctionInput(id, scopeName, content, runtime, isBinary)
         }
         case otherFn =>
           Failure {
@@ -159,7 +160,7 @@ object Main {
   def initProject(): Try[Unit] = Try {
     val newProjectName = new PragmaParser(
       readLine("What's the name of your new project?: ").trim
-    ).identifier.run() match {
+    ).identifierThenEOI.run() match {
       case Failure(_) => {
         println(
           "A project's name must be a valid Pragma identifier... Please try again"
@@ -186,10 +187,10 @@ object Main {
   }
 
   def pingOrStartDevDaemon(config: CLIConfig): Try[Unit] =
-    DaemonClient.pingLocalDaemon.void.recoverWith { _ =>
+    DaemonClient.pingLocalDaemon().void.recoverWith { _ =>
       val dcyml = config.dotPragmaDir / "docker-compose.yml"
       def dcUp =
-        Try(os.proc("docker-compose", "up").call(config.dotPragmaDir)).void
+        Try(os.proc("docker-compose", "up", "-d").call(config.dotPragmaDir)).void
           .adaptErr { err =>
             new Exception(
               s"`docker-compose up` failed on ${dcyml.toString}\n${err.getMessage}"
