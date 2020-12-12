@@ -205,10 +205,14 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
         query.transact(transactor)
       }
       case step: DirectSQLMigrationStep =>
-        Fragment(step.renderSQL, Nil).update.run
-          .transact(transactor)
-          .void
+        {
+          importUUIDExtension *>
+            Fragment(step.renderSQL, Nil).update.run
+        }.transact(transactor).void
     }
+
+  private def importUUIDExtension =
+    sql"""CREATE EXTENSION IF NOT EXISTS "uuid-ossp";""".update.run
 
   private def fromMigrationStep(
       migrationStep: MigrationStep
