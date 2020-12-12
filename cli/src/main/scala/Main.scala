@@ -159,7 +159,7 @@ object Main {
   def initProject(): Try[Unit] = Try {
     val newProjectName = new PragmaParser(
       readLine("What's the name of your new project?: ").trim
-    ).identifier.run() match {
+    ).identifierThenEOI.run() match {
       case Failure(_) => {
         println(
           "A project's name must be a valid Pragma identifier... Please try again"

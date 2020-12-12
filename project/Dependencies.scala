@@ -28,7 +28,7 @@ object Dependencies {
 
   lazy val requests = "com.lihaoyi" %% "requests" % "0.6.5"
 
-  lazy val scopt = "com.github.scopt" %% "scopt" % "3.7.1"
+  lazy val scopt = "com.github.scopt" %% "scopt" % "4.0.0"
 
   lazy val bcrypt = "com.github.t3hnar" %% "scala-bcrypt" % "4.3.0"
 
