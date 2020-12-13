@@ -90,13 +90,13 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
     sqlSteps.traverse_ {
       case AlterManyFieldTypes(prevModel, changes) =>
         changes.traverse_ { change =>
-          val prevType = change.field.ptype
-          val newType = change.newType
+          val prevType = change.prevField.ptype
+          val newType = change.currrentField.ptype
           if (`Field type has changed`.`from A to A?`(prevType, newType)) {
             Fragment(
               AlterTable(
                 prevModel.id,
-                AlterTableAction.DropNotNullConstraint(change.field.id)
+                AlterTableAction.DropNotNullConstraint(change.prevField.id)
               ).renderSQL,
               Nil
             ).update.run.transact(transactor).void
@@ -104,14 +104,14 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
             `Field type has changed`.`from A to [A]`(prevType, newType) |
               `Field type has changed`.`from A? to [A]`(prevType, newType)
           ) {
-            val metadata = new ArrayFieldTableMetaData(prevModel, change.field)
+            val metadata = new ArrayFieldTableMetaData(prevModel, change.prevField)
             val primaryCol = prevModel.primaryField.id
-            val colName = change.field.id
+            val colName = change.prevField.id
             val tableName = prevModel.id
             val createArrayTable = {
               val createTableStep = createArrayFieldTable(
                 currentSyntaxTree.modelsById(prevModel.id),
-                change.field,
+                change.currrentField,
                 currentSyntaxTree
               ) match {
                 case Some(value) => value.pure[M]
@@ -226,8 +226,31 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
           }.toVector
         Vector(Vector(createTableStatement), addColumnStatements).flatten
       }
-      case RenameModel(modelId, newId) =>
-        Vector(RenameTable(modelId, newId))
+      case RenameModel(modelId, newId) => {
+
+        val prevModel = prevSyntaxTree.modelsById(modelId)
+        val currentModel = currentSyntaxTree.modelsById(newId)
+
+        val renameArrTables = currentModel.fields.map(f => f -> f.ptype).collect {
+          case (field, PArray(_)) => {
+            val prevArrMeta =
+              prevModel.fields.find(_.index == field.index) match {
+                case Some(prevField)
+                    if prevField.id != field.id => // In case the field was renamed
+                  new ArrayFieldTableMetaData(prevModel, field)
+                case Some(prevField) =>
+                  new ArrayFieldTableMetaData(prevModel, prevField)
+                case None => // In case `field` is newly added or has been converted to an array in this migration 
+                  new ArrayFieldTableMetaData(prevModel, field)
+              }
+            val arrMeta = new ArrayFieldTableMetaData(currentModel, field)
+
+            RenameTable(prevArrMeta.tableName, arrMeta.tableName)
+          }
+        }.toVector
+
+        renameArrTables :+ RenameTable(modelId, newId)
+      }
       case DeleteModel(model) => Vector(DropTable(model.id))
       case UndeleteModel(model) =>
         fromMigrationStep(CreateModel(model))
@@ -302,10 +325,27 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
             }
         }
       }
-      case RenameField(fieldId, newId, model) =>
-        Vector(
-          AlterTable(model.id, AlterTableAction.RenameColumn(fieldId, newId))
-        )
+      case RenameField(fieldId, newId, model) => {
+        val field = model.fieldsById(fieldId)
+        val newField = model.fieldsById(fieldId).copy(id = newId)
+        val arrFieldMeta = new ArrayFieldTableMetaData(model, field)
+        val newArrFieldMeta = new ArrayFieldTableMetaData(model, newField)
+        field.isArray match {
+          case true =>
+            AlterTable(
+              arrFieldMeta.tableName,
+              AlterTableAction.RenameColumn(
+                arrFieldMeta.targetColumnName,
+                newArrFieldMeta.targetColumnName
+              )
+            ).pure[Vector]
+          case false =>
+            AlterTable(
+              model.id,
+              AlterTableAction.RenameColumn(fieldId, newId)
+            ).pure[Vector]
+        }
+      }
       case DeleteField(field, model) =>
         Vector(
           AlterTable(model.id, AlterTableAction.DropColumn(field.id, true))

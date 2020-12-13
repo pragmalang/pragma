@@ -248,7 +248,7 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
                 .isDefined
             } yield ChangeFieldType(
               prevField,
-              currentField.ptype,
+              currentField,
               getTransformers(
                 currentField.directives,
                 prevModel,

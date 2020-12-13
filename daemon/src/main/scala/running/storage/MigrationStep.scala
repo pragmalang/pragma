@@ -55,7 +55,7 @@ case class ChangeManyFieldTypes(
 ) extends MigrationStep
 
 case class ChangeFieldType(
-    field: PModelField,
-    newType: PType,
+    prevField: PModelField,
+    currrentField: PModelField,
     transformer: Option[PFunctionValue]
 )
