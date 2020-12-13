@@ -18,8 +18,6 @@ import cats._
 import running.PFunctionExecutor
 import pragma.domain.utils.InternalException
 
-import PostgresMigration.modelReferences
-
 case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
     private val unorderedSteps: Vector[MigrationStep],
     private val prevSyntaxTree: SyntaxTree,
@@ -27,6 +25,8 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
     private val queryEngine: PostgresQueryEngine[M],
     private val funcExecutor: PFunctionExecutor[M]
 ) {
+
+  import PostgresMigration._
 
   lazy val unorderedSQLSteps =
     unorderedSteps.flatMap(fromMigrationStep)
@@ -50,7 +50,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
   private def stepPriority(step: SQLMigrationStep): Int = step match {
     case _: DropTable => 1
     case CreateTable(_, Vector(sourceCol, _)) if sourceCol.name.startsWith("source_") =>
-      5
+      6
     case CreateTable(_, _) => 2
     case AlterTable(
           _,
@@ -58,26 +58,27 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
             ColumnDefinition(_, _, _, _, _, _, _, Some(_))
           )
         ) =>
-      4
+      5
     case AlterTable(_, _: AlterTableAction.AddColumn) =>
-      3
-    case AlterTable(_, _: AlterTableAction.AddForeignKey) => 4
+      4
+    case AlterTable(_, _: AlterTableAction.AddForeignKey) => 5
     case RenameTable(oldName, _) =>
       unorderedSQLSteps.find {
         case createTable: CreateTable if createTable.name == oldName => true
         case _                                                       => false
       } match {
         case Some(_) => 1
-        case None    => 9
+        case None    => 10
       }
-    case AlterTable(_, AlterTableAction.DropNotNullConstraint(_)) => 6
-    case AlterTable(_, AlterTableAction.DropUnique(_))            => 6
-    case AlterTable(_, AlterTableAction.MakeUnique(_))            => 6
-    case AlterTable(_, AlterTableAction.DropConstraint(_))        => 6
-    case AlterTable(_, AlterTableAction.AddDefault(_, _))         => 8
-    case AlterTable(_, AlterTableAction.ChangeType(_, _))         => 7
-    case AlterTable(_, AlterTableAction.DropDefault(_))           => 6
-    case MovePrimaryKey(_, _)                                     => 6
+    case AlterTable(_, AlterTableAction.DropNotNullConstraint(_)) => 7
+    case AlterTable(_, AlterTableAction.DropUnique(_))            => 7
+    case AlterTable(_, AlterTableAction.MakeUnique(_))            => 7
+    case AlterTable(_, AlterTableAction.DropConstraint(_))        => 7
+    case AlterTable(_, AlterTableAction.AddDefault(_, _))         => 9
+    case AlterTable(_, AlterTableAction.ChangeType(_, _))         => 8
+    case AlterTable(_, AlterTableAction.DropDefault(_))           => 7
+    case MovePrimaryKey(_, _)                                     => 7
+    case AlterTable(_, AlterTableAction.DropPrimaryConstraint)    => 3
     case _: AlterManyFieldTypes                                   => 0
     case AlterTable(_, _: AlterTableAction.RenameColumn)          => 0
     case AlterTable(_, _: AlterTableAction.DropColumn)            => 0
@@ -160,23 +161,13 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
 
         val references = modelReferences(model.id)
 
-        val dropRefs = references.flatMap { fks =>
-          val query = fks
-            .map { fk =>
-              AlterTable(
-                fk.tableName,
-                AlterTableAction.DropConstraint(fk.constraintName)
-              ).renderSQL
-            }
-            .mkString("\n")
-          Fragment(query, Nil).update.run.void
-        }
+        val dropRefs = dropRefsToTable(model.id)
 
         val dropOldPkConstraint =
           Fragment(
             AlterTable(
               model.id,
-              AlterTableAction.DropConstraint(s"${model.id}_pkey")
+              AlterTableAction.DropPrimaryConstraint
             ).renderSQL,
             Nil
           ).update.run.void
@@ -187,17 +178,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
             Nil
           ).update.run.void
 
-        val createRefs = references.flatMap { fks =>
-          val query = fks
-            .map { fk =>
-              AlterTable(
-                fk.tableName,
-                AlterTableAction.AddForeignKey(fk.foreignTableName, to.id, fk.columnName)
-              ).renderSQL
-            }
-            .mkString("\n")
-          Fragment(query, Nil).update.run.void
-        }
+        val createRefs = references.flatMap(createRefsToTable(_, to.id))
 
         val query = for {
           _ <- dropRefs
@@ -259,8 +240,6 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
         renameArrTables :+ RenameTable(modelId, newId)
       }
       case DeleteModel(model) => Vector(DropTable(model.id))
-      case UndeleteModel(model) =>
-        fromMigrationStep(CreateModel(model))
       case AddField(field, model) => {
         val fieldCreationInstruction: Option[Either[CreateTable, ForeignKey]] =
           field.ptype match {
@@ -294,7 +273,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
                   dataType = postgresType,
                   isNotNull = !field.isOptional,
                   isUnique = field.isUnique || field.isPublicCredential,
-                  isPrimaryKey = field.isPrimary,
+                  isPrimaryKey = field.isPrimary && !prevSyntaxTree.models.exists(_ == model),
                   isAutoIncrement = field.isAutoIncrement,
                   isUUID = field.isUUID,
                   foreignKey = fieldCreationInstruction match {
@@ -309,7 +288,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
               )
             )
           }
-        alterTableStatement match {
+        val addField = alterTableStatement match {
           case None =>
             fieldCreationInstruction match {
               case Some(value) =>
@@ -331,6 +310,14 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
               case None => Vector(alterTableStatement)
             }
         }
+
+        /** If the this new field is primary and the model already exists in a previous migration
+          * then remove the primary key constraint from the model's table before adding this field
+          * to avoid the `ERROR: multiple primary keys for table <SOME_TABLE_NAME> are not allowed` SQL error
+          */
+        if (field.isPrimary && prevSyntaxTree.models.exists(_ == model)) {
+          addField :+ MovePrimaryKey(model, field)
+        } else addField
       }
       case RenameField(fieldId, newId, model) => {
         val field = model.fieldsById(fieldId)
@@ -357,8 +344,6 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
         Vector(
           AlterTable(model.id, AlterTableAction.DropColumn(field.id, true))
         )
-      case UndeleteField(field, model) =>
-        fromMigrationStep(AddField(field, model))
       case ChangeManyFieldTypes(prevModel, _, changes) =>
         Vector(AlterManyFieldTypes(prevModel, changes))
       case AddDirective(prevModel, prevField, currrentField, _) => {
@@ -419,6 +404,35 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
 }
 
 object PostgresMigration {
+  private def dropRefsToTable(modelId: String) = modelReferences(modelId).flatMap { fks =>
+    val query = fks
+      .map { fk =>
+        AlterTable(
+          fk.tableName,
+          AlterTableAction.DropConstraint(fk.constraintName)
+        ).renderSQL
+      }
+      .mkString("\n")
+    Fragment(query, Nil).update.run.void
+  }
+
+  private def createRefsToTable(
+      refs: Vector[ForeignKeyMetaData],
+      newPrimaryFieldId: String
+  ) = {
+    val query =
+      refs
+        .map { fk =>
+          AlterTable(
+            fk.tableName,
+            AlterTableAction
+              .AddForeignKey(fk.foreignTableName, newPrimaryFieldId, fk.columnName)
+          ).renderSQL
+        }
+        .mkString("\n")
+
+    Fragment(query, Nil).update.run.void
+  }
   def apply[M[_]: Monad: Async: ConcurrentEffect](
       step: MigrationStep,
       prevSyntaxTree: SyntaxTree,

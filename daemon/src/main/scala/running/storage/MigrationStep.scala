@@ -10,8 +10,6 @@ case class RenameModel(prevModelId: String, newId: String) extends MigrationStep
 
 case class DeleteModel(prevModel: PModel) extends MigrationStep
 
-case class UndeleteModel(prevModel: PModel) extends MigrationStep
-
 case class AddField(
     field: PModelField,
     prevModel: PModel
@@ -39,11 +37,6 @@ case class RenameField(
 ) extends MigrationStep
 
 case class DeleteField(
-    prevField: PModelField,
-    prevModel: PModel
-) extends MigrationStep
-
-case class UndeleteField(
     prevField: PModelField,
     prevModel: PModel
 ) extends MigrationStep
