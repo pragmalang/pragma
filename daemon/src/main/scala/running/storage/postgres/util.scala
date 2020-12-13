@@ -68,7 +68,7 @@ package object utils {
       field: PModelField,
       currentSyntaxTree: SyntaxTree
   ): Option[CreateTable] = field.ptype match {
-    case POption(PArray(_)) | PArray(_) => {
+    case PArray(_) => {
       val tableMetadata = new ArrayFieldTableMetaData(model, field)
 
       val innerRefType: Option[PModel] = field.innerModelId
@@ -157,61 +157,46 @@ package object utils {
         prevField: PModelField,
         currentField: PModelField
     ): Boolean =
-      currentField.ptype
-        .isInstanceOf[POption] && (prevField.ptype == currentField.ptype
-        .asInstanceOf[POption]
-        .ptype)
+      `from A to A?`(prevField.ptype, currentField.ptype)
 
     def `from A to A?`(
         prevFieldType: PType,
         currentFieldType: PType
     ): Boolean =
-      currentFieldType
-        .isInstanceOf[POption] && (prevFieldType == currentFieldType
-        .asInstanceOf[POption]
-        .ptype)
+      (prevFieldType, currentFieldType) match {
+        case (a, POption(b)) => a == b
+        case _               => false
+      }
 
     def `from A to [A]`(
         prevField: PModelField,
         currentField: PModelField
     ): Boolean =
-      currentField.ptype
-        .isInstanceOf[PArray] && (prevField.ptype == currentField.ptype
-        .asInstanceOf[PArray]
-        .ptype)
+      `from A to [A]`(prevField.ptype, currentField.ptype)
 
     def `from A to [A]`(
         prevFieldType: PType,
         currentFieldType: PType
     ): Boolean =
-      currentFieldType
-        .isInstanceOf[PArray] && (prevFieldType == currentFieldType
-        .asInstanceOf[PArray]
-        .ptype)
+      (prevFieldType, currentFieldType) match {
+        case (a, PArray(b)) => a == b
+        case _              => false
+      }
 
     def `from A? to [A]`(
         prevField: PModelField,
         currentField: PModelField
     ): Boolean =
-      (currentField.ptype
-        .isInstanceOf[PArray] && prevField.ptype
-        .isInstanceOf[POption]) && (prevField.ptype
-        .asInstanceOf[POption]
-        .ptype == currentField.ptype
-        .asInstanceOf[PArray]
-        .ptype)
+      `from A? to [A]`(prevField.ptype, currentField.ptype)
 
     def `from A? to [A]`(
         prevFieldType: PType,
         currentFieldType: PType
     ): Boolean =
-      (currentFieldType
-        .isInstanceOf[PArray] && prevFieldType
-        .isInstanceOf[POption]) && (prevFieldType
-        .asInstanceOf[POption]
-        .ptype == currentFieldType
-        .asInstanceOf[PArray]
-        .ptype)
+      (prevFieldType, currentFieldType) match {
+        case (POption(a), PArray(b)) => a == b
+        case _                       => false
+      }
   }
 
 }

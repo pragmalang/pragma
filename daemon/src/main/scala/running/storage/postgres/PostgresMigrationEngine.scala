@@ -246,11 +246,13 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
               if !prevField.ptype.innerPReference
                 .filter(ref => renamedModels.exists(_.prevModelId == ref.id))
                 .isDefined
+              _ = println(
+                s"\nfield `${prevModel.id}.${prevField.id}` changed from `${displayPType(prevField.ptype)}` to `${displayPType(currentField.ptype)}`\n"
+              )
             } yield ChangeFieldType(
               prevField,
               currentField,
               getTransformers(
-                currentField.directives,
                 prevModel,
                 currentModel,
                 prevField,
@@ -281,14 +283,13 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
     }.toEither
 
   def getTransformers(
-      directives: Seq[Directive],
       prevModel: PModel,
       currentModel: PModel,
       prevField: PModelField,
       currentField: PModelField,
       thereExistData: Map[ModelId, Boolean]
   ): Try[Option[ExternalFunction]] =
-    directives.find(_.id == "typeTransformer") match {
+    currentField.directives.find(_.id == "typeTransformer") match {
       /*
         No need for a transformation function, a `NOT NULL` constraint will be
         removed.
