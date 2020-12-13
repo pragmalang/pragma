@@ -104,9 +104,9 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
             `Field type has changed`.`from A to [A]`(prevType, newType) |
               `Field type has changed`.`from A? to [A]`(prevType, newType)
           ) {
-            val metadata = new ArrayFieldTableMetaData(prevModel, change.prevField)
+            val metadata = new ArrayFieldTableMetaData(prevModel, change.currrentField)
             val primaryCol = prevModel.primaryField.id
-            val colName = change.prevField.id
+            val colName = change.currrentField.id
             val tableName = prevModel.id
             val createArrayTable = {
               val createTableStep = createArrayFieldTable(
