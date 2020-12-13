@@ -58,7 +58,8 @@ lazy val daemon = (project in file("daemon"))
     ),
     dockerRepository in Docker := Some("pragmalang"),
     dockerExposedPorts := Seq(3030),
-    dockerUpdateLatest := true
+    dockerUpdateLatest := true,
+    fork in run := true
   )
   .dependsOn(core)
   .enablePlugins(
@@ -70,6 +71,7 @@ lazy val daemon = (project in file("daemon"))
 lazy val cli = (project in file("cli"))
   .settings(
     name := "pragma",
+    packageName := name.value,
     maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
     packageSummary := "The CLI for Pragmalang",
     packageDescription := "See https://docs.pragmalang.com for details.",
@@ -80,18 +82,7 @@ lazy val cli = (project in file("cli"))
       osLib,
       requests
     ),
-    graalVMNativeImageOptions := Seq(
-      "--static",
-      "--no-fallback",
-      "--allow-incomplete-classpath",
-      "--initialize-at-build-time=scala.runtime.Statics$VM",
-      "-H:+ReportExceptionStackTraces",
-      "-H:+AddAllCharsets",
-      "-H:IncludeResources=.*docker-compose.yml",
-      "--enable-http",
-      "--enable-https",
-      "--enable-all-security-services"
-    ),
+    jlinkIgnoreMissingDependency := JlinkIgnore.everything,
     wixProductId := "0e5e2980-bf07-4bf0-b446-2cfb4bf4704a",
     wixProductUpgradeId := "5603913d-7bde-46eb-ac47-44ed2cb4fd08",
     name in Windows := s"${name.value}-${version.value}",
@@ -108,8 +99,10 @@ lazy val cli = (project in file("cli"))
   )
   .dependsOn(core)
   .enablePlugins(
-    GraalVMNativeImagePlugin,
     UniversalPlugin,
+    JlinkPlugin,
     WindowsPlugin,
-    JavaAppPackaging
+    LinuxPlugin,
+    DebianPlugin,
+    RpmPlugin
   )

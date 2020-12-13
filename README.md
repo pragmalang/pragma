@@ -172,23 +172,26 @@ Docker builds are performed using [SBT Native Packager](https://www.scala-sbt.or
 sbt "daemon/docker:publishLocal"
 ```
 
-## GraalVM Native Image Generation
-The native image build is performed using [SBT Native Packager](https://www.scala-sbt.org/sbt-native-packager/formats/graalvm-native-image.html), so the `native-image` version needs to be installed locally.
+## CLI Packaging
 
-Currently, only the CLI can be compiled to a native image. Run:
+> NOTE: Generating the packages for each platform requires running the build on that very platform, in addition to some dependencies installed locally. See the requirements of each platform's plugin.
+
+These packages should **NOT** require a local JDK installation, or have any dependencies since the [Jlink plugin](https://www.scala-sbt.org/sbt-native-packager/archetypes/jlink_plugin.html) is used.
+
+To build Linux packages:
 ```sh
-sbt "cli/graalvm-native-image:packageBin"
+sbt 'cli/debian:packageBin; cli/rpm:packageBin'
 ```
 
-To generate META-INF (for trying to generate a native image from the daemon):
+To build Windows installer (`.msi`):
+```sh
+sbt 'cli/windows:packageBin'
 ```
-java -agentlib:native-image-agent=config-merge-dir="./src/main/resources/META-INF/native-image/",config-write-initial-delay-secs=0 -jar "./target/scala-2.13/<jarfile>" <arguments-for-jar>
-```
-See:
-* https://www.graalvm.org/reference-manual/native-image/Configuration/#assisted-configuration-of-native-image-builds
-* https://noelwelsh.com/posts/2020-02-06-serverless-scala-services.html
 
-> NOTE: Make sure everything else other than this process is canceled. It needs all the memory it can get.
+To build MacOS `.dmg`:
+```sh
+sbt 'cli/universal:packageOsxDmg'
+```
 
 ## Apache Bench benchmark
 Run the ammonite script in `test/benchmark`:

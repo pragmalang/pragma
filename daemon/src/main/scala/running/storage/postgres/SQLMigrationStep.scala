@@ -45,6 +45,8 @@ object SQLMigrationStep {
             s"ALTER TABLE ${tableName.withQuotes} ALTER COLUMN ${colName.withQuotes} SET DEFAULT $value;"
           case DropConstraint(constraintName) =>
             s"ALTER TABLE ${tableName.withQuotes} DROP CONSTRAINT ${constraintName.withQuotes};"
+          case DropPrimaryConstraint =>
+            s"ALTER TABLE ${tableName.withQuotes} DROP CONSTRAINT ${(tableName + "_pkey").withQuotes};"
         }
     }
   }
@@ -53,8 +55,7 @@ object SQLMigrationStep {
       columns: Vector[ColumnDefinition] = Vector.empty
   ) extends DirectSQLMigrationStep
 
-  case class MovePrimaryKey(model: PModel, to: PModelField)
-      extends SQLMigrationStep
+  case class MovePrimaryKey(model: PModel, to: PModelField) extends SQLMigrationStep
 
   case class AlterTable(tableName: String, action: AlterTableAction)
       extends DirectSQLMigrationStep
@@ -78,6 +79,7 @@ object AlterTableAction {
   ) extends AlterTableAction
 
   case class DropConstraint(constraintName: String) extends AlterTableAction
+  case object DropPrimaryConstraint extends AlterTableAction
 
   case class DropNotNullConstraint(colName: String) extends AlterTableAction
 
