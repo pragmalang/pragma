@@ -58,7 +58,8 @@ lazy val daemon = (project in file("daemon"))
     ),
     dockerRepository in Docker := Some("pragmalang"),
     dockerExposedPorts := Seq(3030),
-    dockerUpdateLatest := true
+    dockerUpdateLatest := true,
+    fork in run := true
   )
   .dependsOn(core)
   .enablePlugins(
