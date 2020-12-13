@@ -83,6 +83,8 @@ lazy val cli = (project in file("cli"))
       requests
     ),
     jlinkIgnoreMissingDependency := JlinkIgnore.everything,
+    rpmVendor := organizationName.value,
+    rpmLicense := Some("Apache 2.0"),
     wixProductId := "0e5e2980-bf07-4bf0-b446-2cfb4bf4704a",
     wixProductUpgradeId := "5603913d-7bde-46eb-ac47-44ed2cb4fd08",
     name in Windows := s"${name.value}-${version.value}",
