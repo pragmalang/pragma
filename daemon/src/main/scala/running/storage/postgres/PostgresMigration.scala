@@ -133,11 +133,14 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
             val arrTableName = metadata.tableName
 
             val moveColumnValuesToArrayTable =
-              sql"""
-              INSERT INTO ${arrTableName.withQuotes}(${srcCol.withQuotes}, ${targetCol.withQuotes}) 
-              SELECT ${primaryCol.withQuotes}, ${colName.withQuotes} FROM ${tableName.withQuotes}
-              WHERE ${tableName.withQuotes}.${colName.withQuotes} IS NOT null;
-              """.update.run.transact(transactor).void
+              Fragment(
+                s"""
+                INSERT INTO ${arrTableName.withQuotes}(${srcCol.withQuotes}, ${targetCol.withQuotes}) 
+                SELECT ${primaryCol.withQuotes}, ${colName.withQuotes} FROM ${tableName.withQuotes}
+                WHERE ${tableName.withQuotes}.${colName.withQuotes} IS NOT null;
+                """,
+                Nil
+              ).update.run.transact(transactor).void
 
             val dropColumn =
               Fragment(
@@ -179,9 +182,10 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
           ).update.run.void
 
         val createNewPkConstraint =
-          sql"""
-          ALTER TABLE ${model.id.withQuotes} ADD PRIMARY KEY (${to.id.withQuotes});
-          """.update.run.void
+          Fragment(
+            s"ALTER TABLE ${model.id.withQuotes} ADD PRIMARY KEY (${to.id.withQuotes});",
+            Nil
+          ).update.run.void
 
         val createRefs = references.flatMap { fks =>
           val query = fks
@@ -212,7 +216,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
     }
 
   private def importUUIDExtension =
-    sql"""CREATE EXTENSION IF NOT EXISTS "uuid-ossp";""".update.run
+    Fragment("""CREATE EXTENSION IF NOT EXISTS "uuid-ossp";""", Nil).update.run
 
   private def fromMigrationStep(
       migrationStep: MigrationStep
@@ -231,23 +235,26 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
         val prevModel = prevSyntaxTree.modelsById(modelId)
         val currentModel = currentSyntaxTree.modelsById(newId)
 
-        val renameArrTables = currentModel.fields.map(f => f -> f.ptype).collect {
-          case (field, PArray(_)) => {
-            val prevArrMeta =
-              prevModel.fields.find(_.index == field.index) match {
-                case Some(prevField)
-                    if prevField.id != field.id => // In case the field was renamed
-                  new ArrayFieldTableMetaData(prevModel, field)
-                case Some(prevField) =>
-                  new ArrayFieldTableMetaData(prevModel, prevField)
-                case None => // In case `field` is newly added or has been converted to an array in this migration 
-                  new ArrayFieldTableMetaData(prevModel, field)
-              }
-            val arrMeta = new ArrayFieldTableMetaData(currentModel, field)
+        val renameArrTables = currentModel.fields
+          .map(f => f -> f.ptype)
+          .collect {
+            case (field, PArray(_)) => {
+              val prevArrMeta =
+                prevModel.fields.find(_.index == field.index) match {
+                  case Some(prevField)
+                      if prevField.id != field.id => // In case the field was renamed
+                    new ArrayFieldTableMetaData(prevModel, field)
+                  case Some(prevField) =>
+                    new ArrayFieldTableMetaData(prevModel, prevField)
+                  case None => // In case `field` is newly added or has been converted to an array in this migration
+                    new ArrayFieldTableMetaData(prevModel, field)
+                }
+              val arrMeta = new ArrayFieldTableMetaData(currentModel, field)
 
-            RenameTable(prevArrMeta.tableName, arrMeta.tableName)
+              RenameTable(prevArrMeta.tableName, arrMeta.tableName)
+            }
           }
-        }.toVector
+          .toVector
 
         renameArrTables :+ RenameTable(modelId, newId)
       }
