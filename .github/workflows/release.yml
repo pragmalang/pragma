@@ -109,7 +109,7 @@ jobs:
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
           asset_path: ./cli/target/pragma_${{ needs.create-release.outputs.pragma_version }}_all.deb
-          asset_name: pragma_${{ needs.create-release.outputs.pragma_version }}_x86_64.deb
+          asset_name: pragma_${{ needs.create-release.outputs.pragma_version }}.deb
           asset_content_type: application/octet-stream
 
   build-macos:
@@ -134,8 +134,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./cli/target/universal/pragma-0.1.0.dmg
-          asset_name: pragma.dmg
+          asset_path: ./cli/target/universal/pragma-${{ needs.create-release.outputs.pragma_version }}.dmg
+          asset_name: pragma-${{ needs.create-release.outputs.pragma_version }}.dmg
           asset_content_type: application/octet-stream
 
   build-universal:
@@ -161,7 +161,7 @@ jobs:
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
           asset_path: ./cli/target/universal/pragma-0.1.0.zip
-          asset_name: pragma-universal.zip
+          asset_name: pragma-${{ needs.create-release.outputs.pragma_version }}-universal.zip
           asset_content_type: application/zip
 
   build-windows:
@@ -198,5 +198,5 @@ jobs:
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
           asset_path: .\cli\target\windows\pragma.msi
-          asset_name: pragma.msi
+          asset_name: pragma-${{ needs.create-release.outputs.pragma_version }}.msi
           asset_content_type: application/octet-stream
