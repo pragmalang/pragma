@@ -312,7 +312,7 @@ class Validator(constructs: List[PConstruct]) {
       model <- st.models
       field <- model.fields
       dir <- field.directives
-    } yield checkFieldDirectiveAgainst(BuiltInDefs.fieldDirectives(field), field, dir)
+    } yield checkFieldDirectiveAgainst(BuiltInDefs.fieldDirectives, field, dir)
 
     val allErrors = (modelLevelErrors ++ fieldLevelErrors).flatten
     if (allErrors.isEmpty) Success(())

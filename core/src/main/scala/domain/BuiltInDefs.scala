@@ -38,11 +38,8 @@ object BuiltInDefs {
       applicableTypes(PAny) || applicableTypes(field.ptype)
   }
 
-  def fieldDirectives(
-      field: PModelField,
-      newFieldType: Option[PType] = None
-  ): Map[String, FieldDirectiveDef] = {
-    val dirs = Map(
+  val fieldDirectives: Map[String, FieldDirectiveDef] =
+    Map(
       "uuid" -> FieldDirectiveDef(PInterface("uuid", Nil, None), Set(PString)),
       "autoIncrement" -> FieldDirectiveDef(
         PInterface("autoIncrement", Nil, None),
@@ -62,37 +59,5 @@ object BuiltInDefs {
         Set(PString, PInt)
       )
     )
-
-    newFieldType match {
-      case Some(newFieldType) =>
-        dirs ++ Map(
-          "typeTransformer" -> FieldDirectiveDef(
-            PInterface(
-              "typeTransformer",
-              PInterfaceField(
-                "function",
-                PFunction(Map(field.id -> field.ptype), newFieldType),
-                None
-              ) :: Nil,
-              None
-            ),
-            Set(PAny)
-          ),
-          "reverseTypeTransformer" -> FieldDirectiveDef(
-            PInterface(
-              "reverseTypeTransformer",
-              PInterfaceField(
-                "function",
-                PFunction(Map(field.id -> newFieldType), field.ptype),
-                None
-              ) :: Nil,
-              None
-            ),
-            Set(PAny)
-          )
-        )
-      case None => dirs
-    }
-  }
 
 }
