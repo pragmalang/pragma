@@ -93,7 +93,7 @@ case class PInterface(
     fields: Seq[PInterfaceField],
     position: Option[PositionRange]
 ) extends PType
-    with PShape //with HConstruct
+    with PShape
 
 case class PEnum(
     id: String,

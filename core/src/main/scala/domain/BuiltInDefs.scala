@@ -33,44 +33,62 @@ object BuiltInDefs {
     "noStorage" -> PInterface("noStorage", Nil, None)
   )
 
+  case class FieldDirectiveDef(dirInterface: PInterface, applicableTypes: Set[PType]) {
+    def appliesTo(field: PModelField) =
+      applicableTypes(PAny) || applicableTypes(field.ptype)
+  }
+
   def fieldDirectives(
       field: PModelField,
       newFieldType: Option[PType] = None
-  ) = {
+  ): Map[String, FieldDirectiveDef] = {
     val dirs = Map(
-      "uuid" -> PInterface("uuid", Nil, None),
-      "autoIncrement" -> PInterface("autoIncrement", Nil, None),
-      "unique" -> PInterface("unique", Nil, None),
-      "primary" -> PInterface("primary", Nil, None),
-      "publicCredential" -> PInterface("publicCredential", Nil, None),
-      "secretCredential" -> PInterface("secretCredential", Nil, None),
-      "relation" -> PInterface(
-        "relation",
-        List(PInterfaceField("name", PString, None)),
-        None
+      "uuid" -> FieldDirectiveDef(PInterface("uuid", Nil, None), Set(PString)),
+      "autoIncrement" -> FieldDirectiveDef(
+        PInterface("autoIncrement", Nil, None),
+        Set(PInt)
+      ),
+      "unique" -> FieldDirectiveDef(PInterface("unique", Nil, None), Set(PAny)),
+      "primary" -> FieldDirectiveDef(
+        PInterface("primary", Nil, None),
+        Set(PInt, PString)
+      ),
+      "publicCredential" -> FieldDirectiveDef(
+        PInterface("publicCredential", Nil, None),
+        Set(PString, PInt)
+      ),
+      "secretCredential" -> FieldDirectiveDef(
+        PInterface("secretCredential", Nil, None),
+        Set(PString, PInt)
       )
     )
 
     newFieldType match {
       case Some(newFieldType) =>
         dirs ++ Map(
-          "typeTransformer" -> PInterface(
-            "typeTransformer",
-            PInterfaceField(
-              "function",
-              PFunction(Map(field.id -> field.ptype), newFieldType),
+          "typeTransformer" -> FieldDirectiveDef(
+            PInterface(
+              "typeTransformer",
+              PInterfaceField(
+                "function",
+                PFunction(Map(field.id -> field.ptype), newFieldType),
+                None
+              ) :: Nil,
               None
-            ) :: Nil,
-            None
+            ),
+            Set(PAny)
           ),
-          "reverseTypeTransformer" -> PInterface(
-            "reverseTypeTransformer",
-            PInterfaceField(
-              "function",
-              PFunction(Map(field.id -> newFieldType), field.ptype),
+          "reverseTypeTransformer" -> FieldDirectiveDef(
+            PInterface(
+              "reverseTypeTransformer",
+              PInterfaceField(
+                "function",
+                PFunction(Map(field.id -> newFieldType), field.ptype),
+                None
+              ) :: Nil,
               None
-            ) :: Nil,
-            None
+            ),
+            Set(PAny)
           )
         )
       case None => dirs

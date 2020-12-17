@@ -45,30 +45,6 @@ object SyntaxTree {
       .flatMap(new Validator(_).validSyntaxTree)
       .flatMap(Substitutor.substitute)
 
-  /**
-    * The resulting syntax tree is not validated or substituted
-    * Meant for use only in the PragmaParser
-    */
-  def fromConstructs(constructs: List[PConstruct]): SyntaxTree = {
-    val imports = constructs.collect { case i: PImport         => i }
-    val models = constructs.collect { case m: PModel           => m }
-    val enums = constructs.collect { case e: PEnum             => e }
-    val config = constructs.collectFirst { case cfg: PConfig   => cfg }
-    val accessRules = constructs.collect { case ar: AccessRule => ar }
-    val roles = constructs.collect { case r: Role              => r }
-    lazy val permissions = Permissions(
-      Tenant("root", accessRules, roles, None),
-      Nil // TODO: Add support for user-defined tenants
-    )
-    SyntaxTree(
-      imports,
-      models,
-      enums,
-      permissions,
-      if (config.isDefined) config.get else PConfig(Nil, None)
-    )
-  }
-
   def empty: SyntaxTree =
     SyntaxTree(
       Seq.empty,
