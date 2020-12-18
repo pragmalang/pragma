@@ -56,12 +56,6 @@ object SQLMigrationStep {
   case class DeferredAddField(model: PModel, field: PModelField)
       extends DeferredMigrationStep
 
-  case class DeferredAddDefaultValue(
-      prevModel: PModel,
-      prevField: PModelField,
-      currrentField: PModelField,
-      defaultValue: PValue
-  ) extends DeferredMigrationStep
   case class DeferredChangeFieldTypes(
       prevModel: PModel,
       changes: Vector[ChangeFieldType]

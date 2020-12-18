@@ -438,13 +438,6 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
           ).pure[Vector]
         else Vector.empty
       }
-      case AddDefaultValue(prevModel, prevField, currentField, defaultValue) =>
-        DeferredAddDefaultValue(
-          prevModel,
-          prevField,
-          currentField,
-          defaultValue
-        ).pure[Vector]
     }
 }
 

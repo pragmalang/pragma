@@ -23,13 +23,6 @@ case class AddDirective(
     directive: Directive
 ) extends FieldDirectivesChange
 
-case class AddDefaultValue(
-    prevModel: PModel,
-    prevField: PModelField,
-    currrentField: PModelField,
-    defaultValue: PValue
-) extends MigrationStep
-
 case class DeleteDirective(
     prevModel: PModel,
     prevField: PModelField,
