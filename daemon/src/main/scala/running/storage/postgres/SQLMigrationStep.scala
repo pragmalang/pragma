@@ -60,6 +60,10 @@ object SQLMigrationStep {
       prevModel: PModel,
       changes: Vector[ChangeFieldType]
   ) extends DeferredMigrationStep
+
+  case class DeferredMakeAutoIncrement(prevModel: PModel, field: PModelField)
+      extends DeferredMigrationStep
+
   case class CreateTable(
       name: String,
       columns: Vector[ColumnDefinition] = Vector.empty

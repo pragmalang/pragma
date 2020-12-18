@@ -31,7 +31,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
   lazy val unorderedSQLSteps =
     unorderedSteps.flatMap(fromMigrationStep)
 
-  /** - Change column type, Rename column, Drop column
+  /** - Deferred change field type, Rename column, Drop column
     * - Drop table, Rename table whose old name is the same as a newly created table's name
     * - Create table statements
     * - Drop primary constraint
@@ -45,7 +45,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
     *   - Drop any constraint
     *   - Drop default value, Move PK
     * - Change type of a column
-    * - Add a default value
+    * - Add a default value, make auto increment
     * - Rename table
     */
   private def stepPriority(step: SQLMigrationStep): Int = step match {
@@ -79,6 +79,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
     case AlterTable(_, AlterTableAction.DropConstraint(_))        => 7
     case AlterTable(_, AlterTableAction.AddDefault(_, _))         => 9
     case AlterTable(_, AlterTableAction.ChangeType(_, _))         => 8
+    case DeferredMakeAutoIncrement(_, _)                          => 9
     case AlterTable(_, AlterTableAction.DropDefault(_))           => 7
     case DeferredMovePK(_, _)                                     => 7
     case AlterTable(_, AlterTableAction.DropPrimaryConstraint)    => 3
@@ -250,6 +251,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
               )
             )
           }
+
         def addField(isNotNull: Boolean) = alterTableStatement(isNotNull) match {
           case None =>
             fieldCreationInstruction match {
@@ -304,6 +306,35 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
           addFieldWithoutNotNull *> addDefaultValueToExistingRecords *> addNotNullConstraint *> movePk
         } else
           addFieldWithoutNotNull *> addDefaultValueToExistingRecords *> addNotNullConstraint
+      }
+      case DeferredMakeAutoIncrement(prevModel, field) => {
+
+        val seqName = (prevModel.id + "_" + field.id + "_seq").withQuotes
+        val maxValue =
+          Fragment(
+            s"SELECT MAX(${field.id.withQuotes})+1 FROM ${prevModel.id.withQuotes};",
+            Nil
+          ).query[Int].unique
+
+        val createSequence = maxValue.flatMap { maxValue =>
+          Fragment(
+            s"""
+            CREATE SEQUENCE IF NOT EXISTS $seqName MINVALUE $maxValue;
+            """,
+            Nil
+          ).update.run.void
+        }
+        val addSequenceAsDefault = Fragment(
+          AlterTable(
+            prevModel.id,
+            AlterTableAction.AddDefault(
+              field.id,
+              s"nextval($seqName)"
+            )
+          ).renderSQL,
+          Nil
+        ).update.run.void
+        (createSequence *> addSequenceAsDefault).transact(transactor)
       }
       case step: DirectSQLMigrationStep =>
         {
