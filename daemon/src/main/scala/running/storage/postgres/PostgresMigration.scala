@@ -276,7 +276,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
         val addFieldWithoutNotNull = run(transactor, thereExistData, addField(false))
 
         val addDefaultValueToExistingRecords =
-          if (!field.isArray && !field.isReference)
+          if (!field.isArray && !field.isReference && !field.isOptional)
             field.defaultValue.flatMap(pvalueToString) match {
               case Some(value) =>
                 Fragment(
@@ -438,6 +438,13 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
           ).pure[Vector]
         else Vector.empty
       }
+      case AddDefaultValue(prevModel, prevField, currentField, defaultValue) =>
+        DeferredAddDefaultValue(
+          prevModel,
+          prevField,
+          currentField,
+          defaultValue
+        ).pure[Vector]
     }
 }
 
