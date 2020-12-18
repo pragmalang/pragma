@@ -104,7 +104,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
       case DeferredChangeFieldTypes(prevModel, changes) =>
         changes.traverse_ { change =>
           val prevType = change.prevField.ptype
-          val newType = change.currrentField.ptype
+          val newType = change.currentField.ptype
           if (`Field type has changed`.`from A to A?`(prevType, newType)) {
             Fragment(
               AlterTable(
@@ -117,14 +117,14 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
             `Field type has changed`.`from A to [A]`(prevType, newType) |
               `Field type has changed`.`from A? to [A]`(prevType, newType)
           ) {
-            val metadata = new ArrayFieldTableMetaData(prevModel, change.currrentField)
+            val metadata = new ArrayFieldTableMetaData(prevModel, change.currentField)
             val primaryCol = prevModel.primaryField.id
-            val colName = change.currrentField.id
+            val colName = change.currentField.id
             val tableName = prevModel.id
             val createArrayTable = {
               val createTableStep = createArrayFieldTable(
                 currentSyntaxTree.modelsById(prevModel.id),
-                change.currrentField,
+                change.currentField,
                 currentSyntaxTree
               ) match {
                 case Some(value) => value.pure[M]
@@ -384,57 +384,57 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
         )
       case ChangeFieldTypes(prevModel, _, changes) =>
         Vector(DeferredChangeFieldTypes(prevModel, changes))
-      case AddDirective(prevModel, prevField, currrentField, _) => {
-        if (currrentField.isPrimary)
+      case AddDirective(prevModel, prevField, currentField, _) => {
+        if (currentField.isPrimary)
           DeferredMovePK(
             prevModel,
             prevField
           ).pure[Vector]
-        else if (currrentField.isUnique)
-          AlterTable(prevModel.id, AlterTableAction.MakeUnique(currrentField.id))
+        else if (currentField.isUnique)
+          AlterTable(prevModel.id, AlterTableAction.MakeUnique(currentField.id))
             .pure[Vector]
-        else if (currrentField.isUUID)
+        else if (currentField.isUUID)
           Vector(
             AlterTable(
               prevModel.id,
-              AlterTableAction.ChangeType(currrentField.id, PostgresType.UUID)
+              AlterTableAction.ChangeType(currentField.id, PostgresType.UUID)
             ),
             AlterTable(
               prevModel.id,
-              AlterTableAction.AddDefault(currrentField.id, "uuid_generate_v4 ()")
+              AlterTableAction.AddDefault(currentField.id, "uuid_generate_v4 ()")
             )
           )
-        else if (currrentField.isAutoIncrement)
+        else if (currentField.isAutoIncrement)
           AlterTable(
             prevModel.id,
-            AlterTableAction.ChangeType(currrentField.id, PostgresType.SERIAL8)
+            AlterTableAction.ChangeType(currentField.id, PostgresType.SERIAL8)
           ).pure[Vector]
         else Vector.empty
       }
-      case DeleteDirective(prevModel, prevField, currrentField, _) => {
+      case DeleteDirective(prevModel, prevField, currentField, _) => {
         if (prevField.isPrimary)
           DeferredMovePK(
             prevModel,
             currentSyntaxTree.modelsById(prevModel.id).primaryField
           ).pure[Vector]
         else if (prevField.isUnique)
-          AlterTable(prevModel.id, AlterTableAction.DropUnique(currrentField.id))
+          AlterTable(prevModel.id, AlterTableAction.DropUnique(currentField.id))
             .pure[Vector]
         else if (prevField.isUUID)
           Vector(
             AlterTable(
               prevModel.id,
-              AlterTableAction.DropDefault(currrentField.id)
+              AlterTableAction.DropDefault(currentField.id)
             ),
             AlterTable(
               prevModel.id,
-              AlterTableAction.ChangeType(currrentField.id, PostgresType.TEXT)
+              AlterTableAction.ChangeType(currentField.id, PostgresType.TEXT)
             )
           )
         else if (prevField.isAutoIncrement)
           AlterTable(
             prevModel.id,
-            AlterTableAction.ChangeType(currrentField.id, PostgresType.INT8)
+            AlterTableAction.DropDefault(currentField.id)
           ).pure[Vector]
         else Vector.empty
       }

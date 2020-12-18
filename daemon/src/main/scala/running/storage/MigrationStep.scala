@@ -49,6 +49,6 @@ case class ChangeFieldTypes(
 
 case class ChangeFieldType(
     prevField: PModelField,
-    currrentField: PModelField,
+    currentField: PModelField,
     transformer: Option[PFunctionValue]
 )
