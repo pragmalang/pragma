@@ -60,6 +60,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
           )
         ) =>
       5
+    case DeferredAddField(_, field) if field.isReference => 5
     case AlterTable(_, _: AlterTableAction.AddColumn) =>
       4
     case DeferredAddField(_, _)                           => 4
@@ -203,7 +204,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
       case DeferredAddField(model, field) => {
         val fieldCreationInstruction: Option[Either[CreateTable, ForeignKey]] =
           field.ptype match {
-            case POption(PArray(_)) | PArray(_) =>
+            case PArray(_) =>
               createArrayFieldTable(model, field, currentSyntaxTree)
                 .map(_.asLeft)
             case model: PModel =>
@@ -289,7 +290,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
           else ().pure[M]
 
         val addNotNullConstraint =
-          if (!field.isOptional)
+          if (!field.isOptional && !field.isArray)
             Fragment(
               s"ALTER TABLE ${model.id.withQuotes} ALTER COLUMN ${field.id.withQuotes} SET NOT NULL;",
               Nil
