@@ -83,7 +83,7 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
             .map(_.toMap)
         } else Map.empty[ModelId, Boolean].pure[M]
       migration <- migration(prevTree, thereExistData.withDefaultValue(false))
-      _ <- migration.run(transactor)
+      _ <- migration.run(transactor, thereExistData)
       _ <- mode match {
         case Mode.Prod if !migration.sqlSteps.isEmpty => insertMigration
         case _                                        => ().pure[M]
@@ -172,13 +172,9 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
             }
             .map { indexedField =>
               val field = currentModel.fieldsById(indexedField.id)
-              if (
-                thereExistData(prevModel.id) &&
-                (!field.ptype.isInstanceOf[POption] ||
-                  field.defaultValue.isEmpty)
-              )
+              if (thereExistData(prevModel.id) && !field.hasValueGenerator)
                 throw UserError(
-                  s"Newly added field `${field.id}` must be optional or have a default value because there exist records in model `${currentModel.id}`"
+                  s"Newly added field `${field.id}` must be optional, have a default value, annotated with `@uuid`, or annotated with `@autoIncrement` because there exist records in model `${currentModel.id}` and newly added required fields need to have some way to generate values for existing records to ensure consistency with the new schema"
                 )
               else
                 AddField(field, prevModel)
@@ -246,9 +242,6 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
               if !prevField.ptype.innerPReference
                 .filter(ref => renamedModels.exists(_.prevModelId == ref.id))
                 .isDefined
-              _ = println(
-                s"\nfield `${prevModel.id}.${prevField.id}` changed from `${displayPType(prevField.ptype)}` to `${displayPType(currentField.ptype)}`\n"
-              )
             } yield ChangeFieldType(
               prevField,
               currentField,
@@ -263,7 +256,7 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
 
             if (changes.isEmpty) None
             else
-              ChangeManyFieldTypes(
+              ChangeFieldTypes(
                 prevModel,
                 currentModel,
                 changes

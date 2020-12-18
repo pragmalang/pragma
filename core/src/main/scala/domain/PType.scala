@@ -127,6 +127,12 @@ case class PModelField(
 ) extends PShapeField {
   lazy val isPrimary = directives.exists(_.id == "primary")
 
+  lazy val hasValueGenerator =
+    ptype.isInstanceOf[POption] ||
+      defaultValue.isDefined ||
+      isUUID ||
+      isAutoIncrement
+
   lazy val isPublicCredential = directives.exists(_.id == "publicCredential")
 
   lazy val isSecretCredential = directives.exists(_.id == "secretCredential")
@@ -140,6 +146,14 @@ case class PModelField(
   lazy val isArray = ptype match {
     case PArray(_) => true
     case _         => false
+  }
+
+  lazy val isReference = ptype match {
+    case _: PModel | _: PReference | POption(_: PModel | _: PReference) | PArray(
+          _: PModel | _: PReference
+        ) =>
+      true
+    case _ => false
   }
 
   override def equals(that: Any): Boolean = that match {

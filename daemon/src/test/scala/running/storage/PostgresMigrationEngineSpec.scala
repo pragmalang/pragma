@@ -782,7 +782,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
         .toTry
         .get
         .head
-        .asInstanceOf[ChangeManyFieldTypes]
+        .asInstanceOf[ChangeFieldTypes]
         .changes
         .head
     )
@@ -853,7 +853,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
         .toTry
         .get
         .head
-        .asInstanceOf[ChangeManyFieldTypes]
+        .asInstanceOf[ChangeFieldTypes]
         .changes
         .head
     )

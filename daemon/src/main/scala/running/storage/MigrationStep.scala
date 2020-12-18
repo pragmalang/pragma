@@ -41,7 +41,7 @@ case class DeleteField(
     prevModel: PModel
 ) extends MigrationStep
 
-case class ChangeManyFieldTypes(
+case class ChangeFieldTypes(
     prevModel: PModel,
     newModel: PModel,
     changes: Vector[ChangeFieldType]

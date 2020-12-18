@@ -38,7 +38,7 @@ object SQLMigrationStep {
           case DropUnique(colName) =>
             s"ALTER TABLE ${tableName.withQuotes} DROP CONSTRAINT ${colName}_unique_constraint;"
           case ChangeType(colName, colType) =>
-            s"ALTER TABLE ${tableName.withQuotes} ALTER COLUMN ${colName.withQuotes} SET TYPE DATA ${colType.name};"
+            s"ALTER TABLE ${tableName.withQuotes} ALTER COLUMN ${colName.withQuotes} TYPE ${colType.name};"
           case DropDefault(colName) =>
             s"ALTER TABLE ${tableName.withQuotes} ALTER COLUMN ${colName.withQuotes} DROP DEFAULT;"
           case AddDefault(colName, value) =>
@@ -50,21 +50,24 @@ object SQLMigrationStep {
         }
     }
   }
+
+  sealed trait DeferredMigrationStep extends SQLMigrationStep
+  case class DeferredMovePK(model: PModel, to: PModelField) extends DeferredMigrationStep
+  case class DeferredAddField(model: PModel, field: PModelField)
+      extends DeferredMigrationStep
+  case class DeferredChangeFieldTypes(
+      prevModel: PModel,
+      changes: Vector[ChangeFieldType]
+  ) extends DeferredMigrationStep
   case class CreateTable(
       name: String,
       columns: Vector[ColumnDefinition] = Vector.empty
   ) extends DirectSQLMigrationStep
 
-  case class MovePrimaryKey(model: PModel, to: PModelField) extends SQLMigrationStep
-
   case class AlterTable(tableName: String, action: AlterTableAction)
       extends DirectSQLMigrationStep
   case class RenameTable(name: String, newName: String) extends DirectSQLMigrationStep
   case class DropTable(name: String) extends DirectSQLMigrationStep
-  case class AlterManyFieldTypes(
-      prevModel: PModel,
-      changes: Vector[ChangeFieldType]
-  ) extends SQLMigrationStep
 }
 
 sealed trait AlterTableAction
