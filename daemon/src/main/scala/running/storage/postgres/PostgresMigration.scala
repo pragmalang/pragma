@@ -60,7 +60,8 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
           )
         ) =>
       5
-    case DeferredAddField(_, field) if field.isReference => 5
+    case DeferredAddField(_, field) if field.isReference && !field.isArray => 5
+    case DeferredAddField(_, field) if field.isArray                       => 6
     case AlterTable(_, _: AlterTableAction.AddColumn) =>
       4
     case DeferredAddField(_, _)                           => 4
@@ -279,7 +280,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
 
         val addDefaultValueToExistingRecords =
           if (!field.isArray && !field.isReference && !field.isOptional)
-            field.defaultValue.flatMap(pvalueToString) match {
+            field.defaultValue.flatMap(pvalueToSqlLiteral) match {
               case Some(value) =>
                 Fragment(
                   s"""
@@ -314,22 +315,32 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
           Fragment(
             s"SELECT MAX(${field.id.withQuotes})+1 FROM ${prevModel.id.withQuotes};",
             Nil
-          ).query[Int].unique
+          ).query[Option[Int]].unique
 
-        val createSequence = maxValue.flatMap { maxValue =>
-          Fragment(
-            s"""
-            CREATE SEQUENCE IF NOT EXISTS $seqName MINVALUE $maxValue;
-            """,
-            Nil
-          ).update.run.void
+        val createSequence = maxValue.flatMap {
+          case Some(value) =>
+            Fragment(
+              s"""
+              DROP SEQUENCE IF EXISTS $seqName CASCADE;
+              CREATE SEQUENCE IF NOT EXISTS $seqName MINVALUE $value;
+              """,
+              Nil
+            ).update.run.void
+          case None =>
+            Fragment(
+              s"""
+              DROP SEQUENCE IF EXISTS $seqName CASCADE;
+              CREATE SEQUENCE IF NOT EXISTS $seqName MINVALUE 1;
+              """,
+              Nil
+            ).update.run.void
         }
         val addSequenceAsDefault = Fragment(
           AlterTable(
             prevModel.id,
             AlterTableAction.AddDefault(
               field.id,
-              s"nextval($seqName)"
+              s"nextval('$seqName')"
             )
           ).renderSQL,
           Nil
@@ -436,10 +447,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
             )
           )
         else if (currentField.isAutoIncrement)
-          AlterTable(
-            prevModel.id,
-            AlterTableAction.ChangeType(currentField.id, PostgresType.SERIAL8)
-          ).pure[Vector]
+          DeferredMakeAutoIncrement(prevModel, currentField).pure[Vector]
         else Vector.empty
       }
       case DeleteDirective(prevModel, prevField, currentField, _) => {
@@ -473,13 +481,13 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
 }
 
 object PostgresMigration {
-  private def pvalueToString(value: PValue): Option[String] = value match {
-    case PStringValue(value)    => value.some
+  private def pvalueToSqlLiteral(value: PValue): Option[String] = value match {
+    case PStringValue(value)    => s"'$value'".some
     case PIntValue(value)       => value.toString.some
     case PFloatValue(value)     => value.toString.some
     case PBoolValue(value)      => value.toString.some
-    case PDateValue(value)      => value.toString.some
-    case POptionValue(value, _) => value.flatMap(pvalueToString)
+    case PDateValue(value)      => s"'$value'".toString.some
+    case POptionValue(value, _) => value.flatMap(pvalueToSqlLiteral)
     case _                      => None
   }
   private def dropRefsToTable(modelId: String) = modelReferences(modelId).flatMap { fks =>
