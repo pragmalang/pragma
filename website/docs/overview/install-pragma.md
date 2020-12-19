@@ -7,6 +7,7 @@ slug: /install
 :::caution Info
 Pragma is currently under heavy development, and should not be used in a production setting. All Pragma APIs are subject to breaking change.
 :::
+
 ## Linux
 
 ### Requirements
