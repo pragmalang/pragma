@@ -40,7 +40,7 @@ If any of the above commands fail, make sure it works before proceeding with the
 
 To install Pragma, run:
 ```
-curl https://pragmalang.github.io/pragma/scripts/install-universal.sh | sh
+curl https://raw.githubusercontent.com/pragmalang/pragma/master/scripts/install-universal.sh | sh
 ```
 The script will ask for root access, so make sure to enter your password when prompted.
 
