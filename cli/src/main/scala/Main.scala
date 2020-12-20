@@ -95,7 +95,7 @@ object Main {
           }
       }
       _ <- DaemonClient
-        .createProject(ProjectInput(projectName))
+        .createProject(ProjectInput(projectName), mode)
         .handleErrorWith {
           // Meaning project already exists
           case err: RequestFailedException if err.response.statusCode == 400 =>

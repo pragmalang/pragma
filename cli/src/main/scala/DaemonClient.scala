@@ -11,15 +11,21 @@ object DaemonClient {
   val daemonPort = 9584
   val daemonUri = s"http://localhost:$daemonPort"
 
-  def createProject(project: ProjectInput): Try[Unit] =
+  def createProject(project: ProjectInput, mode: RunMode): Try[Unit] = {
+    val modeStr = mode match {
+      case Dev => "dev"
+      case Prod => "prod"
+    }
+
     pingLocalDaemon() *> Try {
       post(
-        url = s"$daemonUri/project/create",
+        url = s"$daemonUri/project/create/$modeStr",
         data = project.toJson.compactPrint,
         keepAlive = false,
         check = false
       )
     }
+  }
 
   def migrate(
       migration: MigrationInput,
