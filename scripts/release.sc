@@ -19,7 +19,7 @@ import scala.io.StdIn
   val versionRegex = "\\d{1,2}\\.\\d{1,2}\\.\\d{1,3}".r
 
   val version = versionRegex.findFirstIn {
-    proc("sbt", "core/version").call(pwd).out.lines().last
+    proc("sbt", "core/version").call(pwd).out.lines().init.last
   } match {
     case Some(v) => v
     case None => {
