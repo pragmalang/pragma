@@ -44,6 +44,8 @@ curl https://raw.githubusercontent.com/pragmalang/pragma/master/scripts/install-
 ```
 The script will ask for root access, so make sure to enter your password when prompted.
 
+If you're on Ubuntu/Debian, you can download the `.deb` package from [releases](https://github.com/pragmalang/pragma/releases/latest).
+
 ### Run Pragma
 
 Once Pragma is downloaded and installed, you can see if it works by running the following command:
