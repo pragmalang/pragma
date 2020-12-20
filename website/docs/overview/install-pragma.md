@@ -86,8 +86,8 @@ If any of the above commands fail, make sure it works before proceeding with the
 
 First, we need to install the Pragma CLI:
 
-- [Download the installer (`pragma.msi`)](https://github.com/pragmalang/pragma/releases/download/v0.1.0/pragma.msi)
-- Run `pragma.msi` and follow the installation wizard
+- [Download the installer](https://github.com/pragmalang/pragma/releases/download/0.2.0/pragma-0.2.0.msi)
+- Run the installer and follow the installation wizard
 
 > *Note*: If Microsoft Defender tells you it prevented an unrecognized app from starting, click on "__More info__", then click on **"Run anyway"**.
 
