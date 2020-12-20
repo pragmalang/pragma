@@ -57,23 +57,12 @@ object Main {
 
     lazy val syntaxTree = SyntaxTree.from(code)
 
-    lazy val migration = for {
+    val migration = for {
       st <- syntaxTree
       projNameEntry = st.config.entryMap("projectName")
       projectName = projNameEntry.value
         .asInstanceOf[PStringValue]
         .value
-      _ <-
-        if (projectName contains "-")
-          Failure {
-            UserError(
-              (
-                "The project's name must not contain any dashes ('-')",
-                projNameEntry.position
-              ) :: Nil
-            )
-          }
-        else Success(())
       functions <- st.functions.toList.traverse {
         case ExternalFunction(id, scopeName, filePathStr, runtime) => {
           val filePath = os.FilePath(filePathStr)
@@ -190,22 +179,25 @@ object Main {
     DaemonClient.pingLocalDaemon().void.recoverWith { _ =>
       val dcyml = config.dotPragmaDir / "docker-compose.yml"
       def dcUp =
-        Try(os.proc("docker-compose", "up", "-d").call(config.dotPragmaDir)).void
+        Try {
+          println("Starting required Docker containers...")
+          os.proc("docker-compose", "up", "-d").call(config.dotPragmaDir)
+        }.void
           .adaptErr { err =>
             new Exception(
               s"`docker-compose up` failed on ${dcyml.toString}\n${err.getMessage}"
             )
           }
 
-      if (os.exists(dcyml)) dcUp
+      if (os.exists(dcyml)) dcUp *> DaemonClient.pingLocalDaemon(10).void
       else
         Try {
-          println(s"Creating ${dcyml.toString} ...")
+          println(s"Creating ${dcyml.toString}...")
           os.write(dcyml, dockerComposeFile, createFolders = true)
         } *> dcUp
     }
 
-  val renderLogo =
+  lazy val renderLogo =
     assets.asciiLogo
       .split("\n")
       .map(line => (" " * 24) + line)
