@@ -255,17 +255,8 @@ object DeamonServer extends IOApp {
         } yield response
       }
       case req @ (POST | GET) ->
-          Root / "project" / projectName / mode / "graphql" => {
-        val servers = mode match {
-          case "dev"  => IO(devProjectServers)
-          case "prod" => IO(prodProjectServers)
-          case _ =>
-            IO.raiseError {
-              new Exception(s"Invalid mode route `$mode`")
-            }
-        }
-
-        servers.flatMap(_.get(projectName) match {
+          Root / "project" / projectName / "dev" / "graphql" => {
+        devProjectServers.get(projectName) match {
           case Some(server) =>
             Router(req.uri.renderString -> server.routes).run(req).value.map {
               case Some(res) => res
@@ -280,7 +271,26 @@ object DeamonServer extends IOApp {
               Status.NotFound,
               s"Server for project `$projectName` not found".toJson.some
             ).pure[IO]
-        })
+        }
+      }
+      case req @ POST ->
+          Root / "project" / projectName / "prod" / "graphql" => {
+        prodProjectServers.get(projectName) match {
+          case Some(server) =>
+            Router(req.uri.renderString -> server.routes).run(req).value.map {
+              case Some(res) => res
+              case None =>
+                response(
+                  Status.NotFound,
+                  s"${req.uri.renderString} not found".toJson.some
+                )
+            }
+          case None =>
+            response(
+              Status.NotFound,
+              s"Server for project `$projectName` not found".toJson.some
+            ).pure[IO]
+        }
       }
       case GET -> Root / "ping" => response(Status.Ok).pure[IO]
     }
