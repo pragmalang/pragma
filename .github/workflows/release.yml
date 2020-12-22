@@ -123,8 +123,8 @@ jobs:
         uses: olafurpg/setup-scala@v10
         with:
           java-version: openjdk@1.14
-      - name: Build Dmg
-        run: sbt 'clean; cli/universal:packageOsxDmg'
+      - name: Build for mac
+        run: sbt 'clean; cli/universal:packageBin'
       - name: Upload Release Asset
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
@@ -132,8 +132,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./cli/target/universal/pragma-${{ needs.create-release.outputs.pragma_version }}.dmg
-          asset_name: pragma-${{ needs.create-release.outputs.pragma_version }}.dmg
+          asset_path: ./cli/target/universal/pragma-${{ needs.create-release.outputs.pragma_version }}-universal.zip
+          asset_name: pragma-${{ needs.create-release.outputs.pragma_version }}-macos.zip
           asset_content_type: application/octet-stream
 
   build-universal:
