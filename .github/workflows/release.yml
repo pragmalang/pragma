@@ -132,7 +132,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./cli/target/universal/pragma-${{ needs.create-release.outputs.pragma_version }}-universal.zip
+          asset_path: ./cli/target/universal/pragma-${{ needs.create-release.outputs.pragma_version }}.zip
           asset_name: pragma-${{ needs.create-release.outputs.pragma_version }}-macos.zip
           asset_content_type: application/octet-stream
 
