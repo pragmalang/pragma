@@ -143,7 +143,7 @@ jobs:
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
           asset_path: ./cli/target/pragma-assembly-${{ needs.create-release.outputs.pragma_version }}.jar
-          asset_name: pragma-${{ needs.create-release.outputs.pragma_version }}.jar
+          asset_name: pragma.jar
           asset_content_type: application/java-archive
 
   build-windows:
