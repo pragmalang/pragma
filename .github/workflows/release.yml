@@ -136,7 +136,7 @@ jobs:
           asset_name: pragma-${{ needs.create-release.outputs.pragma_version }}-universal.zip
           asset_content_type: application/zip
       - name: Build Fat JAR
-        run: sbt 'clean;cli/assembly' && tar -czvf ./cli/target/pragma.tar.gz ./cli/target/pragma-assembly-${{ needs.create-release.outputs.pragma_version }}.jar
+        run: sbt 'clean;cli/assembly'
       - name: Upload Fat JAR
         id: upload-fat-jar
         uses: actions/upload-release-asset@v1
@@ -144,8 +144,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./cli/target/pragma.tar.gz
-          asset_name: pragma.jar.tar.gz
+          asset_path: ./cli/target/pragma-assembly-${{ needs.create-release.outputs.pragma_version }}.jar
+          asset_name: pragma.jar
           asset_content_type: application/java-archive
 
   build-windows:
