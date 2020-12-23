@@ -91,6 +91,7 @@ lazy val cli = (project in file("cli"))
     wixProductUpgradeId := "5603913d-7bde-46eb-ac47-44ed2cb4fd08",
     sources in (Compile, doc) := Seq.empty,
     publishArtifact in (Compile, packageDoc) := false,
+    target in assembly := file("./cli/target/"),
     test in assembly := {}
   )
   .dependsOn(core)
