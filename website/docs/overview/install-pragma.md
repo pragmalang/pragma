@@ -41,6 +41,7 @@ pragma help
 ### Requirements
 
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- [Java](https://www.oracle.com/java/technologies/javase-jdk15-downloads.html)
 
 To make sure you have them and that they work, run:
 ```sh
@@ -49,8 +50,15 @@ docker run hello-world
 ```sh
 docker-compose --help
 ```
+```sh
+java -version
+```
 
 If any of the above commands fail, make sure it works before proceeding with the installation of Pragma.
+
+:::note
+When [installing Java](https://www.oracle.com/java/technologies/javase-jdk15-downloads.html), make sure to use the **macOS Installer**. The macOS version of Pragma is the only one that doesn't come with a bundled Java runtime, due to the latest security features in macOS Catalina+.
+:::
 
 ### Installation
 

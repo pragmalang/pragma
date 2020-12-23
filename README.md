@@ -19,8 +19,6 @@ For more details, visit [the documentation](https://docs.pragmalang.com).
 
 # Install Pragma
 
-> Pragma is currently under heavy development, and should not be used in a production setting. All Pragma APIs are subject to breaking change.
-
 ## Linux
 
 ### Requirements
@@ -58,6 +56,7 @@ pragma help
 ### Requirements
 
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- [Java](https://www.oracle.com/java/technologies/javase-jdk15-downloads.html)
 
 To make sure you have them and that they work, run:
 ```sh
@@ -66,15 +65,15 @@ docker run hello-world
 ```sh
 docker-compose --help
 ```
+```sh
+java -version
+```
 
 If any of the above commands fail, make sure it works before proceeding with the installation of Pragma.
 
-### Installation
-
-To install the Pragma CLI using [Homebrew](https://brew.sh/):
-```
-brew install pragmalang/homebrew-tap/pragma
-```
+:::note
+When [installing Java](https://www.oracle.com/java/technologies/javase-jdk15-downloads.html), make sure to use the **macOS Installer**. The macOS version of Pragma is the only one that doesn't come with a bundled Java runtime, due to the latest security features in macOS Catalina+.
+:::
 
 ### Run Pragma
 
@@ -211,7 +210,3 @@ Make sure the daemon is running before running the benchmark (run `docker-compos
 
 ## Documentation
 The user documentation lives in `website/docs` and is built using Docusaurus 2. It's hosted on http://docs.pragmalang.com.
-
-# License
-
-Pragma is licensed under the [GNU GPLv3 License](https://github.com/pragmalang/pragma/blob/master/LICENSE).
