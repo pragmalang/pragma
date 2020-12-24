@@ -16,6 +16,8 @@
     "@docusaurus/preset-classic": "2.0.0-alpha.68",
     "@mdx-js/react": "^1.6.21",
     "clsx": "^1.1.1",
+    "graphiql": "^1.2.0",
+    "graphql-playground-react": "^1.7.27",
     "react": "^16.8.4",
     "react-dom": "^16.8.4",
     "react-mailchimp-subscribe": "^2.1.0"

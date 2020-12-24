@@ -1,0 +1,39 @@
+---
+id: api
+title: The Generated API
+slug: /api
+---
+
+import Playground from "../../src/Playground"
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<Tabs
+  defaultValue="pragma"
+  values={[
+    {label: 'Pragmafile', value: 'pragma'},
+    {label: 'fns.js', value: 'js'}
+  ]}>
+  <TabItem value="pragma">
+
+```pragma
+sljfn
+sdfljf
+sdlfkm
+```
+
+  </TabItem>
+  <TabItem value="js">
+
+```python
+def println(s):
+  print(s)
+
+println("hi")
+```
+
+  </TabItem>
+</Tabs>
+
+<Playground />

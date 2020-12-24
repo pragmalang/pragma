@@ -75,7 +75,7 @@ mutation createUser {
 }
 ```
 
-This mutation returns the `username` and `fullName` of the newly created user. See [The Generated API](./api/index.md) section for more details.
+This mutation returns the `username` and `fullName` of the newly created user. See [The Generated API](./api/index.mdx) section for more details.
 
 For a step-by-step tutorial on Pragma, see the [Basic Todo App page](./overview/getting-started/basic-todo-app.md).
 

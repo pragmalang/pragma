@@ -38,4 +38,4 @@ model User {
 }
 ```
 
-See the [Generated API](../api/index.md) section for more details on how to use `login` queries.
+See the [Generated API](../api/index.mdx) section for more details on how to use `login` queries.
