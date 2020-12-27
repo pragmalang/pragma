@@ -52,7 +52,7 @@ The following is a table specifying the available permissions, and the types of 
 
 An access rule can be followed by an `if` clause, specifying a condition that must be satisfied in order for the rule to match the operation. These conditions are *predicates*, which are functions that return a boolean value (true or false). Predicates can be imported just like any other function in Pragma, for instance:
 ```pragma {1, 9}
-import "./my-functions.js" as myFunctions
+import "./my-functions.js" as myFunctions { runtime = "nodejs:10" }
 
 @user @1 model User {
   @1 name: String @primary @publicCredential
@@ -71,6 +71,10 @@ module.exports = { ageOver18 }
 
 :::caution
 The return of authorization predicates must be an object containing a `result` field of type boolean. If the predicate return anything other than a boolean in the `result` field, it is considered `false`.
+:::
+
+:::note
+Authorization rules are not the best way to *validate* data coming in, which is basically what `ageOver18` does. It is better to use the [`@onWrite` directive](./directives.md#@onwrite) instead, but this example is implemented using an authorization rule only for demonstration purposes.
 :::
 
 ### Roles
