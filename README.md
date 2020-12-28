@@ -31,7 +31,7 @@ Pragma is a language for building beautiful and extensible GraphQL APIs ***in no
 
 Pragma is for developers who want to build, iterate, and ship as fast as possible and focus on user-facing features instead of dealing with resolvers, endpoints, migrations, authentication, authorization, scaling, queries, and all the headache that comes with building and maintaining an API.
 
-Pragma is a perfect fit for startups. In fact, the original motivation behind it was trying ideas in hours instead of weeks or months. It is designed to help you move fast.
+Pragma is a perfect fit for startups. In fact, the original motivation behind it was testing new ideas in hours or days instead of weeks or months. It is designed to help you move fast.
 
 Pragma helps you focus on your users and primary business/domain logic, deliver a lot faster (10-100x faster than traditional frameworks), iterate and try new ideas with minimal technical cost.
 
