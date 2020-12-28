@@ -110,32 +110,6 @@ jobs:
           asset_name: pragma_${{ needs.create-release.outputs.pragma_version }}.deb
           asset_content_type: application/octet-stream
 
-  build-macos:
-    name: Build and release for macOS
-    needs:
-      - create-release
-      - test
-    runs-on: macos-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Setup SBT
-        uses: olafurpg/setup-scala@v10
-        with:
-          java-version: openjdk@1.14
-      - name: Build for mac
-        run: sbt 'clean; cli/universal:packageBin'
-      - name: Upload Release Asset
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./cli/target/universal/pragma-${{ needs.create-release.outputs.pragma_version }}.zip
-          asset_name: pragma-${{ needs.create-release.outputs.pragma_version }}-macos.zip
-          asset_content_type: application/octet-stream
-
   build-universal:
     name: Build and release universal build
     needs:
@@ -151,7 +125,7 @@ jobs:
           java-version: openjdk@1.14
       - name: Build Zip
         run: sbt 'clean; cli/universal:packageBin'
-      - name: Upload Release Asset
+      - name: Upload Universal Zip
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
         env:
@@ -161,6 +135,18 @@ jobs:
           asset_path: ./cli/target/universal/pragma-${{ needs.create-release.outputs.pragma_version }}.zip
           asset_name: pragma-${{ needs.create-release.outputs.pragma_version }}-universal.zip
           asset_content_type: application/zip
+      - name: Build Fat JAR
+        run: sbt 'clean;cli/assembly'
+      - name: Upload Fat JAR
+        id: upload-fat-jar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./cli/target/pragma-assembly-${{ needs.create-release.outputs.pragma_version }}.jar
+          asset_name: pragma.jar
+          asset_content_type: application/java-archive
 
   build-windows:
     name: Build and release for Windows

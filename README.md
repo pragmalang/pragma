@@ -1,21 +1,49 @@
+[![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Hi%20everyone,%20I%20just%20found%20this%20cool%20project%20called%20@pragmalang.%0a%0a@apollographql&url=https://github.com/pragmalang/pragma&hashtags=GraphQL,code,javascript,react,reactjs,reactnative,apollo)
 [![Pragma](https://raw.githubusercontent.com/pragmalang/pragma/master/website/static/img/full-logo.svg)](https://pragmalang.com)
 [![Discord](https://img.shields.io/discord/719970258903105558?label=Discord&logo=discord&style=for-the-badge)](https://discord.gg/gbhDnfC)
 [![Reddit](https://img.shields.io/reddit/subreddit-subscribers/pragmalang?style=for-the-badge&logo=Reddit&logoColor=E17334&color=E17334)](https://reddit.com/r/pragmalang)
 ![Tests](https://img.shields.io/github/workflow/status/pragmalang/pragma/Test/master?style=for-the-badge&label=tests)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=for-the-badge)
 
-Pragma is a language for building beautiful and extensible GraphQL APIs *in no time*. Within a single file, you can define your data models and authorization rules, then import serverless functions to use for data validation/transformation/authorization. Pragma then generates a fully functional API ready to be used from your front-end application with a single command.
-
-For more details, visit [the documentation](https://docs.pragmalang.com).
 
 # Table of Contents
-* [Install Pragma](#install-pragma)
-    * [Linux](#linux)
-    * [MacOS](#macos)
-    * [Windows](#windows)
-* [Getting Started](#getting-started)
-* [Community](#community)
-* [Contributing](#contributing)
+- [Table of Contents](#table-of-contents)
+- [Introduction](#introduction)
+  - [What is Pragma?](#what-is-pragma)
+  - [Why Pragma?](#why-pragma)
+  - [Tell People About This](#tell-people-about-this)
+  - [Documentation](#documentation)
+- [Install Pragma](#install-pragma)
+  - [Linux](#linux)
+  - [macOS](#macos)
+  - [Windows](#windows)
+- [Getting Started](#getting-started)
+- [Community & Support](#community--support)
+- [Contributing](#contributing)
+
+# Introduction
+
+## What is Pragma?
+
+Pragma is a language for building beautiful and extensible GraphQL APIs ***in no time***. Within a single file, you can define your **data models** and **authorization rules (permissions and roles)**, and **import serverless functions** for data validation, transformation, authorization or any custom logic. Then with a single command, Pragma generates a fully functional API ready to be consumed from your front-end application.
+
+## Why Pragma?
+
+You want to focus on building user-facing features instead of dealing with resolvers, endpoints, migrations, authentication, authorization, scaling, queries, and all the headache that comes with building and maintaining an API.
+
+Pragma helps you build for your users, deliver a lot faster (10-100x faster), iterate and try new ideas with minimal technical cost.
+
+## Tell People About This
+
+Hyped enough?
+
+Great! You can [tweet about this project](https://twitter.com/intent/tweet?text=Hi%20everyone,%20I%20just%20found%20this%20cool%20project%20called%20@pragmalang.%0a%0a@apollographql&url=https://github.com/pragmalang/pragma&hashtags=GraphQL,code,javascript,react,reactjs,reactnative,apollo) and tell your followers how interesting this is.
+
+You can also [join our Discord server](https://discord.gg/gbhDnfC) to meet other developers, get community support, and have fun!
+
+## Documentation
+
+Visit [the documentation](https://docs.pragmalang.com) and learn about how Pragma can make your developer experience fun and help you build and deliver a lot faster.
 
 # Install Pragma
 
@@ -51,7 +79,7 @@ Once Pragma is downloaded and installed, you can see if it works by running the 
 pragma help
 ```
 
-## MacOS
+## macOS
 
 ### Requirements
 
@@ -71,8 +99,7 @@ java -version
 
 If any of the above commands fail, make sure it works before proceeding with the installation of Pragma.
 
-:::note
-When [installing Java](https://www.oracle.com/java/technologies/javase-jdk15-downloads.html), make sure to use the **macOS Installer**. The macOS version of Pragma is the only one that doesn't come with a bundled Java runtime, due to the latest security features in macOS Catalina+.
+> **Note:** When [installing Java](https://www.oracle.com/java/technologies/javase-jdk15-downloads.html), make sure to use the **macOS Installer**. The macOS version of Pragma is the only one that doesn't come with a bundled Java runtime, due to the latest security features in macOS Catalina+.
 :::
 
 ### Run Pragma
@@ -118,7 +145,7 @@ pragma help
 
 After Pragma has been successfully installed, visit [this page of the documentation](https://docs.pragmalang.com/docs/getting-started/basic-todo-app) for a step-by-step tutorial on building a simple Todo application.
 
-# Community
+# Community & Support
 
 If you have any questions or feedback, you can join our [Discord server](https://discord.gg/gbhDnfC) or post to [r/pragmalang](https://www.reddit.com/r/pragmalang/). We would love to hear from you!
 
@@ -167,7 +194,7 @@ You can run the daemon alongside Postgres and Openwhisk with:
 docker-compose up
 ```
 
-> NOTE: If the docker containers cannot be started it's most likely because the port 5433 is already in use. Run `docker ps` and then run `docker kill <postgres-containe-id>` to kill the postgres container to fix it.
+> NOTE: If the docker containers cannot be started it's most likely because the port 5433 is already in use. Run `docker ps` and then run `docker kill <postgres-containe-id>` to kill the Postgres container to fix it.
 
 ## Docker Build
 Docker builds are performed using [SBT Native Packager](https://www.scala-sbt.org/sbt-native-packager/formats/docker.html). To build the Pragma daemon Docker image:

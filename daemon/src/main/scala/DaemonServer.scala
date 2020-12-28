@@ -292,7 +292,8 @@ object DeamonServer extends IOApp {
             ).pure[IO]
         }
       }
-      case GET -> Root / "ping" => response(Status.Ok).pure[IO]
+      case GET -> Root / "ping" =>
+        response(Status.Ok, Some(JsString("Healthy!"))).pure[IO]
     }
 
   override def run(args: List[String]): IO[ExitCode] = {

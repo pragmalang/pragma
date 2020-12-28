@@ -1,5 +1,5 @@
 ThisBuild / scalaVersion := "2.13.4"
-ThisBuild / version := "0.2.0"
+ThisBuild / version := "0.2.1"
 ThisBuild / organization := "com.pragmalang"
 ThisBuild / organizationName := "pragma"
 
@@ -30,7 +30,8 @@ lazy val core = (project in file("core"))
       parboiled,
       kebsSprayJson,
       jwtCore
-    )
+    ),
+    test in assembly := {}
   )
 
 lazy val daemon = (project in file("daemon"))
@@ -59,7 +60,8 @@ lazy val daemon = (project in file("daemon"))
     dockerRepository in Docker := Some("pragmalang"),
     dockerExposedPorts := Seq(3030),
     dockerUpdateLatest := true,
-    fork in run := true
+    fork in run := true,
+    test in assembly := {}
   )
   .dependsOn(core)
   .enablePlugins(
@@ -88,7 +90,9 @@ lazy val cli = (project in file("cli"))
     wixProductId := "0e5e2980-bf07-4bf0-b446-2cfb4bf4704a",
     wixProductUpgradeId := "5603913d-7bde-46eb-ac47-44ed2cb4fd08",
     sources in (Compile, doc) := Seq.empty,
-    publishArtifact in (Compile, packageDoc) := false
+    publishArtifact in (Compile, packageDoc) := false,
+    target in assembly := file("./cli/target/"),
+    test in assembly := {}
   )
   .dependsOn(core)
   .enablePlugins(
