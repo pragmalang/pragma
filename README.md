@@ -25,6 +25,10 @@
 
 Pragma is a language for building beautiful and extensible GraphQL APIs ***in no time***. Within a single file, you can define your **data models** and **authorization rules (roles and permissions)**, and **import serverless functions** for data validation, transformation, authorization, or any custom logic. With a single command, Pragma generates a fully functional API, ready to be consumed from your front-end application.
 
+<p align="center">
+  <img src="https://pragmalang.com/img/snippet.png" width="500px" />
+</p>
+
 ## Who is Pragma for?
 
 Pragma is for developers who want to build, iterate, and ship as fast as possible and focus on user-facing features instead of dealing with resolvers, endpoints, migrations, authentication, authorization, scaling, queries, and all the headache that comes with building and maintaining an API.
