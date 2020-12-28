@@ -87,7 +87,7 @@ class Authorization extends AnyFlatSpec {
       .getOrElse(fail("Invalid query to fetch John Doe"))
 
     val result =
-      authorizer(reqOps, req.user).unsafeRunSync.map(_.message)
+      authorizer(reqOps, req.user).unsafeRunSync().map(_.message)
 
     assert {
       result == Vector(
@@ -245,7 +245,7 @@ class Authorization extends AnyFlatSpec {
       (
         authorizer(withoutRole, reqWithoutRole.user),
         authorizer(withRole, reqWithRole.user)
-      ).bisequence.unsafeRunSync
+      ).bisequence.unsafeRunSync()
 
     results.foreach {
       case (result1, result2) => {

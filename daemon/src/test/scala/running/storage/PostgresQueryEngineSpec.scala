@@ -65,7 +65,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
     INSERT INTO "Country_citizens" ("source_Country", "target_Citizen")
       VALUES ('US', 'John'),
              ('SY', 'Ali');
-  """.update.run.transact(t).unsafeRunSync
+  """.update.run.transact(t).unsafeRunSync()
 
   "Query engine" should "connect to the database and run queries" in {
     val countries =
@@ -73,7 +73,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
         .query[Country]
         .to[List]
         .transact(t)
-        .unsafeRunSync
+        .unsafeRunSync()
 
     assert(!countries.isEmpty)
   }
@@ -83,7 +83,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
     select * from "Country";
     """.query[JsObject]
 
-    val results = sql.to[List].transact(t).unsafeRunSync
+    val results = sql.to[List].transact(t).unsafeRunSync()
 
     for (country <- results) {
       assert(country.fields("code").isInstanceOf[JsString])
@@ -118,7 +118,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
         ops(None)("Country").head.innerReadOps
       )
       .transact(t)
-      .unsafeRunSync
+      .unsafeRunSync()
 
     val expectedUS = JsObject(
       Map(
@@ -155,7 +155,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
       iops
     )
 
-    assert(us.transact(t).unsafeRunSync.fields("code") == JsString("US"))
+    assert(us.transact(t).unsafeRunSync().fields("code") == JsString("US"))
   }
 
   "PostgresQueryEngine#readMany" should "return the expected records" taggedAs (dkr) in {
@@ -185,7 +185,7 @@ class PostgresQueryEngineSpec extends AnyFlatSpec {
         reqOps(None)("Country").head.innerReadOps
       )
       .transact(t)
-      .unsafeRunSync
+      .unsafeRunSync()
 
     val expectedRecords = JsArray(
       Vector(

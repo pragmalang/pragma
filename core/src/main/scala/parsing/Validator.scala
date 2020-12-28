@@ -8,7 +8,7 @@ class Validator(constructs: List[PConstruct]) {
 
   import Validator._
 
-  val st = SyntaxTree.fromConstructs(constructs)
+  val st = fromConstructs(constructs)
 
   def validSyntaxTree: Try[SyntaxTree] = {
     val results = List(
@@ -58,15 +58,17 @@ class Validator(constructs: List[PConstruct]) {
             if (typecheckPValue(Some(v), field.ptype)) errors
             else
               errors :+
-                s"Invalid default value of type `${displayPType(v.ptype)}` for optional field `${field.id}` of type `${displayPType(field.ptype)}`" ->
-                  field.position
+                s"Invalid default value of type `${displayPType(
+                  v.ptype
+                )}` for optional field `${field.id}` of type `${displayPType(field.ptype)}`" ->
+                field.position
           }
           case Some(arr: PArrayValue) =>
             if (typecheckPValue(Some(arr), field.ptype)) errors
             else
               errors :+
                 s"Invalid values for array field `${field.id}` (all array elements must have the same type)" ->
-                  field.position
+                field.position
           case Some(PStringValue(value))
               if field.ptype.isInstanceOf[PReference] ||
                 field.ptype.isInstanceOf[PEnum] => {
@@ -78,12 +80,14 @@ class Validator(constructs: List[PConstruct]) {
             else
               errors :+
                 s"The default value given to field `${field.id}` is not a member of a defined ${field.ptype.asInstanceOf[Identifiable].id} enum" ->
-                  field.position
+                field.position
           }
           case Some(v) if !typecheckPValue(Some(v), field.ptype) =>
             errors :+
-              s"Invalid default value of type `${displayPType(v.ptype)}` for field `${field.id}` of type `${displayPType(field.ptype)}`" ->
-                field.position
+              s"Invalid default value of type `${displayPType(
+                v.ptype
+              )}` for field `${field.id}` of type `${displayPType(field.ptype)}`" ->
+              field.position
           case _ => errors
         }
       }
@@ -96,23 +100,21 @@ class Validator(constructs: List[PConstruct]) {
   def checkIdentity(
       xs: Seq[Identifiable with Positioned]
   ): List[ErrorMessage] =
-    xs.foldLeft((Set.empty[String], List.empty[ErrorMessage]))(
-        (acc, construct) =>
-          if (acc._1(construct.id))
-            (
-              acc._1,
-              acc._2 :+
-                s"`${construct.id}` is defined twice" -> construct.position
-            )
-          else if (acc._1(construct.id.small) | acc._1(construct.id.capitalize))
-            (
-              acc._1,
-              acc._2 :+
-                s"The identifier `${construct.id}` appears in two positions with the difference in the case of the first character. This causes usability issues in the generated API" -> construct.position
-            )
-          else (acc._1 + construct.id, acc._2)
-      )
-      ._2
+    xs.foldLeft((Set.empty[String], List.empty[ErrorMessage]))((acc, construct) =>
+      if (acc._1(construct.id))
+        (
+          acc._1,
+          acc._2 :+
+            s"`${construct.id}` is defined twice" -> construct.position
+        )
+      else if (acc._1(construct.id.small) | acc._1(construct.id.capitalize))
+        (
+          acc._1,
+          acc._2 :+
+            s"The identifier `${construct.id}` appears in two positions with the difference in the case of the first character. This causes usability issues in the generated API" -> construct.position
+        )
+      else (acc._1 + construct.id, acc._2)
+    )._2
 
   def checkTopLevelIdentity: Try[Unit] = {
     val errors = checkIdentity(st.models.toSeq ++ st.enums)
@@ -206,12 +208,13 @@ class Validator(constructs: List[PConstruct]) {
             model.position
           ) :: Nil
         else Nil
-      val scErrors = if (secretCredentialFields.length > 1)
-        (
-          s"Multiple secret credential fields defined for user model `${model.id}` (only one is allowed)",
-          model.position
-        ) :: Nil
-      else Nil
+      val scErrors =
+        if (secretCredentialFields.length > 1)
+          (
+            s"Multiple secret credential fields defined for user model `${model.id}` (only one is allowed)",
+            model.position
+          ) :: Nil
+        else Nil
       pcErrors ::: scErrors
     }
 
@@ -237,19 +240,52 @@ class Validator(constructs: List[PConstruct]) {
               s"Invalid type `${displayPType(t)}` for primary field `${found.get.id}` of `${m.id}` (must be String or Integer)",
               found.get.position
             ) :: Nil
-        } else Nil
+        }
+        else Nil
       }
     }.flatten
     if (!errors.isEmpty) Failure(UserError(errors))
     else Success(())
   }
 
-  def checkDirectiveAgainst(
+  def checkFieldDirectiveAgainst(
+      defs: Map[String, BuiltInDefs.FieldDirectiveDef],
+      parentField: PModelField,
+      dir: Directive
+  ): List[ErrorMessage] = defs.get(dir.id) match {
+    case None =>
+      (s"Directive `${dir.id}` is not defined for fields", dir.position) :: Nil
+    case Some(definedDir)
+        if dir.args.value.keys.toList
+          .diff(definedDir.dirInterface.fields.map(_.id)) == Nil =>
+      Nil
+    case Some(definedDir) if !definedDir.appliesTo(parentField) => {
+      val dirApplicableTypesStr = definedDir.applicableTypes
+        .map(t => s"`${displayPType(t, false)}`")
+        .mkString(", ")
+      (
+        s"Directive `${dir.id}` cannot be applied to field `${parentField.id}`. It can only be applied to fields of type $dirApplicableTypesStr",
+        dir.position
+      ) :: Nil
+    }
+    case Some(definedDir) => {
+      val invalidArgs =
+        dir.args.value.keys.toList.diff(definedDir.dirInterface.fields.map(_.id))
+      invalidArgs.map { arg =>
+        (
+          s"`$arg` is not a parameter of directive `${dir.id}`",
+          dir.position
+        )
+      }
+    }
+  }
+
+  def checkModelDirectiveAgainst(
       defs: Map[String, PInterface],
       dir: Directive
   ): List[ErrorMessage] = defs.get(dir.id) match {
     case None =>
-      (s"Directive `${dir.id}` is not defined", dir.position) :: Nil
+      (s"Directive `${dir.id}` is not defined for models", dir.position) :: Nil
     case Some(definedDir)
         if dir.args.value.keys.toList
           .diff(definedDir.fields.map(_.id)) == Nil =>
@@ -270,13 +306,13 @@ class Validator(constructs: List[PConstruct]) {
     val modelLevelErrors = for {
       model <- st.models
       dir <- model.directives
-    } yield checkDirectiveAgainst(BuiltInDefs.modelDirectives(model), dir)
+    } yield checkModelDirectiveAgainst(BuiltInDefs.modelDirectives(model), dir)
 
     val fieldLevelErrors = for {
       model <- st.models
       field <- model.fields
       dir <- field.directives
-    } yield checkDirectiveAgainst(BuiltInDefs.fieldDirectives(field), dir)
+    } yield checkFieldDirectiveAgainst(BuiltInDefs.fieldDirectives, field, dir)
 
     val allErrors = (modelLevelErrors ++ fieldLevelErrors).flatten
     if (allErrors.isEmpty) Success(())
@@ -285,10 +321,9 @@ class Validator(constructs: List[PConstruct]) {
 
   def checkCircularDeps: Try[Unit] = {
     val circularDeps = DependencyGraph(st).circularDeps
-    lazy val errors = circularDeps map {
-      case (m1, m2) =>
-        s"Invalid circular dependency between `$m1` and `$m2` (the reference field in one of the models must be made optional)" ->
-          None
+    lazy val errors = circularDeps map { case (m1, m2) =>
+      s"Invalid circular dependency between `$m1` and `$m2` (the reference field in one of the models must be made optional)" ->
+        None
     }
     if (circularDeps.isEmpty) Success(())
     else Failure(UserError(errors))
@@ -302,11 +337,10 @@ class Validator(constructs: List[PConstruct]) {
       rule <- rules
       if rule.permissions.contains(Create)
       resourceField <- rule.resourcePath._2
-    } yield
-      (
-        s"`CREATE` event is not allowed to be specified for access rules on field resources (`${resourceField}`, in this case)",
-        rule.position
-      )
+    } yield (
+      s"`CREATE` event is not allowed to be specified for access rules on field resources (`${resourceField}`, in this case)",
+      rule.position
+    )
     if (errors.isEmpty) Success(())
     else Failure(UserError(errors))
   }
@@ -414,6 +448,27 @@ class Validator(constructs: List[PConstruct]) {
 
 }
 object Validator {
+
+  /** The resulting syntax tree is not validated or substituted. */
+  private def fromConstructs(constructs: List[PConstruct]): SyntaxTree = {
+    val imports = constructs.collect { case i: PImport => i }
+    val models = constructs.collect { case m: PModel => m }
+    val enums = constructs.collect { case e: PEnum => e }
+    val config = constructs.collectFirst { case cfg: PConfig => cfg }
+    val accessRules = constructs.collect { case ar: AccessRule => ar }
+    val roles = constructs.collect { case r: Role => r }
+    lazy val permissions = Permissions(
+      Tenant("root", accessRules, roles, None),
+      Nil // TODO: Add support for user-defined tenants
+    )
+    SyntaxTree(
+      imports,
+      models,
+      enums,
+      permissions,
+      if (config.isDefined) config.get else PConfig(Nil, None)
+    )
+  }
 
   def arrayIsHomogeneous(arr: PArrayValue): Boolean =
     arr.values.forall(_.ptype == arr.elementType)

@@ -1,5 +1,5 @@
-ThisBuild / scalaVersion := "2.13.2"
-ThisBuild / version := "0.1.0"
+ThisBuild / scalaVersion := "2.13.4"
+ThisBuild / version := "0.2.1"
 ThisBuild / organization := "com.pragmalang"
 ThisBuild / organizationName := "pragma"
 
@@ -14,7 +14,7 @@ lazy val commonScalacOptions = Seq(
   "-Wdead-code",
   "-Wextra-implicit",
   "-Wnumeric-widen",
-  "-Wself-implicit"
+  "-Wconf:cat=lint-byname-implicit:silent"
 )
 
 lazy val core = (project in file("core"))
@@ -30,7 +30,8 @@ lazy val core = (project in file("core"))
       parboiled,
       kebsSprayJson,
       jwtCore
-    )
+    ),
+    test in assembly := {}
   )
 
 lazy val daemon = (project in file("daemon"))
@@ -58,7 +59,9 @@ lazy val daemon = (project in file("daemon"))
     ),
     dockerRepository in Docker := Some("pragmalang"),
     dockerExposedPorts := Seq(3030),
-    dockerUpdateLatest := true
+    dockerUpdateLatest := true,
+    fork in run := true,
+    test in assembly := {}
   )
   .dependsOn(core)
   .enablePlugins(
@@ -70,6 +73,7 @@ lazy val daemon = (project in file("daemon"))
 lazy val cli = (project in file("cli"))
   .settings(
     name := "pragma",
+    packageName := name.value,
     maintainer := "Anas Al-Barghouthy @anasbarg, Muhammad Tabaza @Tabzz98",
     packageSummary := "The CLI for Pragmalang",
     packageDescription := "See https://docs.pragmalang.com for details.",
@@ -80,36 +84,22 @@ lazy val cli = (project in file("cli"))
       osLib,
       requests
     ),
-    graalVMNativeImageOptions := Seq(
-      "--static",
-      "--no-fallback",
-      "--allow-incomplete-classpath",
-      "--initialize-at-build-time=scala.runtime.Statics$VM",
-      "-H:+ReportExceptionStackTraces",
-      "-H:+AddAllCharsets",
-      "-H:IncludeResources=.*docker-compose.yml",
-      "--enable-http",
-      "--enable-https",
-      "--enable-all-security-services"
-    ),
+    jlinkIgnoreMissingDependency := JlinkIgnore.everything,
+    rpmVendor := organizationName.value,
+    rpmLicense := Some("Apache 2.0"),
     wixProductId := "0e5e2980-bf07-4bf0-b446-2cfb4bf4704a",
     wixProductUpgradeId := "5603913d-7bde-46eb-ac47-44ed2cb4fd08",
-    name in Windows := s"${name.value}-${version.value}",
-    wixPackageInfo := com.typesafe.sbt.packager.windows.WindowsProductInfo(
-      id = wixProductId.value,
-      title = "Pragma CLI",
-      version = version.value,
-      maintainer = "Muhammad Tabaza @Tabzz98, Anas H Al-Barghouthy @anasbarg",
-      description = packageSummary.value,
-      upgradeId = wixProductUpgradeId.value
-    ),
     sources in (Compile, doc) := Seq.empty,
-    publishArtifact in (Compile, packageDoc) := false
+    publishArtifact in (Compile, packageDoc) := false,
+    target in assembly := file("./cli/target/"),
+    test in assembly := {}
   )
   .dependsOn(core)
   .enablePlugins(
-    GraalVMNativeImagePlugin,
     UniversalPlugin,
+    JlinkPlugin,
     WindowsPlugin,
-    JavaAppPackaging
+    LinuxPlugin,
+    DebianPlugin,
+    RpmPlugin
   )

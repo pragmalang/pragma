@@ -680,7 +680,8 @@ class OperationParser(st: SyntaxTree) {
               InternalException(
                 s"Objects in `items` array argument of UPDATE_MANY operation on model `${opTargetModel.id}` must contain a `${opTargetModel.primaryField.id}`"
               ).asLeft
-            case _: JsNumber | JsNull | _: JsBoolean | _: JsArray =>
+            case _: JsNumber | _: JsString | JsNull | _: JsBoolean |
+                _: JsArray =>
               InternalException(
                 s"Values in `items` array argument of UPDATE_MANY operation must be objects containing `${opTargetModel.primaryField.id}`"
               ).asLeft

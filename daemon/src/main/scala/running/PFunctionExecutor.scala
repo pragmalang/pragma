@@ -4,6 +4,7 @@ import pragma.domain._
 import cats.implicits._, cats.effect._
 import org.http4s._, org.http4s.client._
 import spray.json._
+import pragma.domain.utils.InternalException
 
 class PFunctionExecutor[M[_]: Sync](
     projectName: String,
@@ -15,6 +16,10 @@ class PFunctionExecutor[M[_]: Sync](
   ): M[JsObject] = function match {
     case function: ExternalFunction =>
       wskClient.invokeAction(function, args, projectName)
+    case other =>
+      InternalException(
+        s"Unhandled function type `${other.getClass().getCanonicalName()}`"
+      ).raiseError[M, JsObject]
   }
 }
 object PFunctionExecutor {

@@ -3,8 +3,7 @@ package pragma.domain
 import pragma.domain.utils._
 import cats.implicits._
 
-/**
-  * A PType is a data representation (models, enums, and primitive types)
+/** A PType is a data representation (models, enums, and primitive types)
   */
 sealed trait PType {
   def innerPReference: Option[PReference] = this match {
@@ -65,12 +64,8 @@ case class PModel(
   lazy val secretCredentialField = fields.find(_.isSecretCredential)
 
   override def equals(that: Any): Boolean = that match {
-    case model: PModel =>
-      model.id == id &&
-        model.fields == fields &&
-        model.directives == directives &&
-        model.index == index
-    case _ => false
+    case model: PModel => model.index == index
+    case _             => false
   }
 }
 object PModel {
@@ -98,7 +93,7 @@ case class PInterface(
     fields: Seq[PInterfaceField],
     position: Option[PositionRange]
 ) extends PType
-    with PShape //with HConstruct
+    with PShape
 
 case class PEnum(
     id: String,
@@ -106,7 +101,13 @@ case class PEnum(
     position: Option[PositionRange]
 ) extends Identifiable
     with PType
-    with PConstruct
+    with PConstruct {
+
+  override def equals(that: Any): Boolean = that match {
+    case e: PEnum => id == e.id
+    case _        => false
+  }
+}
 
 trait PShapeField extends Positioned with Identifiable {
   val ptype: PType
@@ -126,6 +127,12 @@ case class PModelField(
 ) extends PShapeField {
   lazy val isPrimary = directives.exists(_.id == "primary")
 
+  lazy val hasValueGenerator =
+    ptype.isInstanceOf[POption] ||
+      defaultValue.isDefined ||
+      isUUID ||
+      isAutoIncrement
+
   lazy val isPublicCredential = directives.exists(_.id == "publicCredential")
 
   lazy val isSecretCredential = directives.exists(_.id == "secretCredential")
@@ -139,6 +146,19 @@ case class PModelField(
   lazy val isArray = ptype match {
     case PArray(_) => true
     case _         => false
+  }
+
+  lazy val isReference = ptype match {
+    case _: PModel | _: PReference | POption(_: PModel | _: PReference) | PArray(
+          _: PModel | _: PReference
+        ) =>
+      true
+    case _ => false
+  }
+
+  override def equals(that: Any): Boolean = that match {
+    case f: PModelField => f.index == index
+    case _              => false
   }
 
   lazy val innerModelId: Option[String] = ptype match {
@@ -163,7 +183,6 @@ case object PFloat extends PrimitiveType
 case object PBool extends PrimitiveType
 case object PDate extends PrimitiveType
 case class PArray(ptype: PType) extends PType
-case class PFile(sizeInBytes: Int, extensions: Seq[String])
-    extends PrimitiveType
+case class PFile(sizeInBytes: Int, extensions: Seq[String]) extends PrimitiveType
 case class PFunction(args: NamedArgs, returnType: PType) extends PrimitiveType
 case class POption(ptype: PType) extends PType

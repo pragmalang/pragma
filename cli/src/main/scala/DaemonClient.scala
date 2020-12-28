@@ -11,22 +11,28 @@ object DaemonClient {
   val daemonPort = 9584
   val daemonUri = s"http://localhost:$daemonPort"
 
-  def createProject(project: ProjectInput): Try[Unit] =
-    ping *> Try {
+  def createProject(project: ProjectInput, mode: RunMode): Try[Unit] = {
+    val modeStr = mode match {
+      case Dev => "dev"
+      case Prod => "prod"
+    }
+
+    pingLocalDaemon() *> Try {
       post(
-        url = s"$daemonUri/project/create",
+        url = s"$daemonUri/project/create/$modeStr",
         data = project.toJson.compactPrint,
         keepAlive = false,
         check = false
       )
     }
+  }
 
   def migrate(
       migration: MigrationInput,
       projectName: String,
       mode: RunMode
   ): Try[Unit] =
-    ping *> Try {
+    pingLocalDaemon() *> Try {
       post(
         url = mode match {
           case Dev  => s"$daemonUri/project/migrate/dev/$projectName"
@@ -39,12 +45,17 @@ object DaemonClient {
       println(s"Done migrating $projectName")
     }.void
 
-  def ping = Try(get(daemonUri + "/ping")).handleErrorWith { err =>
-    Failure {
-      new Exception(
-        s"Failed to reach Pragma daemon at $daemonUri. Please make sure the daemon is running and retry\n${err.getMessage}"
-      )
+  def pingLocalDaemon(numTrials: Int = 3): Try[Response] =
+    Try(get(daemonUri + "/ping")).handleErrorWith { err =>
+      if (numTrials <= 0) Failure {
+        new Exception(
+          s"Failed to reach Pragma daemon at $daemonUri. Please make sure the daemon is running and retry\n${err.getMessage}"
+        )
+      }
+      else {
+        Thread.sleep(2000)
+        pingLocalDaemon(numTrials - 1)
+      }
     }
-  }
 
 }

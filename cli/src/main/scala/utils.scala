@@ -58,9 +58,8 @@ object utils {
       }
       zos.close()
       new String(Base64.getEncoder.encode(bos.toByteArray))
-    }.adaptErr {
-      case e: Exception =>
-        new Exception(s"Error while zipping $path\n${e.getMessage}")
+    }.adaptErr { case e: Exception =>
+      new Exception(s"Error while zipping $path\n${e.getMessage}")
     }
 
   /** The boolean in the return means "is binary"
@@ -70,7 +69,8 @@ object utils {
   def readContent(path: os.Path): Try[(String, Boolean)] =
     if (os.isDir(path)) Try {
       (zipDir(path).get, true)
-    } else if (os.isLink(path)) os.followLink(path) match {
+    }
+    else if (os.isLink(path)) os.followLink(path) match {
       case Some(path) => readContent(path)
       case None =>
         Failure {
@@ -78,7 +78,11 @@ object utils {
             s"Could not follow link ${path.toString} to a file or directory"
           }
         }
-    } else Try((os.read(path), false))
+    }
+    else Try((os.read(path), false))
+
+  def dockerComposeFile: String =
+    scala.io.Source.fromResource("docker-compose.yml").getLines().mkString("\n")
 
   def renderError(
       message: String,
@@ -89,23 +93,24 @@ object utils {
     val errTag = s"[${Console.RED}Error${Console.RESET}]"
     val errorCodeRegion = position match {
       case Some(
-          PositionRange(
-            Position(_, lineIndex, charIndex),
-            Position(_, lineIndex2, charIndex2)
-          )
+            PositionRange(
+              Position(_, lineIndex, charIndex),
+              Position(_, lineIndex2, charIndex2)
+            )
           ) =>
         for {
           code <- code
           lines = code.split("\n").toList
           errorLine = lines(lineIndex - 1)
-          msg = if (lineIndex != lineIndex2) {
-            val firstErrorLine = errorLine
-            val midErrorLines = lines
-              .slice(lineIndex, lineIndex2 - 1)
-              .map(line => line + "\n" + ("^" * line.length))
-              .mkString("\n")
-            val lastErrorLine = lines(lineIndex2 - 1)
-            s"""|From line $lineIndex character $charIndex to line $lineIndex2 character $charIndex2
+          msg =
+            if (lineIndex != lineIndex2) {
+              val firstErrorLine = errorLine
+              val midErrorLines = lines
+                .slice(lineIndex, lineIndex2 - 1)
+                .map(line => line + "\n" + ("^" * line.length))
+                .mkString("\n")
+              val lastErrorLine = lines(lineIndex2 - 1)
+              s"""|From line $lineIndex character $charIndex to line $lineIndex2 character $charIndex2
                 |
                 |$firstErrorLine
                 |${" " * (charIndex - 1)}${"^" * ((firstErrorLine.length - 1) - charIndex)}
@@ -113,19 +118,19 @@ object utils {
                 |${lastErrorLine}
                 |${Console.RED}${"^" * charIndex2}${Console.RED}
                 |""".stripMargin
-          } else if (charIndex != charIndex2) {
-            s"""|at line $lineIndex
+            } else if (charIndex != charIndex2) {
+              s"""|at line $lineIndex
                 |
                 |$errorLine
                 |${Console.RED}${" " * (charIndex - 1)}${"^" * (charIndex2 - charIndex)}${Console.RED}
                 |""".stripMargin
-          } else {
-            s"""|at line $lineIndex
+            } else {
+              s"""|at line $lineIndex
                 |
                 |$errorLine
                 |${Console.RED}${" " * (charIndex - 2)}^${Console.RESET}
                 |""".stripMargin
-          }
+            }
 
         } yield ": " + msg
       case _ => None
@@ -150,8 +155,8 @@ object utils {
     err match {
       case userErr: UserError =>
         userErr.errors
-          .map {
-            case (msg, pos) => renderError(msg, pos, code)
+          .map { case (msg, pos) =>
+            renderError(msg, pos, code)
           }
           .mkString("\n")
       case ParseError(pos, pos2, _) =>
@@ -167,13 +172,16 @@ object utils {
     }
 
   def welcomeMsq(projectName: String, mode: RunMode) = {
-    val modeStr = mode match {
-      case Dev  => "dev"
-      case Prod => "prod"
+    val apiUrlMsg = mode match {
+      case Dev =>
+        s"Visit the GraphQL Playground at ${Console.GREEN}${Console.BOLD}${DaemonClient.daemonUri}/project/$projectName/dev/graphql${Console.RESET}"
+      case Prod =>
+        s"Your API is now available at ${DaemonClient.daemonUri}/project/$projectName/prod/graphql"
     }
+
     s"""
        |Pragma GraphQL server successfully started!
-       |Visit the GraphQL Playground at ${Console.GREEN}${Console.BOLD}${DaemonClient.daemonUri}/project/$projectName/$modeStr/graphql${Console.RESET}
+       |$apiUrlMsg
        |""".stripMargin
   }
 

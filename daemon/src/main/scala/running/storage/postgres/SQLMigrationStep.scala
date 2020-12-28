@@ -22,49 +22,80 @@ object SQLMigrationStep {
         action match {
           case AddColumn(definition) =>
             s"ALTER TABLE ${tableName.withQuotes} ADD COLUMN ${definition.render};"
-
           case DropColumn(name, ifExists) => {
             val ifExistsStr = if (ifExists) "IF EXISTS" else ""
-
             s"ALTER TABLE ${tableName.withQuotes} DROP COLUMN $ifExistsStr ${name.withQuotes};"
-
           }
           case RenameColumn(name, newName) =>
             s"ALTER TABLE ${tableName.withQuotes} RENAME COLUMN ${name.withQuotes} TO ${newName.withQuotes};"
 
           case AddForeignKey(otherTableName, otherColumnName, thisColumnName) =>
             s"ALTER TABLE ${tableName.withQuotes} ADD FOREIGN KEY (${thisColumnName.withQuotes}) REFERENCES ${otherTableName.withQuotes}(${otherColumnName.withQuotes});"
+          case DropNotNullConstraint(colName) =>
+            s"ALTER TABLE ${tableName.withQuotes} ALTER COLUMN ${colName.withQuotes} DROP NOT NULL;"
+          case MakeUnique(colName) =>
+            s"ALTER TABLE ${tableName.withQuotes} ADD CONSTRAINT ${colName}_unique_constraint UNIQUE ${colName.withQuotes};"
+          case DropUnique(colName) =>
+            s"ALTER TABLE ${tableName.withQuotes} DROP CONSTRAINT ${colName}_unique_constraint;"
+          case ChangeType(colName, colType) =>
+            s"ALTER TABLE ${tableName.withQuotes} ALTER COLUMN ${colName.withQuotes} TYPE ${colType.name};"
+          case DropDefault(colName) =>
+            s"ALTER TABLE ${tableName.withQuotes} ALTER COLUMN ${colName.withQuotes} DROP DEFAULT;"
+          case AddDefault(colName, value) =>
+            s"ALTER TABLE ${tableName.withQuotes} ALTER COLUMN ${colName.withQuotes} SET DEFAULT $value;"
+          case DropConstraint(constraintName) =>
+            s"ALTER TABLE ${tableName.withQuotes} DROP CONSTRAINT ${constraintName.withQuotes};"
+          case DropPrimaryConstraint =>
+            s"ALTER TABLE ${tableName.withQuotes} DROP CONSTRAINT ${(tableName + "_pkey").withQuotes};"
         }
     }
   }
-  final case class CreateTable(
+
+  sealed trait DeferredMigrationStep extends SQLMigrationStep
+  case class DeferredMovePK(model: PModel, to: PModelField) extends DeferredMigrationStep
+  case class DeferredAddField(model: PModel, field: PModelField)
+      extends DeferredMigrationStep
+
+  case class DeferredChangeFieldTypes(
+      prevModel: PModel,
+      changes: Vector[ChangeFieldType]
+  ) extends DeferredMigrationStep
+
+  case class DeferredMakeAutoIncrement(prevModel: PModel, field: PModelField)
+      extends DeferredMigrationStep
+
+  case class CreateTable(
       name: String,
       columns: Vector[ColumnDefinition] = Vector.empty
   ) extends DirectSQLMigrationStep
 
   case class AlterTable(tableName: String, action: AlterTableAction)
       extends DirectSQLMigrationStep
-  case class RenameTable(name: String, newName: String)
-      extends DirectSQLMigrationStep
+  case class RenameTable(name: String, newName: String) extends DirectSQLMigrationStep
   case class DropTable(name: String) extends DirectSQLMigrationStep
-  case class AlterManyFieldTypes(
-      prevModel: PModel,
-      changes: Vector[ChangeFieldType]
-  ) extends SQLMigrationStep
 }
 
 sealed trait AlterTableAction
 object AlterTableAction {
   case class AddColumn(definition: ColumnDefinition) extends AlterTableAction
-  case class DropColumn(name: String, ifExists: Boolean = true)
-      extends AlterTableAction
-  case class RenameColumn(name: String, newName: String)
-      extends AlterTableAction
+  case class DropColumn(name: String, ifExists: Boolean = true) extends AlterTableAction
+  case class RenameColumn(name: String, newName: String) extends AlterTableAction
   case class AddForeignKey(
       otherTableName: String,
       otherColumnName: String,
       thisColumnName: String
   ) extends AlterTableAction
+
+  case class DropConstraint(constraintName: String) extends AlterTableAction
+  case object DropPrimaryConstraint extends AlterTableAction
+
+  case class DropNotNullConstraint(colName: String) extends AlterTableAction
+
+  case class MakeUnique(colName: String) extends AlterTableAction
+  case class DropUnique(colName: String) extends AlterTableAction
+  case class ChangeType(colName: String, colType: PostgresType) extends AlterTableAction
+  case class DropDefault(colName: String) extends AlterTableAction
+  case class AddDefault(colName: String, value: String) extends AlterTableAction
 }
 
 case class ColumnDefinition(

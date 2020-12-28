@@ -9,7 +9,95 @@ Most applications need [authorization](https://en.wikipedia.org/wiki/Authorizati
 - What: The resource
 - How: The operation performed on the resource
 
-One way of setting up autorization for an app is using [Access Control Lists](https://en.wikipedia.org/wiki/Access-control_list) (ACLs), which are powerful since they allow us to define rules for data access in a very declaritive manner. ACLs are used in Unix-like systems for [filesystem permissions](https://en.wikipedia.org/wiki/File_system_permissions#Permissions), and they're powerful and reliable.
+One way of setting up autorization for an app is using [Access Control Lists](https://en.wikipedia.org/wiki/Access-control_list) (ACLs), which are powerful since they allow us to define rules for data access in a very declaritive manner. ACLs are used in Unix-like systems for [filesystem permissions](https://en.wikipedia.org/wiki/File_system_permissions#Permissions), for instance.
+
+For a tutorial where you get to write a Pragma application that uses authorization rules, skip to the [Example Online Course App](#example-online-course-app) section.
+
+## Overview
+
+When a [model](./models.md) is defined, many operations specific to that model are automatically exposed via the GraphQL API, which include `CREATE`, `READ`, `UPDATE`, and `DELETE` operations. Using access rules, you can allow or deny an incoming operation based on its kind (e.g. `READ` operation), and its *target resource*, which is either a model field. For instance:
+```pragma
+allow READ User
+```
+where `User` is a defined model, means that `READ` operations are allowed on any record of type `User`. Here, `allow` is the kind of the rule, `READ` is the operation type, and `User` is the resource.
+
+The operation type of an access rule can be a single type of event (as in the above example) or you can specify multiple types of operations that the rules matches using array-like syntax. For instance:
+```pragma
+allow [READ, CREATE] User
+```
+This rule allows both `READ` and `CREATE` operations on the `User` model.
+
+The resource part of an access rule can refer to an entire model, or it can refer to a particular field of a model:
+```pragma
+deny READ User.password
+```
+When the resource part of an access rule is a model, operations performed on any field of the model will match the rule. So if we have `allow READ User`, then `READ` operations are allowed on all fields of the `User` model.
+
+The following is a table specifying the available permissions, and the types of resources they can be applied to:
+
+|  **Permission**  |                 **Operation Description**                |   **Applicable To**   |
+|:----------------:|:--------------------------------------------------------:|:---------------------:|
+|      `READ`      |                   Retrieve from the API                  | Models & model fields |
+|     `CREATE`     |             Insert a record into the database            |         Models        |
+| `READ_ON_CREATE` |     Retrieve after creating with a `CREATE` operation    | Models & model fields |
+|  `SET_ON_CREATE` | `CREATE` operation that sets a field in the input object |                       |
+|     `UPDATE`     |              Modify a record in the database             | Models & model fields |
+|     `PUSH_TO`    |             Add an element to an array field             |   Model array fields  |
+|   `REMOVE_FROM`  |           Remove an element from an array field          |   Model array fields  |
+|     `DELETE`     |             Delete a record from the database            |         Models        |
+|      `LOGIN`     |              `LOGIN` operation to get a JWT              |      User models      |
+|       `ALL`      |                       Any operation                      | Models & model fields |
+
+### Authorization Predicates
+
+An access rule can be followed by an `if` clause, specifying a condition that must be satisfied in order for the rule to match the operation. These conditions are *predicates*, which are functions that return a boolean value (true or false). Predicates can be imported just like any other function in Pragma, for instance:
+```pragma {1, 9}
+import "./my-functions.js" as myFunctions
+
+@user @1 model User {
+  @1 name: String @primary @publicCredential
+  @2 password: String @secretCredential
+  @2 age: Int
+}
+
+allow CREATE User if myFunctions.ageOver18
+```
+where `./my-functions.js` is a file containing:
+```js
+const ageOver18 = user => ({ result: user.age > 18 })
+
+module.exports = { ageOver18 }
+```
+
+:::caution
+The return of authorization predicates must be an object containing a `result` field of type boolean. If the predicate return anything other than a boolean in the `result` field, it is considered `false`.
+:::
+
+### Roles
+
+When a [user model](./user-models.md) is defined, you can define a *role* for that specific user model. A role is a list of rules that apply only to the role they are defined within. For instance:
+```pragma
+role User {
+  deny READ User.password
+}
+```
+The rules defined within a role are only matched when an authenticated user of type `User` is using the API. 
+
+:::note
+Roles can only be defined for user models.
+:::
+
+You may have noticed that access rules may be defined outside of a role block. Access rules that do not belong to any role are applied **only** to operations performed by anonymous (unauthenticated) users.
+
+### `self` Rules
+
+Within a `role`, you can define rules that apply only to operations that the user is performing on their own data. For instance:
+```pragma
+role {
+  allow [READ, UPDATE] self
+  deny READ self.password
+}
+```
 
 ## Example Online Course App
 

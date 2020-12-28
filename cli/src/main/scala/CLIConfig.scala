@@ -10,6 +10,7 @@ case class CLIConfig(
     filePath: Path
 ) {
   val projectPath = os.Path(filePath.wrapped.getParent().toAbsolutePath())
+  val dotPragmaDir = projectPath / ".pragma"
 }
 
 object CLIConfig {
@@ -80,7 +81,7 @@ object CLIConfig {
   def parse(args: List[String]): CLIConfig =
     parser.parse(args, CLIConfig.default).getOrElse(sys.exit(1))
 
-  def usage: String = parser.renderTwoColumnsUsage + "\n"
+  def usage: String = parser.usage + "\n"
 
   def usageWithAsciiLogo = {
     val asciiLogoWithLeftPadding = asciiLogo

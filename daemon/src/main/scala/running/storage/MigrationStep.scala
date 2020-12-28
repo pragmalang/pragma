@@ -10,8 +10,6 @@ case class RenameModel(prevModelId: String, newId: String) extends MigrationStep
 
 case class DeleteModel(prevModel: PModel) extends MigrationStep
 
-case class UndeleteModel(prevModel: PModel) extends MigrationStep
-
 case class AddField(
     field: PModelField,
     prevModel: PModel
@@ -43,19 +41,14 @@ case class DeleteField(
     prevModel: PModel
 ) extends MigrationStep
 
-case class UndeleteField(
-    prevField: PModelField,
-    prevModel: PModel
-) extends MigrationStep
-
-case class ChangeManyFieldTypes(
+case class ChangeFieldTypes(
     prevModel: PModel,
     newModel: PModel,
     changes: Vector[ChangeFieldType]
 ) extends MigrationStep
 
 case class ChangeFieldType(
-    field: PModelField,
-    newType: PType,
+    prevField: PModelField,
+    currentField: PModelField,
     transformer: Option[PFunctionValue]
 )

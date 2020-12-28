@@ -72,6 +72,8 @@ class PragmaParser(val input: ParserInput) extends Parser {
       ((head: String, rest: String) => head + rest)
   }
 
+  def identifierThenEOI: Rule1[String] = rule { identifier ~ EOI }
+
   def integerVal: Rule1[PIntValue] = rule {
     capture(oneOrMore(CharPredicate.Digit)) ~>
       ((int: String) => PIntValue(int.toLong))

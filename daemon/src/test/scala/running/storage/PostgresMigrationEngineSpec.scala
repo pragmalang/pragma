@@ -5,8 +5,6 @@ import running.storage.postgres._
 import org.scalatest._, funsuite.AnyFunSuite
 import SQLMigrationStep._
 import AlterTableAction._
-import OnDeleteAction.Cascade
-
 import pragma.domain._
 import org.parboiled2.Position
 
@@ -15,7 +13,7 @@ import doobie.implicits._
 import cats.effect._
 import cats.implicits._
 import pragma.jwtUtils.JwtCodec
-import running.PFunctionExecutor
+import pragma.domain.utils.UserError
 
 class PostgresMigrationEngineSpec extends AnyFunSuite {
 
@@ -41,147 +39,6 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       GRANT ALL ON SCHEMA public TO test;
       GRANT ALL ON SCHEMA public TO public;
     """.update.run.void.transact(transactorFromDbName(dbName))
-
-  test("PostgresMigrationEngine#migration works") {
-
-    val code = """
-        @1 @user
-        model User {
-          @1 id: String @uuid
-          @2 username: String @primary @publicCredential
-          @3 password: String @secretCredential
-          @4 isVerified: Boolean = false
-          @5 todos: [Todo]
-        }
-    
-        @2 model Todo {
-          @1 title: String @primary
-        }
-
-        config { projectName = "test" }
-        """
-    val syntaxTree = SyntaxTree.from(code).get
-
-    val createTodoModel = CreateModel(syntaxTree.modelsById("Todo"))
-    val createUserModel = CreateModel(syntaxTree.modelsById("User"))
-
-    val expected = Vector(
-      CreateTable("Todo", Vector()),
-      CreateTable("User", Vector()),
-      AlterTable(
-        "Todo",
-        AddColumn(
-          ColumnDefinition(
-            "title",
-            PostgresType.TEXT,
-            true,
-            false,
-            true,
-            false,
-            false,
-            None
-          )
-        )
-      ),
-      AlterTable(
-        "User",
-        AddColumn(
-          ColumnDefinition(
-            "id",
-            PostgresType.UUID,
-            true,
-            false,
-            false,
-            false,
-            true,
-            None
-          )
-        )
-      ),
-      AlterTable(
-        "User",
-        AddColumn(
-          ColumnDefinition(
-            "username",
-            PostgresType.TEXT,
-            true,
-            true,
-            true,
-            false,
-            false,
-            None
-          )
-        )
-      ),
-      AlterTable(
-        "User",
-        AddColumn(
-          ColumnDefinition(
-            "password",
-            PostgresType.TEXT,
-            true,
-            false,
-            false,
-            false,
-            false,
-            None
-          )
-        )
-      ),
-      AlterTable(
-        "User",
-        AddColumn(
-          ColumnDefinition(
-            "isVerified",
-            PostgresType.BOOL,
-            true,
-            false,
-            false,
-            false,
-            false,
-            None
-          )
-        )
-      ),
-      CreateTable(
-        "User_todos",
-        Vector(
-          ColumnDefinition(
-            "source_User",
-            PostgresType.TEXT,
-            true,
-            false,
-            false,
-            false,
-            false,
-            Some(ForeignKey("User", "username", Cascade))
-          ),
-          ColumnDefinition(
-            "target_Todo",
-            PostgresType.TEXT,
-            true,
-            false,
-            false,
-            false,
-            false,
-            Some(ForeignKey("Todo", "title", Cascade))
-          )
-        )
-      )
-    )
-
-    val testStorage = new TestStorage(syntaxTree)
-
-    val postgresMigration = PostgresMigration(
-      Vector(createTodoModel, createUserModel),
-      SyntaxTree.empty,
-      syntaxTree,
-      testStorage.queryEngine,
-      PFunctionExecutor.dummy[IO]
-    )
-
-    assert(postgresMigration.sqlSteps == expected)
-  }
 
   test("Adding new models in a migration works") {
 
@@ -401,8 +258,9 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 title: String @primary
     }
 
+    @user
     @3 model Admin {
-      @1 username: String @primary
+      @1 username: String @primary @publicCredential
     }
 
     config { projectName = "test" }
@@ -423,6 +281,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 title: String @primary
     }
 
+    @user
     @3 model Admin {
       @1 username: String @primary @publicCredential
       @2 password: String @secretCredential
@@ -436,30 +295,17 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     val migrationEngine = testStorage.migrationEngine
 
-    val expected =
-      Vector(
-        AlterTable(
-          "Admin",
-          AddColumn(
-            ColumnDefinition(
-              "password",
-              PostgresType.TEXT,
-              true,
-              false,
-              false,
-              false,
-              false,
-              None
-            )
-          )
-        )
-      )
+    val expected = DeferredAddField(
+      prevSyntaxTree.modelsById("Admin"),
+      newSyntaxTree.modelsById("Admin").fieldsById("password")
+    )
 
     assert(
       migrationEngine
         .migration(prevSyntaxTree, Map.empty.withDefaultValue(false))
         .unsafeRunSync()
-        .sqlSteps == expected
+        .sqlSteps
+        .head == expected
     )
   }
 
@@ -479,6 +325,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 title: String @primary
     }
 
+    @user
     @3 model Admin {
       @1 username: String @primary @publicCredential
       @2 password: String @secretCredential
@@ -502,8 +349,9 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
       @1 title: String @primary
     }
 
+    @user
     @3 model Admin {
-      @1 username: String @primary
+      @1 username: String @primary @publicCredential
     }
 
     config { projectName = "test" }
@@ -767,20 +615,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     val migrationEngine = testStorage.migrationEngine
 
-    val expected = ChangeFieldType(
-      PModelField(
-        "isVerified",
-        PBool,
-        Some(PBoolValue(false)),
-        4,
-        List(),
-        Some(PositionRange(Position(163, 7, 10), Position(173, 7, 20)))
-      ),
-      PInt,
-      None
-    )
-
-    assert(
+    assertThrows[UserError](
       migrationEngine
         .inferedMigrationSteps(
           newSyntaxTree,
@@ -790,9 +625,9 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
         .toTry
         .get
         .head
-        .asInstanceOf[ChangeManyFieldTypes]
+        .asInstanceOf[ChangeFieldTypes]
         .changes
-        .head == expected
+        .head
     )
   }
 
@@ -851,20 +686,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
 
     val migrationEngine = testStorage.migrationEngine
 
-    val expected = ChangeFieldType(
-      PModelField(
-        "isVerified",
-        PBool,
-        Some(PBoolValue(false)),
-        4,
-        List(),
-        Some(PositionRange(Position(163, 7, 10), Position(173, 7, 20)))
-      ),
-      PInt,
-      None
-    )
-
-    assert(
+    assertThrows[UserError](
       migrationEngine
         .inferedMigrationSteps(
           newSyntaxTree,
@@ -874,9 +696,9 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
         .toTry
         .get
         .head
-        .asInstanceOf[ChangeManyFieldTypes]
+        .asInstanceOf[ChangeFieldTypes]
         .changes
-        .head == expected
+        .head
     )
   }
 }

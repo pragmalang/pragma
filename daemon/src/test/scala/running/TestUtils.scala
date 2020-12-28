@@ -19,7 +19,7 @@ object TestUtils {
   )(implicit opParser: OperationParser, queryEngine: QueryEngine[S, IO]) = {
     val req = Request.bareReqFrom(gqlQuery)
     val reqOps = opParser.parse(req)
-    val results = reqOps.map(queryEngine.run(_).unsafeRunSync) match {
+    val results = reqOps.map(queryEngine.run(_).unsafeRunSync()) match {
       case Left(err) => throw err
       case Right(values) =>
         values.map {

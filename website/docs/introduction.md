@@ -37,7 +37,7 @@ role User {
 }
 ```
 
-Pragma supports using importing [serverless functions](./features/functions.md) for extending the APIs functionality. In this case, `hooks.js` is a JavaScript file containing:
+Pragma supports importing [serverless functions](./features/functions.md) for extending the API's functionality. In this case, `hooks.js` is a JavaScript file containing:
 
 ```js
 const validateUser = user => {
@@ -57,7 +57,7 @@ These two functions are used to validate every user object and set its `fullName
 
 Pragma has built-in support for *authorization*, meaning you can define [*access rules*](./features/permissions.md) to specify the actions each kind of user can perform, and *when*.
 
-This is all the code you need to set up a GraphQL API with user authentication and very flexible queries and mutations for creating, reading, updating, and deleting user data. For example:
+This is all the code you need to write in order to set up a GraphQL API with user authentication and very flexible queries and mutations for creating, reading, updating, and deleting user data. For example:
 
 ```graphql
 mutation createUser {
@@ -75,7 +75,7 @@ mutation createUser {
 }
 ```
 
-This returns the `username` and `fullName` of the newly created user. See [The Generated API](./api/index.md) section for more details.
+This mutation returns the `username` and `fullName` of the newly created user. See [The Generated API](./api/index.md) section for more details.
 
 For a step-by-step tutorial on Pragma, see the [Basic Todo App page](./overview/getting-started/basic-todo-app.md).
 

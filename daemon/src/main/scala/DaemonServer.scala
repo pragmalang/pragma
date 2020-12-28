@@ -19,6 +19,8 @@ import pragma.envUtils._
 import java.sql._
 import daemon.utils._
 import pragma.utils.JsonCodec._
+import running.utils.Mode.Dev
+import running.utils.Mode.Prod
 
 object DeamonServer extends IOApp {
 
@@ -44,9 +46,9 @@ object DeamonServer extends IOApp {
       Runtime.getRuntime.availableProcessors * 10
     )
     .allocated
-    .unsafeRunSync
+    .unsafeRunSync()
 
-  val (blocker, _) = Blocker[IO].allocated.unsafeRunSync
+  val (blocker, _) = Blocker[IO].allocated.unsafeRunSync()
 
   def createDatabase(
       host: String,
@@ -88,6 +90,11 @@ object DeamonServer extends IOApp {
       }
     )
 
+  private def dbName(projectName: String, mode: Mode): String = mode match {
+    case Dev  => s"${projectName}_dev"
+    case Prod => s"${projectName}_prod"
+  }
+
   private def migrate(
       projectName: String,
       migration: MigrationInput,
@@ -108,7 +115,7 @@ object DeamonServer extends IOApp {
     val pgUri = jdbcPostgresUri(
       daemonConfig.dbInfo.host,
       daemonConfig.dbInfo.port,
-      projectName.some
+      dbName(projectName, mode).some
     )
 
     val pgUser = daemonConfig.dbInfo.user
@@ -125,7 +132,7 @@ object DeamonServer extends IOApp {
         blocker
       )
       .allocated
-      .unsafeRunSync
+      .unsafeRunSync()
       ._1
 
     val storage = buildStorage(
@@ -188,16 +195,23 @@ object DeamonServer extends IOApp {
   private def routes(daemonConfig: DaemonConfig, wskClient: WskClient[IO]) =
     HttpRoutes.of[IO] {
       // Setup phase
-      case req @ POST -> Root / "project" / "create" => {
+      case req @ POST -> Root / "project" / "create" / modeStr => {
+        val parsedMode: IO[Mode] = modeStr match {
+          case "dev"  => IO(Mode.Dev)
+          case "prod" => IO(Mode.Prod)
+          case _      => IO.raiseError(new Exception("Invalid mode route"))
+        }
+
         val project = req.bodyText.compile.string
           .map(_.parseJson.convertTo[ProjectInput])
 
         val createProjectDb = for {
+          mode <- parsedMode
           project <- project
           _ <- (project.pgUri, project.pgUser, project.pgPassword) match {
             case (None, None, None) => {
               val DBInfo(host, port, user, password, _) = daemonConfig.dbInfo
-              createDatabase(host, port, user, password, project.name)
+              createDatabase(host, port, user, password, dbName(project.name, mode))
             }
             case _ => IO.unit
           }
@@ -241,17 +255,8 @@ object DeamonServer extends IOApp {
         } yield response
       }
       case req @ (POST | GET) ->
-            Root / "project" / projectName / mode / "graphql" => {
-        val servers = mode match {
-          case "dev"  => IO(devProjectServers)
-          case "prod" => IO(prodProjectServers)
-          case _ =>
-            IO.raiseError {
-              new Exception(s"Invalid mode route `$mode`")
-            }
-        }
-
-        servers.flatMap(_.get(projectName) match {
+          Root / "project" / projectName / "dev" / "graphql" => {
+        devProjectServers.get(projectName) match {
           case Some(server) =>
             Router(req.uri.renderString -> server.routes).run(req).value.map {
               case Some(res) => res
@@ -266,9 +271,29 @@ object DeamonServer extends IOApp {
               Status.NotFound,
               s"Server for project `$projectName` not found".toJson.some
             ).pure[IO]
-        })
+        }
       }
-      case GET -> Root / "ping" => response(Status.Ok).pure[IO]
+      case req @ POST ->
+          Root / "project" / projectName / "prod" / "graphql" => {
+        prodProjectServers.get(projectName) match {
+          case Some(server) =>
+            Router(req.uri.renderString -> server.routes).run(req).value.map {
+              case Some(res) => res
+              case None =>
+                response(
+                  Status.NotFound,
+                  s"${req.uri.renderString} not found".toJson.some
+                )
+            }
+          case None =>
+            response(
+              Status.NotFound,
+              s"Server for project `$projectName` not found".toJson.some
+            ).pure[IO]
+        }
+      }
+      case GET -> Root / "ping" =>
+        response(Status.Ok, Some(JsString("Healthy!"))).pure[IO]
     }
 
   override def run(args: List[String]): IO[ExitCode] = {

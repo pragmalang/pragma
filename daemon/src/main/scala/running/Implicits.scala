@@ -55,10 +55,10 @@ object RunningImplicits {
           case Success(value) => IntValue(value)
           case Failure(_)     => BigIntValue(value.toBigInt)
         }
-      case JsNumber(value) if !value.isWhole => BigDecimalValue(value)
-      case JsTrue                            => BooleanValue(true)
-      case JsFalse                           => BooleanValue(false)
-      case JsNull                            => NullValue()
+      case JsNumber(value) => BigDecimalValue(value)
+      case JsTrue          => BooleanValue(true)
+      case JsFalse         => BooleanValue(false)
+      case JsNull          => NullValue()
     }
     override def write(obj: Value): JsValue = obj match {
       case ListValue(values, _, _) =>

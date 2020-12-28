@@ -8,6 +8,7 @@ import cli.utils._
 import os.Path
 import requests.RequestFailedException
 import spray.json.JsString
+import pragma.parsing.PragmaParser
 
 object Main {
 
@@ -20,13 +21,18 @@ object Main {
         sys.exit(0)
       }
       case Dev => {
-        tryOrExit(DaemonClient.ping.void)
+        tryOrExit(
+          pingOrStartDevDaemon(config),
+          Some(
+            "Failed to reach or start a local Pragma instance for development"
+          )
+        )
         println(renderLogo)
         run(config, mode = Dev, withReload = true)
       }
       case CLICommand.New => initProject()
       case Prod => {
-        tryOrExit(DaemonClient.ping.void)
+        tryOrExit(DaemonClient.pingLocalDaemon().void)
         println(renderLogo)
         run(config, mode = Prod)
       }
@@ -51,21 +57,12 @@ object Main {
 
     lazy val syntaxTree = SyntaxTree.from(code)
 
-    lazy val migration = for {
+    val migration = for {
       st <- syntaxTree
       projNameEntry = st.config.entryMap("projectName")
       projectName = projNameEntry.value
         .asInstanceOf[PStringValue]
         .value
-      _ <- if (projectName contains "-")
-        Failure {
-          UserError(
-            (
-              "The project's name must not contain any dashes ('-')",
-              projNameEntry.position
-            ) :: Nil
-          )
-        } else Success(())
       functions <- st.functions.toList.traverse {
         case ExternalFunction(id, scopeName, filePathStr, runtime) => {
           val filePath = os.FilePath(filePathStr)
@@ -77,8 +74,7 @@ object Main {
                   readContent(config.projectPath / os.RelPath(filePathStr))
               }
             }
-          } yield
-            ImportedFunctionInput(id, scopeName, content, runtime, isBinary)
+          } yield ImportedFunctionInput(id, scopeName, content, runtime, isBinary)
         }
         case otherFn =>
           Failure {
@@ -88,7 +84,7 @@ object Main {
           }
       }
       _ <- DaemonClient
-        .createProject(ProjectInput(projectName))
+        .createProject(ProjectInput(projectName), mode)
         .handleErrorWith {
           // Meaning project already exists
           case err: RequestFailedException if err.response.statusCode == 400 =>
@@ -151,10 +147,16 @@ object Main {
     }
 
   def initProject(): Try[Unit] = Try {
-    val newProjectName = readLine("What's the name of your new project?:").trim
-    if (newProjectName.isEmpty) {
-      println("A project's name cannot be an empty string... Please try again")
-      initProject()
+    val newProjectName = new PragmaParser(
+      readLine("What's the name of your new project?: ").trim
+    ).identifierThenEOI.run() match {
+      case Failure(_) => {
+        println(
+          "A project's name must be a valid Pragma identifier... Please try again"
+        )
+        sys.exit(1)
+      }
+      case Success(id) => id
     }
     val projectDir = os.pwd / newProjectName
     Try {
@@ -165,10 +167,37 @@ object Main {
         |""".stripMargin
 
       os.write(projectDir / "Pragmafile", pragmafile)
+      os.write(
+        projectDir / ".pragma" / "docker-compose.yml",
+        dockerComposeFile,
+        createFolders = true
+      )
     } *> Success(println("Project files successfully generated."))
   }
 
-  val renderLogo =
+  def pingOrStartDevDaemon(config: CLIConfig): Try[Unit] =
+    DaemonClient.pingLocalDaemon().void.recoverWith { _ =>
+      val dcyml = config.dotPragmaDir / "docker-compose.yml"
+      def dcUp =
+        Try {
+          println("Starting required Docker containers...")
+          os.proc("docker-compose", "up", "-d").call(config.dotPragmaDir)
+        }.void
+          .adaptErr { err =>
+            new Exception(
+              s"`docker-compose up` failed on ${dcyml.toString}\n${err.getMessage}"
+            )
+          }
+
+      if (os.exists(dcyml)) dcUp *> DaemonClient.pingLocalDaemon(10).void
+      else
+        Try {
+          println(s"Creating ${dcyml.toString}...")
+          os.write(dcyml, dockerComposeFile, createFolders = true)
+        } *> dcUp
+    }
+
+  lazy val renderLogo =
     assets.asciiLogo
       .split("\n")
       .map(line => (" " * 24) + line)

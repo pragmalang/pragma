@@ -25,11 +25,11 @@
 
 ## What is Pragma?
 
-Pragma is a language for building beautiful and extensible GraphQL APIs ***in no time***. Within a single file, you can define your **data models** and **authorization rules (permissions and roles)**, and **import serverless functions** for data validation, transformation, authorization or any custom logic. Then with a single command, Pragma generates a fully functional API ready to be used from your front-end application.
+Pragma is a language for building beautiful and extensible GraphQL APIs ***in no time***. Within a single file, you can define your **data models** and **authorization rules (permissions and roles)**, and **import serverless functions** for data validation, transformation, authorization or any custom logic. Then with a single command, Pragma generates a fully functional API ready to be consumed from your front-end application.
 
 ## Why Pragma?
 
-You want to focus on building user-facing features instead of dealing with resolvers, endpoints, migrations, authentication, authorization, scaling, queries, and all the headache that comes with building and maintaining an API to be consumed from the front end.
+You want to focus on building user-facing features instead of dealing with resolvers, endpoints, migrations, authentication, authorization, scaling, queries, and all the headache that comes with building and maintaining an API.
 
 Pragma helps you build for your users, deliver a lot faster (10-100x faster), iterate and try new ideas with minimal technical cost.
 
@@ -47,12 +47,10 @@ Visit [the documentation](https://docs.pragmalang.com) and learn about how Pragm
 
 # Install Pragma
 
-> Pragma is currently under heavy development, and should not be used in a production setting. All Pragma APIs are subject to breaking change.
-
 ## Linux
 
 ### Requirements
-- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
 
 To make sure you have them and that they work, run:
 ```sh
@@ -66,12 +64,13 @@ If any of the above commands fail, make sure it works before proceeding with the
 
 ### Installation
 
-Now to install Pragma, run:
-```sh
-sudo curl https://pragmalang.github.io/pragma/install/linux/install.sh | sh
+To install Pragma, run:
 ```
+curl https://raw.githubusercontent.com/pragmalang/pragma/master/scripts/install-universal.sh | sh
+```
+The script will ask for root access, so make sure to enter your password when prompted.
 
-This script will download the Pragma binary, change it to become executable, and place it in `/usr/local/bin`. It also places a `pragma-docker-compose.yml` file in `/usr/local/bin`, and runs it.
+If you're on Ubuntu/Debian, you can download the `.deb` package from [releases](https://github.com/pragmalang/pragma/releases/latest).
 
 ### Run Pragma
 
@@ -84,14 +83,24 @@ pragma help
 
 ### Requirements
 
-- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
-- [Java](https://java.com/en/download/help/linux_install.html)
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- [Java](https://www.oracle.com/java/technologies/javase-jdk15-downloads.html)
 
-### Installation
+To make sure you have them and that they work, run:
+```sh
+docker run hello-world
+```
+```sh
+docker-compose --help
+```
+```sh
+java -version
+```
 
-First, we need to install the Pragma CLI:
+If any of the above commands fail, make sure it works before proceeding with the installation of Pragma.
 
 > **Note:** When [installing Java](https://www.oracle.com/java/technologies/javase-jdk15-downloads.html), make sure to use the **macOS Installer**. The macOS version of Pragma is the only one that doesn't come with a bundled Java runtime, due to the latest security features in macOS Catalina+.
+:::
 
 ### Run Pragma
 
@@ -104,25 +113,26 @@ pragma help
 
 ### Requirements
 
-- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
-- [Java](https://java.com/en/download/help/linux_install.html)
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+
+To make sure you have them and that they work, run:
+```sh
+docker run hello-world
+```
+```sh
+docker-compose --help
+```
+
+If any of the above commands fail, make sure it works before proceeding with the installation of Pragma.
 
 ### Installation
 
 First, we need to install the Pragma CLI:
 
-- [Download the installer (`pragma.msi`)](https://github.com/pragmalang/pragma/releases/download/v0.1.0/pragma.msi)
-- Run `pragma.msi` and follow the installation wizard
+- [Download the installer](https://github.com/pragmalang/pragma/releases/download/0.2.0/pragma-0.2.0.msi)
+- Run the installer and follow the installation wizard
 
 > *Note*: If Microsoft Defender tells you it prevented an unrecognized app from starting, click on "__More info__", then click on **"Run anyway"**.
-
-After the CLI is installed, we need to install and run the Pragma Daemon (`pragmad`): 
-
-- Create a `docker-compose.yml` file with the contents of [this docker-compose file](https://github.com/pragmalang/pragma/blob/master/cli/src/main/resources/docker-compose.yml)
-- Run it with `docker-compose up -d`
-
-
-> *Note*: The name of the docker-compose file *must* be `docker-compose.yml`, and you must run `docker-compose up -d` from the folder where you created the `docker-compose.yml` file.
 
 ### Run Pragma
 
@@ -192,26 +202,26 @@ Docker builds are performed using [SBT Native Packager](https://www.scala-sbt.or
 sbt "daemon/docker:publishLocal"
 ```
 
-## GraalVM Native Image Generation
-The native image build is performed using [SBT Native Packager](https://www.scala-sbt.org/sbt-native-packager/formats/graalvm-native-image.html), so the `native-image` version needs to be installed locally.
+## CLI Packaging
 
-Currently, only the CLI can be compiled to a native image. Run:
+> NOTE: Generating the packages for each platform requires running the build on that very platform, in addition to some dependencies installed locally. See the requirements of each platform's plugin.
+
+These packages should **NOT** require a local JDK installation, or have any dependencies since the [Jlink plugin](https://www.scala-sbt.org/sbt-native-packager/archetypes/jlink_plugin.html) is used.
+
+To build Linux packages:
 ```sh
-sbt "cli/graalvm-native-image:packageBin"
+sbt 'cli/debian:packageBin; cli/rpm:packageBin'
 ```
 
-To generate META-INF (for trying to generate a native image from the daemon):
+To build Windows installer (`.msi`):
+```sh
+sbt 'cli/windows:packageBin'
 ```
 
-To build macOS `.dmg`:
+To build MacOS `.dmg`:
 ```sh
 sbt 'cli/universal:packageOsxDmg'
 ```
-See:
-* https://www.graalvm.org/reference-manual/native-image/Configuration/#assisted-configuration-of-native-image-builds
-* https://noelwelsh.com/posts/2020-02-06-serverless-scala-services.html
-
-> NOTE: Make sure everything else other than this process is canceled. It needs all the memory it can get.
 
 ## Apache Bench benchmark
 Run the ammonite script in `test/benchmark`:
@@ -227,7 +237,3 @@ Make sure the daemon is running before running the benchmark (run `docker-compos
 
 ## Documentation
 The user documentation lives in `website/docs` and is built using Docusaurus 2. It's hosted on http://docs.pragmalang.com.
-
-# License
-
-Pragma is licensed under the [GNU GPLv3 License](https://github.com/pragmalang/pragma/blob/master/LICENSE).

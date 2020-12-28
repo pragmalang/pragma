@@ -20,10 +20,8 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
     currentSyntaxTree: SyntaxTree,
     queryEngine: PostgresQueryEngine[M],
     funcExecutor: PFunctionExecutor[M]
-)(
-    implicit MError: MonadError[M, Throwable],
-    cs: ContextShift[M]
-) extends MigrationEngine[Postgres[M], M] {
+)(implicit MError: MonadError[M, Throwable])
+    extends MigrationEngine[Postgres[M], M] {
 
   override def migrate(mode: Mode, codeToPersist: String): M[Unit] = {
 
@@ -68,23 +66,24 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
         case Mode.Dev  => false.pure[M]
       }
       prevTree <- if (prevTreeExists) prevTree else SyntaxTree.empty.pure[M]
-      thereExistData <- if (prevTreeExists) {
-        prevTree.models
-          .map { model =>
-            Fragment(
-              s"select count(*) from ${model.id.withQuotes} limit 1;",
-              Nil,
-              None
-            ).query[Int]
-              .unique
-              .map(count => model.id -> (count > 0))
-          }
-          .toVector
-          .traverse(d => d.transact(transactor))
-          .map(_.toMap)
-      } else Map.empty[ModelId, Boolean].pure[M]
+      thereExistData <-
+        if (prevTreeExists) {
+          prevTree.models
+            .map { model =>
+              Fragment(
+                s"select count(*) from ${model.id.withQuotes} limit 1;",
+                Nil,
+                None
+              ).query[Int]
+                .unique
+                .map(count => model.id -> (count > 0))
+            }
+            .toVector
+            .traverse(d => d.transact(transactor))
+            .map(_.toMap)
+        } else Map.empty[ModelId, Boolean].pure[M]
       migration <- migration(prevTree, thereExistData.withDefaultValue(false))
-      _ <- migration.run(transactor)
+      _ <- migration.run(transactor, thereExistData)
       _ <- mode match {
         case Mode.Prod if !migration.sqlSteps.isEmpty => insertMigration
         case _                                        => ().pure[M]
@@ -173,11 +172,9 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
             }
             .map { indexedField =>
               val field = currentModel.fieldsById(indexedField.id)
-              if (thereExistData(prevModel.id) &&
-                  (!field.ptype.isInstanceOf[POption] ||
-                  field.defaultValue.isEmpty))
+              if (thereExistData(prevModel.id) && !field.hasValueGenerator)
                 throw UserError(
-                  s"Newly added field `${field.id}` must be optional or have a default value because there exist records in model `${currentModel.id}`"
+                  s"Newly added field `${field.id}` must be optional, have a default value, annotated with `@uuid`, or annotated with `@autoIncrement` because there exist records in model `${currentModel.id}` and newly added required fields need to have some way to generate values for existing records to ensure consistency with the new schema"
                 )
               else
                 AddField(field, prevModel)
@@ -227,12 +224,11 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
               _.index == currentIndexedField.index
             }
             if currentIndexedField.id != prevIndexedField.id
-          } yield
-            RenameField(
-              prevIndexedField.id,
-              currentIndexedField.id,
-              prevModel
-            )
+          } yield RenameField(
+            prevIndexedField.id,
+            currentIndexedField.id,
+            prevModel
+          )
 
           changeManyFieldTypes = {
             val changes = for {
@@ -246,23 +242,21 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
               if !prevField.ptype.innerPReference
                 .filter(ref => renamedModels.exists(_.prevModelId == ref.id))
                 .isDefined
-            } yield
-              ChangeFieldType(
+            } yield ChangeFieldType(
+              prevField,
+              currentField,
+              getTransformers(
+                prevModel,
+                currentModel,
                 prevField,
-                currentField.ptype,
-                getTransformers(
-                  currentField.directives,
-                  prevModel,
-                  currentModel,
-                  prevField,
-                  currentField,
-                  thereExistData
-                ).get
-              )
+                currentField,
+                thereExistData
+              ).get
+            )
 
             if (changes.isEmpty) None
             else
-              ChangeManyFieldTypes(
+              ChangeFieldTypes(
                 prevModel,
                 currentModel,
                 changes
@@ -282,14 +276,43 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
     }.toEither
 
   def getTransformers(
-      directives: Seq[Directive],
       prevModel: PModel,
       currentModel: PModel,
       prevField: PModelField,
       currentField: PModelField,
       thereExistData: Map[ModelId, Boolean]
   ): Try[Option[ExternalFunction]] =
-    directives.find(_.id == "typeTransformer") match {
+    currentField.directives.find(_.id == "typeTransformer") match {
+      /*
+        No need for a transformation function, a `NOT NULL` constraint will be
+        removed.
+       */
+      case None if `Field type has changed`.`from A to A?`(prevField, currentField) =>
+        Success(None)
+      /*
+        No need for a transformation function, the current value,
+        will be the first element of the array.
+       */
+      case None
+          if `Field type has changed`.`from A to [A]`(
+            prevField,
+            currentField
+          ) =>
+        Success(None)
+      /*
+        No need for a transformation function, the current value, if not null,
+        will be the first element in the array, and if it's null then the array
+        is empty.
+       */
+      case None
+          if `Field type has changed`.`from A? to [A]`(
+            prevField,
+            currentField
+          ) =>
+        Success(None)
+      // TODO: Remove this case when changing types is implemented)
+      case _ if currentField.ptype.isInstanceOf[PType] =>
+        Failure(UserError("Changing field types is not supported yet"))
       case Some(typeTransformerDir) =>
         typeTransformerDir.args.value("typeTransformer") match {
           case func: ExternalFunction => Success(Some(func))
@@ -308,28 +331,6 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
             }
           }
         }
-      /*
-        No need for a transformation function, a `NOT NULL` constraint will be
-        removed.
-       */
-      case None
-          if `Field type has changed` `from A to A?` (prevField, currentField) =>
-        Success(None)
-      /*
-        No need for a transformation function, the current value,
-        will be the first element of the array.
-       */
-      case None
-          if `Field type has changed` `from A to [A]` (prevField, currentField) =>
-        Success(None)
-      /*
-        No need for a transformation function, the current value, if not null,
-        will be the first element in the array, and if it's null then the array
-        is empty.
-       */
-      case None
-          if `Field type has changed` `from A? to [A]` (prevField, currentField) =>
-        Success(None)
       case None if thereExistData(prevModel.id) => {
         val requiredFunctionType =
           s"${displayPType(prevField.ptype)} => ${displayPType(currentField.ptype)}"
@@ -343,8 +344,7 @@ class PostgresMigrationEngine[M[_]: Monad: ConcurrentEffect](
     }
 }
 
-/**
-  * `IndexedModel#equals` and `IndexedField#equals` assume that the `Validator` has validated
+/** `IndexedModel#equals` and `IndexedField#equals` assume that the `Validator` has validated
   * that no model or field has the same name in the same scope nor the same index
   */
 case class IndexedModel(

@@ -152,6 +152,7 @@ package object utils {
     case PInterfaceField(id, ptype, _) => s"$id: ${displayPType(ptype)}"
     case PModelField(id, ptype, _, _, directives, _) =>
       s"$id: ${displayPType(ptype, isVerbose = false)} ${directives.map(displayDirective).mkString(" ")}"
+    case f => s"${f.id}: ${displayPType(f.ptype, isVerbose = false)}"
   }
 
   def displayDirective(directive: Directive) = {
