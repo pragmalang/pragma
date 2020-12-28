@@ -12,7 +12,15 @@ Subscriptions are not supported yet, but they are very high on the priority list
 
 ## Example
 
-Let's say we have the following `Pragmafile`
+Let's say we have the [`Pragmafile` below](#pragmafile).
+
+Now if we run `pragma dev` and view/download the schema from the Playground, we can see the [generated schema below](#generated-graphql-schema) below.
+
+If you think that the generated schema is long, don't worry, you don't have to read all of it. You should always start from the `Query` and the `Mutation` type where each of them contains the available queries and mutations of each **model** respectively which are namespaced by the model's name.
+
+Let's say that you want to get all users (assuming you have the right [permissions](../features/permissions.md) to do so), you start by looking at the `Query` type then you look at the **GraphQL field named `User`** inside `Query` (`Query.User`), and then to know which operations are available on the **`User` model** you can look into **`UserQueries` type**, then you find `read` and `list`, then ou choose `list` because it allows you to get an array users `[User!]!`. Same for other operations and models.
+
+You can play with the GraphQL API in the Playground after running `pragma dev`.
 
 ### Pragmafile
 
@@ -46,14 +54,6 @@ config { projectName = "mini_twitter" }
 
 # Role definitions and permissions are omitted for demonstration purposes
 ```
-
-Now if we run `pragma dev` and view/download the schema from the Playground, we can see the [generated schema below](#generated-graphql-schema).
-
-If you think that the generated schema is long, don't worry, you don't have to read all of it. You should always start from the `Query` and the `Mutation` type where each of them contains the available queries and mutations of each **model** respectively which are namespaced by the model's name.
-
-Let's say that you want to get all users (assuming you have the right [permissions](../features/permissions.md) to do so), you start by looking at `Query` then you look at the **GraphQL field named `User`** (`Query.User`), and then to know which operations are available on the **`User` model** you can look into **`UserQueries` type**, then you find `read` and `list`, then ou choose `list` because it allows you to get an array users `[User!]!`.
-
-You can play with the GraphQL API in the Playground after running `pragma dev`.
 
 ### Generated GraphQL Schema
 
