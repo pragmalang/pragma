@@ -89,11 +89,6 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       list(aggregation: BranchAggInput): [Branch!]!
     }
 
-    type BranchSubscriptions {
-      read(address: String!): Branch
-      list(aggregation: BranchAggInput): Branch
-    }
-
     type Business {
       username: String
       email: String!
@@ -150,11 +145,6 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
     type BusinessQueries {
       read(email: String!): Business
       list(aggregation: BusinessAggInput): [Business!]!
-    }
-
-    type BusinessSubscriptions {
-      read(email: String!): Business
-      list(aggregation: BusinessAggInput): Business
     }
 
     enum BusinessType {
@@ -265,11 +255,6 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       endsWith: String
       pattern: String
       eq: String
-    }
-
-    type Subscription {
-      Business: BusinessSubscriptions
-      Branch: BranchSubscriptions
     }
 
     enum EventEnum {

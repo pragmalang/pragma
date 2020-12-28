@@ -512,13 +512,11 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
   def build = Document {
     (queryType
       :: mutationType
-      :: subscriptionType
-      :: buitlinGraphQlDefinitions
+      :: builtinGraphQlDefinitions
         ++ outputTypes
         ++ inputTypes
         ++ modelMutationsTypes
-        ++ modelQueriesTypes
-      ++ modelSubscriptionsTypes).toVector
+        ++ modelQueriesTypes).toVector
   }
 }
 
@@ -767,7 +765,7 @@ object ApiSchemaGenerator {
     }
   )
 
-  lazy val buitlinGraphQlDefinitions =
+  lazy val builtinGraphQlDefinitions =
     gql"""
     input IntAggInput {
       filter: [IntFilter!]
