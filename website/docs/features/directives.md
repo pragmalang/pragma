@@ -5,10 +5,11 @@ title: Directives
 
 A *directive* is an annotation that is used to specify certain behavior for a model/model field. Much like GraphQL directives, Pragma directives start with an `@` symbol, followed by the name of the directive, and its arguments (if any) which are specified by name.
 
-> *Fun Fact*: "Pragma" is a synonym for "compiler directive", which is where the name of the language (partly) comes from.
+:::note Fun Fact 
+"Pragma" is a synonym for "compiler directive", which is where the name of the language (partly) comes from.
+:::
 
 The following is a list of all the directives available in Pragma:
-
 ## Model-level directives
 
 Directives that can be used to mark models.
@@ -41,11 +42,12 @@ Registers a function to be called on `DELETE`
 ### @onLogin
 Registers a function to be called when a user logs in.
 
-**Arguments:**
- - `function`: A function that takes the logged in user, and returns nothing.
 :::note
 Can only be used on user models.
 :::
+
+**Arguments:**
+ - `function`: A function that takes the logged in user, and returns nothing.
 
 
 ## Field-level directives
