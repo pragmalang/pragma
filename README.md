@@ -35,11 +35,11 @@ Pragma helps you build for your users, deliver a lot faster (10-100x faster), it
 
 ## Tell People About This
 
-Hyped enough?
-
-Great! You can [tweet about this project](https://twitter.com/intent/tweet?text=Hi%20everyone,%20I%20just%20found%20this%20cool%20project%20called%20@pragmalang.%0a%0a@apollographql&url=https://github.com/pragmalang/pragma&hashtags=GraphQL,code,javascript,react,reactjs,reactnative,apollo) and tell your followers how interesting this is.
+Hyped? [tweet about this project](https://twitter.com/intent/tweet?text=Hi%20everyone,%20I%20just%20found%20this%20cool%20project%20called%20@pragmalang.%0a%0a@apollographql&url=https://github.com/pragmalang/pragma&hashtags=GraphQL,code,javascript,react,reactjs,reactnative,apollo) and tell your followers how interesting this is.
 
 You can also [join our Discord server](https://discord.gg/gbhDnfC) to meet other developers, get community support, and have fun!
+
+[![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Hi%20everyone,%20I%20just%20found%20this%20cool%20project%20called%20@pragmalang.%0a%0a@apollographql&url=https://github.com/pragmalang/pragma&hashtags=GraphQL,code,javascript,react,reactjs,reactnative,apollo) [![Discord](https://img.shields.io/discord/719970258903105558?label=Discord&logo=discord&style=social)](https://discord.gg/gbhDnfC)
 
 ## Documentation
 
