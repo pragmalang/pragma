@@ -1,10 +1,8 @@
-[![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=Hi%20everyone,%20I%20just%20found%20this%20cool%20project%20called%20@pragmalang.%0a%0a@apollographql&url=https://github.com/pragmalang/pragma&hashtags=GraphQL,code,javascript,react,reactjs,reactnative,apollo)
 [![Pragma](https://raw.githubusercontent.com/pragmalang/pragma/master/website/static/img/full-logo.svg)](https://pragmalang.com)
 [![Discord](https://img.shields.io/discord/719970258903105558?label=Discord&logo=discord&style=for-the-badge)](https://discord.gg/gbhDnfC)
 [![Reddit](https://img.shields.io/reddit/subreddit-subscribers/pragmalang?style=for-the-badge&logo=Reddit&logoColor=E17334&color=E17334)](https://reddit.com/r/pragmalang)
 ![Tests](https://img.shields.io/github/workflow/status/pragmalang/pragma/Test/master?style=for-the-badge&label=tests)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=for-the-badge)
-
 
 # Table of Contents
 - [Table of Contents](#table-of-contents)
@@ -25,17 +23,17 @@
 
 ## What is Pragma?
 
-Pragma is a language for building beautiful and extensible GraphQL APIs ***in no time***. Within a single file, you can define your **data models** and **authorization rules (permissions and roles)**, and **import serverless functions** for data validation, transformation, authorization or any custom logic. Then with a single command, Pragma generates a fully functional API ready to be consumed from your front-end application.
+Pragma is a language for building beautiful and extensible GraphQL APIs ***in no time***. Within a single file, you can define your **data models** and **authorization rules (roles and permissions)**, and **import serverless functions** for data validation, transformation, authorization, or any custom logic. With a single command, Pragma generates a fully functional API, ready to be consumed from your front-end application.
 
 ## Who is Pragma for?
 
 Pragma is for developers who want to build, iterate, and ship as fast as possible and focus on user-facing features instead of dealing with resolvers, endpoints, migrations, authentication, authorization, scaling, queries, and all the headache that comes with building and maintaining an API.
 
-Pragma is a perfect fit for startups. In fact, the original motivation behind it was testing new ideas in hours or days instead of weeks or months. It is designed to help you move fast.
+Pragma is a perfect fit for startups. In fact, the original motivation behind it was testing new ideas in hours or days instead of weeks or months. It is designed to help you move quickly.
 
 Pragma helps you focus on your users and primary business/domain logic, deliver a lot faster (10-100x faster than traditional frameworks), iterate and try new ideas with minimal technical cost.
 
-Pragma is great for building internal tools too. You don't want to spend too much time on an internal tool, you just want it to work; Pragma is a great fit for such situations.
+Pragma is great for building internal tools too. You don't want to spend too much time building an internal tool, you just want it to work; Pragma is a great fit for such situations.
 
 Pragma is for developers who want to materialize their ideas quickly, and share them with the world.
 
@@ -43,7 +41,7 @@ Pragma is for builders.
 
 ## Tell People About This
 
-Hyped? [tweet about this project](https://twitter.com/intent/tweet?text=Hi%20everyone,%20I%20just%20found%20this%20cool%20project%20called%20@pragmalang.%0a%0a@apollographql&url=https://github.com/pragmalang/pragma&hashtags=GraphQL,code,javascript,react,reactjs,reactnative,apollo) and tell your followers how interesting this is.
+Hyped? [Tweet about this project](https://twitter.com/intent/tweet?text=Hi%20everyone,%20I%20just%20found%20this%20cool%20project%20called%20@pragmalang.%0a%0a@apollographql&url=https://github.com/pragmalang/pragma&hashtags=GraphQL,code,javascript,react,reactjs,reactnative,apollo) and tell your followers how interesting this is.
 
 You can also [join our Discord server](https://discord.gg/gbhDnfC) to meet other developers, get community support, and have fun!
 
@@ -51,7 +49,7 @@ You can also [join our Discord server](https://discord.gg/gbhDnfC) to meet other
 
 ## Documentation
 
-Visit [the documentation](https://docs.pragmalang.com) and learn about how Pragma can make your developer experience fun and help you build and deliver a lot faster.
+Visit [the documentation](https://docs.pragmalang.com) to learn Pragma in a few minutes.
 
 # Install Pragma
 
