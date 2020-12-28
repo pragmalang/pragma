@@ -10,7 +10,7 @@
 - [Table of Contents](#table-of-contents)
 - [Introduction](#introduction)
   - [What is Pragma?](#what-is-pragma)
-  - [Why Pragma?](#why-pragma)
+  - [Who is Pragma for?](#who-is-pragma-for)
   - [Tell People About This](#tell-people-about-this)
   - [Documentation](#documentation)
 - [Install Pragma](#install-pragma)
@@ -27,11 +27,19 @@
 
 Pragma is a language for building beautiful and extensible GraphQL APIs ***in no time***. Within a single file, you can define your **data models** and **authorization rules (permissions and roles)**, and **import serverless functions** for data validation, transformation, authorization or any custom logic. Then with a single command, Pragma generates a fully functional API ready to be consumed from your front-end application.
 
-## Why Pragma?
+## Who is Pragma for?
 
-You want to focus on building user-facing features instead of dealing with resolvers, endpoints, migrations, authentication, authorization, scaling, queries, and all the headache that comes with building and maintaining an API.
+Pragma is for developers who want to build, iterate, and ship as fast as possible and focus on user-facing features instead of dealing with resolvers, endpoints, migrations, authentication, authorization, scaling, queries, and all the headache that comes with building and maintaining an API.
 
-Pragma helps you build for your users, deliver a lot faster (10-100x faster), iterate and try new ideas with minimal technical cost.
+Pragma is a perfect fit for startups. In fact, the original motivation behind it was trying ideas in hours instead of weeks or months. It is designed to help you move fast.
+
+Pragma helps you focus on your users and primary business/domain logic, deliver a lot faster (10-100x faster than traditional frameworks), iterate and try new ideas with minimal technical cost.
+
+Pragma is great for building internal tools too. You don't want to spend too much time on an internal tool, you just want it to work; Pragma is a great fit for such situations.
+
+Pragma is for developers who want to materialize their ideas quickly, and share them with the world.
+
+Pragma is for builders.
 
 ## Tell People About This
 
