@@ -40,7 +40,7 @@ The following is a table specifying the available permissions, and the types of 
 |      `READ`      |                   Retrieve from the API                  | Models & model fields |
 |     `CREATE`     |             Insert a record into the database            |         Models        |
 | `READ_ON_CREATE` |     Retrieve after creating with a `CREATE` operation    | Models & model fields |
-|  `SET_ON_CREATE` | `CREATE` operation that sets a field in the input object |                       |
+|  `SET_ON_CREATE` | `CREATE` operation that sets a field in the input object |     Model fields      |
 |     `UPDATE`     |              Modify a record in the database             | Models & model fields |
 |     `PUSH_TO`    |             Add an element to an array field             |   Model array fields  |
 |   `REMOVE_FROM`  |           Remove an element from an array field          |   Model array fields  |
@@ -52,7 +52,7 @@ The following is a table specifying the available permissions, and the types of 
 
 An access rule can be followed by an `if` clause, specifying a condition that must be satisfied in order for the rule to match the operation. These conditions are *predicates*, which are functions that return a boolean value (true or false). Predicates can be imported just like any other function in Pragma, for instance:
 ```pragma {1, 9}
-import "./my-functions.js" as myFunctions
+import "./my-functions.js" as myFunctions { runtime = "nodejs:10" }
 
 @user @1 model User {
   @1 name: String @primary @publicCredential
@@ -73,9 +73,13 @@ module.exports = { ageOver18 }
 The return of authorization predicates must be an object containing a `result` field of type boolean. If the predicate return anything other than a boolean in the `result` field, it is considered `false`.
 :::
 
+:::note
+Authorization rules are not the best way to *validate* data coming in, which is basically what `ageOver18` does. It is better to use the [`@onWrite` directive](./directives.md#@onwrite) instead, but this example is implemented using an authorization rule only for demonstration purposes.
+:::
+
 ### Roles
 
-When a [user model](./user-models.md) is defined, you can define a *role* for that specific user model. A role is a list of rules that apply only to the role they are defined within. For instance:
+When a [user model](./user-models.md) is defined, you can define a *role* for that specific user model. A role is a list of rules that apply only to the type of user for which the role is defined. For instance:
 ```pragma
 role User {
   deny READ User.password
