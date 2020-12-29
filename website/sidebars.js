@@ -3,6 +3,7 @@ module.exports = {
     'Overview': [
       'introduction',
       'overview/install-pragma',
+      'overview/getting-started/graphql-intro',
       {
         type: 'category',
         label: 'Getting Started',
