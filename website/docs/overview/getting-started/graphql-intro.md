@@ -12,7 +12,7 @@ GraphQL is a language specification released by Facebook and standardized in 201
 * **Type-Safe Communication**: You always know the type/shape of the data you're receiving, and the type of data the server expects from you.
 * **Standard Documentation**: All GraphQL APIs must follow a certain standard where it comes to documentation. Many tools know how to interpret this documentation by [*introspecting*](https://spec.graphql.org/June2018/#sec-Introspection) the API.
 * **Tooling**: Since GraphQL is a standard, many tools are designed to work with all GraphQL APIs, such as tools that generate TypeScript definitions based on the GraphQL *schema* to be used in your Web app.
-* **No Underfetching/Overfetching Of Data**: You select exactly the data that you need, and you can perform multiple operations within a single query.
+* **No Under-fetching/Over-fetching Of Data**: You select exactly the data that you need, and you can perform multiple operations within a single query.
 
 GraphQL is actually two languages smashed into one: a *schema definition language*, and a *query language*. 
 
@@ -49,7 +49,7 @@ Comments in schema definitions are typically used for documentation. Comments in
 GraphQL APIs have three types of operations that a client can perform:
 * Queries: Simple retrieval of data
 * Mutations: Changes to existing data, or addition of new data.
-* Subscriptions: Retrieval of dta over time.
+* Subscriptions: Retrieval of data over time.
 
 When developing a GraphQL API, you typically need to specify the queries, mutations, and subscriptions that your server can handle. In the example above, the server is only capable of performing a single query that takes a name of a character, and returns that character. But here's the catch: *you need to specify **how** the query is handled*. Using traditional GraphQL frameworks, you would need to define what are known as *resolvers* to specify how *each field* of the type is fetched from the database. 
 
