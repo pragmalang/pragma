@@ -15,7 +15,7 @@ For a tutorial where you get to write a Pragma application that uses authorizati
 
 ## Overview
 
-When a [model](./models.md) is defined, many operations specific to that model are automatically exposed via the GraphQL API, which include `CREATE`, `READ`, `UPDATE`, `DELETE`, and many [other operations](#table-of-available-operations). Using access rules, you can allow or deny an incoming operation based on its kind (e.g. `READ` operation), and its *target resource*, which is either a model field. For instance:
+When a [model](./models.md) is defined, many operations specific to that model are automatically exposed via the GraphQL API, which include `CREATE`, `READ`, `UPDATE`, and `DELETE` operations. Using access rules, you can allow or deny an incoming operation based on its kind (e.g. `READ` operation), and its *target resource*, which is either a model field. For instance:
 ```pragma
 allow READ User
 ```
