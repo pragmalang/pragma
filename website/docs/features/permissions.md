@@ -9,7 +9,7 @@ Most applications need [authorization](https://en.wikipedia.org/wiki/Authorizati
 - What: The resource
 - How: The operation performed on the resource
 
-One way of setting up autorization for an app is using [Access Control Lists](https://en.wikipedia.org/wiki/Access-control_list) (ACLs), which are powerful since they allow us to define rules for data access in a very declaritive manner. ACLs are used in Unix-like systems for [filesystem permissions](https://en.wikipedia.org/wiki/File_system_permissions#Permissions), for instance.
+One way of setting up authorization for an app is using [Access Control Lists](https://en.wikipedia.org/wiki/Access-control_list) (ACLs), which are powerful since they allow us to define rules for data access in a very declarative manner. ACLs are used in Unix-like systems for [filesystem permissions](https://en.wikipedia.org/wiki/File_system_permissions#Permissions), for instance.
 
 For a tutorial where you get to write a Pragma application that uses authorization rules, skip to the [Example Online Course App](#example-online-course-app) section.
 
@@ -33,21 +33,34 @@ deny READ User.password
 ```
 When the resource part of an access rule is a model, operations performed on any field of the model will match the rule. So if we have `allow READ User`, then `READ` operations are allowed on all fields of the `User` model.
 
-The following is a table specifying the available permissions, and the types of resources they can be applied to:
+See [the table of operations below](#table-of-available-operations) to see which operations are applicable on which kinds of resources (models/fields). Remember, if an operation is applicable to both model resources (e.g. `User`) and field resources (e.g. `User.username`) but is applied only to a model resource (e.g. `User`) then the rule will cascade to all of that model's fields.
+### Everything is Denied by Default
 
-|  **Permission**  |                 **Operation Description**                |   **Applicable To**   |
-|:----------------:|:--------------------------------------------------------:|:---------------------:|
-|      `READ`      |                   Retrieve from the API                  | Models & model fields |
-|     `CREATE`     |             Insert a record into the database            |         Models        |
-| `READ_ON_CREATE` |     Retrieve after creating with a `CREATE` operation    | Models & model fields |
-|  `SET_ON_CREATE` | `CREATE` operation that sets a field in the input object |     Model fields      |
-|     `UPDATE`     |              Modify a record in the database             | Models & model fields |
-|     `PUSH_TO`    |             Add an element to an array field             |   Model array fields  |
-|   `REMOVE_FROM`  |           Remove an element from an array field          |   Model array fields  |
-|     `DELETE`     |             Delete a record from the database            |         Models        |
-|      `LOGIN`     |              `LOGIN` operation to get a JWT              |      User models      |
-|       `ALL`      |                       Any operation                      | Models & model fields |
+All roles are denied to perform any operation on any resource unless you define an `allow` rule for them to access that exact resource, except for `SET_ON_CREATE` and `READ_ON_CREATE` because they are expected to work when performing a `CREATE` operation and they are there to give you the option to deny them for certain roles on certain resources when you allow the `CREATE` operation for that role since they have no effect unless you allow `CREATE`. See [the table of operations below](#table-of-available-operations).
 
+**Why?** Well, it's a very opinionated decision we took when we decided that. When everything is denied by default, you have to think about every possible action the user *can* take, which can be annoying sometimes. But, on the other hand, this constraint gives us two nice upsides:
+
+- Make the system's code explicit and clear, and the system in general easier to understand and reason about
+- Make the system more secure because it forces the developer to follow the [Principle of Least Privilege](https://en.wikipedia.org/wiki/Principle_of_least_privilege)
+
+This will make merely looking at the `Pragmafile` good enough to understand how the system works, which is awesome!
+
+### Table of Available Operations
+
+The following is a table specifying the available permissions, the types of resources they can be applied to, and their default rule kind (`allow` or `deny`):
+
+|  **Permission**  |                **Operation Description**                 |   **Applicable To**   | **Default** |
+| :--------------: | :------------------------------------------------------: | :-------------------: | :---------: |
+|      `READ`      |                  Retrieve from the API                   | Models & model fields |    deny     |
+|     `CREATE`     |            Insert a record into the database             |        Models         |    deny     |
+| `READ_ON_CREATE` |    Retrieve after creating with a `CREATE` operation     | Models & model fields |    allow    |
+| `SET_ON_CREATE`  | `CREATE` operation that sets a field in the input object |     Model fields      |    allow    |
+|     `UPDATE`     |             Modify a record in the database              | Models & model fields |    deny     |
+|    `PUSH_TO`     |             Add an element to an array field             |  Model array fields   |    deny     |
+|  `REMOVE_FROM`   |          Remove an element from an array field           |  Model array fields   |    deny     |
+|     `DELETE`     |            Delete a record from the database             |        Models         |    deny     |
+|     `LOGIN`      |              `LOGIN` operation to get a JWT              |      User models      |    deny     |
+|      `ALL`       |                      Any operation                       | Models & model fields |    deny     |
 ### Authorization Predicates
 
 An access rule can be followed by an `if` clause, specifying a condition that must be satisfied in order for the rule to match the operation. These conditions are *predicates*, which are functions that return a boolean value (true or false). Predicates can be imported just like any other function in Pragma, for instance:
