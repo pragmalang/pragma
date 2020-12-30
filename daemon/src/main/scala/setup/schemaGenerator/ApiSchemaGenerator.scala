@@ -187,9 +187,10 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
               nameTransformer = _ => s"removeManyFrom${transformedFieldId}",
               Map(
                 model.primaryField.id -> fieldType(model.primaryField.ptype),
-                "filter" -> gqlType(
+                "items" -> listFieldType(
                   listFieldInnerType,
-                  inputTypeName(_)(FilterInput)
+                  isOptional = false,
+                  nameTransformer = inputTypeName(_)(ModelInput)
                 )
               ),
               listFieldType(listFieldInnerType)
