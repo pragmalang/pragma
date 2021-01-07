@@ -1,5 +1,8 @@
 package pragma.domain
 
+import pragma.parsing.PragmaParser
+import scala.util.Failure
+
 object BuiltInDefs {
   def modelDirectives(self: PModel) = Map(
     "user" -> PInterface("user", Nil, None),
@@ -59,5 +62,26 @@ object BuiltInDefs {
         Set(PString, PInt)
       )
     )
+
+  case class ConfigEntryDef(
+      name: String,
+      ptype: PType,
+      isRequired: Boolean,
+      validator: PartialFunction[PValue, Option[String]] = _ => None
+  )
+
+  val configEntryDefs: Map[String, ConfigEntryDef] = Map(
+    "projectName" -> ConfigEntryDef(
+      name = "projectName",
+      ptype = PString,
+      isRequired = true,
+      validator = { case PStringValue(projectName) =>
+        new PragmaParser(projectName).identifierThenEOI.run() match {
+          case Failure(_) => Some("Project name must be a valid identifier")
+          case _          => None
+        }
+      }
+    )
+  )
 
 }

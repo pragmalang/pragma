@@ -8,30 +8,45 @@ import scala.util.Try
 
 class QueryAggParser(st: SyntaxTree) {
 
+  private case class AggData(
+      from: Option[Int],
+      to: Option[Int],
+      filterJson: Vector[JsValue],
+      orderBy: Option[(Option[FieldId], String)]
+  )
+
   def parseArrayFieldAgg(
       parentModel: PModel,
       field: PModelField,
       aggObject: JsObject
-  ): Either[InternalException, ArrayFieldAgg] =
+  ): Either[Exception, ArrayFieldAgg] =
     for {
       aggData <- aggStandardData(aggObject)
-      (from, to, filtersJson) = aggData
+      AggData(from, to, filtersJson, orderData) = aggData
       filters <- filtersJson.traverse(parseArrayFieldFilter(field, _))
-    } yield ArrayFieldAgg(parentModel, field, filters, from, to)
+      order <- orderData.traverse { case (fieldId, orderStr) =>
+        parseArrayFieldOrderBy(orderStr, field, fieldId)
+      }
+    } yield ArrayFieldAgg(parentModel, field, filters, from, to, order)
 
-  def parseModelAgg(
-      model: PModel,
-      aggObject: JsObject
-  ): Either[InternalException, ModelAgg] =
+  def parseModelAgg(model: PModel, aggObject: JsObject): Either[Exception, ModelAgg] =
     for {
       aggData <- aggStandardData(aggObject)
-      (from, to, filtersJson) = aggData
+      AggData(from, to, filtersJson, orderData) = aggData
       filters <- filtersJson.traverse(parseModelFilter(model, _))
-    } yield ModelAgg(model, filters, from, to)
+      order <- orderData.traverse {
+        case (Some(fieldId), orderStr) =>
+          parseModelOrderBy(orderStr, model, fieldId)
+        case _ =>
+          UserError(
+            "`field` property of aggregation `orderBy` object must be defined for model aggregations"
+          ).asLeft
+      }
+    } yield ModelAgg(model, filters, from, to, order)
 
   private def aggStandardData(
       aggObject: JsObject
-  ): Either[InternalException, (Option[Int], Option[Int], Vector[JsValue])] =
+  ): Either[Exception, AggData] =
     for {
       from <- aggObject.fields.get("from") match {
         case Some(JsNumber(value)) if value.isWhole => value.toInt.some.asRight
@@ -53,7 +68,98 @@ class QueryAggParser(st: SyntaxTree) {
             "Invalid value for `filter` array on query agg object"
           ).asLeft
       }
-    } yield (from, to, filterArray)
+      orderBy <- aggObject.fields.get("orderBy") match {
+        case None => None.asRight
+        case Some(orderObj: JsObject) => {
+          val orderFieldId = orderObj.fields.get("field") match {
+            case Some(JsString(fieldId)) => fieldId.some.asRight
+            case Some(_) =>
+              InternalException(
+                "`field` property of `orderBy` object must be a string"
+              ).asLeft
+            case None => None.asRight
+          }
+
+          val orderStr = orderObj.fields.get("order") match {
+            case Some(JsString(orderStr)) => orderStr.asRight
+            case Some(_) =>
+              InternalException(
+                "Invalid value for field `order` property of `orderBy` object"
+              ).asLeft
+            case None =>
+              InternalException(
+                "`order` property of `orderBy` object must be specified"
+              ).asLeft
+          }
+
+          for (f <- orderFieldId; o <- orderStr) yield Some(f -> o)
+        }
+        case Some(_) =>
+          UserError(s"`orderBy` field of aggregation must be an object").asLeft
+      }
+    } yield AggData(from, to, filterArray, orderBy)
+
+  private val orderedPTypes: Set[PType] = Set(PInt, PFloat, PString, PDate, PBool)
+
+  private def parseAggOrder(order: String) = order match {
+    case "ASCENDING"  => AggOrder.Ascending.asRight
+    case "DESCENDING" => AggOrder.Descending.asRight
+    case "SHUFFLED"   => AggOrder.Shuffled.asRight
+    case other        => UserError(s"Value `$other` is not a valid order").asLeft
+  }
+
+  private def parseModelOrderBy(
+      orderStr: String,
+      targetModel: PModel,
+      orderByField: FieldId
+  ): Either[UserError, ModelOrderBy] =
+    if (!targetModel.fieldsById.contains(orderByField))
+      UserError(
+        s"Field `$orderByField` is not a field of model `${targetModel.id}`"
+      ).asLeft
+    else
+      parseAggOrder(orderStr).map(ModelOrderBy(targetModel.fieldsById(orderByField), _))
+
+  private def parseArrayFieldOrderBy(
+      orderStr: String,
+      arrayField: PModelField,
+      orderByField: Option[FieldId]
+  ): Either[UserError, OrderBy] = orderByField match {
+    case Some(fieldId) =>
+      arrayField.ptype match {
+        case PArray(PReference(refId)) => {
+          val refModel = st.modelsById(refId)
+          if (
+            refModel.fieldsById.contains(fieldId) &&
+            orderedPTypes(refModel.fieldsById(fieldId).ptype)
+          )
+            parseAggOrder(orderStr).map { order =>
+              ModelOrderBy(refModel.fieldsById(fieldId), order)
+            }
+          else
+            UserError(
+              s"Invalid ordering of `${arrayField.id}` by field `${fieldId}`"
+            ).asLeft
+        }
+        case other =>
+          UserError(
+            s"Invalid ordering of field of type `${displayPType(other)}` by field `$fieldId`"
+          ).asLeft
+      }
+    case None => {
+      val elemTypeIsOrdered = arrayField.ptype match {
+        case PArray(t) if orderedPTypes(t) => ().asRight
+        case other =>
+          UserError(
+            s"Field `${arrayField.id}` of element type `${displayPType(other)}` cannot be ordered"
+          ).asLeft
+      }
+
+      elemTypeIsOrdered *> parseAggOrder(orderStr).map { order =>
+        PrimitiveArrayFieldOrderBy(order)
+      }
+    }
+  }
 
   private def parseModelFilter(
       model: PModel,

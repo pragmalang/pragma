@@ -187,9 +187,10 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
               nameTransformer = _ => s"removeManyFrom${transformedFieldId}",
               Map(
                 model.primaryField.id -> fieldType(model.primaryField.ptype),
-                "filter" -> gqlType(
+                "items" -> listFieldType(
                   listFieldInnerType,
-                  inputTypeName(_)(FilterInput)
+                  isOptional = false,
+                  nameTransformer = inputTypeName(_)(ModelInput)
                 )
               ),
               listFieldType(listFieldInnerType)
@@ -512,13 +513,11 @@ case class ApiSchemaGenerator(syntaxTree: SyntaxTree) {
   def build = Document {
     (queryType
       :: mutationType
-      :: subscriptionType
-      :: buitlinGraphQlDefinitions
+      :: builtinGraphQlDefinitions
         ++ outputTypes
         ++ inputTypes
         ++ modelMutationsTypes
-        ++ modelQueriesTypes
-      ++ modelSubscriptionsTypes).toVector
+        ++ modelQueriesTypes).toVector
   }
 }
 
@@ -767,7 +766,7 @@ object ApiSchemaGenerator {
     }
   )
 
-  lazy val buitlinGraphQlDefinitions =
+  lazy val builtinGraphQlDefinitions =
     gql"""
     input IntAggInput {
       filter: [IntFilter!]
@@ -808,20 +807,6 @@ object ApiSchemaGenerator {
       predicate: StringPredicate!
       and: [StringFilter!]
       or: [StringFilter!]
-      negated: Boolean
-    }
-
-    input ArrayAggInput {
-      filter: [ArrayFilter!]
-      orderBy: OrderByInput
-      from: Int
-      to: Int
-    }
-
-    input ArrayFilter {
-      predicate: ArrayPredicate!
-      and: [ArrayFilter!]
-      or: [ArrayFilter!]
       negated: Boolean
     }
 
@@ -871,8 +856,8 @@ object ApiSchemaGenerator {
     }
 
     input OrderByInput {
-      field: String!
-      order: OrderEnum
+      field: String
+      order: OrderEnum!
     }
 
     enum EventEnum {
@@ -882,10 +867,9 @@ object ApiSchemaGenerator {
     }
 
     enum OrderEnum {
-      DESC
-      ASC
+      ASCENDING
+      DESCENDING
+      SHUFFLED
     }
-
-    directive @listen(to: EventEnum!) on FIELD # on field selections inside a subscription
-      """.definitions.toList
+    """.definitions.toList
 }

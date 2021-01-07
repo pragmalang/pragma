@@ -10,20 +10,6 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
 
   test("buildApiSchema method works") {
     val gqlDoc = gql"""
-    input ArrayAggInput {
-      filter: [ArrayFilter!]
-      orderBy: OrderByInput
-      from: Int
-      to: Int
-    }
-
-    input ArrayFilter {
-      predicate: ArrayPredicate!
-      and: [ArrayFilter!]
-      or: [ArrayFilter!]
-      negated: Boolean
-    }
-
     input ArrayPredicate {
       length: IntPredicate
     }
@@ -89,11 +75,6 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       list(aggregation: BranchAggInput): [Branch!]!
     }
 
-    type BranchSubscriptions {
-      read(address: String!): Branch
-      list(aggregation: BranchAggInput): Branch
-    }
-
     type Business {
       username: String
       email: String!
@@ -135,7 +116,7 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       pushToBranches(email: String!, item: BranchInput!): Branch!
       pushManyToBranches(email: String!, items: [BranchInput!]!): [Branch!]!
       removeFromBranches(email: String!, item: String!): Branch!
-      removeManyFromBranches(email: String!, filter: BranchFilter!): [Branch!]!
+      removeManyFromBranches(email: String!, items: [BranchInput!]!): [Branch!]!
       loginByEmail(email: String!, password: String!): String!
     }
 
@@ -150,11 +131,6 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
     type BusinessQueries {
       read(email: String!): Business
       list(aggregation: BusinessAggInput): [Business!]!
-    }
-
-    type BusinessSubscriptions {
-      read(email: String!): Business
-      list(aggregation: BusinessAggInput): Business
     }
 
     enum BusinessType {
@@ -231,13 +207,14 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
     }
 
     input OrderByInput {
-      field: String!
-      order: OrderEnum
+      field: String
+      order: OrderEnum!
     }
 
     enum OrderEnum {
-      DESC
-      ASC
+      ASCENDING
+      DESCENDING
+      SHUFFLED
     }
 
     type Query {
@@ -267,18 +244,12 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       eq: String
     }
 
-    type Subscription {
-      Business: BusinessSubscriptions
-      Branch: BranchSubscriptions
-    }
-
     enum EventEnum {
       REMOVE
       NEW
       CHANGE
     }
-
-    directive @listen(to: EventEnum!) on FIELD"""
+    """
 
     val expectedSchema = Schema.buildFromAst(gqlDoc)
 
