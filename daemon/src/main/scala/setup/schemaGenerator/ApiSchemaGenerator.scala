@@ -809,20 +809,6 @@ object ApiSchemaGenerator {
       negated: Boolean
     }
 
-    input ArrayAggInput {
-      filter: [ArrayFilter!]
-      orderBy: OrderByInput
-      from: Int
-      to: Int
-    }
-
-    input ArrayFilter {
-      predicate: ArrayPredicate!
-      and: [ArrayFilter!]
-      or: [ArrayFilter!]
-      negated: Boolean
-    }
-
     input BooleanAggInput {
       filter: [BooleanFilter!]
       orderBy: OrderByInput
@@ -869,8 +855,8 @@ object ApiSchemaGenerator {
     }
 
     input OrderByInput {
-      field: String!
-      order: OrderEnum
+      field: String
+      order: OrderEnum!
     }
 
     enum EventEnum {
@@ -880,10 +866,9 @@ object ApiSchemaGenerator {
     }
 
     enum OrderEnum {
-      DESC
-      ASC
+      ASCENDING
+      DESCENDING
+      SHUFFLED
     }
-
-    directive @listen(to: EventEnum!) on FIELD # on field selections inside a subscription
-      """.definitions.toList
+    """.definitions.toList
 }

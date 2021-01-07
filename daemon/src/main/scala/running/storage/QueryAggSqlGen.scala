@@ -4,6 +4,8 @@ import pragma.domain._, DomainImplicits._
 import running.operations._
 import cats.implicits._
 import doobie._, doobie.implicits._
+import running.operations.AggOrder._
+import scala.language.existentials
 
 object QueryAggSqlGen {
 
@@ -22,12 +24,42 @@ object QueryAggSqlGen {
       filterSql[ModelPredicate](_, _, modelPredicateSql),
       agg.filter
     )
+    val (orderByStr, orderByUsedTables) = agg.orderBy
+      .map { orderBy =>
+        val (postfix, usedTables) = orderBy.order match {
+          case Ascending =>
+            (
+              s"${agg.targetModel.id.withQuotes}.${orderBy.field.id.withQuotes} ASC",
+              Set(agg.targetModel.id.withQuotes)
+            )
+          case Descending =>
+            (
+              s"${agg.targetModel.id.withQuotes}.${orderBy.field.id.withQuotes} DESC",
+              Set(agg.targetModel.id.withQuotes)
+            )
+          case Shuffled => "random()" -> Set.empty
+        }
+
+        s" ORDER BY $postfix " -> usedTables
+      }
+      .getOrElse("" -> Set.empty)
     val fromStr = agg.from
       .map(from => s" OFFSET ${if (from - 1 < 0) 0 else from - 1} ")
       .getOrElse("")
     val toStr = agg.to.map(to => s" LIMIT $to").getOrElse("")
 
-    (filterStr + fromStr + toStr, filterSet, filterNextIndex, filterUsed)
+    (
+      filterStr + orderByStr + fromStr + toStr,
+      filterSet,
+      filterNextIndex,
+      filterUsed ++ orderByUsedTables
+    )
+  }
+
+  private def orderSqlStr(order: AggOrder) = order match {
+    case Ascending  => "ASC"
+    case Descending => "DESC"
+    case Shuffled   => "random()"
   }
 
   def arrayFieldAggSql(
@@ -45,12 +77,33 @@ object QueryAggSqlGen {
       ),
       agg.filter
     )
+    val orderByData = agg.orderBy
+      .flatMap {
+        case ModelOrderBy(PModelField(fieldId, PReference(refId), _, _, _, _), order) =>
+          (
+            s" ORDER BY ${refId.withQuotes}.${fieldId.withQuotes} ${orderSqlStr(order)} ",
+            Set(refId.withQuotes)
+          ).some
+        case PrimitiveArrayFieldOrderBy(order) =>
+          (
+            s" ORDER BY ${agg.parentModel.id.withQuotes}.${agg.field.id.withQuotes} ${orderSqlStr(order)} ",
+            Set(agg.parentModel.id.withQuotes)
+          ).some
+        case _ => None
+      }
+      .getOrElse("" -> Set.empty)
+
     val fromStr = agg.from
       .map(from => s" OFFSET ${if (from - 1 < 0) 0 else from - 1} ")
       .getOrElse("")
     val toStr = agg.to.map(to => s" LIMIT $to").getOrElse("")
 
-    (filterStr + fromStr + toStr, filterSet, filterNextIndex, filterUsed)
+    (
+      filterStr + fromStr + toStr + orderByData._1,
+      filterSet,
+      filterNextIndex,
+      filterUsed ++ orderByData._2
+    )
   }
 
   private def filterSql[P <: QueryPredicate](

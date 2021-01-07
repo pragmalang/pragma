@@ -10,20 +10,6 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
 
   test("buildApiSchema method works") {
     val gqlDoc = gql"""
-    input ArrayAggInput {
-      filter: [ArrayFilter!]
-      orderBy: OrderByInput
-      from: Int
-      to: Int
-    }
-
-    input ArrayFilter {
-      predicate: ArrayPredicate!
-      and: [ArrayFilter!]
-      or: [ArrayFilter!]
-      negated: Boolean
-    }
-
     input ArrayPredicate {
       length: IntPredicate
     }
@@ -221,13 +207,14 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
     }
 
     input OrderByInput {
-      field: String!
-      order: OrderEnum
+      field: String
+      order: OrderEnum!
     }
 
     enum OrderEnum {
-      DESC
-      ASC
+      ASCENDING
+      DESCENDING
+      SHUFFLED
     }
 
     type Query {
@@ -262,8 +249,7 @@ class ApiSchemaGeneratorSpec extends AnyFunSuite {
       NEW
       CHANGE
     }
-
-    directive @listen(to: EventEnum!) on FIELD"""
+    """
 
     val expectedSchema = Schema.buildFromAst(gqlDoc)
 
