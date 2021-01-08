@@ -122,4 +122,22 @@ class Validation extends AnyFlatSpec {
       case _ => fail("Should result in duplicate index errors")
     }
   }
+
+  "Config validation" should "produce correct errors" in {
+    val code = """
+    @1 model M { @1 username: String @primary }
+
+    config { invalidKey = 33, projectName = "my test" }
+    """
+
+    val expected = List(
+      "Project name must be a valid identifier",
+      "No entry is defined with the name `invalidKey`"
+    )
+
+    SyntaxTree.from(code) match {
+      case Failure(UserError(errors)) => assert(errors.map(_._1) == expected)
+      case _                          => fail("Config validation should've failed with the expected errors")
+    }
+  }
 }

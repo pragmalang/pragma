@@ -85,11 +85,11 @@ class OperationParser(st: SyntaxTree) {
       model: PModel,
       capturedFieldName: String
   ): PModelField = {
-    if (model.fields
-          .filter(
-            _.id.toLowerCase == capturedFieldName.toLowerCase
-          )
-          .length == 1) {
+    if (
+      model.fields
+        .filter(_.id.toLowerCase == capturedFieldName.toLowerCase)
+        .length == 1
+    ) {
       model.fields.find(_.id.toLowerCase == capturedFieldName.toLowerCase).get
     } else {
       model.fields.find(_.id == capturedFieldName).get
@@ -391,10 +391,10 @@ class OperationParser(st: SyntaxTree) {
     }
     val innerOpTargetModel = targetFieldType match {
       case Some(m: PModel) => m
-      case Some(_: PrimitiveType) | Some(_: PEnum) | Some(
-            PArray(_: PrimitiveType)
-          ) | Some(POption(_: PrimitiveType)) | Some(PArray(_: PEnum)) |
-          Some(POption(_: PEnum)) if !modelFieldSelection.selections.isEmpty =>
+      case Some(_: PrimitiveType) | Some(_: PEnum) | Some(PArray(_: PrimitiveType)) |
+          Some(POption(_: PrimitiveType)) | Some(PArray(_: PEnum)) | Some(
+            POption(_: PEnum)
+          ) if !modelFieldSelection.selections.isEmpty =>
         throw new InternalException(
           s"Field `${targetField.id}` is not of a model type (it cannot have inner sellections in a GraphQL query). Something must've went wrong during query validation"
         )
@@ -427,26 +427,25 @@ class OperationParser(st: SyntaxTree) {
         modelFieldSelection.alias,
         modelFieldSelection.directives
       )
-    } yield
-      args match {
-        case InnerOpNoArgs =>
-          InnerReadOperation(
-            targetField = aliasedField,
-            targetModel = innerOpTargetModel,
-            user = user zip role,
-            hooks = innerOpTargetModel.readHooks,
-            innerReadOps = innerSels
-          )
-        case as: InnerListArgs =>
-          InnerReadManyOperation(
-            targetField = aliasedField,
-            opArguments = as,
-            targetModel = innerOpTargetModel,
-            user = user zip role,
-            hooks = innerOpTargetModel.readHooks,
-            innerReadOps = innerSels
-          )
-      }
+    } yield args match {
+      case InnerOpNoArgs =>
+        InnerReadOperation(
+          targetField = aliasedField,
+          targetModel = innerOpTargetModel,
+          user = user zip role,
+          hooks = innerOpTargetModel.readHooks,
+          innerReadOps = innerSels
+        )
+      case as: InnerListArgs =>
+        InnerReadManyOperation(
+          targetField = aliasedField,
+          opArguments = as,
+          targetModel = innerOpTargetModel,
+          user = user zip role,
+          hooks = innerOpTargetModel.readHooks,
+          innerReadOps = innerSels
+        )
+    }
   }
 
   private val aggParser = new QueryAggParser(st)
@@ -456,7 +455,7 @@ class OperationParser(st: SyntaxTree) {
       event: PEvent,
       opTargetModel: PModel,
       opSelection: FieldSelection
-  ): Either[InternalException, OpArgs[PEvent]] = event match {
+  ): Either[Exception, OpArgs[PEvent]] = event match {
     case pragma.domain.Read => {
       val id =
         opSelection.arguments
@@ -481,7 +480,7 @@ class OperationParser(st: SyntaxTree) {
             s"`agg` argument of LIST operation on `${opTargetModel.id}` must be an object"
           ).asLeft
         case None =>
-          ReadManyArgs(ModelAgg(opTargetModel, Nil, None, None)).asRight
+          ReadManyArgs(ModelAgg(opTargetModel, Nil, None, None, None)).asRight
       }
     case Create => {
       val objToInsert =
@@ -675,13 +674,11 @@ class OperationParser(st: SyntaxTree) {
       val objectsWithIds = items.flatMap {
         case JsArray(items) =>
           items.traverse {
-            case JsObject(fields)
-                if !fields.contains(opTargetModel.primaryField.id) =>
+            case JsObject(fields) if !fields.contains(opTargetModel.primaryField.id) =>
               InternalException(
                 s"Objects in `items` array argument of UPDATE_MANY operation on model `${opTargetModel.id}` must contain a `${opTargetModel.primaryField.id}`"
               ).asLeft
-            case _: JsNumber | _: JsString | JsNull | _: JsBoolean |
-                _: JsArray =>
+            case _: JsNumber | _: JsString | JsNull | _: JsBoolean | _: JsArray =>
               InternalException(
                 s"Values in `items` array argument of UPDATE_MANY operation must be objects containing `${opTargetModel.primaryField.id}`"
               ).asLeft
@@ -746,7 +743,7 @@ class OperationParser(st: SyntaxTree) {
   private def parseInnerOpArgs(
       opTargetModel: PModel,
       fieldSelection: FieldSelection
-  ): Either[InternalException, InnerOpArgs[ReadEvent]] = {
+  ): Either[Exception, InnerOpArgs[ReadEvent]] = {
     val modelField = opTargetModel.fieldsById.get(fieldSelection.name)
     modelField match {
       case None =>
@@ -765,6 +762,7 @@ class OperationParser(st: SyntaxTree) {
                 ).asLeft
             }
           }
+
         agg.sequence.map(InnerListArgs(_))
       }
       case _ => InnerOpNoArgs.asRight

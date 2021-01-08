@@ -31,6 +31,7 @@ services:
 
   pragmad:
     image: pragmalang/pragmad:latest
+    container_name: pragmad
     ports: 
       - 9584:9584
     environment:
