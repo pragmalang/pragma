@@ -23,7 +23,7 @@ class DaemonDB(transactor: HikariTransactor[IO])(
 
   val schema = """
   config {
-    projectName = "daemon-db"
+    projectName = "daemon_db"
   }
 
   @1 model Project {
