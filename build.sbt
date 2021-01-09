@@ -1,3 +1,4 @@
+import java.io.FileOutputStream
 ThisBuild / scalaVersion := "2.13.4"
 ThisBuild / version := "0.3.1"
 ThisBuild / organization := "com.pragmalang"
@@ -70,7 +71,10 @@ lazy val daemon = (project in file("daemon"))
     DockerPlugin
   )
 
-lazy val cli = (project in file("cli"))
+val writeVersion =
+  taskKey[File]("Write build version to resources directory as `version.json`")
+
+val cli = (project in file("cli"))
   .settings(
     name := "pragma",
     packageName := name.value,
@@ -84,6 +88,15 @@ lazy val cli = (project in file("cli"))
       osLib,
       requests
     ),
+    writeVersion := {
+      val versionFile =
+        new File((Compile / resourceDirectory).value.getAbsolutePath(), "version.json")
+      val out = new FileOutputStream(versionFile)
+      out.write(('"' + version.value + '"').getBytes())
+      out.close()
+      versionFile
+    },
+    (Compile / compile) := ((Compile / compile) dependsOn writeVersion).value,
     jlinkIgnoreMissingDependency := JlinkIgnore.everything,
     rpmVendor := organizationName.value,
     rpmLicense := Some("Apache 2.0"),

@@ -2,6 +2,7 @@ package cli
 
 import pragma.domain._, pragma.domain.utils._
 import org.parboiled2.{Position, ParseError}
+import spray.json._
 import java.io.ByteArrayOutputStream
 import java.util.zip.{ZipOutputStream, ZipEntry}
 import scala.util._
@@ -83,6 +84,18 @@ object utils {
 
   def dockerComposeFile: String =
     scala.io.Source.fromResource("docker-compose.yml").getLines().mkString("\n")
+
+  def cliVersion: String = {
+    val versionJsonStr =
+      scala.io.Source.fromResource("version.json").getLines().mkString("\n")
+    versionJsonStr.parseJson match {
+      case JsString(version) => version
+      case _ => {
+        println("Could not parse Pragma CLI version. Please report this issue")
+        sys exit 1
+      }
+    }
+  }
 
   def renderError(
       message: String,

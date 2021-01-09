@@ -20,6 +20,10 @@ object Main {
         print(CLIConfig.usageWithAsciiLogo)
         sys.exit(0)
       }
+      case CLICommand.Version => {
+        println(cliVersion)
+        sys.exit(0)
+      }
       case Dev => {
         tryOrExit(
           pingOrStartDevDaemon(config),
