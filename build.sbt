@@ -1,4 +1,3 @@
-import java.io.FileOutputStream
 ThisBuild / scalaVersion := "2.13.4"
 ThisBuild / version := "0.3.2"
 ThisBuild / organization := "com.pragmalang"
@@ -89,6 +88,7 @@ val cli = (project in file("cli"))
       requests
     ),
     writeVersion := {
+      import java.io.FileOutputStream
       val versionFile =
         new File((Compile / resourceDirectory).value.getAbsolutePath(), "version.json")
       val out = new FileOutputStream(versionFile)

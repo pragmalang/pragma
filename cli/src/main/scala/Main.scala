@@ -26,7 +26,7 @@ object Main {
       }
       case Dev => {
         tryOrExit(
-          pingOrStartDevDaemon(config),
+          updateDockerCompose(config) *> pingOrStartDevDaemon(config),
           Some(
             "Failed to reach or start a local Pragma instance for development"
           )
@@ -176,6 +176,7 @@ object Main {
         dockerComposeFile,
         createFolders = true
       )
+      os.write(projectDir / ".pragma" / "version.json", cliVersionJsonStr)
     } *> Success(println("Project files successfully generated."))
   }
 

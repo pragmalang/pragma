@@ -82,13 +82,19 @@ object utils {
     }
     else Try((os.read(path), false))
 
-  def dockerComposeFile: String =
-    scala.io.Source.fromResource("docker-compose.yml").getLines().mkString("\n")
+  def dockerComposeTemplate: String = scala.io.Source
+    .fromResource("docker-compose-template.yml")
+    .getLines()
+    .mkString("\n")
 
-  def cliVersion: String = {
-    val versionJsonStr =
-      scala.io.Source.fromResource("version.json").getLines().mkString("\n")
-    versionJsonStr.parseJson match {
+  def dockerComposeFile: String =
+    dockerComposeTemplate.replace("$pragma_version", cliVersion)
+
+  def cliVersionJsonStr =
+    scala.io.Source.fromResource("version.json").getLines().mkString("\n")
+
+  lazy val cliVersion: String = {
+    cliVersionJsonStr.parseJson match {
       case JsString(version) => version
       case _ => {
         println("Could not parse Pragma CLI version. Please report this issue")
@@ -96,6 +102,38 @@ object utils {
       }
     }
   }
+
+  def updateDockerCompose(config: CLIConfig): Try[Unit] =
+    Try(os.read(config.dotPragmaDir / "docker-compose.yml")).flatMap {
+      currentComposeFile =>
+        val updatedComposeFile = dockerComposeFile
+        if (currentComposeFile == updatedComposeFile) Success(())
+        else
+          Try(os.read(config.dotPragmaDir / "version.json"))
+            .recover { _ =>
+              os.write(
+                config.dotPragmaDir / "version.json",
+                cliVersionJsonStr
+              )
+              cliVersionJsonStr
+            }
+            .map { currentVersionJson =>
+              if (Try(currentVersionJson.parseJson) == Success(JsString(cliVersion)))
+                println(
+                  "docker-compose file has been modified. Automatic updates will not be performed on .pragma/docker-compose.yml."
+                )
+              else {
+                os.write(
+                  config.dotPragmaDir / "docker-compose.yml",
+                  dockerComposeFile,
+                  createFolders = true
+                )
+                os.write(config.dotPragmaDir / "version.json", cliVersionJsonStr)
+                println("Pulling Docker image updates...")
+                os.proc("docker-compose", "pull").call(config.dotPragmaDir)
+              }
+            }
+    }
 
   def renderError(
       message: String,
