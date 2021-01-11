@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://pragmalang.com">
+  <a href="https://pragmalang.com" target="_blank">
     <img 
       src="https://raw.githubusercontent.com/pragmalang/pragma/master/website/static/img/full-logo.svg"
       alt="Pragma logo"
