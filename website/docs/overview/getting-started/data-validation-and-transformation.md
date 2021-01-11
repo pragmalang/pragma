@@ -41,7 +41,7 @@ import "./transformers.js" as transformers { runtime = "nodejs:14" }
 @1 model Book {
   @1 id: String @uuid @primary
   @2 title: String
-  @2 authors: [String]
+  @3 authors: [String]
 }
 ```
 
