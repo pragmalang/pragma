@@ -3,6 +3,7 @@ package pragma.parsing
 import pragma.domain._, utils._, DomainImplicits._
 import pragma.parsing.utils.DependencyGraph
 import scala.util._
+import cats.implicits._
 
 class Validator(constructs: List[PConstruct]) {
 
@@ -13,7 +14,7 @@ class Validator(constructs: List[PConstruct]) {
   def validSyntaxTree: Try[SyntaxTree] = {
     val results = List(
       checkReservedTypeIdentifiers,
-      checkTypeExistance,
+      checkTypeExistence,
       checkFieldDefaultValueTypes,
       checkTopLevelIdentity,
       checkModelFieldIdentity,
@@ -129,7 +130,7 @@ class Validator(constructs: List[PConstruct]) {
   }
 
   /** Check if the field types are defined. */
-  def checkTypeExistance: Try[Unit] = {
+  def checkTypeExistence: Try[Unit] = {
     val errors = for {
       model <- st.models
       field <- model.fields
@@ -359,10 +360,10 @@ class Validator(constructs: List[PConstruct]) {
   }
 
   def checkModelIndexUniqueness: Try[Unit] = {
-    val repeatedIndexess = st.models.diff(st.models.distinctBy(_.index))
-    if (repeatedIndexess.length == 0) Success(())
+    val repeatedIndices = st.models.diff(st.models.distinctBy(_.index))
+    if (repeatedIndices.length == 0) Success(())
     else {
-      val errors = repeatedIndexess.map { model =>
+      val errors = repeatedIndices.map { model =>
         (
           s"Model `${model.id}` has a duplicate index ${model.index}",
           model.position
@@ -393,19 +394,36 @@ class Validator(constructs: List[PConstruct]) {
       case None =>
         Failure(UserError(("`config` block is not defined", None) :: Nil))
       case Some(conf) => {
-        val errors = requiredConfigEntries.toList
-          .collect {
-            case (key, ptype) if !conf.entryMap.contains(key) =>
-              (
-                s"`config` block must contain an entry named `$key` of type `${displayPType(ptype)}",
-                conf.position
-              )
-            case (key, ptype) if conf.entryMap(key).value.ptype != ptype =>
-              (
-                s"Invalid value for `config` entry `$key` of type `${displayPType(ptype)}`",
-                conf.entryMap(key).position
-              )
+        val errors = BuiltInDefs.configEntryDefs.toList.map {
+          case (key, entryDef) if entryDef.isRequired && !conf.entryMap.contains(key) =>
+            (
+              s"`config` block must contain an entry named `$key` of type `${displayPType(entryDef.ptype)}",
+              conf.position
+            ).some
+          case (key, entryDef) =>
+            conf.entryMap.get(key).flatMap { entry =>
+              entryDef.validator
+                .andThen(_.tupleRight(None))
+                .applyOrElse(
+                  entry.value,
+                  (v: PValue) =>
+                    (
+                      s"Invalid value of type `${displayPType(v.ptype)}` for config entry `$key` of type ${displayPType(entryDef.ptype)}",
+                      entry.position
+                    ).some
+                )
+            }
+        }.flatten ++ conf.entryMap
+          .filterNot { entry =>
+            BuiltInDefs.configEntryDefs.contains(entry._1)
           }
+          .map { case (_, undefinedEntry) =>
+            (
+              s"No entry is defined with the name `${undefinedEntry.key}`",
+              undefinedEntry.position
+            )
+          }
+
         if (errors.isEmpty) Success(())
         else Failure(UserError(errors))
       }
@@ -498,10 +516,6 @@ object Validator {
     "Query",
     "Mutation",
     "Subscription"
-  )
-
-  val requiredConfigEntries: Map[String, PType] = Map(
-    "projectName" -> PString
   )
 
 }

@@ -30,7 +30,7 @@ services:
       - ~/.openwhisk/:/root/.openwhisk
 
   pragmad:
-    image: pragmalang/pragmad:latest
+    image: pragmalang/pragmad:$pragma_version
     container_name: pragmad
     ports: 
       - 9584:9584

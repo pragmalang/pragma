@@ -5,15 +5,13 @@ import org.scalatest.flatspec.AnyFlatSpec
 
 class ConfigParsing extends AnyFlatSpec {
   "Config block" should "be parsed correctly" in {
-    val code = """
-        config {
-            someKey = "some value"
-            someOtherKey = 42
-            projectName = "TEST"
-        }
-        """
-    val syntaxTree = SyntaxTree.from(code).get
-    val entries = syntaxTree.config.values
+    val code = """config {
+                      someKey = "some value"
+                      someOtherKey = 42
+                      projectName = "TEST"
+                  }"""
+
+    val entries = new PragmaParser(code).configDef.run().get.values
 
     assert(entries(0).key == "someKey")
     assert(entries(0).value == PStringValue("some value"))

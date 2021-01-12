@@ -9,11 +9,23 @@ trait QueryAgg[P <: QueryPredicate, QF <: QueryFilter[P]] {
   val to: Option[Int]
 }
 
+sealed trait AggOrder
+object AggOrder {
+  case object Ascending extends AggOrder
+  case object Descending extends AggOrder
+  case object Shuffled extends AggOrder
+}
+
+sealed trait OrderBy
+case class ModelOrderBy(field: PModelField, order: AggOrder) extends OrderBy
+case class PrimitiveArrayFieldOrderBy(order: AggOrder) extends OrderBy
+
 case class ModelAgg(
     targetModel: PModel,
     filter: Seq[ModelFilter],
     from: Option[Int],
-    to: Option[Int]
+    to: Option[Int],
+    orderBy: Option[ModelOrderBy]
 ) extends QueryAgg[ModelPredicate, ModelFilter]
 
 case class ArrayFieldAgg(
@@ -21,7 +33,8 @@ case class ArrayFieldAgg(
     field: PModelField,
     filter: Seq[ArrayFieldFilter],
     from: Option[Int],
-    to: Option[Int]
+    to: Option[Int],
+    orderBy: Option[OrderBy]
 ) extends QueryAgg[QueryPredicate, ArrayFieldFilter]
 
 trait QueryFilter[P <: QueryPredicate] {

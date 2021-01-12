@@ -7,9 +7,15 @@ A user model is a regular model, with the only difference being that it represen
 
 ## Authentication
 
-User models have *credential* fields that are used for authentication. A field marked as [`@publicCredential`](./directives.md#publiccredential) can be an email, or a username. Public credentials can be used to identify a user publicly among other users. A field marked with [`@secretCredential`](./directives.md#secretcredential) on the other hand, should not be shared with other users, and it is used only in the authentication process, along with a public credential.
+User models have *credential* fields that are used for authentication.
 
-> Note: Pragma encrypts secret credentials using the *application secret* before storing them in the database.
+A field marked as [`@publicCredential`](./directives.md#publiccredential) can be any user identifier that can be used for authenticating the user (usernames, emails, or phone numbers). Public credentials can be used to identify a user publicly among other users. 
+
+A field marked with [`@secretCredential`](./directives.md#secretcredential) on the other hand, should not be shared with other users, and it is used only in the authentication process, along with a public credential.
+
+:::note
+Pragma encrypts the values of fields annotated with `@secretCredential` using the *application secret* before storing them in the database.
+:::
 
 ## Access Control
 
@@ -27,8 +33,8 @@ model User {
 
 This tells Pragma to setup authentication flows for the `User` user model, where the `username` and `password` are the user's credentials.
 
-> Note: You can mark multiple fields with the `@publicCredential` directive. However, there can only be one `@secretCredential` field on a model. This allows for functionality such as allowing users to either log in using their email, or their username. For example:
-
+:::note 
+You can mark multiple fields with the `@publicCredential` directive. However, there can only be one `@secretCredential` field on a model. This allows for functionality such as allowing users to either log in using their email, or their username. For example:
 ```pragma
 @user @1
 model User {
@@ -37,5 +43,6 @@ model User {
   @3 password: String @secretCredential
 }
 ```
+:::
 
 See the [Generated API](../api/index.md) section for more details on how to use `login` queries.

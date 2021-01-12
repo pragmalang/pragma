@@ -11,7 +11,7 @@ Just like with authorization rules, we can validate data using functions. For ex
 ```pragma
 import "./validators.js" as validators { runtime = "nodejs:14" }
 
-@onWrite(validators.validateBook)
+@onWrite(function: validators.validateBook)
 @1 model Book {
   @1 id: String @uuid @primary
   @2 title: String
@@ -37,11 +37,11 @@ Let's say that we want every book's title to be in uppercase automatically on ev
 ```pragma
 import "./transformers.js" as transformers { runtime = "nodejs:14" }
 
-@onRead(transformers.transformBook)
+@onRead(function: transformers.transformBook)
 @1 model Book {
   @1 id: String @uuid @primary
   @2 title: String
-  @2 authors: [String]
+  @3 authors: [String]
 }
 ```
 

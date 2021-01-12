@@ -71,6 +71,12 @@ object CLIConfig {
         .text("Generates an authorization JWT with root privileges")
         .children(secretArg)
 
+      cmd("version")
+        .text("Prints the Pragma CLI version")
+        .action { (_, config) =>
+          config.copy(command = CLICommand.Version)
+        }
+
       opt[Unit]("help")
         .abbr("h")
         .optional()
@@ -99,6 +105,7 @@ object CLICommand {
   case object New extends CLICommand
   case object Root extends CLICommand
   case object Help extends CLICommand
+  case object Version extends CLICommand
   case class GenerateRootJWT(secret: String) extends CLICommand
 }
 
