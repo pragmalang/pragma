@@ -21,7 +21,6 @@ function ImageCard({ buttonText, imageUrl, url, isExternal }) {
   );
 }
 
-
 const Home = () => {
   const context = useDocusaurusContext();
   const { siteConfig = {} } = context;
@@ -51,7 +50,7 @@ const Home = () => {
       </header>
       <main>
         <section className={styles.features}>
-          <h1>Pragma is an open-source language for building GraphQL APIs <i>quickly</i>, and <i>declaratively</i>.</h1>
+          <h1>Pragma is an easy to learn, open-source language for building GraphQL APIs <i>quickly</i>, and <i>declaratively</i>.</h1>
           <div className={styles.snippet}>
             <img src="/img/snippet.png" width="500px" />
             <div className={styles.snippetDescriptionContainer}>
@@ -66,6 +65,15 @@ const Home = () => {
           </div>
         </section>
 
+        <section style={{ "margin-bottom": "50px" }} className={styles.features}>
+          <h1>Never Used GraphQL? Fear Not!</h1>
+          <Link
+            className="button button--primary button--lg with-gradient"
+            to={useBaseUrl('docs/getting-started/graphql-intro')}>
+            Let Pragma Be The Beginning
+            </Link>
+        </section>
+
         <section className={clsx("container", styles.social)}>
           <h1>Join The Community</h1>
           <div className={styles.socialContainer}>
@@ -75,7 +83,7 @@ const Home = () => {
           </div>
         </section>
       </main>
-    </Layout>
+    </Layout >
   );
 }
 
