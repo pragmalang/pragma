@@ -100,7 +100,7 @@ const Home = () => {
                 <p>
                   Pragma is a perfect fit for startups. In fact, the original
                   motivation behind it was testing new ideas in hours or days
-                  instead of weeks or months. It is designed to <strong>help you move quickly.</strong>
+                  instead of weeks or months. It is designed to <em><strong>help you move quickly.</strong></em>
                 </p>
               }
             />
@@ -108,9 +108,9 @@ const Home = () => {
               header="Indie Hackers"
               content={
                 <p>
-                  Pragma allows you to go from idea to implementation <strong>in minutes</strong>.
+                  Pragma allows you to go from idea to implementation <em><strong>in minutes</strong></em>.
                   <br />
-                  <strong>Focus on user-facing logic</strong>,
+                  <em><strong>Focus on user-facing logic</strong></em>,
                   and let Pragma do the server-side magic.
                   Don't worry about having to write networking logic, nor designing the auth layer.
                 </p>
