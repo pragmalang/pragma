@@ -48,7 +48,7 @@ const Home = () => {
       permaLink="/">
       <header className={clsx('hero hero--secondary', styles.heroBanner)}>
         <div className="container">
-          <img id="home-logo" width="400px" src="/img/full-logo.svg" />
+          <img id="home-logo" alt="Pragma Logo" width="400px" src="/img/full-logo.svg" />
           <h1 style={{ fontWeight: "normal" }}>{capitalize(siteConfig.tagline)}</h1>
           <div className={styles.buttons}>
             <Link
@@ -66,7 +66,7 @@ const Home = () => {
             GraphQL APIs <i>quickly</i>, and <i>declaratively</i>.
           </h1>
           <div className={styles.snippet}>
-            <img src="/img/snippet.png" width="500px" />
+            <img src="/img/snippet.png" alt="Pragma code snippet" width="500px" />
             <div className={styles.snippetDescriptionContainer}>
               <ol>
                 <li><div>1</div><h3>Define data models</h3></li>
