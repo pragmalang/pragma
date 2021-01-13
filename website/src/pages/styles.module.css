@@ -90,7 +90,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2rem 0;
+  padding: 0 15px;
   width: 100%;
   justify-content: center;
   flex: 1;
@@ -99,13 +99,12 @@
 .socialContainer {
   display: flex;
   flex-wrap: wrap;
-  margin-top: 30px;
+  margin: 50px 0;
 }
 
 .imageCardImage {
   height: 100px;
   width: 100px;
-  margin-bottom: 30px;
 }
 
 .social h1 {
@@ -113,5 +112,48 @@
 }
 
 .social {
+  margin-top: 100px;
   padding-bottom: 50px;
+}
+
+.gqlIntro {
+  text-align: center;
+  margin-top: 10px;
+}
+
+.audience {
+  margin-top: 100px;
+}
+
+.audience h1 {
+  text-align: center;
+}
+
+.cardContainer {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.card {
+  width: 300px;
+  margin: 10px;
+  text-align: center;
+  padding-bottom: 10px;
+}
+
+.cardTitle {
+  border-width: 0;
+  border-bottom-width: 3px;
+  border-bottom-color: rgba(139,48,231,1);
+  border-style: solid;
+  display: inline;
+  padding-bottom: 3px;
+}
+
+.audienceGetStartedButton {
+  padding-left: 101px;
+  padding-right: 101px;
+  margin-top: 20px;
 }
