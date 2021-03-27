@@ -5,6 +5,7 @@ import running._, running.storage.postgres._
 import cats.effect._
 import doobie._
 import pragma.jwtUtils._
+import running.RunningImplicits._
 
 class TestStorage(st: SyntaxTree) {
   implicit val cs = IO.contextShift(ExecutionContexts.synchronous)

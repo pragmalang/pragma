@@ -21,6 +21,8 @@ import daemon.utils._
 import pragma.utils.JsonCodec._
 import running.utils.Mode.Dev
 import running.utils.Mode.Prod
+import running.RunningImplicits._
+
 
 object DeamonServer extends IOApp {
 
@@ -107,10 +109,7 @@ object DeamonServer extends IOApp {
 
     val jc = new JwtCodec(migration.secret)
 
-    val funcExecutor = new PFunctionExecutor[IO](
-      projectName,
-      wskClient
-    )
+    val funcExecutor = new PFunctionExecutor[IO]
 
     val pgUri = jdbcPostgresUri(
       daemonConfig.dbInfo.host,

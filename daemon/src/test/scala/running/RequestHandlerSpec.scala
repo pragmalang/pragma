@@ -11,6 +11,7 @@ import java.util.concurrent._
 import org.http4s._, org.http4s.client._
 import scala.io.Source
 import scala.concurrent.ExecutionContext
+import RunningImplicits._
 
 class RequestHandlerSpec extends AnyFlatSpec {
   val code =
@@ -85,10 +86,10 @@ class RequestHandlerSpec extends AnyFlatSpec {
   }
 
   val reqHandler = new RequestHandler(
-      syntaxTree,
-      storage,
-      new PFunctionExecutor[IO](projectName, wskClient)
-    )
+    syntaxTree,
+    storage,
+    new PFunctionExecutor[IO]
+  )
 
   "RequestHandler" should "execute write hooks correctly" in {
     val req = running.Request.bareReqFrom {
@@ -124,7 +125,9 @@ class RequestHandlerSpec extends AnyFlatSpec {
               Map(
                 "create" -> JsObject(
                   Map(
-                    "username" -> JsString("Mr. Fathi"), // Because of `rhHooks.prependMrToUsername`
+                    "username" -> JsString(
+                      "Mr. Fathi"
+                    ), // Because of `rhHooks.prependMrToUsername`
                     "priorityTodo" -> JsObject( // Because of `rhHooks.setPriorityTodo`
                       Map("title" -> JsString("** Get pizza **"))
                     )
@@ -164,7 +167,9 @@ class RequestHandlerSpec extends AnyFlatSpec {
               Map(
                 "read" -> JsObject(
                   Map(
-                    "title" -> JsString("** Get pizza **"), // Because of `emphasizeUndone`
+                    "title" -> JsString(
+                      "** Get pizza **"
+                    ), // Because of `emphasizeUndone`
                     "content" -> JsString("We need to eat")
                   )
                 )

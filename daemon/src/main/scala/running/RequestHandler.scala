@@ -37,24 +37,21 @@ class RequestHandler[S, M[_]: Async: ConcurrentEffect](
     val authResult = for {
       ops <- ops
       result = authorizer(ops, req.user)
-    } yield
-      result flatMap [Operations.OperationsMap] { errors =>
-        if (!errors.isEmpty)
-          MonadError[M, Throwable].raiseError(UserError.fromAuthErrors(errors))
-        else ops.pure[M]
-      }
+    } yield result flatMap [Operations.OperationsMap] { errors =>
+      if (!errors.isEmpty)
+        MonadError[M, Throwable].raiseError(UserError.fromAuthErrors(errors))
+      else ops.pure[M]
+    }
 
     val opsAfterPreHooks = authResult.flatMap { result =>
       result.flatMap[Operations.OperationsMap] { opsMap =>
         opsMap.toVector
-          .traverse {
-            case (groupName, opModelGroups) =>
-              opModelGroups.toVector
-                .traverse {
-                  case (modelSelectionName, ops) =>
-                    ops.traverse(applyPreHooks).map(modelSelectionName -> _)
-                }
-                .map(groupName -> _.toMap)
+          .traverse { case (groupName, opModelGroups) =>
+            opModelGroups.toVector
+              .traverse { case (modelSelectionName, ops) =>
+                ops.traverse(applyPreHooks).map(modelSelectionName -> _)
+              }
+              .map(groupName -> _.toMap)
           }
           .map(_.toMap)
       }
@@ -69,21 +66,19 @@ class RequestHandler[S, M[_]: Async: ConcurrentEffect](
     }
 
     val readHookResults = storageResult.flatMap { result =>
-      result.traverse {
-        case (groupName, modelGroups) =>
-          modelGroups
-            .traverse {
-              case (modelGroupName, ops) =>
-                ops
-                  .traverse {
-                    case (loginOp: LoginOperation, token) =>
-                      (loginOp, token).pure[M].widen[(Operation, JsValue)]
-                    case (op, res) =>
-                      applyReadHooks(op, res).widen[JsValue].map(op -> _)
-                  }
-                  .map(modelGroupName -> _)
-            }
-            .map(groupName -> _)
+      result.traverse { case (groupName, modelGroups) =>
+        modelGroups
+          .traverse { case (modelGroupName, ops) =>
+            ops
+              .traverse {
+                case (loginOp: LoginOperation, token) =>
+                  (loginOp, token).pure[M].widen[(Operation, JsValue)]
+                case (op, res) =>
+                  applyReadHooks(op, res).widen[JsValue].map(op -> _)
+              }
+              .map(modelGroupName -> _)
+          }
+          .map(groupName -> _)
       }
     }
 
@@ -98,13 +93,12 @@ class RequestHandler[S, M[_]: Async: ConcurrentEffect](
   ): JsObject = {
     val opGroupResults = for {
       (groupName, modelGroups) <- resultMap
-      groupResultFields = modelGroups.map {
-        case (modelGroupName, ops) =>
-          modelGroupName -> JsObject {
-            ops.map {
-              case (op, result) => op.name -> withInnerOpsAliases(op, result)
-            }.toMap
-          }
+      groupResultFields = modelGroups.map { case (modelGroupName, ops) =>
+        modelGroupName -> JsObject {
+          ops.map { case (op, result) =>
+            op.name -> withInnerOpsAliases(op, result)
+          }.toMap
+        }
       }.toMap
       groupResultJson = JsObject(groupResultFields)
     } yield (groupName.getOrElse("data"), groupResultJson)
@@ -138,10 +132,9 @@ class RequestHandler[S, M[_]: Async: ConcurrentEffect](
   private def applyHooks(
       hooks: Seq[PFunctionValue],
       arg: JsObject
-  ): M[JsObject] =
-    hooks.foldLeft(arg.pure[M]) {
-      case (acc, hook) =>
-        acc.flatMap(a => funcExecutor.execute(hook, a))
+  ): M[JsValue] =
+    hooks.foldLeft(arg.pure[M].widen[JsValue]) { case (acc, hook) =>
+      acc.flatMap(a => funcExecutor.execute(hook, a :: Nil))
     }
 
   /** Apples crud hooks to operation arguments */
@@ -278,8 +271,7 @@ class RequestHandler[S, M[_]: Async: ConcurrentEffect](
     case innerReadOp: InnerReadOperation => {
       val iopFieldIsRef = innerReadOp.targetField.field.ptype match {
         case PReference(refId) if syntaxTree.modelsById.contains(refId) => true
-        case POption(PReference(refId))
-            if syntaxTree.modelsById.contains(refId) =>
+        case POption(PReference(refId)) if syntaxTree.modelsById.contains(refId) =>
           true
         case _ => false
       }
@@ -311,8 +303,7 @@ class RequestHandler[S, M[_]: Async: ConcurrentEffect](
     }
     case innerReadManyOp: InnerReadManyOperation => {
       val fieldIsRefArray = innerReadManyOp.targetField.field.ptype match {
-        case PArray(PReference(refId))
-            if syntaxTree.modelsById.contains(refId) =>
+        case PArray(PReference(refId)) if syntaxTree.modelsById.contains(refId) =>
           true
         case _ => false
       }

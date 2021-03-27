@@ -148,7 +148,7 @@ class Authorizer[S, M[_]: Async: ConcurrentEffect](
     case Some(predicate) => {
       val predicateResult =
         funcExecutor
-          .execute(predicate, userObject)
+          .execute(predicate, userObject :: Nil)
           .map {
             case o: JsObject => o.fields.get("result") == Some(JsTrue)
             case _           => false

@@ -63,7 +63,7 @@ lazy val daemon = (project in file("daemon"))
     fork in run := true,
     test in assembly := {}
   )
-  .dependsOn(core)
+  .dependsOn(core, metacall)
   .enablePlugins(
     DockerComposePlugin,
     JavaAppPackaging,

@@ -9,6 +9,7 @@ import cats.implicits._
 import org.scalatest._
 import flatspec.AnyFlatSpec
 import cats.effect.IO
+import running.RunningImplicits._
 
 class Authorization extends AnyFlatSpec {
   "Authorizer" should "authorize requests correctly" in {

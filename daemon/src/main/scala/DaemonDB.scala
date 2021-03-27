@@ -16,6 +16,7 @@ import running.utils.Mode
 import doobie.hikari._
 import running.utils.Mode.Dev
 import running.utils.Mode.Prod
+import running.RunningImplicits._
 
 class DaemonDB(transactor: HikariTransactor[IO])(
     implicit cs: ContextShift[IO]

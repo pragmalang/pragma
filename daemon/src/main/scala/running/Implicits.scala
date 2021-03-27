@@ -10,8 +10,17 @@ import scala.util.Failure
 import scala.util.Try
 import pragma.jwtUtils._
 import pragma.utils.JsonCodec
+import cats.arrow.FunctionK
+import scala.concurrent.Future
+import cats.effect.IO
+import cats.effect.ContextShift 
 
 object RunningImplicits {
+
+
+  implicit def futureFromIO(implicit cs: ContextShift[IO]) = new FunctionK[Future, IO] {
+    def apply[A](f: Future[A]): IO[A] = IO.fromFuture(IO(f))
+  }
 
   implicit object PValueJsonWriter extends JsonWriter[PValue] {
     override def write(obj: PValue): JsValue = obj match {
@@ -24,12 +33,12 @@ object RunningImplicits {
         JsArray(values.map(PValueJsonWriter.write(_)).toVector)
       case PFileValue(value, _) => JsString(value.toString())
       case PModelValue(value, _) =>
-        JsObject(value.map {
-          case (key, value) => (key, PValueJsonWriter.write(value))
+        JsObject(value.map { case (key, value) =>
+          (key, PValueJsonWriter.write(value))
         })
       case PInterfaceValue(value, _) =>
-        JsObject(value.map {
-          case (key, value) => (key, PValueJsonWriter.write(value))
+        JsObject(value.map { case (key, value) =>
+          (key, PValueJsonWriter.write(value))
         })
       case _: PFunctionValue =>
         throw new SerializationException(

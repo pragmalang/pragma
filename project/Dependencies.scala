@@ -40,4 +40,6 @@ object Dependencies {
 
   lazy val kebsSprayJson = "pl.iterators" %% "kebs-spray-json" % "1.8.1"
 
+  lazy val metacall = RootProject(uri("git://github.com/metacall/scala-port.git"))
+
 }
