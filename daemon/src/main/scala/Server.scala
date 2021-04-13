@@ -21,12 +21,12 @@ import running.utils.Mode.Dev
 import running.utils.Mode.Prod
 import running.RunningImplicits._
 
-class DeamonServer(dbInfo: DBInfo)(implicit cs: ContextShift[IO], timer: Timer[IO]) {
+class Server(dbInfo: DBInfo)(implicit cs: ContextShift[IO], timer: Timer[IO]) {
 
   type ProjectId = String
 
-  val devProjectServers: MutMap[ProjectId, Server] = MutMap.empty
-  val prodProjectServers: MutMap[ProjectId, Server] = MutMap.empty
+  val devProjectServers: MutMap[ProjectId, GraphQLServer] = MutMap.empty
+  val prodProjectServers: MutMap[ProjectId, GraphQLServer] = MutMap.empty
 
   def removeAllTablesFromDb(transactor: HikariTransactor[IO]): IO[Unit] =
     transactor.trans.apply {
@@ -144,7 +144,7 @@ class DeamonServer(dbInfo: DBInfo)(implicit cs: ContextShift[IO], timer: Timer[I
         storage.migrate(mode, migration.code)
     }
 
-    val server = new Server(jc, storage, currentSt, funcExecutor)
+    val server = new GraphQLServer(jc, storage, currentSt, funcExecutor)
 
     val addServerToMap = mode match {
       case Mode.Dev =>

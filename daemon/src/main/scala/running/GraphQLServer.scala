@@ -17,13 +17,13 @@ import sangria.marshalling.sprayJson._
 import sangria.schema.Schema, sangria.execution.Executor
 import pragma.jwtUtils._
 
-class Server(
+class GraphQLServer(
     jwtCodec: JwtCodec,
     storage: Postgres[IO],
     currentSyntaxTree: SyntaxTree,
     funcExecutor: PFunctionExecutor[IO]
 )(implicit cs: ContextShift[IO]) {
-  import Server._
+  import GraphQLServer._
 
   def gqlSchema =
     Schema.buildFromAst(
@@ -160,7 +160,7 @@ class Server(
   }
 
 }
-object Server {
+object GraphQLServer {
 
   private def jsonFrom(err: Throwable): JsObject = err match {
     case UserError(errors) =>
