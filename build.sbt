@@ -108,6 +108,7 @@ val cli = (project in file("cli"))
     test in assembly := {}
   )
   .dependsOn(core)
+  .dependsOn(daemon)
   .enablePlugins(
     UniversalPlugin,
     JlinkPlugin,
