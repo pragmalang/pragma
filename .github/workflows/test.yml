@@ -22,7 +22,7 @@ jobs:
         with:
           java-version: graalvm@
       - name: Install MetaCall
-        run: curl -sL https://raw.githubusercontent.com/metacall/install/master/install.sh | sh
+        run: curl -sL https://raw.githubusercontent.com/metacall/install/master/install.sh | sh && metacall metacall-env.js | sh
       - name: docker-compose up
         run: docker-compose -f ./daemon/src/main/resources/docker-compose.yml up -d
       - name: Run tests
