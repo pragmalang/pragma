@@ -4,6 +4,8 @@ ThisBuild / organization := "com.pragmalang"
 ThisBuild / organizationName := "pragma"
 
 import Dependencies._
+import Tests._
+
 
 lazy val commonScalacOptions = Seq(
   "-feature",
@@ -61,6 +63,10 @@ lazy val daemon = (project in file("daemon"))
     dockerExposedPorts := Seq(3030),
     dockerUpdateLatest := true,
     fork in run := true,
+    fork in Test := true,
+    testGrouping in Test := (testGrouping in Test).value.flatMap { group =>
+      group.tests map (test => Group(test.name, Seq(test), SubProcess(ForkOptions())))
+    },
     test in assembly := {}
   )
   .dependsOn(core, metacall)

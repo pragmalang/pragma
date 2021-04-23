@@ -9,14 +9,13 @@ import cats.implicits._, cats.effect.IO
 import scala.concurrent.ExecutionContext
 import RunningImplicits._
 import metacall._
-import pragma.tests.utils._
 import org.scalatest.BeforeAndAfterAll
 
 class RequestHandlerSpec extends AnyFlatSpec with BeforeAndAfterAll {
 
   override protected def afterAll(): Unit = {
     println("AFTERALL STARTED")
-    MetaCallManager.finish()
+    Caller.destroy()
     println("AFTERALL FINISHED")
   }
 
@@ -55,7 +54,7 @@ class RequestHandlerSpec extends AnyFlatSpec with BeforeAndAfterAll {
 
   private val imp = syntaxTree.imports.head
 
-  MetaCallManager.start()
+  Caller.start(ExecutionContext.global)
   Caller.loadFile(Runtime.Node, imp.filePath, "rhHooks")
 
   val reqHandler = new RequestHandler(

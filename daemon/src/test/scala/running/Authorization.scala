@@ -10,10 +10,14 @@ import org.scalatest._
 import flatspec.AnyFlatSpec
 import cats.effect.IO
 import running.RunningImplicits._
+import metacall.Caller
+import scala.concurrent.ExecutionContext
 
-// TODO: Test `if` predicates here 
+class Authorization extends AnyFlatSpec with BeforeAndAfterAll {
+  // TODO: Test `if` predicates here
+  override protected def afterAll(): Unit = Caller.destroy()
+  Caller.start(ExecutionContext.global)
 
-class Authorization extends AnyFlatSpec {
   "Authorizer" should "authorize requests correctly" in {
     val code = """
     @1 @user
@@ -244,11 +248,10 @@ class Authorization extends AnyFlatSpec {
     val results = for {
       ops <- (withoutRoleOps, withRoleOps).bisequence
       (withoutRole, withRole) = ops
-    } yield
-      (
-        authorizer(withoutRole, reqWithoutRole.user),
-        authorizer(withRole, reqWithRole.user)
-      ).bisequence.unsafeRunSync()
+    } yield (
+      authorizer(withoutRole, reqWithoutRole.user),
+      authorizer(withRole, reqWithRole.user)
+    ).bisequence.unsafeRunSync()
 
     results.foreach {
       case (result1, result2) => {
