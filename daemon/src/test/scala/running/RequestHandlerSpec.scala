@@ -6,38 +6,44 @@ import running.storage.TestStorage, running.utils._
 import sangria.macros._
 import spray.json._
 import cats.implicits._, cats.effect.IO
-import cats.effect.Blocker
-import java.util.concurrent._
-import org.http4s._, org.http4s.client._
-import scala.io.Source
 import scala.concurrent.ExecutionContext
 import RunningImplicits._
+import metacall._
+import pragma.tests.utils._
+import org.scalatest.BeforeAndAfterAll
 
-class RequestHandlerSpec extends AnyFlatSpec {
+class RequestHandlerSpec extends AnyFlatSpec with BeforeAndAfterAll {
+
+  override protected def afterAll(): Unit = {
+    println("AFTERALL STARTED")
+    MetaCallManager.finish()
+    println("AFTERALL FINISHED")
+  }
+
   val code =
     """
-    import "./daemon/src/test/scala/running/req-handler-test-hooks.js" as rhHooks { runtime = "nodejs:10" }
-
-    @onWrite(function: rhHooks.prependMrToUsername)
-    @onWrite(function: rhHooks.setPriorityTodo)
-    @1 model RH_User {
-        @1 username: String @primary
-        @2 todos: [RH_Todo]
-        @3 priorityTodo: RH_Todo?
-    }
-
-    @onRead(function: rhHooks.emphasizeUndone)
-    @2 model RH_Todo {
-        @1 title: String @primary
-        @2 content: String
-        @3 done: Boolean
-    }
-
-    allow ALL RH_User
-    allow ALL RH_Todo
-
-    config { projectName = "RH" }
-    """
+  import "./daemon/src/test/scala/running/req-handler-test-hooks.js" as rhHooks { runtime = "nodejs:10" }
+  
+  @onWrite(function: rhHooks.prependMrToUsername)
+  @onWrite(function: rhHooks.setPriorityTodo)
+  @1 model RH_User {
+    @1 username: String @primary
+    @2 todos: [RH_Todo]
+    @3 priorityTodo: RH_Todo?
+  }
+  
+  @onRead(function: rhHooks.emphasizeUndone)
+  @2 model RH_Todo {
+    @1 title: String @primary
+    @2 content: String
+    @3 done: Boolean
+  }
+  
+  allow ALL RH_User
+  allow ALL RH_Todo
+  
+  config { projectName = "RH" }
+  """
 
   val syntaxTree = SyntaxTree.from(code).get
   val testStorage = new TestStorage(syntaxTree)
@@ -45,45 +51,12 @@ class RequestHandlerSpec extends AnyFlatSpec {
 
   migrationEngine.migrate(Mode.Dev, code).unsafeRunSync()
 
-  val blockingPool = Executors.newFixedThreadPool(5)
-  val blocker = Blocker.liftExecutorService(blockingPool)
   implicit val cs = IO.contextShift(ExecutionContext.global)
-  val httpClient = JavaNetClientBuilder[IO](blocker).create
 
-  val wskClient = new WskClient[IO](
-    WskConfig(
-      1,
-      Uri.fromString("http://localhost:3233").toTry.get,
-      BasicCredentials(
-        "23bc46b1-71f6-4ed5-8c54-816aa4f8c502",
-        "123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP"
-      )
-    ),
-    httpClient
-  )
+  private val imp = syntaxTree.imports.head
 
-  val imp = syntaxTree.imports.head
-  val projectName = syntaxTree.config
-    .entryMap("projectName")
-    .value
-    .asInstanceOf[PStringValue]
-    .value
-  val runtimeStr =
-    imp.config.get.entryMap("runtime").value.asInstanceOf[PStringValue].value
-  val jsFileCode = Source.fromFile(imp.filePath).getLines().mkString("\n")
-
-  syntaxTree.functions.toVector.foreach { function =>
-    wskClient
-      .createAction(
-        function.id,
-        jsFileCode,
-        runtimeStr,
-        false,
-        projectName,
-        function.scopeName
-      )
-      .unsafeRunSync()
-  }
+  MetaCallManager.start()
+  Caller.loadFile(Runtime.Node, imp.filePath, "rhHooks")
 
   val reqHandler = new RequestHandler(
     syntaxTree,

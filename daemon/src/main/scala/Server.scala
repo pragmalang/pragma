@@ -20,6 +20,7 @@ import pragma.utils.JsonCodec._
 import running.utils.Mode.Dev
 import running.utils.Mode.Prod
 import running.RunningImplicits._
+import metacall.{Caller, Runtime => MCRuntime}
 
 class Server(dbInfo: DBInfo)(implicit cs: ContextShift[IO], timer: Timer[IO]) {
 
@@ -112,6 +113,36 @@ class Server(dbInfo: DBInfo)(implicit cs: ContextShift[IO], timer: Timer[IO]) {
       dbName(projectName, mode).some
     )
 
+    // TODO: Move this parsing logic to Substituter/Validator
+    val loadFunctionFiles = currentSt.imports.toList.traverse { i =>
+      val checkRuntime = (e: ConfigEntry, runtimes: List[String]) =>
+        e.key == "runtime" && runtimes.contains(e.value)
+      val isNode = (e: ConfigEntry) => checkRuntime(e, "node" :: "nodejs" :: Nil)
+      val isPython = (e: ConfigEntry) => checkRuntime(e, "python" :: "python3" :: Nil)
+      val runtime = i.config.flatMap(_.values.find(_.key == "runtime"))
+      runtime match {
+        case Some(runtime) if isNode(runtime) =>
+          IO.fromFuture(IO(Caller.loadFile(MCRuntime.Node, i.filePath, i.id)))
+        case Some(runtime) if isPython(runtime) =>
+          IO.fromFuture(IO(Caller.loadFile(MCRuntime.Python, i.filePath, i.id)))
+        case Some(runtime) =>
+          IO.raiseError {
+            new Exception(
+              s"Invalid runtime `${runtime.value}` in import `${i.id}` for path `${i.filePath}`"
+            )
+          }
+        case None =>
+          IO.raiseError {
+            new Exception(
+              s"""|Runtime was not specified for import `${i.id}` for path `${i.filePath}`
+                  |Example:
+                  |import "${i.filePath}" as ${i.id} { runtime = "nodejs" } 
+                  |""".stripMargin
+            )
+          }
+      }
+    }.void
+
     val pgUser = dbInfo.user
 
     val pgPassword = dbInfo.password
@@ -154,6 +185,8 @@ class Server(dbInfo: DBInfo)(implicit cs: ContextShift[IO], timer: Timer[IO]) {
     }
 
     val res = for {
+      // TODO: Unload previously loaded function files (scripts) before loading the new ones
+      _ <- loadFunctionFiles
       _ <- migrate
       _ <- IO(
         println(

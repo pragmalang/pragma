@@ -19,3 +19,9 @@ function emphasizeUndone(todo) {
     else
         return todo
 }
+
+module.exports = {
+    prependMrToUsername,
+    setPriorityTodo,
+    emphasizeUndone
+}

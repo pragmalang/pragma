@@ -11,6 +11,8 @@ import flatspec.AnyFlatSpec
 import cats.effect.IO
 import running.RunningImplicits._
 
+// TODO: Test `if` predicates here 
+
 class Authorization extends AnyFlatSpec {
   "Authorizer" should "authorize requests correctly" in {
     val code = """

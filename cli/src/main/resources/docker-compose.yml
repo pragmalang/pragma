@@ -32,5 +32,4 @@ services:
       PRAGMA_PG_USER: test
       PRAGMA_PG_PASSWORD: test 
     depends_on:
-      - openwhisk
       - pragma_postgres
