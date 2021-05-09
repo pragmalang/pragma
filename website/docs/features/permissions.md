@@ -65,7 +65,7 @@ The following is a table specifying the available permissions, the types of reso
 
 An access rule can be followed by an `if` clause, specifying a condition that must be satisfied in order for the rule to match the operation. These conditions are *predicates*, which are functions that return a boolean value (true or false). Predicates can be imported just like any other function in Pragma, for instance:
 ```pragma {1, 9}
-import "./my-functions.js" as myFunctions { runtime = "nodejs:10" }
+import "./my-functions.js" as myFunctions { runtime = "nodejs" }
 
 @user @1 model User {
   @1 name: String @primary @publicCredential
@@ -165,7 +165,7 @@ Here we define a `role` block where we specify that the `Instructor` can do `ALL
 Let's say that we want to restrict `Instructor`s to accessing the course that belongs to them. We can do this by passing a predicate (a function that returns `true` or `false`) in which we compare the course that the `Instructor` is trying to access with the instructor's `course` field.
 
 ```pragma
-import "./auth-rules.js" as auth { runtime = "nodejs:14" }
+import "./auth-rules.js" as auth { runtime = "nodejs" }
 
 role Instructor {
   allow ALL Course auth.courseBelongsToInstructor

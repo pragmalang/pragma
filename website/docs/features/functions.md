@@ -8,8 +8,8 @@ title: Functions
 In Pragma, you can use functions written in many languages for your data validation/transformation and user authorization. Functions can be imported using an `import` statement such as:
 
 ```pragma
-import "./js-functions.js" as jsFunctions { runtime = "nodejs:14" }
-import "./py-functions.py" as pyFunctions { runtime = "python:3" }
+import "./js-functions.js" as jsFunctions { runtime = "nodejs" }
+import "./py-functions.py" as pyFunctions { runtime = "python" }
 ```
 Where `./js-functions.js` and `./py-functions.py` are files at the same location as your project's `Pragmafile`. Note that Pragma will also look for files in your project's directory even if their paths don't start with `./`.
 

@@ -21,7 +21,7 @@ class RequestHandlerSpec extends AnyFlatSpec with BeforeAndAfterAll {
 
   val code =
     """
-  import "./daemon/src/test/scala/running/req-handler-test-hooks.js" as rhHooks { runtime = "nodejs:10" }
+  import "./daemon/src/test/scala/running/req-handler-test-hooks.js" as rhHooks { runtime = "nodejs" }
   
   @onWrite(function: rhHooks.prependMrToUsername)
   @onWrite(function: rhHooks.setPriorityTodo)

@@ -89,7 +89,7 @@ const selfOwnsTodo = ({ user, todo }) => {
 Now that we've defined `selfOwnsTodo`, let's use it in the `User` role:
 
 ```
-import "./functions.js" as fns { runtime = "nodejs:14" }
+import "./functions.js" as fns { runtime = "nodejs" }
 
 role User {
   allow MUTATE self.todos

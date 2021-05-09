@@ -12,7 +12,7 @@ import cats.implicits._
 class RequestOperations extends AnyFlatSpec {
   "Request operations" should "be computed from user GraphQL query" in {
     val code = """
-    import "./core/src/test/scala/parsing/test-functions.js" as fns { runtime = "nodejs:14" }
+    import "./core/src/test/scala/parsing/test-functions.js" as fns { runtime = "nodejs" }
 
     @user @1 model User {
         @1 username: String @publicCredential @primary

@@ -14,7 +14,7 @@ For example, you can create a `Pragmafile` with the following content:
 ```pragma
 config { projectName = "my_first_app" }
 
-import "./hooks.js" as hooks { runtime = "nodejs:14" }
+import "./hooks.js" as hooks { runtime = "nodejs" }
 
 @user
 @onWrite(function: hooks.validateUser)

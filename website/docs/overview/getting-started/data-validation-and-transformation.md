@@ -9,7 +9,7 @@ slug: /getting-started/data-validation-and-transformation
 Just like with authorization rules, we can validate data using functions. For example:
 
 ```pragma
-import "./validators.js" as validators { runtime = "nodejs:14" }
+import "./validators.js" as validators { runtime = "nodejs" }
 
 @onWrite(function: validators.validateBook)
 @1 model Book {
@@ -35,7 +35,7 @@ const validateBook = ({ book }) => {
 Let's say that we want every book's title to be in uppercase automatically on every read, we can pass a function to `@onRead` directive on the `Book` model
 
 ```pragma
-import "./transformers.js" as transformers { runtime = "nodejs:14" }
+import "./transformers.js" as transformers { runtime = "nodejs" }
 
 @onRead(function: transformers.transformBook)
 @1 model Book {
