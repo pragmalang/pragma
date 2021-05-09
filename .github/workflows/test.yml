@@ -28,7 +28,7 @@ jobs:
       - name: docker-compose up
         run: docker-compose -f ./daemon/src/main/resources/docker-compose.yml up -d
       - name: Run tests
-        run: source export-env.sh && chmod +x export-env.sh && ./export-env.sh && echo $LOADER_SCRIPT_PATH && sbt 'clean; cli/test; core/test; daemon/test'
+        run: source export-env.sh && chmod +x export-env.sh && ./export-env.sh && echo $LOADER_SCRIPT_PATH && sbt 'clean; test'
       - name: docker-compose down
         run: docker-compose -f ./daemon/src/main/resources/docker-compose.yml down
       - name: Set up npm
