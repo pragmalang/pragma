@@ -1,33 +1,42 @@
 package pragma.envUtils
 
 import cats.implicits._
+import pragma.RunMode
 
 case class EnvVarDef(
     name: String,
     description: String,
     isRequired: Boolean,
-    defaultValue: Option[String] = None
+    defaultValue: RunMode => Option[String] = _ => None
 )
 object EnvVarDef {
-  private def envVarValue(name: String, defs: List[EnvVarDef]): Option[String] =
+  private def envVarValue(
+      name: String,
+      defs: List[EnvVarDef],
+      mode: RunMode
+  ): Option[String] =
     defs.find(_.name == name) flatMap { definition =>
       sys.env.get(name) match {
         case Some(value) => value.some
-        case None        => definition.defaultValue
+        case None        => definition.defaultValue(mode)
       }
     }
 
   def parseEnvVars(
-      defs: List[EnvVarDef]
+      defs: List[EnvVarDef],
+      mode: RunMode
   ): Either[::[EnvVarError], EnvVarDef => String] = {
     val errors = defs
       .filter { d =>
-        (d.isRequired && !d.defaultValue.isDefined) && !sys.env.contains(d.name)
+        d.isRequired && !d.defaultValue(mode).isDefined && !sys.env.contains(d.name)
       }
       .map(v => EnvVarError.RequiredButNotFound(v))
 
     errors match {
-      case Nil          => ((d: EnvVarDef) => envVarValue(d.name, defs).get).asRight
+      case Nil =>
+        ((d: EnvVarDef) => {
+          envVarValue(d.name, defs, mode).get
+        }).asRight
       case head :: tail => ::(head, tail).asLeft
     }
   }

@@ -8,6 +8,7 @@ import java.util.zip.{ZipOutputStream, ZipEntry}
 import scala.util._
 import cats.implicits._
 import java.util.Base64
+import pragma.RunMode
 
 object utils {
 
@@ -222,12 +223,12 @@ object utils {
         }
     }
 
-  def welcomeMsq(projectName: String, mode: RunMode) = {
+  def welcomeMsq(projectName: String, mode: RunMode, daemonClient: DaemonClient) = {
     val apiUrlMsg = mode match {
-      case Dev =>
-        s"Visit the GraphQL Playground at ${Console.GREEN}${Console.BOLD}${DaemonClient.daemonUri}/project/$projectName/dev/graphql${Console.RESET}"
-      case Prod =>
-        s"Your API is now available at ${DaemonClient.daemonUri}/project/$projectName/prod/graphql"
+      case RunMode.Dev =>
+        s"Visit the GraphQL Playground at ${Console.GREEN}${Console.BOLD}${daemonClient.daemonUri}/project/$projectName/dev/graphql${Console.RESET}"
+      case RunMode.Prod =>
+        s"Your API is now available at ${daemonClient.daemonUri}/project/$projectName/prod/graphql"
     }
 
     s"""

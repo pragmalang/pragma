@@ -32,9 +32,9 @@ package object utils {
   def jdbcPostgresUri(
       host: String,
       port: String,
-      dbName: Option[String] = None
+      dbName: String
   ): String =
-    s"jdbc:postgresql://$host:$port/${dbName.getOrElse("")}"
+    s"jdbc:postgresql://$host:$port/${dbName}"
 
   def jdbcPostgresUri(uri: String): String =
     if (uri.startsWith("postgresql://"))

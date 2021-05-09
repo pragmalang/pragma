@@ -1,6 +1,8 @@
+package daemon.server
+
 import running._, running.storage.postgres._
 import running.utils._, running.PFunctionExecutor
-import pragma.daemonProtocol._, pragma.domain._
+import pragma.domain._
 import pragma.jwtUtils._
 import cats.implicits._, cats.effect._
 import doobie._, doobie.hikari._
@@ -12,17 +14,16 @@ import java.nio.charset.StandardCharsets.UTF_8
 import org.http4s._, org.http4s.dsl.io._, org.http4s.implicits._
 import org.http4s.server.middleware._
 import org.http4s.server.blaze._, org.http4s.server.Router
-import org.postgresql.util.PSQLException
-import pragma.envUtils._
-import java.sql._
 import daemon.utils._
 import pragma.utils.JsonCodec._
-import running.utils.Mode.Dev
-import running.utils.Mode.Prod
 import running.RunningImplicits._
 import metacall.{Caller, Runtime => MCRuntime}
+import java.nio.file.Paths
 
-class Server(dbInfo: DBInfo)(implicit cs: ContextShift[IO], timer: Timer[IO]) {
+class Server(port: Int, hostname: String, dbInfo: DBInfo, secret: String)(implicit
+    cs: ContextShift[IO],
+    timer: Timer[IO]
+) {
 
   type ProjectId = String
 
@@ -50,20 +51,6 @@ class Server(dbInfo: DBInfo)(implicit cs: ContextShift[IO], timer: Timer[IO]) {
 
   val (blocker, _) = Blocker[IO].allocated.unsafeRunSync()
 
-  def createDatabase(
-      host: String,
-      port: String,
-      username: String,
-      password: String,
-      dbName: String
-  ) = IO {
-    val connection = DriverManager
-      .getConnection(jdbcPostgresUri(host, port), username, password)
-    val statement = connection.createStatement()
-    statement.executeUpdate(s"CREATE DATABASE $dbName;")
-    connection.close()
-  }
-
   private def buildStorage(
       currentTree: SyntaxTree,
       transactor: HikariTransactor[IO],
@@ -90,45 +77,49 @@ class Server(dbInfo: DBInfo)(implicit cs: ContextShift[IO], timer: Timer[IO]) {
       }
     )
 
-  private def dbName(projectName: String, mode: Mode): String = mode match {
-    case Dev  => s"${projectName}_dev"
-    case Prod => s"${projectName}_prod"
-  }
-
   private def migrate(
       projectName: String,
-      migration: MigrationInput,
+      code: String,
+      resolutionPath: String,
       mode: Mode
   ): IO[Response[IO]] = {
     val currentSt =
-      SyntaxTree.from(migration.code).get
+      SyntaxTree.from(code).get
 
-    val jc = new JwtCodec(migration.secret)
+    val jc = new JwtCodec(secret)
 
     val funcExecutor = new PFunctionExecutor[IO]
 
     val pgUri = jdbcPostgresUri(
       dbInfo.host,
       dbInfo.port,
-      dbName(projectName, mode).some
+      dbInfo.dbName
     )
 
     // TODO: Move this parsing logic to Substituter/Validator
+    // WARNNING!!!: REMOVE THIS CODE WHEN WE START WRITING THE CLOUD SERVICE
     val loadFunctionFiles = currentSt.imports.toList.traverse { i =>
       val checkRuntime = (e: ConfigEntry, runtimes: List[String]) =>
-        e.key == "runtime" && runtimes.contains(e.value)
+        e.value match {
+          case PStringValue(value) =>
+            e.key == "runtime" && runtimes.contains(value)
+          case _ => false
+        }
       val isNode = (e: ConfigEntry) => checkRuntime(e, "node" :: "nodejs" :: Nil)
       val isPython = (e: ConfigEntry) => checkRuntime(e, "python" :: "python3" :: Nil)
       val runtime = i.config.flatMap(_.values.find(_.key == "runtime"))
+      val filePath = Paths.get(resolutionPath + "/" + i.filePath).toString()
+
       runtime match {
         case Some(runtime) if isNode(runtime) =>
-          IO.fromFuture(IO(Caller.loadFile(MCRuntime.Node, i.filePath, i.id)))
+          IO.fromFuture(IO(Caller.loadFile(MCRuntime.Node, filePath, i.id)))
         case Some(runtime) if isPython(runtime) =>
-          IO.fromFuture(IO(Caller.loadFile(MCRuntime.Python, i.filePath, i.id)))
+          IO.fromFuture(IO(Caller.loadFile(MCRuntime.Python, filePath, i.id)))
         case Some(runtime) =>
           IO.raiseError {
             new Exception(
-              s"Invalid runtime `${runtime.value}` in import `${i.id}` for path `${i.filePath}`"
+              s"Invalid runtime `${pragma.domain.utils
+                .displayPValue(runtime.value)}` in import `${i.id}` for path `${i.filePath}`"
             )
           }
         case None =>
@@ -170,9 +161,9 @@ class Server(dbInfo: DBInfo)(implicit cs: ContextShift[IO], timer: Timer[IO]) {
     val migrate = mode match {
       case Mode.Dev =>
         removeAllTablesFromDb(transactor) *>
-          storage.migrate(mode, migration.code)
+          storage.migrate(mode, code)
       case Mode.Prod =>
-        storage.migrate(mode, migration.code)
+        storage.migrate(mode, code)
     }
 
     val server = new GraphQLServer(jc, storage, currentSt, funcExecutor)
@@ -203,44 +194,6 @@ class Server(dbInfo: DBInfo)(implicit cs: ContextShift[IO], timer: Timer[IO]) {
 
   private def routes =
     HttpRoutes.of[IO] {
-      // Setup phase
-      case req @ POST -> Root / "project" / "create" / modeStr => {
-        val parsedMode: IO[Mode] = modeStr match {
-          case "dev"  => IO(Mode.Dev)
-          case "prod" => IO(Mode.Prod)
-          case _      => IO.raiseError(new Exception("Invalid mode route"))
-        }
-
-        val project = req.bodyText.compile.string
-          .map(_.parseJson.convertTo[ProjectInput])
-
-        val createProjectDb = for {
-          mode <- parsedMode
-          project <- project
-          _ <- (project.pgUri, project.pgUser, project.pgPassword) match {
-            case (None, None, None) => {
-              val DBInfo(host, port, user, password, _) = dbInfo
-              createDatabase(host, port, user, password, dbName(project.name, mode))
-            }
-            case _ => IO.unit
-          }
-        } yield ()
-
-        createProjectDb.as(response(Status.Ok)).handleErrorWith {
-          case e: PSQLException if e.getSQLState == "23505" =>
-            project.map { project =>
-              response(
-                Status.BadRequest,
-                s"Failed to create project: Project ${project.name} already exists".toJson.some
-              )
-            }
-          case e =>
-            response(
-              Status.InternalServerError,
-              s"Failed to create project: ${e.getMessage}".toJson.some
-            ).pure[IO]
-        }
-      }
       case req @ POST -> Root / "project" / "migrate" / modeStr / projectName => {
         val mode: IO[Mode] = modeStr match {
           case "dev"  => IO(Mode.Dev)
@@ -248,15 +201,24 @@ class Server(dbInfo: DBInfo)(implicit cs: ContextShift[IO], timer: Timer[IO]) {
           case _      => IO.raiseError(new Exception("Invalid mode route"))
         }
 
-        val migration = req.bodyText.compile.string
-          .map(_.parseJson.convertTo[MigrationInput])
+        val body = req.bodyText.compile.string
+          .map(bodyText => {
+            println("\n\n\n\nBODY FUCKING TEXT" + bodyText + "\n\n\n\n")
+            bodyText.parseJson.asJsObject
+          })
+
+        val code = body.map(_.fields("code").asInstanceOf[JsString].value)
+        val resolutionPath =
+          body.map(_.fields("resolutionPath").asInstanceOf[JsString].value)
 
         for {
           mode <- mode
-          migration <- migration
+          code <- code
+          resolutionPath <- resolutionPath
           response <- migrate(
             projectName,
-            migration,
+            code,
+            resolutionPath,
             mode
           )
         } yield response
@@ -304,24 +266,7 @@ class Server(dbInfo: DBInfo)(implicit cs: ContextShift[IO], timer: Timer[IO]) {
     }
 
   def run: IO[ExitCode] = {
-    val getEnvVar = EnvVarDef.parseEnvVars(DaemonServer.envVarsDefs) match {
-      case Left(errors) =>
-        IO {
-          print(EnvVarError.render(errors))
-          sys.exit(1)
-        }
-      case Right(getter) => getter.pure[IO]
-    }
-
-    val hostname = getEnvVar
-      .map(getter => getter(DaemonServer.PRAGMA_HOSTNAME))
-
-    val port = getEnvVar
-      .map(getter => getter(DaemonServer.PRAGMA_PORT).toInt)
-
     for {
-      hostname <- hostname
-      port <- port
       runServer <- BlazeServerBuilder[IO](global)
         .bindHttp(port, hostname)
         .withHttpApp {
@@ -332,60 +277,10 @@ class Server(dbInfo: DBInfo)(implicit cs: ContextShift[IO], timer: Timer[IO]) {
         .serve
         .compile
         .drain
-        .as(ExitCode.Success)
+        .map(_ => ExitCode.Success)
     } yield runServer
   }
 
-}
-object DaemonServer {
-  val PRAGMA_PG_USER = EnvVarDef(
-    name = "PRAGMA_PG_USER",
-    description = "PostgreSQL DB username",
-    isRequired = true
-  )
-  val PRAGMA_PG_PASSWORD = EnvVarDef(
-    name = "PRAGMA_PG_PASSWORD",
-    description = "PostgreSQL DB password",
-    isRequired = true
-  )
-  val PRAGMA_PG_HOST = EnvVarDef(
-    name = "PRAGMA_PG_HOST",
-    description = "PostgreSQL DB host",
-    isRequired = true
-  )
-  val PRAGMA_PG_PORT = EnvVarDef(
-    name = "PRAGMA_PG_PORT",
-    description = "PostgreSQL DB port",
-    isRequired = true
-  )
-  val PRAGMA_PG_DB_NAME = EnvVarDef(
-    name = "PRAGMA_PG_DB_NAME",
-    description = "PostgreSQL DB name",
-    isRequired = true
-  )
-
-  val PRAGMA_HOSTNAME = EnvVarDef(
-    name = "PRAGMA_HOSTNAME",
-    description = "Pragma Daemon hostname",
-    isRequired = true,
-    defaultValue = "localhost".some
-  )
-  val PRAGMA_PORT = EnvVarDef(
-    name = "PRAGMA_PORT",
-    description = "Pragma Daemon port",
-    isRequired = true,
-    defaultValue = "3030".some
-  )
-
-  val envVarsDefs = List(
-    PRAGMA_PG_USER,
-    PRAGMA_PG_PASSWORD,
-    PRAGMA_PG_HOST,
-    PRAGMA_PG_PORT,
-    PRAGMA_PG_DB_NAME,
-    PRAGMA_HOSTNAME,
-    PRAGMA_PORT
-  )
 }
 
 case class DBInfo(
@@ -393,7 +288,7 @@ case class DBInfo(
     port: String,
     user: String,
     password: String,
-    dbName: Option[String]
+    dbName: String
 ) {
   def jdbcPostgresUri: String = daemon.utils.jdbcPostgresUri(host, port, dbName)
 }

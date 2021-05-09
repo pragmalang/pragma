@@ -4,6 +4,7 @@ import scopt._
 import os._
 import java.io.File
 import assets.asciiLogo
+import pragma.RunMode
 
 case class CLIConfig(
     command: CLICommand,
@@ -11,6 +12,10 @@ case class CLIConfig(
 ) {
   val projectPath = os.Path(filePath.wrapped.getParent().toAbsolutePath())
   val dotPragmaDir = projectPath / ".pragma"
+  val mode = command match {
+    case CLICommand.Prod => RunMode.Prod
+    case _               => RunMode.Dev
+  }
 }
 
 object CLIConfig {
@@ -60,7 +65,7 @@ object CLIConfig {
           .text(s"Defaults to ./Pragmafile")
 
       def secretArg =
-        arg[String]("<secret>")
+        arg[Option[String]]("<secret>")
           .optional()
           .action { (secret, configs) =>
             configs.copy(command = CLICommand.GenerateRootJWT(secret))
@@ -100,20 +105,11 @@ object CLIConfig {
 
 sealed trait CLICommand
 object CLICommand {
-  val Dev = cli.Dev
-  val Prod = cli.Prod
   case object New extends CLICommand
   case object Root extends CLICommand
   case object Help extends CLICommand
   case object Version extends CLICommand
-  case class GenerateRootJWT(secret: String) extends CLICommand
+  case class GenerateRootJWT(secret: Option[String]) extends CLICommand
+  case object Dev extends CLICommand
+  case object Prod extends CLICommand
 }
-
-sealed trait RunMode
-object RunMode {
-  val Dev = cli.Dev
-  val Prod = cli.Prod
-}
-
-case object Dev extends CLICommand with RunMode
-case object Prod extends CLICommand with RunMode
