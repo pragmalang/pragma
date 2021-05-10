@@ -406,13 +406,7 @@ case class PostgresMigration[M[_]: Monad: Async: ConcurrentEffect](
         val newArrFieldMeta = new ArrayFieldTableMetaData(model, newField)
         field.isArray match {
           case true =>
-            AlterTable(
-              arrFieldMeta.tableName,
-              AlterTableAction.RenameColumn(
-                arrFieldMeta.targetColumnName,
-                newArrFieldMeta.targetColumnName
-              )
-            ).pure[Vector]
+            RenameTable(arrFieldMeta.tableName, newArrFieldMeta.tableName).pure[Vector]
           case false =>
             AlterTable(
               model.id,
