@@ -19,6 +19,8 @@ import pragma.utils.JsonCodec._
 import running.RunningImplicits._
 import metacall.{Caller, Runtime => MCRuntime}
 import java.nio.file.Paths
+import running.utils.Mode.Dev
+import running.utils.Mode.Prod
 
 class Server(port: Int, hostname: String, dbInfo: DBInfo, secret: String)(implicit
     cs: ContextShift[IO],
@@ -29,6 +31,9 @@ class Server(port: Int, hostname: String, dbInfo: DBInfo, secret: String)(implic
 
   val devProjectServers: MutMap[ProjectId, GraphQLServer] = MutMap.empty
   val prodProjectServers: MutMap[ProjectId, GraphQLServer] = MutMap.empty
+
+  val devProjectTransactors: MutMap[ProjectId, HikariTransactor[IO]] = MutMap.empty
+  val prodProjectTransactors: MutMap[ProjectId, HikariTransactor[IO]] = MutMap.empty
 
   def removeAllTablesFromDb(transactor: HikariTransactor[IO]): IO[Unit] =
     transactor.trans.apply {
@@ -44,7 +49,7 @@ class Server(port: Int, hostname: String, dbInfo: DBInfo, secret: String)(implic
 
   val (executionContext, _) = ExecutionContexts
     .fixedThreadPool[IO](
-      Runtime.getRuntime.availableProcessors * 10
+      Runtime.getRuntime.availableProcessors * 100
     )
     .allocated
     .unsafeRunSync()
@@ -138,53 +143,53 @@ class Server(port: Int, hostname: String, dbInfo: DBInfo, secret: String)(implic
 
     val pgPassword = dbInfo.password
 
-    val transactor = HikariTransactor
-      .newHikariTransactor[IO](
-        "org.postgresql.Driver",
-        pgUri,
-        pgUser,
-        pgPassword,
-        executionContext,
-        blocker
-      )
-      .allocated
-      .unsafeRunSync()
-      ._1
-
-    val storage = buildStorage(
-      currentSt,
-      transactor,
-      jc,
-      funcExecutor
-    )
-
-    val migrate = mode match {
-      case Mode.Dev =>
-        removeAllTablesFromDb(transactor) *>
-          storage.migrate(mode, code)
-      case Mode.Prod =>
-        storage.migrate(mode, code)
+    val projectTransactors = mode match {
+      case Dev  => devProjectTransactors
+      case Prod => prodProjectTransactors
     }
 
-    val server = new GraphQLServer(jc, storage, currentSt, funcExecutor)
-
-    val addServerToMap = mode match {
-      case Mode.Dev =>
-        devProjectServers.addOne(projectName -> server).pure[IO]
-      case Mode.Prod =>
-        prodProjectServers.addOne(projectName -> server).pure[IO]
+    val transactor = IO {
+      projectTransactors.getOrElseUpdate(
+        projectName,
+        HikariTransactor
+          .newHikariTransactor[IO](
+            "org.postgresql.Driver",
+            pgUri,
+            pgUser,
+            pgPassword,
+            executionContext,
+            blocker
+          )
+          .allocated
+          .unsafeRunSync()
+          ._1
+      )
     }
 
     val res = for {
       // TODO: Unload previously loaded function files (scripts) before loading the new ones
-      _ <- loadFunctionFiles
-      _ <- migrate
-      _ <- IO(
-        println(
-          s"Successfully created ${projectName}'s OpenWhisk actions"
-        )
+      transactor <- transactor
+      storage = buildStorage(
+        currentSt,
+        transactor,
+        jc,
+        funcExecutor
       )
-      _ <- addServerToMap
+      server = new GraphQLServer(jc, storage, currentSt, funcExecutor)
+      _ <- loadFunctionFiles
+      _ <- mode match {
+        case Mode.Dev =>
+          removeAllTablesFromDb(transactor) *>
+            storage.migrate(mode, code)
+        case Mode.Prod =>
+          storage.migrate(mode, code)
+      }
+      _ <- mode match {
+        case Mode.Dev =>
+          devProjectServers.addOne(projectName -> server).pure[IO]
+        case Mode.Prod =>
+          prodProjectServers.addOne(projectName -> server).pure[IO]
+      }
     } yield response(Status.Ok)
 
     res.handleError { err =>
@@ -203,7 +208,6 @@ class Server(port: Int, hostname: String, dbInfo: DBInfo, secret: String)(implic
 
         val body = req.bodyText.compile.string
           .map(bodyText => {
-            println("\n\n\n\nBODY FUCKING TEXT" + bodyText + "\n\n\n\n")
             bodyText.parseJson.asJsObject
           })
 
@@ -242,7 +246,7 @@ class Server(port: Int, hostname: String, dbInfo: DBInfo, secret: String)(implic
             ).pure[IO]
         }
       }
-      case req @ POST ->
+      case req @ (POST | GET) ->
           Root / "project" / projectName / "prod" / "graphql" => {
         prodProjectServers.get(projectName) match {
           case Some(server) =>

@@ -49,8 +49,11 @@ object Main extends IOApp {
         case Dev | Prod =>
           Caller.start(ExecutionContext.global)
           (server.run, IO(main(config, daemonClient, secret))).parMapN {
-            case (exitCode, _) =>
-              exitCode
+            case (_, exitCode) =>
+              exitCode match {
+                case Failure(_)     => ExitCode.Error
+                case Success(value) => value
+              }
           }
         case _ =>
           IO {
@@ -61,24 +64,28 @@ object Main extends IOApp {
     } yield exitCode
   }
 
-  def main(config: CLIConfig, daemonClient: DaemonClient, secret: String): Unit = {
+  def main(
+      config: CLIConfig,
+      daemonClient: DaemonClient,
+      secret: String
+  ): Try[ExitCode] = {
     config.command match {
       case CLICommand.Root | CLICommand.Help => {
         print(CLIConfig.usageWithAsciiLogo)
-        sys.exit(0)
+        Success(ExitCode.Success)
       }
       case CLICommand.Version => {
         println(cliVersion)
-        sys.exit(0)
+        Success(ExitCode.Success)
       }
       case CLICommand.Dev => {
         println(renderLogo)
-        run(config, mode = RunMode.Dev, withReload = true, daemonClient)
+        runCli(config, mode = RunMode.Dev, withReload = false, daemonClient)
       }
-      case CLICommand.New => initProject()
+      case CLICommand.New => Try(initProject())
       case CLICommand.Prod => {
         println(renderLogo)
-        run(config, mode = RunMode.Prod, false, daemonClient)
+        runCli(config, mode = RunMode.Prod, false, daemonClient)
       }
       case CLICommand.GenerateRootJWT(secretOption) => {
         val jc = secretOption match {
@@ -87,17 +94,17 @@ object Main extends IOApp {
         }
         val jwt = JwtPayload(userId = JsString("__root__"), role = "__root__")
         println(jc.encode(jwt))
-        sys.exit(0)
+        Success(ExitCode.Success)
       }
     }
   }
 
-  def run(
+  def runCli(
       config: CLIConfig,
       mode: RunMode,
       withReload: Boolean = false,
       daemonClient: DaemonClient
-  ): Try[Unit] = {
+  ): Try[ExitCode] = {
     lazy val code = tryOrExit(
       Try(os.read(config.filePath)),
       Some(s"Could not read ${config.filePath.toString}")
@@ -120,22 +127,27 @@ object Main extends IOApp {
     }
 
     if (withReload) reloadPrompt(config, mode, daemonClient)
-    else sys.exit(0)
+    else Try(haltPrompt())
+  }
+
+  def haltPrompt(): ExitCode = {
+    readLine()
+    ExitCode.Success
   }
 
   def reloadPrompt(
       config: CLIConfig,
       mode: RunMode,
       daemonClient: DaemonClient
-  ): Try[Unit] =
+  ): Try[ExitCode] =
     readLine("(r)eload, (q)uit: ") match {
       case "r" | "R" => {
         println("Reloading...")
-        run(config, mode, withReload = true, daemonClient)
+        runCli(config, mode, withReload = true, daemonClient)
       }
       case "q" | "Q" => {
         println("Come back soon!")
-        sys.exit(0)
+        Success(ExitCode.Success)
       }
       case unknown => {
         println(s"I do not know what `$unknown` means...")
@@ -143,29 +155,29 @@ object Main extends IOApp {
       }
     }
 
-  def initProject(): Try[Unit] = Try {
-    val newProjectName = new PragmaParser(
-      readLine("What's the name of your new project?: ").trim
-    ).identifierThenEOI.run() match {
-      case Failure(_) => {
-        println(
-          "A project's name must be a valid Pragma identifier... Please try again"
-        )
-        sys.exit(1)
-      }
-      case Success(id) => id
+  def initProject(): ExitCode = new PragmaParser(
+    readLine("What's the name of your new project?: ").trim
+  ).identifierThenEOI.run() match {
+    case Failure(_) => {
+      println(
+        "A project's name must be a valid Pragma identifier... Please try again"
+      )
+      ExitCode.Error
     }
-    val projectDir = os.pwd / newProjectName
-    Try {
+    case Success(newProjectName) => {
+
+      val projectDir = os.pwd / newProjectName
       os.makeDir(projectDir)
       val pragmafile =
         s"""
-        |config { projectName = "$newProjectName" }
-        |""".stripMargin
+            |config { projectName = "$newProjectName" }
+            |""".stripMargin
 
       os.write(projectDir / "Pragmafile", pragmafile)
       os.write(projectDir / ".pragma" / "version.json", cliVersionJsonStr)
-    } *> Success(println("Project files successfully generated."))
+      println("Project files successfully generated.")
+      ExitCode.Success
+    }
   }
 
   lazy val renderLogo =
