@@ -1,35 +1,18 @@
 version: '3'
 
-volumes:
-  pragma_postgres_data:
-
 services:
-  pragma_postgres:
-    image: postgres:13.0
-    container_name: pragma_postgres
+  pragma-postgres:
+    image: postgres
     restart: always
     environment:
       POSTGRES_USER: test
       POSTGRES_PASSWORD: test
       POSTGRES_DB: test
     ports:
-      - 9153:5432
-    volumes:
-      - pragma_postgres_data:/var/lib/postgresql/data
-    command: [ "postgres",  "-c", "log_statement=all" ]
-
-  pragmad:
-    image: pragmalang/pragmad:latest
-    container_name: pragmad
-    ports: 
-      - 9584:9584
-    environment:
-      PRAGMA_HOSTNAME: 0.0.0.0
-      PRAGMA_PORT: 9584
-      PRAGMA_PG_HOST: pragma_postgres
-      PRAGMA_PG_PORT: 5432
-      PRAGMA_PG_DB_NAME: test
-      PRAGMA_PG_USER: test
-      PRAGMA_PG_PASSWORD: test 
-    depends_on:
-      - pragma_postgres
+      - "5432:5432"
+    command: [
+      "postgres", 
+      "-c", "log_statement=all",
+      "-c", "max_connections=300",
+      "-c", "shared_buffers=80MB"
+    ]
