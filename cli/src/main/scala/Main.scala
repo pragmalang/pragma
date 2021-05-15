@@ -24,50 +24,51 @@ object Main extends IOApp {
     import EnvVars._
 
     val config = CLIConfig.parse(args.toList)
-    for {
-      getter <- EnvVarDef.parseEnvVars(envVarsDefs, config.mode) match {
-        case Left(errors) =>
-          IO {
-            print(EnvVarError.render(errors))
-            sys.exit(1)
+    config.command match {
+      case Dev | Prod =>
+        Caller.start(ExecutionContext.global)
+        for {
+          getter <- EnvVarDef.parseEnvVars(envVarsDefs, config.mode) match {
+            case Left(errors) =>
+              IO {
+                print(EnvVarError.render(errors))
+                sys.exit(1)
+              }
+            case Right(getter) => getter.pure[IO]
           }
-        case Right(getter) => getter.pure[IO]
-      }
-      port = getter(PRAGMA_PORT).toInt
-      hostname = getter(PRAGMA_HOSTNAME)
-      secret = getter(PRAGMA_SECRET)
-      dbInfo = DBInfo(
-        host = getter(PRAGMA_PG_HOST),
-        port = getter(PRAGMA_PG_PORT),
-        user = getter(PRAGMA_PG_USER),
-        password = getter(PRAGMA_PG_PASSWORD),
-        dbName = getter(PRAGMA_PG_DB_NAME)
-      )
-      daemonClient = new DaemonClient(port, hostname)
-      server = new Server(port, hostname, dbInfo, secret)
-      exitCode <- config.command match {
-        case Dev | Prod =>
-          Caller.start(ExecutionContext.global)
-          (server.run, IO(main(config, daemonClient, secret))).parMapN {
+          port = getter(PRAGMA_PORT).toInt
+          hostname = getter(PRAGMA_HOSTNAME)
+          secret = getter(PRAGMA_SECRET)
+          dbInfo = DBInfo(
+            host = getter(PRAGMA_PG_HOST),
+            port = getter(PRAGMA_PG_PORT),
+            user = getter(PRAGMA_PG_USER),
+            password = getter(PRAGMA_PG_PASSWORD),
+            dbName = getter(PRAGMA_PG_DB_NAME)
+          )
+          daemonClient = new DaemonClient(port, hostname)
+          server = new Server(port, hostname, dbInfo, secret)
+          exitCode <- (server.run, IO(main(config, daemonClient.some, secret.some))).parMapN {
             case (_, exitCode) =>
               exitCode match {
                 case Failure(_)     => ExitCode.Error
                 case Success(value) => value
               }
           }
-        case _ =>
-          IO {
-            main(config, daemonClient, secret)
-            ExitCode.Success
-          }
-      }
-    } yield exitCode
+        } yield exitCode
+      case _ =>
+        IO {
+          main(config, None, None)
+          ExitCode.Success
+        }
+    }
+
   }
 
   def main(
       config: CLIConfig,
-      daemonClient: DaemonClient,
-      secret: String
+      daemonClient: Option[DaemonClient],
+      secret: Option[String]
   ): Try[ExitCode] = {
     config.command match {
       case CLICommand.Root | CLICommand.Help => {
@@ -80,17 +81,17 @@ object Main extends IOApp {
       }
       case CLICommand.Dev => {
         println(renderLogo)
-        runCli(config, mode = RunMode.Dev, withReload = false, daemonClient)
+        runCli(config, mode = RunMode.Dev, withReload = false, daemonClient.get)
       }
       case CLICommand.New => Try(initProject())
       case CLICommand.Prod => {
         println(renderLogo)
-        runCli(config, mode = RunMode.Prod, false, daemonClient)
+        runCli(config, mode = RunMode.Prod, false, daemonClient.get)
       }
       case CLICommand.GenerateRootJWT(secretOption) => {
         val jc = secretOption match {
           case Some(secret) => new JwtCodec(secret)
-          case _            => new JwtCodec(secret)
+          case _            => new JwtCodec(secret.get)
         }
         val jwt = JwtPayload(userId = JsString("__root__"), role = "__root__")
         println(jc.encode(jwt))
