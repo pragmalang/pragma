@@ -22,7 +22,7 @@ class PostgresMigrationEngineSpec extends AnyFunSuite {
   def transactorFromDbName(dbName: String) =
     Transactor.fromDriverManager[IO](
       "org.postgresql.Driver",
-      s"jdbc:postgresql://localhost:5433/${dbName}",
+      s"jdbc:postgresql://localhost:5432/${dbName}",
       "test",
       "test",
       Blocker.liftExecutionContext(ExecutionContexts.synchronous)

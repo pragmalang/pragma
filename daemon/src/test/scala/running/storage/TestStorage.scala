@@ -14,7 +14,7 @@ class TestStorage(st: SyntaxTree) {
 
   val t = Transactor.fromDriverManager[IO](
     "org.postgresql.Driver",
-    "jdbc:postgresql://localhost:5433/test",
+    "jdbc:postgresql://localhost:5432/test",
     "test",
     "test",
     Blocker.liftExecutionContext(ExecutionContexts.synchronous)

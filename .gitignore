@@ -9,3 +9,4 @@ docs/book
 output.gql
 todos.md
 project/metals.sbt
+project/**/*/metals.sbt
