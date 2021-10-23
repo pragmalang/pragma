@@ -1,3 +1,4 @@
-val metacallEnvVarExportLines = os.proc("metacall", "/pragma/scripts/metacall-env.js").call().out.lines.init 
+val metacallEnvVarExportLines =
+  os.proc("metacall", "/pragma/scripts/metacall-env.js").call().out.lines.init.init
 
-println(metacallEnvVarExportLines.mkString("\n"))
+metacallEnvVarExportLines foreach println
