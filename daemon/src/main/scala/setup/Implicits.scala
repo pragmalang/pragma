@@ -3,7 +3,6 @@ package setup
 import sangria.parser.QueryParser
 import scala.language.implicitConversions
 import spray.json._
-import pragma.domain.DomainImplicits._
 
 object SetupImplicits {
   implicit def parseQuery(query: String) = QueryParser.parse(query)

@@ -15,8 +15,7 @@ import pragma._
 import daemon.server.DBInfo
 import cli.CLICommand.Dev
 import cli.CLICommand.Prod
-import metacall.Caller
-import scala.concurrent.ExecutionContext
+import org.http4s.Uri
 
 object Main extends IOApp {
 
@@ -26,7 +25,6 @@ object Main extends IOApp {
     val config = CLIConfig.parse(args.toList)
     config.command match {
       case Dev | Prod =>
-        Caller.start(ExecutionContext.global)
         for {
           getter <- EnvVarDef.parseEnvVars(envVarsDefs, config.mode) match {
             case Left(errors) =>
@@ -47,7 +45,7 @@ object Main extends IOApp {
             dbName = getter(PRAGMA_PG_DB_NAME)
           )
           daemonClient = new DaemonClient(port, hostname)
-          server = new Server(port, hostname, dbInfo, secret)
+          server = new Server(port, hostname, dbInfo, secret, Uri.unsafeFromString(s"http://localhost:${getter(METANODE_PORT)}"))
           exitCode <- (server.run, IO(main(config, daemonClient.some, secret.some))).parMapN {
             case (_, exitCode) =>
               exitCode match {

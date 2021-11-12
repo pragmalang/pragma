@@ -57,7 +57,8 @@ lazy val daemon = (project in file("daemon"))
       http4sDsl,
       http4sBlazeServer,
       http4sBlazeClient,
-      logbackClassic
+      logbackClassic,
+      osLib
     ),
     dockerRepository in Docker := Some("pragmalang"),
     dockerExposedPorts := Seq(3030),
@@ -69,7 +70,7 @@ lazy val daemon = (project in file("daemon"))
     },
     test in assembly := {}
   )
-  .dependsOn(core, metacall)
+  .dependsOn(core)
   .enablePlugins(
     DockerComposePlugin,
     JavaAppPackaging,

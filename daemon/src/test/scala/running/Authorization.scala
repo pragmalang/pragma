@@ -8,15 +8,9 @@ import spray.json._
 import cats.implicits._
 import org.scalatest._
 import flatspec.AnyFlatSpec
-import cats.effect.IO
-import running.RunningImplicits._
-import metacall.Caller
-import scala.concurrent.ExecutionContext
 
 class Authorization extends AnyFlatSpec with BeforeAndAfterAll {
   // TODO: Test `if` predicates here
-  override protected def afterAll(): Unit = Caller.destroy()
-  Caller.start(ExecutionContext.global)
 
   "Authorizer" should "authorize requests correctly" in {
     val code = """
@@ -45,7 +39,7 @@ class Authorization extends AnyFlatSpec with BeforeAndAfterAll {
     val authorizer = new Authorizer(
       syntaxTree,
       testStorage.storage,
-      PFunctionExecutor.dummy[IO]
+      testStorage.functionExecutor
     )
 
     TestUtils.runGql {
@@ -124,7 +118,7 @@ class Authorization extends AnyFlatSpec with BeforeAndAfterAll {
     val authorizer = new Authorizer(
       syntaxTree,
       testStorage.storage,
-      PFunctionExecutor.dummy[IO]
+      testStorage.functionExecutor
     )
 
     val req = Request.bareReqFrom {
@@ -239,7 +233,7 @@ class Authorization extends AnyFlatSpec with BeforeAndAfterAll {
     val authorizer = new Authorizer(
       syntaxTree,
       testStorage.storage,
-      PFunctionExecutor.dummy[IO]
+      testStorage.functionExecutor
     )
 
     val withoutRoleOps = opParser.parse(reqWithoutRole)

@@ -7,17 +7,9 @@ import sangria.macros._
 import spray.json._
 import cats.implicits._, cats.effect.IO
 import scala.concurrent.ExecutionContext
-import RunningImplicits._
-import metacall._
 import org.scalatest.BeforeAndAfterAll
 
 class RequestHandlerSpec extends AnyFlatSpec with BeforeAndAfterAll {
-
-  override protected def afterAll(): Unit = {
-    println("AFTERALL STARTED")
-    Caller.destroy()
-    println("AFTERALL FINISHED")
-  }
 
   val code =
     """
@@ -54,13 +46,14 @@ class RequestHandlerSpec extends AnyFlatSpec with BeforeAndAfterAll {
 
   private val imp = syntaxTree.imports.head
 
-  Caller.start(ExecutionContext.global)
-  Caller.loadFile(Runtime.Node, imp.filePath, "rhHooks")
+  testStorage.functionExecutor
+    .load(imp.filePath, "rhHooks", os.pwd.toString)
+    .unsafeRunSync()
 
   val reqHandler = new RequestHandler(
     syntaxTree,
     storage,
-    new PFunctionExecutor[IO]
+    testStorage.functionExecutor
   )
 
   "RequestHandler" should "execute write hooks correctly" in {

@@ -16,13 +16,17 @@ import org.http4s.server.middleware._
 import org.http4s.server.blaze._, org.http4s.server.Router
 import daemon.utils._
 import pragma.utils.JsonCodec._
-import running.RunningImplicits._
-import metacall.{Caller, Runtime => MCRuntime}
-import java.nio.file.Paths
 import running.utils.Mode.Dev
 import running.utils.Mode.Prod
+import org.http4s.client.blaze.BlazeClientBuilder
 
-class Server(port: Int, hostname: String, dbInfo: DBInfo, secret: String)(implicit
+class Server(
+    port: Int,
+    hostname: String,
+    dbInfo: DBInfo,
+    secret: String,
+    metanodeUri: Uri
+)(implicit
     cs: ContextShift[IO],
     timer: Timer[IO]
 ) {
@@ -34,6 +38,8 @@ class Server(port: Int, hostname: String, dbInfo: DBInfo, secret: String)(implic
 
   val devProjectTransactors: MutMap[ProjectId, HikariTransactor[IO]] = MutMap.empty
   val prodProjectTransactors: MutMap[ProjectId, HikariTransactor[IO]] = MutMap.empty
+
+  def httpClient = BlazeClientBuilder[IO](global).resource
 
   def removeAllTablesFromDb(transactor: HikariTransactor[IO]): IO[Unit] =
     transactor.trans.apply {
@@ -93,7 +99,7 @@ class Server(port: Int, hostname: String, dbInfo: DBInfo, secret: String)(implic
 
     val jc = new JwtCodec(secret)
 
-    val funcExecutor = new PFunctionExecutor[IO]
+    val funcExecutor = new PFunctionExecutor[IO](metanodeUri)
 
     val pgUri = jdbcPostgresUri(
       dbInfo.host,
@@ -111,15 +117,27 @@ class Server(port: Int, hostname: String, dbInfo: DBInfo, secret: String)(implic
           case _ => false
         }
       val isNode = (e: ConfigEntry) => checkRuntime(e, "node" :: "nodejs" :: Nil)
-      val isPython = (e: ConfigEntry) => checkRuntime(e, "python" :: "python3" :: Nil)
       val runtime = i.config.flatMap(_.values.find(_.key == "runtime"))
-      val filePath = Paths.get(resolutionPath + "/" + i.filePath).toString()
+      val filePath = os.Path(resolutionPath) / os.RelPath(i.filePath)
+
+      val response = httpClient.flatMap { client =>
+        val uri = metanodeUri / "load" / filePath.baseName / i.id
+        val parent = os.Path(filePath.wrapped.getParent())
+        val body =
+          bodyStream(JsObject("resolution_path" -> parent.toString.toJson).toString)
+        val req = org.http4s.Request[IO](Method.POST, uri = uri, body = body)
+        client.run(req)
+      }
 
       runtime match {
         case Some(runtime) if isNode(runtime) =>
-          IO.fromFuture(IO(Caller.loadFile(MCRuntime.Node, filePath, i.id)))
-        case Some(runtime) if isPython(runtime) =>
-          IO.fromFuture(IO(Caller.loadFile(MCRuntime.Python, filePath, i.id)))
+          response.use { res =>
+            if (res.status.code == 200) {
+              IO.unit
+            } else {
+              IO.raiseError(new Exception("Error loading imported functions"))
+            }
+          }
         case Some(runtime) =>
           IO.raiseError {
             new Exception(
@@ -137,7 +155,7 @@ class Server(port: Int, hostname: String, dbInfo: DBInfo, secret: String)(implic
             )
           }
       }
-    }.void
+    }
 
     val pgUser = dbInfo.user
 

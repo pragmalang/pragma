@@ -49,6 +49,13 @@ object EnvVars {
       }
   )
 
+  val METANODE_PORT = EnvVarDef(
+    name = "METANODE_PORT",
+    description = "MetaNode port number",
+    isRequired = true,
+    defaultValue = _ => "9832".some
+  )
+
   val PRAGMA_PORT = EnvVarDef(
     name = "PRAGMA_PORT",
     description = "Pragma Daemon port",
@@ -64,6 +71,7 @@ object EnvVars {
     PRAGMA_PG_DB_NAME,
     PRAGMA_HOSTNAME,
     PRAGMA_PORT,
-    PRAGMA_SECRET
+    PRAGMA_SECRET,
+    METANODE_PORT
   )
 }

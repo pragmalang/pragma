@@ -2,7 +2,6 @@ package running
 
 import sangria.ast._
 import spray.json._
-import cats.implicits._
 import pragma.domain.utils.InternalException
 
 package utils {
@@ -74,48 +73,5 @@ package object utils {
       args: Vector[sangria.ast.Argument]
   ): Vector[(String, spray.json.JsValue)] =
     args.map(arg => arg.name -> sangriaToJson(arg.value))
-
-  def toMetacallValue(v: JsValue): metacall.Value = {
-    import metacall._
-
-    v match {
-      case JsObject(fields) =>
-        MapValue(fields.map { case (k, v) => StringValue(k) -> toMetacallValue(v) })
-      case JsArray(elements)                => ArrayValue(elements.map(toMetacallValue))
-      case JsString(value)                  => StringValue(value)
-      case JsNumber(value) if value.isWhole => IntValue(value.toInt)
-      case JsNumber(value)                  => DoubleValue(value.toDouble)
-      case JsTrue                           => BooleanValue(true)
-      case JsFalse                          => BooleanValue(false)
-      case JsNull                           => NullValue
-    }
-  }
-
-  def fromMetacallValue(v: metacall.Value): Option[JsValue] = {
-    import metacall._
-
-    v match {
-      case CharValue(value)     => JsString(value.toString()).some
-      case StringValue(value)   => JsString(value).some
-      case ShortValue(value)    => JsNumber(value.toInt).some
-      case IntValue(value)      => JsNumber(value).some
-      case LongValue(value)     => JsNumber(value).some
-      case FloatValue(value)    => JsNumber(value.toDouble).some
-      case DoubleValue(value)   => JsNumber(value).some
-      case BooleanValue(value)  => JsBoolean(value).some
-      case ArrayValue(elements) => elements.traverse(fromMetacallValue).map(JsArray(_))
-      case MapValue(elements) =>
-        elements.toVector
-          .traverse {
-            case (StringValue(key), value) =>
-              fromMetacallValue(value).map(value => key -> value)
-            case _ => None
-          }
-          .map(elements => JsObject(elements.toMap))
-      case FunctionValue(_) => None
-      case InvalidValue     => None
-      case NullValue        => JsNull.some
-    }
-  }
 
 }

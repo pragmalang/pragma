@@ -144,10 +144,10 @@ class RequestHandler[S, M[_]: Async: ConcurrentEffect](
         applyHooks(createOp.hooks, createOp.opArguments.obj)
           .flatMap {
             case obj: JsObject => obj.pure[M]
-            case _ =>
+            case value =>
               MonadError[M, Throwable].raiseError[JsObject] {
                 UserError(
-                  s"Result of write hooks applied to ${createOp.event} operation arguments must be an object"
+                  s"Result of write hooks applied to ${createOp.event} operation arguments must be an object, recieved result is ${value}"
                 )
               }
           }
