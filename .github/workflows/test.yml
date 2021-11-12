@@ -21,14 +21,10 @@ jobs:
         uses: olafurpg/setup-scala@v10
         with:
           java-version: graalvm@
-      - name: Install MetaCall
-        run: curl -sL https://raw.githubusercontent.com/metacall/install/master/install.sh | sh
-      - name: Print MetaCall ENV variables exporting script to disk
-        run: metacall scripts/metacall-env.js | grep export > export-env.sh
       - name: docker-compose up
         run: docker-compose -f ./daemon/src/main/resources/docker-compose.yml up -d
       - name: Run tests
-        run: source export-env.sh && chmod +x export-env.sh && ./export-env.sh && echo $LOADER_SCRIPT_PATH && sbt 'clean; test'
+        run: sbt 'clean; test'
       - name: docker-compose down
         run: docker-compose -f ./daemon/src/main/resources/docker-compose.yml down
       - name: Set up npm

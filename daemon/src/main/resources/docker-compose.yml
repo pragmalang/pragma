@@ -1,6 +1,13 @@
 version: '3'
 
 services:
+  metanode:
+    image: ghcr.io/pragmalang/metanode:0.1.3
+    restart: always
+    ports:
+      - "9832:9832"
+    volumes:
+      - ${PWD}:${PWD}
   pragma-postgres:
     image: postgres
     restart: always
